@@ -18,21 +18,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 import periodtracker.composeapp.generated.resources.Res
 import periodtracker.composeapp.generated.resources.compose_multiplatform
 
 @Composable
 @Preview
-fun App() {
+fun App(mainViewModel: MainViewModel = viewModel()) {
     MaterialTheme {
         var showContent by remember { mutableStateOf(false) }
-        val greeting = remember { Greeting().greet() }
+        val greetings by mainViewModel.greetingList.collectAsStateWithLifecycle()
+
         Column(
             modifier = Modifier
                 .safeContentPadding()
                 .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Button(onClick = { showContent = !showContent }) {
                 Text("Click me!")
@@ -45,7 +48,7 @@ fun App() {
                         .fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    greeting.forEach { greeting ->
+                    greetings.forEach { greeting ->
                         Text(greeting)
                         HorizontalDivider()
                     }
