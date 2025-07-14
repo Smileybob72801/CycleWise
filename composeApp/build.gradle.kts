@@ -27,6 +27,8 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtime.compose)
             implementation(libs.koin.android)
             implementation(libs.koin.compose)
+            implementation(libs.compose.navigation)
+            implementation(libs.compose.uiTooling)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
