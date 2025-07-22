@@ -14,10 +14,12 @@ composeMultiplatform = "1.8.2"
 junit = "4.13.2"
 kotlin = "2.2.0"
 kotlinxCoroutinesCore = "1.10.2"
-kotlinxDatetime = "0.7.0"
-ktorVersion = "3.2.1"
-lifecycleViewmodelKtx = "2.9.1"
+kotlinxDatetime = "0.7.1"
+ktorVersion = "3.2.2"
+lifecycleViewmodelKtx = "2.9.2"
 koin = "4.1.0"
+room = "2.7.2"
+sqlcipher = "4.5.4"
 
 [libraries]
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleViewmodelKtx" }
@@ -44,8 +46,11 @@ koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 koin-compose = { module = "io.insert-koin:koin-androidx-compose", version.ref = "koin" }
 compose-uiTooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "composeMultiplatform" }
-compose-navigation =  { module = "androidx.navigation:navigation-compose", version = "2.9.1" }
-
+compose-navigation =  { module = "androidx.navigation:navigation-compose", version = "2.9.2" }
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-ktx     = { module = "androidx.room:room-ktx",     version.ref = "room" }
+room-compiler= { module = "androidx.room:room-compiler",version.ref = "room" }
+sqlcipher    = { module = "net.zetetic:android-database-sqlcipher", version.ref = "sqlcipher" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -53,3 +58,4 @@ androidLibrary = { id = "com.android.library", version.ref = "agp" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version = "2.2.0-2.0.2" }
