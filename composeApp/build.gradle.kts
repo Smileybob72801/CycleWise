@@ -28,6 +28,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtime.compose)
             implementation(libs.koin.android)
             implementation(libs.koin.compose)
+            implementation(libs.koin.core.viewmodel)
             implementation(libs.compose.navigation)
             implementation(libs.compose.uiTooling)
             implementation(libs.room.runtime)

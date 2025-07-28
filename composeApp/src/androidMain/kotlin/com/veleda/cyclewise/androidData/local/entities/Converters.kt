@@ -1,4 +1,4 @@
-package com.veleda.cyclewise.data.local.entities
+package com.veleda.cyclewise.androidData.local.entities
 
 import androidx.room.TypeConverter
 import kotlin.time.Instant

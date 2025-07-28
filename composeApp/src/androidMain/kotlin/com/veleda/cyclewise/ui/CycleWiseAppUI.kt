@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.navigation.compose.*
 import com.veleda.cyclewise.ui.nav.*
 import com.veleda.cyclewise.ui.screens.HelloScreen
+import com.veleda.cyclewise.ui.tracker.TrackerScreen
 
 @Composable
 @Preview
@@ -33,7 +34,7 @@ fun CycleWiseAppUI() {
             modifier = Modifier.padding(padding)
         ) {
             composable(NavRoute.Hello.route) { HelloScreen() }
-            composable(NavRoute.Tracker.route) { Text("Tracker screen coming soon") }
+            composable(NavRoute.Tracker.route) { TrackerScreen() }
             composable(NavRoute.Settings.route) { Text("Settings screen coming soon") }
         }
     }
