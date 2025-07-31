@@ -15,6 +15,12 @@ object Converters {
     @TypeConverter
     fun toLocalDate(value: String): LocalDate = LocalDate.parse(value)
 
+    @TypeConverter
+    fun localDateToEpochDays(date: LocalDate): Long = date.toEpochDays()
+
+    @TypeConverter
+    fun epochDaysToLocalDate(days: Long): LocalDate = LocalDate.fromEpochDays(days)
+
     @OptIn(ExperimentalTime::class)
     @TypeConverter
     fun fromInstant(value: Instant): Long = value.toEpochMilliseconds()
