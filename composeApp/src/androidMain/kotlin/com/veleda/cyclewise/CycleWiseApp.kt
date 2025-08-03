@@ -9,8 +9,10 @@ class CycleWiseApp : Application() {
     override fun onCreate() {
         super.onCreate()
         startKoin {
+            printLogger()
             androidContext(this@CycleWiseApp)
             modules(appModule)
+            allowOverride(false)
         }
     }
 }

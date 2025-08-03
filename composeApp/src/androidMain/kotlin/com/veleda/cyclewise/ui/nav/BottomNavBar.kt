@@ -14,14 +14,15 @@ fun BottomNavBar(navController: NavController) {
     val currentRoute = navBackStackEntry?.destination?.route
 
     NavigationBar {
-        NavRoute.all.forEach { route ->
+        NavRoute.all.filterNot { it == NavRoute.Passphrase }.forEach { route ->
             NavigationBarItem(
                 icon = {
                     Icon(
                         imageVector = when (route) {
-                            NavRoute.Hello -> Icons.Default.Home
+                            NavRoute.Hello ->  Icons.Default.Face
                             NavRoute.Tracker -> Icons.Default.DateRange
                             NavRoute.Settings -> Icons.Default.Settings
+                            else -> error("Unexpected route in BottomNavBar: ${route.route}")
                         },
                         contentDescription = route.label
                     )

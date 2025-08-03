@@ -1,21 +1,21 @@
 package com.veleda.cyclewise.ui
 
+import android.util.Log
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.ui.tooling.preview.Preview
-import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.rememberNavController
-import com.veleda.cyclewise.ui.screens.HelloScreen
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import androidx.navigation.NavType
 import androidx.navigation.compose.*
+import androidx.navigation.navArgument
 import com.veleda.cyclewise.ui.nav.*
-import com.veleda.cyclewise.ui.screens.HelloScreen
 import com.veleda.cyclewise.ui.tracker.TrackerScreen
+import com.veleda.cyclewise.ui.auth.PassphraseScreen
 
 @Composable
 @Preview
@@ -33,9 +33,29 @@ fun CycleWiseAppUI() {
             startDestination = NavRoute.Hello.route,
             modifier = Modifier.padding(padding)
         ) {
-            composable(NavRoute.Hello.route) { HelloScreen() }
-            composable(NavRoute.Tracker.route) { TrackerScreen() }
-            composable(NavRoute.Settings.route) { Text("Settings screen coming soon") }
+            // 1) Passphrase entry
+            composable(NavRoute.Passphrase.route) {
+                PassphraseScreen { pass ->
+                    navController.navigate(NavRoute.Tracker.createRoute(pass)) {
+                        Log.d("PassphraseNav", "Navigating with passphrase: '$pass'")
+                        popUpTo(NavRoute.Passphrase.route) { inclusive = true }
+                    }
+                }
+            }
+            // 2) Tracker — inject passphrase as nav arg
+            composable(
+                route = NavRoute.Tracker.route,
+                arguments = listOf(navArgument("passphrase") {
+                    type = NavType.StringType
+                })
+            ) { backStack ->
+                val pass = backStack.arguments!!.getString("passphrase")!!
+                TrackerScreen(passphrase = pass)
+            }
+            // 3) Settings placeholder
+            composable(NavRoute.Settings.route) {
+                Text("Settings screen coming soon")
+            }
         }
     }
 }

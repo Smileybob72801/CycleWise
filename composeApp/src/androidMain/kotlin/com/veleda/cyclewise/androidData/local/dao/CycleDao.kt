@@ -3,11 +3,13 @@ package com.veleda.cyclewise.androidData.local.dao
 import androidx.room.*
 import com.veleda.cyclewise.androidData.local.entities.CycleEntity
 import kotlinx.coroutines.flow.Flow
+import kotlin.time.ExperimentalTime
 
+@OptIn(ExperimentalTime::class)
 @Dao
 interface CycleDao {
-    /** All cycles, newest first (by startDate). */
-    @Query("SELECT * FROM cycles ORDER BY startDate DESC")
+    /** All cycles, newest first (by start_date). */
+    @Query("SELECT * FROM cycles ORDER BY start_date DESC")
     fun getAllCycles(): Flow<List<CycleEntity>>
 
     /** Lookup by internal PK (rarely needed outside Room). */
@@ -26,7 +28,7 @@ interface CycleDao {
     @Update
     suspend fun update(cycle: CycleEntity)
 
-    /** Reactive stream of currently ongoing cycle (endDate IS NULL). */
-    @Query("SELECT * FROM cycles WHERE endDate IS NULL LIMIT 1")
+    /** Reactive stream of currently ongoing cycle (end_date IS NULL). */
+    @Query("SELECT * FROM cycles WHERE end_date IS NULL LIMIT 1")
     fun getOngoingCycle(): Flow<CycleEntity?>
 }

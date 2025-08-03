@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.tracker
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,53 +18,47 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
+import org.koin.java.KoinJavaComponent.getKoin
 
 /**
  * Main UI for tracking cycles: shows a list and an Add button.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrackerScreen(
-    viewModel: CycleViewModel = koinViewModel()
-) {
+fun TrackerScreen(passphrase: String) {
+    val viewModel = remember(passphrase) {
+        getKoin().get<CycleViewModel>(
+            parameters = { parametersOf(passphrase) }
+        )
+    }
+
     val cycles by viewModel.cycles.collectAsState()
+    Log.d("TrackerScreen", "Loading ViewModel with passphrase: $passphrase")
+
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Cycle Tracker") }
-            )
-        },
+        topBar = { TopAppBar(title = { Text("Cycle Tracker") }) },
         floatingActionButton = {
             FloatingActionButton(onClick = { viewModel.onAddNewCycleClicked() }) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Cycle")
+                Icon(Icons.Default.Add, contentDescription = null)
             }
-        },
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(WindowInsets.systemBars.asPaddingValues())
-    ) { contentPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding)
-        ) {
+        }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding)) {
             if (cycles.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No cycles yet. Tap + to add.")
                 }
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxSize()
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(cycles) { cycle ->
                         CycleItem(cycle)

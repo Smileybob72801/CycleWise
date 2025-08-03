@@ -19,6 +19,10 @@ kotlin {
     }
     
     sourceSets {
+
+        all {
+            languageSettings.optIn("kotlin.time.ExperimentalTime")
+        }
         
         androidMain.dependencies {
             implementation(compose.preview)
@@ -34,6 +38,8 @@ kotlin {
             implementation(libs.room.runtime)
             implementation(libs.room.ktx)
             implementation(libs.sqlcipher)
+            implementation(libs.argon2)
+            implementation(libs.security.crypto)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
