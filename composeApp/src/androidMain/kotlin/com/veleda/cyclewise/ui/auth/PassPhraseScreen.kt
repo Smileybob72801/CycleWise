@@ -6,13 +6,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.veleda.cyclewise.androidData.local.database.CycleDatabase
+import com.veleda.cyclewise.di.SESSION_SCOPE
+import org.koin.java.KoinJavaComponent.getKoin
+import org.koin.core.qualifier.named
+import org.koin.*
+import org.koin.core.parameter.parametersOf
 
 /**
  * Simple screen to enter passphrase and unlock the DB.
  */
 @Composable
 fun PassphraseScreen(
-    onPassphraseEntered: (String) -> Unit
+    onPassphraseEntered: () -> Unit
 ) {
     var passphrase by remember { mutableStateOf("") }
 
@@ -34,7 +40,19 @@ fun PassphraseScreen(
         )
         Spacer(Modifier.height(24.dp))
         Button(
-            onClick = { onPassphraseEntered(passphrase) },
+            onClick = {
+                val koin = getKoin()
+
+                // Create the unlocked session scope
+                val scope = koin.getScopeOrNull("session")
+                    ?: koin.createScope("session", SESSION_SCOPE)
+
+                // Force DB creation inside this scope with the passphrase
+                scope.get<CycleDatabase> { parametersOf(passphrase) }
+
+                // Navigate to Tracker
+                onPassphraseEntered()
+            },
             enabled = passphrase.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ) {

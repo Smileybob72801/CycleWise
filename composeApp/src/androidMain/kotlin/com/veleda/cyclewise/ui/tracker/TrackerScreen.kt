@@ -16,30 +16,41 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import org.koin.java.KoinJavaComponent.getKoin
+import androidx.navigation.compose.*
+import com.veleda.cyclewise.ui.nav.*
 
 /**
  * Main UI for tracking cycles: shows a list and an Add button.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrackerScreen(passphrase: String) {
-    val viewModel = remember(passphrase) {
-        getKoin().get<CycleViewModel>(
-            parameters = { parametersOf(passphrase) }
-        )
+fun TrackerScreen(navController: NavController) {
+    val scope = getKoin().getScopeOrNull("session")
+
+    if (scope == null) {
+        // If no unlocked session, send user back to PassphraseScreen
+        LaunchedEffect(Unit) {
+            navController.navigate(NavRoute.Passphrase.route) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+        return
     }
 
+    val viewModel: CycleViewModel = scope.get()
+
     val cycles by viewModel.cycles.collectAsState()
-    Log.d("TrackerScreen", "Loading ViewModel with passphrase: $passphrase")
 
 
     Scaffold(

@@ -18,20 +18,16 @@ import kotlin.time.ExperimentalTime
  * Exposes a list of cycles and handles adding a new cycle.
  */
 class CycleViewModel(
-    private val cycleRepositoryProvider: suspend () -> CycleRepository,
-    private val startNewCycleUseCaseProvider: suspend () -> StartNewCycleUseCase
+    private val cycleRepository: CycleRepository,
+    private val startNewCycleUseCase: StartNewCycleUseCase
 ) : ViewModel() {
 
     private val _cycles = MutableStateFlow<List<com.veleda.cyclewise.domain.models.Cycle>>(emptyList())
     val cycles: StateFlow<List<com.veleda.cyclewise.domain.models.Cycle>> = _cycles.asStateFlow()
 
-    private lateinit var cycleRepository: CycleRepository
-    private lateinit var startNewCycleUseCase: StartNewCycleUseCase
-
     init {
         viewModelScope.launch {
-            cycleRepository = cycleRepositoryProvider()
-            startNewCycleUseCase = startNewCycleUseCaseProvider()
+            // Load existing cycles on start
             _cycles.value = cycleRepository.getAllCycles()
         }
     }
@@ -40,9 +36,7 @@ class CycleViewModel(
     @OptIn(ExperimentalTime::class)
     fun onAddNewCycleClicked() {
         viewModelScope.launch {
-            // Wait until lazy services are initialized
-            if (!::cycleRepository.isInitialized || !::startNewCycleUseCase.isInitialized) return@launch
-
+            // Add a new cycle and refresh list
             val now = Clock.System.now()
             val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
             startNewCycleUseCase(today)

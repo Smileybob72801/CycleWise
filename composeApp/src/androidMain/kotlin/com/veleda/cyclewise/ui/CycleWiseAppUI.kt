@@ -16,45 +16,48 @@ import androidx.navigation.navArgument
 import com.veleda.cyclewise.ui.nav.*
 import com.veleda.cyclewise.ui.tracker.TrackerScreen
 import com.veleda.cyclewise.ui.auth.PassphraseScreen
+import androidx.compose.runtime.getValue
 
 @Composable
 @Preview
 fun CycleWiseAppUI() {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
     Scaffold(
-        bottomBar = { BottomNavBar(navController) },
+        bottomBar = {
+            if (currentRoute != NavRoute.Passphrase.route) {
+                BottomNavBar(navController) }
+            },
         modifier = Modifier
             .fillMaxSize()
             .padding(WindowInsets.systemBars.asPaddingValues())
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = NavRoute.Hello.route,
+            startDestination = NavRoute.Passphrase.route,
             modifier = Modifier.padding(padding)
         ) {
             // 1) Passphrase entry
             composable(NavRoute.Passphrase.route) {
-                PassphraseScreen { pass ->
-                    navController.navigate(NavRoute.Tracker.createRoute(pass)) {
-                        Log.d("PassphraseNav", "Navigating with passphrase: '$pass'")
+                PassphraseScreen {
+                    navController.navigate(NavRoute.Tracker.route) {
                         popUpTo(NavRoute.Passphrase.route) { inclusive = true }
                     }
                 }
             }
-            // 2) Tracker — inject passphrase as nav arg
-            composable(
-                route = NavRoute.Tracker.route,
-                arguments = listOf(navArgument("passphrase") {
-                    type = NavType.StringType
-                })
-            ) { backStack ->
-                val pass = backStack.arguments!!.getString("passphrase")!!
-                TrackerScreen(passphrase = pass)
+            // 2) Tracker
+            composable(NavRoute.Tracker.route) {
+                TrackerScreen(navController)
             }
             // 3) Settings placeholder
             composable(NavRoute.Settings.route) {
                 Text("Settings screen coming soon")
+            }
+
+            composable(NavRoute.Hello.route) {
+                Text("Hello!")
             }
         }
     }
