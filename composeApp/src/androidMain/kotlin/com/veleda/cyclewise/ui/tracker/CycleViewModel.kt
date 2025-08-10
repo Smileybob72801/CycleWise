@@ -3,6 +3,7 @@ package com.veleda.cyclewise.ui.tracker
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.veleda.cyclewise.domain.repository.CycleRepository
+import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
 import com.veleda.cyclewise.domain.usecases.StartNewCycleUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +20,8 @@ import kotlin.time.ExperimentalTime
  */
 class CycleViewModel(
     private val cycleRepository: CycleRepository,
-    private val startNewCycleUseCase: StartNewCycleUseCase
+    private val startNewCycleUseCase: StartNewCycleUseCase,
+    private val endCycleUseCase: EndCycleUseCase,
 ) : ViewModel() {
 
     private val _cycles = MutableStateFlow<List<com.veleda.cyclewise.domain.models.Cycle>>(emptyList())
@@ -40,6 +42,16 @@ class CycleViewModel(
             val now = Clock.System.now()
             val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
             startNewCycleUseCase(today)
+            _cycles.value = cycleRepository.getAllCycles()
+        }
+    }
+
+    /** Called when the user taps the End Cycle button. */
+    @OptIn(ExperimentalTime::class)
+    fun onEndCycleClicked() {
+        viewModelScope.launch {
+            val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+            endCycleUseCase(endDate = today)
             _cycles.value = cycleRepository.getAllCycles()
         }
     }

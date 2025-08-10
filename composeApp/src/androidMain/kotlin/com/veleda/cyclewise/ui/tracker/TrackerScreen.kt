@@ -14,7 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -58,6 +60,15 @@ fun TrackerScreen(navController: NavController) {
         floatingActionButton = {
             FloatingActionButton(onClick = { viewModel.onAddNewCycleClicked() }) {
                 Icon(Icons.Default.Add, contentDescription = null)
+
+                val hasOngoing = cycles.any { it.endDate == null }
+                if (hasOngoing) {
+                    ExtendedFloatingActionButton(
+                        onClick = { viewModel.onEndCycleClicked() },
+                        icon = { Icon(Icons.Default.Check, null) },
+                        text = { Text("End Cycle") }
+                    )
+                }
             }
         }
     ) { padding ->

@@ -12,6 +12,7 @@ import com.veleda.cyclewise.domain.services.PassphraseService
 import com.veleda.cyclewise.services.PassphraseServiceAndroid
 import com.veleda.cyclewise.androidData.local.database.CycleDatabase
 import com.veleda.cyclewise.androidData.repository.RoomCycleRepository
+import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import org.koin.core.scope.Scope
@@ -32,14 +33,16 @@ val appModule = module {
             CycleDatabase.create(androidContext(), key)
         }
 
-        scoped<CycleRepository> {
-            RoomCycleRepository(get<CycleDatabase>().cycleDao())
-        }
+        scoped<CycleRepository> { RoomCycleRepository(get<CycleDatabase>().cycleDao()) }
 
-        scoped {
-            StartNewCycleUseCase(get())
-        }
+        scoped { StartNewCycleUseCase(get()) }
 
-        scoped { CycleViewModel(get(), get()) }
+        scoped { EndCycleUseCase(get()) }
+
+        scoped { CycleViewModel(
+            get(),
+            get(),
+            get())
+        }
     }
 }
