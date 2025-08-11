@@ -15,6 +15,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.runtime.Composable
@@ -30,6 +32,7 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import org.koin.java.KoinJavaComponent.getKoin
 import androidx.navigation.compose.*
+import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.ui.nav.*
 
 /**
@@ -75,7 +78,13 @@ fun TrackerScreen(navController: NavController) {
         Box(modifier = Modifier.padding(padding)) {
             if (cycles.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No cycles yet. Tap + to add.")
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("No cycles yet")
+                        Spacer(Modifier.height(8.dp))
+                        Button(onClick = { viewModel.onAddNewCycleClicked() }) {
+                            Text("Start first cycle")
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -92,26 +101,26 @@ fun TrackerScreen(navController: NavController) {
 }
 
 @Composable
-fun CycleItem(cycle: com.veleda.cyclewise.domain.models.Cycle) {
+private fun CycleItem(cycle: Cycle) {
+    val status = if (cycle.endDate == null) "Ongoing" else "Ended"
+    val lengthDays = cycle.endDate?.let { end -> end.toEpochDays() - cycle.startDate.toEpochDays() + 1 }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Cycle ID: ${cycle.id}",
-                style = MaterialTheme.typography.titleSmall
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "Start Date: ${cycle.startDate}",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = "End Date: ${cycle.endDate ?: "Ongoing"}",
-                style = MaterialTheme.typography.bodySmall
-            )
+        Column(Modifier.padding(16.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Cycle", style = MaterialTheme.typography.titleSmall)
+                AssistChip(label = { Text(status) }, onClick = { /* noop */ })
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("Start: ${cycle.startDate}")
+            Text("End: ${cycle.endDate ?: "—"}")
+            if (lengthDays != null) {
+                Spacer(Modifier.height(4.dp))
+                Text("Length: $lengthDays days")
+            }
         }
     }
 }
