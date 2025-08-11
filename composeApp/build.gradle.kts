@@ -40,6 +40,8 @@ kotlin {
             implementation(libs.sqlcipher)
             implementation(libs.argon2)
             implementation(libs.security.crypto)
+            implementation(libs.androidx.datastore)
+            implementation(libs.androidx.lifecycle.process)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
