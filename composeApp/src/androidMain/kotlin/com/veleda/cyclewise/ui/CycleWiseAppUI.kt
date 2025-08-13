@@ -17,6 +17,8 @@ import com.veleda.cyclewise.ui.nav.*
 import com.veleda.cyclewise.ui.tracker.TrackerScreen
 import com.veleda.cyclewise.ui.auth.PassphraseScreen
 import androidx.compose.runtime.getValue
+import com.veleda.cyclewise.ui.log.DailyLogScreen
+import kotlinx.datetime.LocalDate
 
 @Composable
 @Preview
@@ -58,6 +60,19 @@ fun CycleWiseAppUI() {
 
             composable(NavRoute.Hello.route) {
                 Text("Hello!")
+            }
+
+            composable(
+                route = NavRoute.DailyLog.route,
+                arguments = listOf(navArgument("date") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val dateString = backStackEntry.arguments?.getString("date")
+                if (dateString != null) {
+                    DailyLogScreen(
+                        date = LocalDate.parse(dateString),
+                        onSaveComplete = { navController.popBackStack() }
+                    )
+                }
             }
         }
     }

@@ -15,8 +15,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Button
+import androidx.compose.material3.Divider
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,6 +35,9 @@ import org.koin.core.parameter.parametersOf
 import org.koin.java.KoinJavaComponent.getKoin
 import androidx.navigation.compose.*
 import com.veleda.cyclewise.ui.nav.*
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
+import kotlin.time.Clock
 
 /**
  * Main UI for tracking cycles: shows a list and an Add button.
@@ -54,37 +61,56 @@ fun TrackerScreen(navController: NavController) {
 
     val cycles by viewModel.cycles.collectAsState()
 
-
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Cycle Tracker") }) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.onAddNewCycleClicked() }) {
-                Icon(Icons.Default.Add, contentDescription = null)
-
-                val hasOngoing = cycles.any { it.endDate == null }
-                if (hasOngoing) {
-                    ExtendedFloatingActionButton(
-                        onClick = { viewModel.onEndCycleClicked() },
-                        icon = { Icon(Icons.Default.Check, null) },
-                        text = { Text("End Cycle") }
-                    )
-                }
-            }
-        }
+        modifier = Modifier.fillMaxSize()
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            if (cycles.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No cycles yet. Tap + to add.")
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+        ) {
+            Text(
+                "Tracker",
+                style = MaterialTheme.typography.headlineMedium
+            )
+            Spacer(Modifier.height(16.dp))
+
+            // We will group all action buttons here
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(onClick = { viewModel.onAddNewCycleClicked() }) {
+                    Text("Add New Cycle")
                 }
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(cycles) { cycle ->
-                        CycleItem(cycle)
-                    }
+                Button(onClick = { viewModel.onEndCycleClicked() }) {
+                    Text("End Cycle")
+                }
+
+                // vvv ADD THE NEW BUTTON HERE vvv
+                Button(onClick = {
+                    val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+                    navController.navigate(NavRoute.DailyLog.createRoute(today))
+                }) {
+                    Text("Log Today")
+                }
+                // ^^^ ADD THE NEW BUTTON HERE ^^^
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+
+            Spacer(Modifier.height(16.dp))
+
+            // Display list of cycles
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(cycles) { cycle ->
+                    Text(
+                        "Cycle started: ${cycle.startDate} - Ended: ${cycle.endDate ?: "Ongoing"}",
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
                 }
             }
         }

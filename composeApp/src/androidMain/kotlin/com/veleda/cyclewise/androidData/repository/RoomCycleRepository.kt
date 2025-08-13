@@ -1,10 +1,12 @@
 package com.veleda.cyclewise.androidData.repository
 
 import com.veleda.cyclewise.androidData.local.dao.CycleDao
+import com.veleda.cyclewise.androidData.local.dao.DailyEntryDao
 import com.veleda.cyclewise.androidData.local.entities.CycleEntity
 import com.veleda.cyclewise.androidData.local.entities.toDomain
 import com.veleda.cyclewise.androidData.local.entities.toEntity
 import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.repository.CycleRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.datetime.LocalDate
@@ -13,16 +15,17 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 class RoomCycleRepository(
-    private val dao: CycleDao
+    private val cycleDao: CycleDao,
+    private val dailyEntryDao: DailyEntryDao,
 ) : CycleRepository {
     override suspend fun getAllCycles(): List<Cycle> =
-        dao
+        cycleDao
             .getAllCycles()
             .first()
             .map { it.toDomain()}
 
     override suspend fun getCycleById(cycleId: String): Cycle {
-        val entity = dao.getByUuid(cycleId)
+        val entity = cycleDao.getByUuid(cycleId)
             ?: throw NoSuchElementException("Cycle $cycleId not found")
         return entity.toDomain()
     }
@@ -42,22 +45,35 @@ class RoomCycleRepository(
 
         val entityCycle = domainCycle.toEntity()
 
-        dao.insert(entityCycle)
+        cycleDao.insert(entityCycle)
 
         return domainCycle
     }
 
     @OptIn(ExperimentalTime::class)
     override suspend fun endCycle(cycleId: String, endDate: LocalDate): Cycle? {
-        val existing = dao.getByUuid(cycleId) ?: return null
+        val existing = cycleDao.getByUuid(cycleId) ?: return null
         val updated = existing.copy(endDate = endDate)
-        dao.update(updated)
+        cycleDao.update(updated)
         return updated.toDomain()
     }
 
     override suspend fun getCurrentlyOngoingCycle(): Cycle? {
         // returns Flow<CycleEntity?>; take first emission
-        val entity = dao.getOngoingCycle().first()
+        val entity = cycleDao.getOngoingCycle().first()
         return entity?.toDomain()
+    }
+
+    override suspend fun getEntryForDate(date: LocalDate): DailyEntry? {
+        // .first() will throw if the flow is empty, so we use .firstOrNull()
+        return dailyEntryDao.getEntryForDate(date).first()?.toDomain()
+    }
+
+    override suspend fun getEntriesForCycle(cycleId: String): List<DailyEntry> {
+        return dailyEntryDao.getEntriesForCycle(cycleId).first().map { it.toDomain() }
+    }
+
+    override suspend fun saveEntry(entry: DailyEntry) {
+        dailyEntryDao.insert(entry.toEntity())
     }
 }

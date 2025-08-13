@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -40,6 +41,7 @@ kotlin {
             implementation(libs.sqlcipher)
             implementation(libs.argon2)
             implementation(libs.security.crypto)
+            implementation(libs.kotlinx.serialization.json)
         }
         commonMain.dependencies {
             implementation(compose.runtime)

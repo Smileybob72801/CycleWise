@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.domain.usecases
 
+import com.benasher44.uuid.uuid4
 import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.repository.CycleRepository
 import kotlinx.datetime.LocalDate
@@ -27,7 +28,7 @@ class StartNewCycleUseCase (private val repository: CycleRepository)
         val now = Clock.System.now()
 
         val newCycle = Cycle(
-            id = generateFakeId(),
+            id = uuid4().toString(),
             startDate = startDate,
             endDate = null,
             createdAt = now,
@@ -35,10 +36,5 @@ class StartNewCycleUseCase (private val repository: CycleRepository)
         )
 
         return repository.startNewCycle(startDate = newCycle.startDate)
-    }
-
-    private fun generateFakeId(): String {
-        // Temporary ID generation — replace with UUID service or platform impl later
-        return Random.nextLong().toString()
     }
 }

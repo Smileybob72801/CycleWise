@@ -1,6 +1,7 @@
 package com.veleda.cyclewise.domain.repository
 
 import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.DailyEntry
 import kotlinx.datetime.LocalDate
 
 /**
@@ -23,4 +24,13 @@ interface CycleRepository {
 
     /** Returns the currently active (non-ended) cycle, if any. */
     suspend fun getCurrentlyOngoingCycle(): Cycle?
+
+    /** Returns a daily entry for a specific date, if one exists. */
+    suspend fun getEntryForDate(date: LocalDate): DailyEntry?
+
+    /** Returns all daily entries for a given cycle. */
+    suspend fun getEntriesForCycle(cycleId: String): List<DailyEntry>
+
+    /** Inserts or updates a daily entry. */
+    suspend fun saveEntry(entry: DailyEntry)
 }

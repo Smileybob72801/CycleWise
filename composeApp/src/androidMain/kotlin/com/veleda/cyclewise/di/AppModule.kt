@@ -14,8 +14,11 @@ import com.veleda.cyclewise.androidData.local.database.CycleDatabase
 import com.veleda.cyclewise.androidData.repository.RoomCycleRepository
 import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
 import org.koin.core.qualifier.named
+import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
+import com.veleda.cyclewise.ui.log.DailyLogViewModel
 import org.koin.dsl.module
 import org.koin.core.scope.Scope
+import kotlinx.datetime.LocalDate
 
 val SESSION_SCOPE = named("UnlockedSessionScope")
 
@@ -33,16 +36,39 @@ val appModule = module {
             CycleDatabase.create(androidContext(), key)
         }
 
-        scoped<CycleRepository> { RoomCycleRepository(get<CycleDatabase>().cycleDao()) }
+        // DAO Providers
+        scoped { get<CycleDatabase>().cycleDao() }
+        scoped { get<CycleDatabase>().dailyEntryDao() }
 
+        // Repository Provider
+        scoped<CycleRepository> {
+            RoomCycleRepository(
+                cycleDao = get(),
+                dailyEntryDao = get()
+            )
+        }
+
+        // Use Case Providers
         scoped { StartNewCycleUseCase(get()) }
-
         scoped { EndCycleUseCase(get()) }
+        scoped { GetOrCreateDailyEntryUseCase(get()) }
 
-        scoped { CycleViewModel(
-            get(),
-            get(),
-            get())
+        // ViewModel Providers
+        viewModel {
+            CycleViewModel(
+                cycleRepository = get(),
+                startNewCycleUseCase = get(),
+                endCycleUseCase = get()
+            )
+        }
+
+
+        viewModel { (date: LocalDate) ->
+            DailyLogViewModel(
+                entryDate = date,
+                getOrCreateDailyEntryUseCase = get(),
+                cycleRepository = get()
+            )
         }
     }
 }
