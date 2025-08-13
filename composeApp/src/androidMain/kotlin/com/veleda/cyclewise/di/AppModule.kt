@@ -16,6 +16,7 @@ import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
 import org.koin.core.qualifier.named
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
+import com.veleda.cyclewise.settings.AppSettings
 import org.koin.dsl.module
 import org.koin.core.scope.Scope
 import kotlinx.datetime.LocalDate
@@ -25,6 +26,8 @@ val SESSION_SCOPE = named("UnlockedSessionScope")
 val appModule = module {
     // Persistent salt for Argon2
     single { SaltStorage(androidContext()) }
+
+    single { AppSettings(androidContext()) }
 
     // KDF: Argon2 passphrase service
     single<PassphraseService> { PassphraseServiceAndroid(get()) }

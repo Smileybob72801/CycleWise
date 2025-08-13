@@ -31,6 +31,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.viewmodel.compose)
             implementation(libs.androidx.lifecycle.runtime.compose)
+            implementation(libs.androidx.lifecycle.process)
             implementation(libs.koin.android)
             implementation(libs.koin.compose)
             implementation(libs.koin.core.viewmodel)
@@ -42,6 +43,7 @@ kotlin {
             implementation(libs.argon2)
             implementation(libs.security.crypto)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.androidx.datastore.preferences)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
