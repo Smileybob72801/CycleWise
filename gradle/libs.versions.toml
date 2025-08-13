@@ -21,6 +21,8 @@ koin = "4.1.0"
 room = "2.7.2"
 sqlcipher = "4.5.4"
 security_crypto = "1.1.0"
+datastore = "1.1.7"
+lifecycle = "2.9.2"
 
 [libraries]
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleViewmodelKtx" }
@@ -36,6 +38,7 @@ androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "a
 androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "androidx-constraintlayout" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "androidx-lifecycle" }
+androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle"}
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
 ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktorVersion" }
@@ -55,6 +58,7 @@ room-compiler= { module = "androidx.room:room-compiler",version.ref = "room" }
 sqlcipher    = { module = "net.zetetic:android-database-sqlcipher", version.ref = "sqlcipher" }
 argon2 = { module = "org.bouncycastle:bcpkix-jdk15on", version = "1.70" }
 security-crypto = { module = "androidx.security:security-crypto", version.ref = "security_crypto" }
+androidx-datastore = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

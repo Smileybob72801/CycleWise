@@ -13,9 +13,11 @@ import com.veleda.cyclewise.services.PassphraseServiceAndroid
 import com.veleda.cyclewise.androidData.local.database.CycleDatabase
 import com.veleda.cyclewise.androidData.repository.RoomCycleRepository
 import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
+import com.veleda.cyclewise.settings.AppSettings
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import org.koin.core.scope.Scope
+import com.veleda.cyclewise.session.SessionBus
 
 val SESSION_SCOPE = named("UnlockedSessionScope")
 
@@ -25,6 +27,12 @@ val appModule = module {
 
     // KDF: Argon2 passphrase service
     single<PassphraseService> { PassphraseServiceAndroid(get()) }
+
+    // App scoped settings
+    single { AppSettings(androidContext()) }
+
+    // Event bus for logout/navigation signals
+    single { SessionBus() }
 
     // Session-scoped SQLCipher DB and related services
     scope(SESSION_SCOPE) {
