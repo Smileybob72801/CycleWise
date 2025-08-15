@@ -1,13 +1,13 @@
 package com.veleda.cyclewise.domain.models
 
-object FlowIntensity {
-    const val LIGHT = "LIGHT"
-    const val MEDIUM = "MEDIUM"
-    const val HEAVY = "HEAVY"
+enum class FlowIntensity {
+    LIGHT,
+    MEDIUM,
+    HEAVY
 }
 
-object LibidoLevel {
-    const val LOW = "LOW"
-    const val MEDIUM = "MEDIUM"
-    const val HIGH = "HIGH"
+enum class LibidoLevel {
+    LOW,
+    MEDIUM,
+    HIGH
 }

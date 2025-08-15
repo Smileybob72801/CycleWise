@@ -34,6 +34,7 @@ val appModule = module {
 
     // Session-scoped SQLCipher DB and related services
     scope(SESSION_SCOPE) {
+        // DB Provider
         scoped { (passphrase: String) ->
             val key = get<PassphraseService>().deriveKey(passphrase)
             CycleDatabase.create(androidContext(), key)
@@ -42,12 +43,17 @@ val appModule = module {
         // DAO Providers
         scoped { get<CycleDatabase>().cycleDao() }
         scoped { get<CycleDatabase>().dailyEntryDao() }
+        scoped { get<CycleDatabase>().symptomDao() }
+        scoped { get<CycleDatabase>().medicationDao() }
 
         // Repository Provider
         scoped<CycleRepository> {
             RoomCycleRepository(
+                db = get(),
                 cycleDao = get(),
-                dailyEntryDao = get()
+                dailyEntryDao = get(),
+                symptomDao = get(),
+                medicationDao = get()
             )
         }
 

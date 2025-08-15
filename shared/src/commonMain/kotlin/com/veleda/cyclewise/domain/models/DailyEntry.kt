@@ -10,10 +10,10 @@ data class DailyEntry(
     val cycleId: String, // FK to Cycle
     val entryDate: LocalDate,
     val dayInCycle: Int,
-    val flowIntensity: String? = null, // e.g., FlowIntensity.MEDIUM
+    val flowIntensity: FlowIntensity? = null,
     val moodScore: Int? = null, // 1-5
     val energyLevel: Int? = null, // 1-5
-    val libidoLevel: String? = null, // e.g., LibidoLevel.MEDIUM
+    val libidoLevel: LibidoLevel? = null,
     val spotting: Boolean = false,
     val customTags: List<String> = emptyList(), // For flexible user tags
     val cyclePhase: String? = null, // e.g., "FOLLICULAR"

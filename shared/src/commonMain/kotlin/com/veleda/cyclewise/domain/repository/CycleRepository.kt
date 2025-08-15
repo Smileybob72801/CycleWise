@@ -2,6 +2,7 @@ package com.veleda.cyclewise.domain.repository
 
 import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.DailyEntry
+import com.veleda.cyclewise.domain.models.FullDailyLog
 import kotlinx.datetime.LocalDate
 
 /**
@@ -31,6 +32,9 @@ interface CycleRepository {
     /** Returns all daily entries for a given cycle. */
     suspend fun getEntriesForCycle(cycleId: String): List<DailyEntry>
 
-    /** Inserts or updates a daily entry. */
-    suspend fun saveEntry(entry: DailyEntry)
+    /** Returns all data for a day. */
+    suspend fun getFullLogForDate(date: LocalDate): FullDailyLog?
+
+    /** Store all data for a day. */
+    suspend fun saveFullLog(log: FullDailyLog)
 }
