@@ -18,6 +18,7 @@ import com.veleda.cyclewise.ui.tracker.TrackerScreen
 import com.veleda.cyclewise.ui.auth.PassphraseScreen
 import androidx.compose.runtime.getValue
 import com.veleda.cyclewise.ui.log.DailyLogScreen
+import com.veleda.cyclewise.ui.settings.SettingsScreen
 import kotlinx.datetime.LocalDate
 
 @Composable
@@ -55,7 +56,7 @@ fun CycleWiseAppUI() {
             }
             // 3) Settings placeholder
             composable(NavRoute.Settings.route) {
-                Text("Settings screen coming soon")
+                SettingsScreen(navController)
             }
 
             composable(NavRoute.Hello.route) {
