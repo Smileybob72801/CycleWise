@@ -15,6 +15,7 @@ import com.veleda.cyclewise.androidData.repository.RoomCycleRepository
 import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
 import org.koin.core.qualifier.named
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
+import com.veleda.cyclewise.session.SessionBus
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
 import com.veleda.cyclewise.settings.AppSettings
 import org.koin.dsl.module
@@ -28,6 +29,8 @@ val appModule = module {
     single { SaltStorage(androidContext()) }
 
     single { AppSettings(androidContext()) }
+
+    single { SessionBus() }
 
     // KDF: Argon2 passphrase service
     single<PassphraseService> { PassphraseServiceAndroid(get()) }
