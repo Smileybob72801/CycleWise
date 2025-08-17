@@ -1,6 +1,8 @@
 package com.veleda.cyclewise.androidData.local.entities
 
 import androidx.room.TypeConverter
+import com.veleda.cyclewise.domain.models.FlowIntensity
+import com.veleda.cyclewise.domain.models.LibidoLevel
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlin.time.ExperimentalTime
@@ -40,5 +42,29 @@ object Converters {
     @TypeConverter
     fun toStringList(tagsJson: String): List<String> {
         return Json.decodeFromString(tagsJson)
+    }
+
+    @TypeConverter
+    fun fromFlowIntensity(value: FlowIntensity?): String? {
+        // Converts the enum to its String name for storing in the database.
+        // E.g., FlowIntensity.HEAVY -> "HEAVY"
+        return value?.name
+    }
+
+    @TypeConverter
+    fun toFlowIntensity(value: String?): FlowIntensity? {
+        // Converts a String from the database back into the corresponding enum.
+        // E.g., "HEAVY" -> FlowIntensity.HEAVY
+        return value?.let { FlowIntensity.valueOf(it) }
+    }
+
+    @TypeConverter
+    fun fromLibidoLevel(value: LibidoLevel?): String? {
+        return value?.name
+    }
+
+    @TypeConverter
+    fun toLibidoLevel(value: String?): LibidoLevel? {
+        return value?.let { LibidoLevel.valueOf(it) }
     }
 }

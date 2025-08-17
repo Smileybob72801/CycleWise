@@ -3,6 +3,8 @@ package com.veleda.cyclewise.androidData.local.entities
 import com.veleda.cyclewise.domain.models.Cycle
 import kotlin.time.ExperimentalTime
 import com.veleda.cyclewise.domain.models.DailyEntry
+import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.Symptom
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 
@@ -37,10 +39,10 @@ fun DailyEntryEntity.toDomain(): DailyEntry =
         cycleId = cycleId,
         entryDate = entryDate,
         dayInCycle = dayInCycle,
-        flowIntensity = flowIntensity,
+        flowIntensity = Converters.toFlowIntensity(flowIntensity),
         moodScore = moodScore,
         energyLevel = energyLevel,
-        libidoLevel = libidoLevel,
+        libidoLevel = Converters.toLibidoLevel(libidoLevel),
         spotting = spotting,
         customTags = Json.decodeFromString(customTags),
         cyclePhase = cyclePhase,
@@ -56,13 +58,21 @@ fun DailyEntry.toEntity(): DailyEntryEntity =
         cycleId = cycleId,
         entryDate = entryDate,
         dayInCycle = dayInCycle,
-        flowIntensity = flowIntensity,
+        flowIntensity = Converters.fromFlowIntensity(flowIntensity),
         moodScore = moodScore,
         energyLevel = energyLevel,
-        libidoLevel = libidoLevel,
+        libidoLevel = Converters.fromLibidoLevel(libidoLevel),
         spotting = spotting,
         customTags = Json.encodeToString(customTags),
         cyclePhase = cyclePhase,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
+
+/** Symptom Mappers */
+fun SymptomEntity.toDomain(): Symptom = Symptom(id, entryId, type, severity, note)
+fun Symptom.toEntity(): SymptomEntity = SymptomEntity(id, entryId, type, severity, note)
+
+/** Medication Mappers */
+fun MedicationEntity.toDomain(): Medication = Medication(id, entryId, name, note)
+fun Medication.toEntity(): MedicationEntity = MedicationEntity(id, entryId, name, note)

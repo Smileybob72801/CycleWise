@@ -2,8 +2,10 @@ package com.veleda.cyclewise.ui.log
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.veleda.cyclewise.domain.models.DailyEntry
+import com.benasher44.uuid.uuid4
 import com.veleda.cyclewise.domain.models.FlowIntensity
+import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.repository.CycleRepository
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,12 +13,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
-import org.koin.compose.getKoin
 
-// Represents the state of the UI
+// Represents the state of the UI, holding the FullDailyLog
 data class DailyLogUiState(
     val isLoading: Boolean = true,
-    val entry: DailyEntry? = null,
+    val log: FullDailyLog? = null,
     val error: String? = null
 )
 
@@ -29,41 +30,78 @@ class DailyLogViewModel(
     private val _uiState = MutableStateFlow(DailyLogUiState())
     val uiState = _uiState.asStateFlow()
 
+    val commonSymptoms = listOf("CRAMPS", "HEADACHE", "FATIGUE", "BLOATING", "ACNE", "ANXIETY")
+
     init {
-        loadEntry()
+        loadLog()
     }
 
-    private fun loadEntry() {
+    private fun loadLog() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val result = getOrCreateDailyEntryUseCase(entryDate)
+            var result: FullDailyLog? = null
+
+            // First, try to fetch an existing full log
+            val existingLog = cycleRepository.getFullLogForDate(entryDate)
+            if (existingLog != null) {
+                result = existingLog
+            } else {
+                // If no log exists, create a new one using the use case
+                val newEntry = getOrCreateDailyEntryUseCase(entryDate)
+                if (newEntry != null) {
+                    result = FullDailyLog(entry = newEntry)
+                }
+            }
+
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    entry = result,
+                    log = result,
                     error = if (result == null) "Could not find an active cycle for this date." else null
                 )
             }
         }
     }
 
-    fun setFlowIntensity(intensity: String?) {
-        _uiState.update {
-            it.copy(entry = it.entry?.copy(flowIntensity = intensity))
+    // --- UI Event Handlers ---
+
+    fun setFlowIntensity(intensity: FlowIntensity?) {
+        _uiState.update { state ->
+            state.copy(log = state.log?.copy(entry = state.log.entry.copy(flowIntensity = intensity)))
         }
     }
 
     fun setMoodScore(score: Int) {
-        _uiState.update {
-            it.copy(entry = it.entry?.copy(moodScore = score))
+        _uiState.update { state ->
+            state.copy(log = state.log?.copy(entry = state.log.entry.copy(moodScore = score)))
         }
     }
 
-    fun saveEntry() {
-        val entryToSave = _uiState.value.entry ?: return
+    fun toggleSymptom(symptomType: String) {
+        _uiState.update { state ->
+            val currentLog = state.log ?: return@update state
+            val currentSymptoms = currentLog.symptoms
+            val isSelected = currentSymptoms.any { it.type == symptomType }
+
+            val newSymptoms = if (isSelected) {
+                currentSymptoms.filterNot { it.type == symptomType }
+            } else {
+                currentSymptoms + Symptom(
+                    id = uuid4().toString(),
+                    entryId = currentLog.entry.id,
+                    type = symptomType,
+                    severity = 3 // Default severity
+                )
+            }
+            state.copy(log = currentLog.copy(symptoms = newSymptoms))
+        }
+    }
+
+    fun saveLog() {
+        val logToSave = _uiState.value.log ?: return
         viewModelScope.launch {
-            cycleRepository.saveEntry(entryToSave)
-            // Optionally add logic here to navigate back or show a "Saved" confirmation
+            // Call the correct, refactored repository method
+            cycleRepository.saveFullLog(logToSave)
         }
     }
 }

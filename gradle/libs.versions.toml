@@ -1,7 +1,7 @@
 [versions]
 agp = "8.11.0"
 android-compileSdk = "35"
-android-minSdk = "24"
+android-minSdk = "26"
 android-targetSdk = "35"
 androidx-activity = "1.10.1"
 androidx-appcompat = "1.7.1"
@@ -24,6 +24,7 @@ security_crypto = "1.1.0"
 kotlinx-serialization = "1.9.0"
 uuid = "0.8.4"
 androidx-datastore = "1.1.1"
+compose-calendar = "2.8.0"
 
 [libraries]
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleViewmodelKtx" }
@@ -62,7 +63,7 @@ security-crypto = { module = "androidx.security:security-crypto", version.ref = 
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 uuid = { module = "com.benasher44:uuid", version.ref = "uuid" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "androidx-datastore" }
-
+compose-calendar = { module = "com.kizitonwose.calendar:compose", version.ref = "compose-calendar" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

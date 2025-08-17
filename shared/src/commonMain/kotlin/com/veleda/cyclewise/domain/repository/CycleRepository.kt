@@ -2,7 +2,9 @@ package com.veleda.cyclewise.domain.repository
 
 import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.DailyEntry
+import com.veleda.cyclewise.domain.models.FullDailyLog
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.YearMonth
 
 /**
  * Shared interface for accessing and modifying cycle data.
@@ -25,12 +27,11 @@ interface CycleRepository {
     /** Returns the currently active (non-ended) cycle, if any. */
     suspend fun getCurrentlyOngoingCycle(): Cycle?
 
-    /** Returns a daily entry for a specific date, if one exists. */
-    suspend fun getEntryForDate(date: LocalDate): DailyEntry?
 
-    /** Returns all daily entries for a given cycle. */
-    suspend fun getEntriesForCycle(cycleId: String): List<DailyEntry>
+    /** Fetches all daily logs for a given month. */
+    suspend fun getFullLogForDate(date: LocalDate): FullDailyLog?
 
-    /** Inserts or updates a daily entry. */
-    suspend fun saveEntry(entry: DailyEntry)
+    suspend fun saveFullLog(log: FullDailyLog)
+
+    suspend fun getLogsForMonth(yearMonth: YearMonth): List<FullDailyLog>
 }

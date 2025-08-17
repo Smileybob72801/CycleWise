@@ -2,57 +2,95 @@ package com.veleda.cyclewise.ui.tracker
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.repository.CycleRepository
 import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
 import com.veleda.cyclewise.domain.usecases.StartNewCycleUseCase
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.YearMonth
+import kotlinx.datetime.todayIn
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
-/**
- * ViewModel for the TrackerScreen.
- * Exposes a list of cycles and handles adding a new cycle.
- */
+// The new UI state for the TrackerScreen
+data class TrackerUiState(
+    val calendarDays: Map<LocalDate, CalendarDayInfo> = emptyMap()
+)
+
 class CycleViewModel(
     private val cycleRepository: CycleRepository,
     private val startNewCycleUseCase: StartNewCycleUseCase,
-    private val endCycleUseCase: EndCycleUseCase,
+    private val endCycleUseCase: EndCycleUseCase
 ) : ViewModel() {
 
-    private val _cycles = MutableStateFlow<List<com.veleda.cyclewise.domain.models.Cycle>>(emptyList())
-    val cycles: StateFlow<List<com.veleda.cyclewise.domain.models.Cycle>> = _cycles.asStateFlow()
+    private val _uiState = MutableStateFlow(TrackerUiState())
+    val uiState = _uiState.asStateFlow()
 
-    init {
+    // Keep track of which months we've already loaded to avoid redundant fetches
+    private val loadedMonths = mutableSetOf<YearMonth>()
+
+    fun loadDataForMonth(yearMonth: YearMonth) {
+        // Only fetch if we haven't loaded this month before
+        if (loadedMonths.contains(yearMonth)) return
+
+        loadedMonths.add(yearMonth)
+
         viewModelScope.launch {
-            // Load existing cycles on start
-            _cycles.value = cycleRepository.getAllCycles()
+            val logs = cycleRepository.getLogsForMonth(yearMonth)
+
+            val newCalendarDays = logs.associate { log ->
+                val date = log.entry.entryDate
+                val info = CalendarDayInfo(
+                    isPeriodDay = log.entry.flowIntensity != null,
+                    hasSymptoms = log.symptoms.isNotEmpty()
+                )
+                date to info
+            }
+
+            _uiState.update { currentState ->
+                // Add the new days to the existing map
+                currentState.copy(
+                    calendarDays = currentState.calendarDays + newCalendarDays
+                )
+            }
         }
     }
 
-    /** Called when the user taps the Add Cycle button. */
-    @OptIn(ExperimentalTime::class)
-    fun onAddNewCycleClicked() {
+    fun onStartNewCycleClicked() {
         viewModelScope.launch {
-            // Add a new cycle and refresh list
-            val now = Clock.System.now()
-            val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
+            val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+
+            // Check if there is already an entry for today. If so, do nothing.
+            // This prevents creating duplicate cycles on the same day.
+            if (_uiState.value.calendarDays[today]?.isPeriodDay == true) {
+                return@launch
+            }
+
+            // --- The Instant Feedback Logic ---
+            // 1. Immediately update the local UI state.
+            _uiState.update { currentState ->
+                val newDayInfo = currentState.calendarDays[today]?.copy(isPeriodDay = true)
+                    ?: CalendarDayInfo(isPeriodDay = true)
+
+                currentState.copy(
+                    calendarDays = currentState.calendarDays + (today to newDayInfo)
+                )
+            }
+
+            // 2. Then, tell the repository to save the change in the background.
+            //    The UI is already updated, so this feels instant to the user.
             startNewCycleUseCase(today)
-            _cycles.value = cycleRepository.getAllCycles()
         }
     }
 
-    /** Called when the user taps the End Cycle button. */
-    @OptIn(ExperimentalTime::class)
     fun onEndCycleClicked() {
         viewModelScope.launch {
-            val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+            val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
             endCycleUseCase(endDate = today)
-            _cycles.value = cycleRepository.getAllCycles()
+            // Refresh the current month's data to show the change
+            loadDataForMonth(YearMonth(today.year, today.month))
         }
     }
 }
