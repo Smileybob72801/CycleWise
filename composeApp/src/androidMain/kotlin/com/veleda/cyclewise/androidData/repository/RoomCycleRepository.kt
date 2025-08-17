@@ -13,10 +13,20 @@ import kotlinx.datetime.LocalDate
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import androidx.room.withTransaction
+import com.veleda.cyclewise.androidData.local.dao.MedicationDao
+import com.veleda.cyclewise.androidData.local.dao.SymptomDao
+import com.veleda.cyclewise.androidData.local.database.CycleDatabase
+import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.androidData.local.entities.toEntity
+import kotlinx.coroutines.flow.firstOrNull
 
 class RoomCycleRepository(
+    private val db: CycleDatabase,
     private val cycleDao: CycleDao,
     private val dailyEntryDao: DailyEntryDao,
+    private val symptomDao: SymptomDao,
+    private val medicationDao: MedicationDao,
 ) : CycleRepository {
     override suspend fun getAllCycles(): List<Cycle> =
         cycleDao
@@ -59,13 +69,11 @@ class RoomCycleRepository(
     }
 
     override suspend fun getCurrentlyOngoingCycle(): Cycle? {
-        // returns Flow<CycleEntity?>; take first emission
         val entity = cycleDao.getOngoingCycle().first()
         return entity?.toDomain()
     }
 
     override suspend fun getEntryForDate(date: LocalDate): DailyEntry? {
-        // .first() will throw if the flow is empty, so we use .firstOrNull()
         return dailyEntryDao.getEntryForDate(date).first()?.toDomain()
     }
 
@@ -73,7 +81,31 @@ class RoomCycleRepository(
         return dailyEntryDao.getEntriesForCycle(cycleId).first().map { it.toDomain() }
     }
 
-    override suspend fun saveEntry(entry: DailyEntry) {
-        dailyEntryDao.insert(entry.toEntity())
+    override suspend fun getFullLogForDate(date: LocalDate): FullDailyLog? {
+        val entryEntity = dailyEntryDao.getEntryForDate(date).firstOrNull() ?: return null
+        val symptoms = symptomDao.getSymptomsForEntry(entryEntity.id).firstOrNull() ?: emptyList()
+        val medications = medicationDao.getMedicationsForEntry(entryEntity.id).firstOrNull() ?: emptyList()
+
+        return FullDailyLog(
+            entry = entryEntity.toDomain(),
+            symptoms = symptoms.map { it.toDomain() },
+            medications = medications.map { it.toDomain() }
+        )
+    }
+
+    override suspend fun saveFullLog(log: FullDailyLog) {
+        db.withTransaction {
+            dailyEntryDao.insert(log.entry.toEntity())
+
+            symptomDao.deleteSymptomsForEntry(log.entry.id)
+            if (log.symptoms.isNotEmpty()) {
+                symptomDao.insertSymptoms(log.symptoms.map { it.toEntity() })
+            }
+
+            medicationDao.deleteMedicationsForEntry(log.entry.id)
+            if (log.medications.isNotEmpty()) {
+                medicationDao.insertMedications(log.medications.map { it.toEntity() })
+            }
+        }
     }
 }

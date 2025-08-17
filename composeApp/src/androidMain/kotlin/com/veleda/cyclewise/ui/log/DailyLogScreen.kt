@@ -6,7 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -16,35 +16,32 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.domain.models.FlowIntensity
+import com.veleda.cyclewise.domain.models.Symptom
 import kotlinx.datetime.LocalDate
 import org.koin.androidx.compose.koinViewModel
-import org.koin.compose.getKoin // <-- ADD THIS IMPORT
+import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) // <-- Add ExperimentalLayoutApi
 @Composable
 fun DailyLogScreen(
     date: LocalDate,
     onSaveComplete: () -> Unit
 ) {
-    // 1. Get the ACTIVE scope INSTANCE using the unique ID we gave it
-    //    during creation in PassphraseScreen.
     val sessionScope = getKoin().getScope("session")
-
-    // 2. Pass this instance to koinViewModel.
     val viewModel: DailyLogViewModel = koinViewModel(
-        scope = sessionScope, // Pass the Scope INSTANCE here
+        scope = sessionScope,
         parameters = { parametersOf(date) }
     )
-
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                viewModel.saveEntry()
+                viewModel.saveLog() // Changed from saveEntry to saveLog
                 onSaveComplete()
             }) {
-                Icon(Icons.Default.Check, contentDescription = "Save Entry")
+                Icon(Icons.Default.Check, contentDescription = "Save Log")
             }
         }
     ) { padding ->
@@ -59,8 +56,8 @@ fun DailyLogScreen(
                     Text(text = uiState.error!!, color = MaterialTheme.colorScheme.error)
                 }
             }
-            uiState.entry != null -> {
-                val entry = uiState.entry!!
+            uiState.log != null -> {
+                val log = uiState.log!!
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -69,24 +66,34 @@ fun DailyLogScreen(
                         .verticalScroll(rememberScrollState())
                 ) {
                     Text(
-                        text = "Log for ${entry.entryDate}",
+                        text = "Log for ${log.entry.entryDate}",
                         style = MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
 
                     SectionTitle("Flow")
                     FlowIntensitySelector(
-                        selectedIntensity = entry.flowIntensity,
+                        selectedIntensity = log.entry.flowIntensity,
                         onSelectionChanged = { viewModel.setFlowIntensity(it) }
                     )
 
                     SectionTitle("Mood")
                     MoodSelector(
-                        selectedMood = entry.moodScore,
+                        selectedMood = log.entry.moodScore,
                         onSelectionChanged = { viewModel.setMoodScore(it) }
                     )
 
-                    Spacer(Modifier.height(80.dp))
+                    // vvv THE NEW UI SECTION vvv
+                    SectionTitle("Symptoms")
+                    SymptomSelector(
+                        allSymptoms = viewModel.commonSymptoms,
+                        selectedSymptoms = log.symptoms,
+                        onSymptomClick = { viewModel.toggleSymptom(it) }
+                    )
+                    // ^^^ THE NEW UI SECTION ^^^
+
+                    // We will add Medications here later
+                    Spacer(Modifier.height(80.dp)) // Spacer for the FAB
                 }
             }
         }
@@ -104,8 +111,8 @@ private fun SectionTitle(title: String) {
 
 @Composable
 private fun FlowIntensitySelector(
-    selectedIntensity: String?,
-    onSelectionChanged: (String?) -> Unit
+    selectedIntensity: FlowIntensity?,
+    onSelectionChanged: (FlowIntensity?) -> Unit
 ) {
     val options = listOf(FlowIntensity.LIGHT, FlowIntensity.MEDIUM, FlowIntensity.HEAVY)
     Row(
@@ -119,7 +126,31 @@ private fun FlowIntensitySelector(
                     val newSelection = if (selectedIntensity == intensity) null else intensity
                     onSelectionChanged(newSelection)
                 },
-                label = { Text(intensity.replaceFirstChar { it.uppercase() }) }
+                label = { Text(intensity.toString().replaceFirstChar { it.uppercase() }) }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun SymptomSelector(
+    allSymptoms: List<String>,
+    selectedSymptoms: List<Symptom>,
+    onSymptomClick: (String) -> Unit
+) {
+    // FlowRow is an experimental layout that arranges items like a ChipGroup,
+    // wrapping them to the next line if the current one is full.
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        allSymptoms.forEach { symptomType ->
+            val isSelected = selectedSymptoms.any { it.type == symptomType }
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSymptomClick(symptomType) },
+                label = { Text(symptomType.replaceFirstChar { it.uppercase() }) }
             )
         }
     }
@@ -136,7 +167,7 @@ private fun MoodSelector(
     ) {
         (1..5).forEach { score ->
             IconButton(onClick = { onSelectionChanged(score) }) {
-                val icon = if (score <= (selectedMood ?: 0)) Icons.Default.Star else Icons.Outlined.Close
+                val icon = if (score <= (selectedMood ?: 0)) Icons.Default.Star else Icons.Outlined.Clear
                 Icon(icon, contentDescription = "Mood score $score", modifier = Modifier.size(40.dp))
             }
         }

@@ -1,6 +1,8 @@
 package com.veleda.cyclewise.androidData.local.entities
 
 import androidx.room.TypeConverter
+import com.veleda.cyclewise.domain.models.FlowIntensity
+import com.veleda.cyclewise.domain.models.LibidoLevel
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlin.time.ExperimentalTime
@@ -41,4 +43,16 @@ object Converters {
     fun toStringList(tagsJson: String): List<String> {
         return Json.decodeFromString(tagsJson)
     }
+
+    @TypeConverter
+    fun fromFlowIntensity(value: FlowIntensity?): String? = value?.name
+
+    @TypeConverter
+    fun toFlowIntensity(value: String?): FlowIntensity? = value?.let { FlowIntensity.valueOf(it) }
+
+    @TypeConverter
+    fun fromLibidoLevel(value: LibidoLevel?): String? = value?.name
+
+    @TypeConverter
+    fun toLibidoLevel(value: String?): LibidoLevel? = value?.let { LibidoLevel.valueOf(it) }
 }

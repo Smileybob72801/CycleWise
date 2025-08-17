@@ -11,17 +11,29 @@ import com.veleda.cyclewise.androidData.local.database.migrations.Migration_1_2
 import com.veleda.cyclewise.androidData.local.entities.CycleEntity
 import com.veleda.cyclewise.androidData.local.entities.Converters
 import com.veleda.cyclewise.androidData.local.entities.DailyEntryEntity
+import com.veleda.cyclewise.androidData.local.dao.MedicationDao
+import com.veleda.cyclewise.androidData.local.dao.SymptomDao
+import com.veleda.cyclewise.androidData.local.database.migrations.Migration_2_3
+import com.veleda.cyclewise.androidData.local.entities.MedicationEntity
+import com.veleda.cyclewise.androidData.local.entities.SymptomEntity
 import net.sqlcipher.database.SupportFactory
 
 @Database(
-    entities = [CycleEntity::class, DailyEntryEntity::class],
-    version = 2,
+    entities = [
+        CycleEntity::class,
+        DailyEntryEntity::class,
+        SymptomEntity::class,
+        MedicationEntity::class,
+    ],
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class CycleDatabase : RoomDatabase() {
     abstract fun cycleDao(): CycleDao
     abstract fun dailyEntryDao(): DailyEntryDao
+    abstract fun symptomDao(): SymptomDao
+    abstract fun medicationDao(): MedicationDao
 
     companion object {
         fun create(context: Context, passphrase: ByteArray): CycleDatabase {
@@ -32,7 +44,10 @@ abstract class CycleDatabase : RoomDatabase() {
                 "cyclewise.db"
             )
                 .openHelperFactory(factory)
-                .addMigrations(Migration_1_2)
+                .addMigrations(
+                    Migration_1_2,
+                    Migration_2_3,
+                )
                 .build()
         }
     }
