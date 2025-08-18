@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -143,7 +144,7 @@ private fun MoodSelector(
     ) {
         (1..5).forEach { score ->
             IconButton(onClick = { onSelectionChanged(score) }) {
-                val icon = if (score <= (selectedMood ?: 0)) Icons.Filled.Star else Icons.Outlined.Star
+                val icon = if (score <= (selectedMood ?: 0)) Icons.Filled.Star else Icons.Outlined.Clear
                 Icon(icon, contentDescription = "Mood score $score", modifier = Modifier.size(40.dp))
             }
         }

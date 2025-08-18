@@ -2,6 +2,7 @@ package com.veleda.cyclewise.ui.tracker
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +25,7 @@ import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.veleda.cyclewise.di.SESSION_SCOPE
 import com.veleda.cyclewise.ui.nav.NavRoute
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.toKotlinLocalDate
 import org.koin.androidx.viewmodel.ext.android.getViewModel
 import org.koin.compose.getKoin
@@ -32,67 +34,55 @@ import java.util.Locale
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
+import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Clock
 import java.time.DayOfWeek as JavaDayOfWeek
 import java.time.YearMonth as JavaYearMonth
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackerScreen(navController: NavController) {
+    var showPastCycleDialog by remember { mutableStateOf(false) }
+    var selectedPastDate by remember { mutableStateOf<LocalDate?>(null) }
+    val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
 
-    val sessionScope = getKoin().getScope("session")
-
-    val viewModel: CycleViewModel = koinViewModel(scope = sessionScope)
-
+    val viewModel: CycleViewModel = koinViewModel(scope = getKoin().getScope("session"))
     val uiState by viewModel.uiState.collectAsState()
 
     val currentMonth = remember { JavaYearMonth.now() }
     val startMonth = remember { currentMonth.minusMonths(100) }
     val endMonth = remember { currentMonth.plusMonths(100) }
     val firstDayOfWeek = remember { firstDayOfWeekFromLocale() }
-    val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
+    val state = rememberCalendarState(startMonth, endMonth, currentMonth, firstDayOfWeek)
 
-    val state = rememberCalendarState(
-        startMonth = startMonth,
-        endMonth = endMonth,
-        firstVisibleMonth = currentMonth,
-        firstDayOfWeek = firstDayOfWeek
-    )
-
-    // This is the correct way to handle month scrolls.
-    // It triggers whenever the first visible month changes.
     LaunchedEffect(state.firstVisibleMonth) {
         val visibleMonth = state.firstVisibleMonth.yearMonth
-        val kotlinYearMonth = YearMonth(visibleMonth.year, visibleMonth.monthValue)
-        viewModel.loadDataForMonth(kotlinYearMonth)
+        viewModel.loadDataForMonth(YearMonth(visibleMonth.year, visibleMonth.monthValue))
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(text = state.firstVisibleMonth.yearMonth.toString()) },
-                actions = {
-                    CycleActionsMenu(
-                        onStartCycle = { viewModel.onStartNewCycleClicked() },
-                        onEndCycle = { viewModel.onEndCycleClicked() }
-                    )
-                }
-            )
-        }
-    ) { padding ->
+    Scaffold { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Text(
+                text = state.firstVisibleMonth.yearMonth.toString(),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                textAlign = TextAlign.Center
+            )
             DaysOfWeekTitle(daysOfWeek = firstDayOfWeek.let {
                 val days = JavaDayOfWeek.entries
                 days.subList(it.value - 1, days.size) + days.subList(0, it.value - 1)
             })
             HorizontalCalendar(
                 state = state,
+                modifier = Modifier.weight(1f),
                 dayContent = { day ->
                     val kotlinDate = day.date.toKotlinLocalDate()
                     Day(
@@ -100,48 +90,53 @@ fun TrackerScreen(navController: NavController) {
                         dayInfo = uiState.calendarDays[kotlinDate],
                         isToday = kotlinDate == today,
                         isEnabled = kotlinDate <= today,
+                        onLongClick = { date ->
+                            // Only allow logging a past cycle if no cycle is currently ongoing.
+                            if (!uiState.isCycleOngoing && date <= today) {
+                                selectedPastDate = date
+                                showPastCycleDialog = true
+                            }
+                        },
                         onClick = { date ->
-                            navController.navigate(NavRoute.DailyLog.createRoute(date = date))
+                            navController.navigate(NavRoute.DailyLog.createRoute(date))
                         }
                     )
                 }
             )
+
+            Spacer(Modifier.height(16.dp))
+            if (uiState.isCycleOngoing) {
+                Button(onClick = { viewModel.onEndCurrentCycle() }) {
+                    Text("End Current Cycle")
+                }
+            } else {
+                Button(onClick = { viewModel.onStartCycleToday() }) {
+                    Text("Start New Cycle Today")
+                }
+            }
+            Spacer(Modifier.height(16.dp))
         }
     }
-}
 
-@Composable
-private fun CycleActionsMenu(
-    onStartCycle: () -> Unit,
-    onEndCycle: () -> Unit
-) {
-    var menuExpanded by remember { mutableStateOf(false) }
-
-    Box {
-        IconButton(onClick = { menuExpanded = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = "More Actions")
-        }
-        DropdownMenu(
-            expanded = menuExpanded,
-            onDismissRequest = { menuExpanded = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("Start New Cycle") },
-                onClick = {
-                    onStartCycle()
-                    menuExpanded = false
-                },
-                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }
-            )
-            DropdownMenuItem(
-                text = { Text("End Current Cycle") },
-                onClick = {
-                    onEndCycle()
-                    menuExpanded = false
-                },
-                leadingIcon = { Icon(Icons.Outlined.CheckCircle, contentDescription = null) }
-            )
-        }
+    if (showPastCycleDialog && selectedPastDate != null) {
+        // In a production app, this would be a more advanced dialog with two date pickers.
+        // For now, this AlertDialog demonstrates the complete workflow.
+        AlertDialog(
+            onDismissRequest = { showPastCycleDialog = false },
+            title = { Text("Log a Past Cycle") },
+            text = { Text("Set this date as the start of a new, completed cycle?\n\nStart: $selectedPastDate\n(End date will be set 4 days later for this demo).") },
+            confirmButton = {
+                Button(onClick = {
+                    val startDate = selectedPastDate!!
+                    val endDate = startDate.plus(4, DateTimeUnit.DAY) // Simulate a 5-day period
+                    viewModel.onLogPastCycle(startDate, endDate)
+                    showPastCycleDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPastCycleDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
@@ -151,20 +146,19 @@ private fun Day(
     dayInfo: CalendarDayInfo?,
     isToday: Boolean,
     isEnabled: Boolean,
+    onLongClick: (LocalDate) -> Unit,
     onClick: (LocalDate) -> Unit
 ) {
-    // Determine the alpha for disabled dates
     val alpha = if (isEnabled) 1f else 0.5f
-
     Box(
         modifier = Modifier
-            .aspectRatio(1f) // This is important for square-ish appearance
+            .aspectRatio(1f)
             .clip(CircleShape)
             .background(color = if (dayInfo?.isPeriodDay == true) MaterialTheme.colorScheme.primaryContainer.copy(alpha = alpha) else Color.Transparent)
-            .clickable(
-                // 3. Use the isEnabled flag to control clickability
+            .combinedClickable(
                 enabled = day.position == DayPosition.MonthDate && isEnabled,
-                onClick = { onClick(day.date.toKotlinLocalDate()) }
+                onClick = { onClick(day.date.toKotlinLocalDate()) },
+                onLongClick = { onLongClick(day.date.toKotlinLocalDate()) }
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -172,21 +166,16 @@ private fun Day(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Add a visual indicator for "today"
             val textColor = if (day.position == DayPosition.MonthDate) {
                 MaterialTheme.colorScheme.onSurface
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             }
-
             Text(
                 text = day.date.dayOfMonth.toString(),
                 color = textColor.copy(alpha = alpha),
-                // Add an underline or different style for today
                 style = if (isToday) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium
             )
-
-            // Add a dot if there are symptoms
             if (dayInfo?.hasSymptoms == true && !dayInfo.isPeriodDay) {
                 Box(
                     modifier = Modifier

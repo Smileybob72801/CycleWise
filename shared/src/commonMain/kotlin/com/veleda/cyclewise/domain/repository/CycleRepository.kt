@@ -27,11 +27,13 @@ interface CycleRepository {
     /** Returns the currently active (non-ended) cycle, if any. */
     suspend fun getCurrentlyOngoingCycle(): Cycle?
 
-
     /** Fetches all daily logs for a given month. */
     suspend fun getFullLogForDate(date: LocalDate): FullDailyLog?
 
     suspend fun saveFullLog(log: FullDailyLog)
 
     suspend fun getLogsForMonth(yearMonth: YearMonth): List<FullDailyLog>
+
+    /** Creates a new, already-completed cycle in the database. */
+    suspend fun createCompletedCycle(startDate: LocalDate, endDate: LocalDate): Cycle
 }

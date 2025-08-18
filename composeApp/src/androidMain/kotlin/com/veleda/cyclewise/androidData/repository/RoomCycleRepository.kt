@@ -108,4 +108,18 @@ class RoomCycleRepository(
             )
         }
     }
+
+    @OptIn(ExperimentalTime::class)
+    override suspend fun createCompletedCycle(startDate: LocalDate, endDate: LocalDate): Cycle {
+        val now = Clock.System.now()
+        val domainCycle = Cycle(
+            id = uuid4().toString(),
+            startDate = startDate,
+            endDate = endDate, // The end date is provided directly
+            createdAt = now,
+            updatedAt = now
+        )
+        cycleDao.insert(domainCycle.toEntity())
+        return domainCycle
+    }
 }

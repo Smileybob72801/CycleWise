@@ -14,9 +14,14 @@ import kotlinx.datetime.YearMonth
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
 
-// The new UI state for the TrackerScreen
+/**
+ * UI State for the TrackerScreen.
+ * @param calendarDays Map of dates to their display information.
+ * @param isCycleOngoing Controls the state of the primary action button.
+ */
 data class TrackerUiState(
-    val calendarDays: Map<LocalDate, CalendarDayInfo> = emptyMap()
+    val calendarDays: Map<LocalDate, CalendarDayInfo> = emptyMap(),
+    val isCycleOngoing: Boolean = false
 )
 
 class CycleViewModel(
@@ -30,6 +35,14 @@ class CycleViewModel(
 
     // Keep track of which months we've already loaded to avoid redundant fetches
     private val loadedMonths = mutableSetOf<YearMonth>()
+
+    init {
+        // Check for an ongoing cycle when the ViewModel is created to set the initial button state.
+        viewModelScope.launch {
+            val ongoingCycle = cycleRepository.getCurrentlyOngoingCycle()
+            _uiState.update { it.copy(isCycleOngoing = ongoingCycle != null) }
+        }
+    }
 
     fun loadDataForMonth(yearMonth: YearMonth) {
         // Only fetch if we haven't loaded this month before
@@ -58,39 +71,44 @@ class CycleViewModel(
         }
     }
 
-    fun onStartNewCycleClicked() {
+    fun onStartCycleToday() {
         viewModelScope.launch {
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-
-            // Check if there is already an entry for today. If so, do nothing.
-            // This prevents creating duplicate cycles on the same day.
-            if (_uiState.value.calendarDays[today]?.isPeriodDay == true) {
-                return@launch
+            val newCycle = startNewCycleUseCase(today)
+            if (newCycle != null) {
+                // Instantly update the UI state for immediate feedback
+                _uiState.update { it.copy(isCycleOngoing = true) }
+                // Clear loaded months to force a refresh of the new data
+                loadedMonths.clear()
+                loadDataForMonth(YearMonth(today.year, today.month))
             }
-
-            // --- The Instant Feedback Logic ---
-            // 1. Immediately update the local UI state.
-            _uiState.update { currentState ->
-                val newDayInfo = currentState.calendarDays[today]?.copy(isPeriodDay = true)
-                    ?: CalendarDayInfo(isPeriodDay = true)
-
-                currentState.copy(
-                    calendarDays = currentState.calendarDays + (today to newDayInfo)
-                )
-            }
-
-            // 2. Then, tell the repository to save the change in the background.
-            //    The UI is already updated, so this feels instant to the user.
-            startNewCycleUseCase(today)
         }
     }
 
-    fun onEndCycleClicked() {
+    fun onEndCurrentCycle() {
         viewModelScope.launch {
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-            endCycleUseCase(endDate = today)
-            // Refresh the current month's data to show the change
-            loadDataForMonth(YearMonth(today.year, today.month))
+            val endedCycle = endCycleUseCase(endDate = today)
+            if (endedCycle != null) {
+                // Instantly update the UI state
+                _uiState.update { it.copy(isCycleOngoing = false) }
+                // Refresh the calendar
+                loadedMonths.clear()
+                loadDataForMonth(YearMonth(today.year, today.month))
+            }
+        }
+    }
+
+    fun onLogPastCycle(startDate: LocalDate, endDate: LocalDate) {
+        viewModelScope.launch {
+            // No need to check for ongoing cycle here, as the UI should prevent this.
+            cycleRepository.createCompletedCycle(startDate, endDate)
+            // Refresh the calendar for the affected months
+            loadedMonths.clear()
+            loadDataForMonth(YearMonth(startDate.year, startDate.month))
+            if (startDate.month != endDate.month) {
+                loadDataForMonth(YearMonth(endDate.year, endDate.month))
+            }
         }
     }
 }
