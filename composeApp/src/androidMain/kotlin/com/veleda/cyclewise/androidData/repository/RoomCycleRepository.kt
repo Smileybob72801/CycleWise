@@ -122,4 +122,17 @@ class RoomCycleRepository(
         cycleDao.insert(domainCycle.toEntity())
         return domainCycle
     }
+
+    override suspend fun isDateRangeAvailable(startDate: LocalDate, endDate: LocalDate): Boolean {
+        val count = cycleDao.getOverlappingCyclesCount(startDate, endDate)
+        return count == 0
+    }
+
+    override suspend fun updateCycleEndDate(cycleId: String, endDate: LocalDate?): Cycle? {
+        val existing = cycleDao.getByUuid(cycleId) ?: return null
+        // The .copy() method can handle a nullable value perfectly.
+        val updated = existing.copy(endDate = endDate, updatedAt = Clock.System.now())
+        cycleDao.update(updated)
+        return updated.toDomain()
+    }
 }

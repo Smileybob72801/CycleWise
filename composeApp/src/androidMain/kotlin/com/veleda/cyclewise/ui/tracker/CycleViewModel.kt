@@ -2,113 +2,162 @@ package com.veleda.cyclewise.ui.tracker
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.benasher44.uuid.uuid4
+import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FlowIntensity
+import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.repository.CycleRepository
 import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
+import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
 import com.veleda.cyclewise.domain.usecases.StartNewCycleUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
+import kotlinx.datetime.daysUntil
+import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
 
 /**
- * UI State for the TrackerScreen.
- * @param calendarDays Map of dates to their display information.
- * @param isCycleOngoing Controls the state of the primary action button.
+ * UI State for the interactive TrackerScreen.
  */
 data class TrackerUiState(
-    val calendarDays: Map<LocalDate, CalendarDayInfo> = emptyMap(),
-    val isCycleOngoing: Boolean = false
-)
+    val cycles: List<Cycle> = emptyList(),
+    val selectionStartDate: LocalDate? = null,
+    val selectionEndDate: LocalDate? = null,
 
+    // This holds the data for the bottom sheet.
+    // When it's not null, the sheet will be visible.
+    val logForSheet: FullDailyLog? = null
+) {
+    val ongoingCycle: Cycle? = cycles.find { it.endDate == null }
+    val isSelectingRange: Boolean = selectionStartDate != null
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
 class CycleViewModel(
-    private val cycleRepository: CycleRepository,
-    private val startNewCycleUseCase: StartNewCycleUseCase,
-    private val endCycleUseCase: EndCycleUseCase
+    private val cycleRepository: CycleRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TrackerUiState())
     val uiState = _uiState.asStateFlow()
-
-    // Keep track of which months we've already loaded to avoid redundant fetches
-    private val loadedMonths = mutableSetOf<YearMonth>()
+    private val refreshTrigger = MutableSharedFlow<Unit>(replay = 1)
 
     init {
-        // Check for an ongoing cycle when the ViewModel is created to set the initial button state.
         viewModelScope.launch {
-            val ongoingCycle = cycleRepository.getCurrentlyOngoingCycle()
-            _uiState.update { it.copy(isCycleOngoing = ongoingCycle != null) }
+            refreshTrigger.flatMapLatest {
+                flow { emit(cycleRepository.getAllCycles()) }
+            }.collect { cycles ->
+                _uiState.update { it.copy(cycles = cycles) }
+            }
+        }
+        refreshData()
+    }
+
+    private fun refreshData() {
+        viewModelScope.launch {
+            refreshTrigger.emit(Unit)
         }
     }
 
-    fun loadDataForMonth(yearMonth: YearMonth) {
-        // Only fetch if we haven't loaded this month before
-        if (loadedMonths.contains(yearMonth)) return
+    // --- MAIN UI EVENT HANDLER ---
+    fun onDateClicked(date: LocalDate, cycleForDate: Cycle?) {
 
-        loadedMonths.add(yearMonth)
-
-        viewModelScope.launch {
-            val logs = cycleRepository.getLogsForMonth(yearMonth)
-
-            val newCalendarDays = logs.associate { log ->
-                val date = log.entry.entryDate
-                val info = CalendarDayInfo(
-                    isPeriodDay = log.entry.flowIntensity != null,
-                    hasSymptoms = log.symptoms.isNotEmpty()
-                )
-                date to info
-            }
-
-            _uiState.update { currentState ->
-                // Add the new days to the existing map
-                currentState.copy(
-                    calendarDays = currentState.calendarDays + newCalendarDays
-                )
-            }
-        }
-    }
-
-    fun onStartCycleToday() {
-        viewModelScope.launch {
+        if (cycleForDate != null) {
+            // --- INTENTION B: VIEWING MODE ---
+            // If the tapped date is part of an existing cycle, show the bottom sheet.
+            showLogSheetForDate(date, cycleForDate)
+        } else {
+            // --- INTENTION A: CREATION MODE ---
+            // Otherwise, handle the tap-tap-confirm selection logic.
+            val currentState = _uiState.value
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-            val newCycle = startNewCycleUseCase(today)
-            if (newCycle != null) {
-                // Instantly update the UI state for immediate feedback
-                _uiState.update { it.copy(isCycleOngoing = true) }
-                // Clear loaded months to force a refresh of the new data
-                loadedMonths.clear()
-                loadDataForMonth(YearMonth(today.year, today.month))
+
+            if (date > today || currentState.ongoingCycle != null) return
+
+            if (currentState.selectionStartDate == null) {
+                _uiState.update { it.copy(selectionStartDate = date) }
+            } else if (date < currentState.selectionStartDate) {
+                _uiState.update { it.copy(selectionStartDate = date, selectionEndDate = null) }
+            } else if (date == currentState.selectionStartDate) {
+                clearSelection()
+            } else {
+                _uiState.update { it.copy(selectionEndDate = date) }
             }
         }
+    }
+
+    // --- BOTTOM SHEET ACTIONS ---
+    private fun showLogSheetForDate(date: LocalDate, cycleForDate: Cycle) {
+        viewModelScope.launch {
+            // First, try to fetch an existing log.
+            var log = cycleRepository.getFullLogForDate(date)
+
+            if (log == null) {
+                // If no log exists, create a new, blank one in memory.
+                // We use the cycleForDate that the UI passed to us, which is guaranteed to be correct.
+                val dayInCycle = cycleForDate.startDate.daysUntil(date) + 1
+                val newBlankEntry = DailyEntry(
+                    id = uuid4().toString(),
+                    cycleId = cycleForDate.id, // The correct cycle ID!
+                    entryDate = date,
+                    dayInCycle = dayInCycle,
+                    createdAt = Clock.System.now(),
+                    updatedAt = Clock.System.now()
+                )
+                log = FullDailyLog(entry = newBlankEntry)
+            }
+
+            // Now, `log` will either be the existing log or our new blank one.
+            // Update the state to show the sheet.
+            _uiState.update { it.copy(logForSheet = log) }
+        }
+    }
+
+    fun onDismissLogSheet() {
+        _uiState.update { it.copy(logForSheet = null) }
+    }
+
+    fun onSaveSelection() {
+        val currentState = _uiState.value
+        val startDate = currentState.selectionStartDate ?: return
+        // If no end date is explicitly selected, the cycle is for a single day.
+        val endDate = currentState.selectionEndDate ?: startDate
+
+        viewModelScope.launch {
+            if (cycleRepository.isDateRangeAvailable(startDate, endDate)) {
+                val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+                if (startDate == today) {
+                    // If starting today, it's an ongoing cycle.
+                    cycleRepository.startNewCycle(startDate)
+                } else {
+                    // If starting in the past, it's a completed cycle.
+                    cycleRepository.createCompletedCycle(startDate, endDate)
+                }
+                clearSelection()
+                refreshData()
+            } else {
+                println("Error: Cycle overlaps with an existing one.")
+                // TODO: Show a user-facing error (e.g., via a Toast or Snackbar).
+            }
+        }
+    }
+
+    fun clearSelection() {
+        _uiState.update { it.copy(selectionStartDate = null, selectionEndDate = null) }
     }
 
     fun onEndCurrentCycle() {
+        val ongoingCycle = _uiState.value.ongoingCycle ?: return
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
         viewModelScope.launch {
-            val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-            val endedCycle = endCycleUseCase(endDate = today)
-            if (endedCycle != null) {
-                // Instantly update the UI state
-                _uiState.update { it.copy(isCycleOngoing = false) }
-                // Refresh the calendar
-                loadedMonths.clear()
-                loadDataForMonth(YearMonth(today.year, today.month))
-            }
-        }
-    }
-
-    fun onLogPastCycle(startDate: LocalDate, endDate: LocalDate) {
-        viewModelScope.launch {
-            // No need to check for ongoing cycle here, as the UI should prevent this.
-            cycleRepository.createCompletedCycle(startDate, endDate)
-            // Refresh the calendar for the affected months
-            loadedMonths.clear()
-            loadDataForMonth(YearMonth(startDate.year, startDate.month))
-            if (startDate.month != endDate.month) {
-                loadDataForMonth(YearMonth(endDate.year, endDate.month))
-            }
+            cycleRepository.endCycle(ongoingCycle.id, today)
+            refreshData()
         }
     }
 }

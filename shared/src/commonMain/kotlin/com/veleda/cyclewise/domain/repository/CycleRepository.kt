@@ -21,6 +21,9 @@ interface CycleRepository {
     /** Starts a new cycle on the given start date. */
     suspend fun startNewCycle(startDate: LocalDate) : Cycle
 
+    /** Updates the end date of an existing cycle. Can be null to make it ongoing. */
+    suspend fun updateCycleEndDate(cycleId: String, endDate: LocalDate?): Cycle?
+
     /** Marks an existing cycle as ended on the given date. */
     suspend fun endCycle(cycleId: String, endDate: LocalDate): Cycle?
 
@@ -36,4 +39,7 @@ interface CycleRepository {
 
     /** Creates a new, already-completed cycle in the database. */
     suspend fun createCompletedCycle(startDate: LocalDate, endDate: LocalDate): Cycle
+
+    /** Checks if a given date range overlaps with any existing cycles. */
+    suspend fun isDateRangeAvailable(startDate: LocalDate, endDate: LocalDate): Boolean
 }

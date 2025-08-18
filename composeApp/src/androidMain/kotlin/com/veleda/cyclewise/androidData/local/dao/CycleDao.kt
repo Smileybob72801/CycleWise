@@ -3,6 +3,7 @@ package com.veleda.cyclewise.androidData.local.dao
 import androidx.room.*
 import com.veleda.cyclewise.androidData.local.entities.CycleEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.datetime.LocalDate
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
@@ -31,4 +32,15 @@ interface CycleDao {
     /** Reactive stream of currently ongoing cycle (end_date IS NULL). */
     @Query("SELECT * FROM cycles WHERE end_date IS NULL LIMIT 1")
     fun getOngoingCycle(): Flow<CycleEntity?>
+
+    /**
+     * Counts cycles that overlap with the given date range, excluding a specific cycle (for updates).
+     * The logic is: (new_start <= existing_end) AND (new_end >= existing_start)
+     */
+    @Query("""
+        SELECT COUNT(id) FROM cycles
+        WHERE (:startDate <= end_date OR end_date IS NULL) 
+        AND (:endDate >= start_date)
+    """)
+    suspend fun getOverlappingCyclesCount(startDate: LocalDate, endDate: LocalDate): Int
 }

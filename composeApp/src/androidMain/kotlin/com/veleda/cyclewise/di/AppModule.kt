@@ -61,16 +61,14 @@ val appModule = module {
         }
 
         // Use Case Providers
-        scoped { StartNewCycleUseCase(get()) }
-        scoped { EndCycleUseCase(get()) }
+        // scoped { StartNewCycleUseCase(get()) }
+        // scoped { EndCycleUseCase(get()) }
         scoped { GetOrCreateDailyEntryUseCase(get()) }
 
         // ViewModel Providers
         viewModel {
             CycleViewModel(
-                cycleRepository = get(),
-                startNewCycleUseCase = get(),
-                endCycleUseCase = get()
+                cycleRepository = get()
             )
         }
 
@@ -78,7 +76,6 @@ val appModule = module {
         viewModel { (date: LocalDate) ->
             DailyLogViewModel(
                 entryDate = date,
-                getOrCreateDailyEntryUseCase = get(),
                 cycleRepository = get()
             )
         }

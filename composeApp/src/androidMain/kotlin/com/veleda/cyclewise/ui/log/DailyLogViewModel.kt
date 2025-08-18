@@ -3,6 +3,7 @@ package com.veleda.cyclewise.ui.log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.benasher44.uuid.uuid4
+import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Symptom
@@ -13,6 +14,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.daysUntil
+import kotlinx.datetime.todayIn
+import kotlin.time.Clock
 
 // Represents the state of the UI, holding the FullDailyLog
 data class DailyLogUiState(
@@ -23,7 +28,6 @@ data class DailyLogUiState(
 
 class DailyLogViewModel(
     private val entryDate: LocalDate,
-    private val getOrCreateDailyEntryUseCase: GetOrCreateDailyEntryUseCase,
     private val cycleRepository: CycleRepository
 ) : ViewModel() {
 
@@ -39,17 +43,29 @@ class DailyLogViewModel(
     private fun loadLog() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            var result: FullDailyLog? = null
 
-            // First, try to fetch an existing full log
-            val existingLog = cycleRepository.getFullLogForDate(entryDate)
-            if (existingLog != null) {
-                result = existingLog
-            } else {
-                // If no log exists, create a new one using the use case
-                val newEntry = getOrCreateDailyEntryUseCase(entryDate)
-                if (newEntry != null) {
-                    result = FullDailyLog(entry = newEntry)
+            // First, try to fetch an existing log.
+            var result = cycleRepository.getFullLogForDate(entryDate)
+
+            if (result == null) {
+                // If no log exists, we must create a new, blank one.
+                // To do this, we need to find which cycle this date belongs to.
+                val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+                val allCycles = cycleRepository.getAllCycles()
+                val parentCycle = allCycles.find { entryDate in (it.startDate..(it.endDate ?: today)) }
+
+                if (parentCycle != null) {
+                    // We found the parent cycle, so we can create a new blank entry.
+                    val dayInCycle = parentCycle.startDate.daysUntil(entryDate) + 1
+                    val newBlankEntry = DailyEntry(
+                        id = uuid4().toString(),
+                        cycleId = parentCycle.id,
+                        entryDate = entryDate,
+                        dayInCycle = dayInCycle,
+                        createdAt = Clock.System.now(),
+                        updatedAt = Clock.System.now()
+                    )
+                    result = FullDailyLog(entry = newBlankEntry)
                 }
             }
 
@@ -57,7 +73,7 @@ class DailyLogViewModel(
                 it.copy(
                     isLoading = false,
                     log = result,
-                    error = if (result == null) "Could not find an active cycle for this date." else null
+                    error = if (result == null) "Could not find a parent cycle for this date." else null
                 )
             }
         }
