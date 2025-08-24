@@ -25,7 +25,7 @@ data class DailyLogUiState(
     val isLoading: Boolean = true,
     val log: FullDailyLog? = null,
     val error: String? = null,
-    val medications: List<MedicationLog> = emptyList()
+    val medicationLibrary: List<Medication> = emptyList()
 )
 
 class DailyLogViewModel(
@@ -35,8 +35,6 @@ class DailyLogViewModel(
 {
     private val _uiState = MutableStateFlow(DailyLogUiState())
     val uiState = _uiState.asStateFlow()
-    private val _medicationLibrary = MutableStateFlow<List<Medication>>(emptyList())
-    val medicationLibrary = _medicationLibrary.asStateFlow()
 
     // A predefined list of common symptoms for the user to select from.
     // TODO: get this from config file or settings.
@@ -64,7 +62,7 @@ class DailyLogViewModel(
 
         viewModelScope.launch {
             cycleRepository.getMedicationLibrary().collect { meds ->
-                _medicationLibrary.value = meds
+                _uiState.update { it.copy(medicationLibrary = meds) }
             }
         }
     }
@@ -150,33 +148,42 @@ class DailyLogViewModel(
         }
     }
 
-    fun onAddMedication(medication: Medication) {
+    /**
+     * Toggles a medication's presence in the daily log.
+     * If it's already logged, it's removed. If not, it's added.
+     */
+    fun onToggleMedication(medication: Medication) {
         _uiState.update { state ->
-            val log = state.log ?: return@update state
-            if (log.medicationLogs.any { it.medicationId == medication.id }) return@update state
-            val newLog = MedicationLog(
-                id = uuid4().toString(),
-                entryId = log.entry.id,
-                medicationId = medication.id,
-                createdAt = Clock.System.now()
-            )
-            state.copy(log = log.copy(medicationLogs = log.medicationLogs + newLog))
+            val currentLog = state.log ?: return@update state
+            val existingLog = currentLog.medicationLogs.find { it.medicationId == medication.id }
+
+            val newLogs = if (existingLog != null) {
+                // It exists, so remove it.
+                currentLog.medicationLogs.filterNot { it.id == existingLog.id }
+            } else {
+                // It doesn't exist, so add it.
+                val newLog = MedicationLog(
+                    id = uuid4().toString(),
+                    entryId = currentLog.entry.id,
+                    medicationId = medication.id,
+                    createdAt = Clock.System.now()
+                )
+                currentLog.medicationLogs + newLog
+            }
+            state.copy(log = currentLog.copy(medicationLogs = newLogs))
         }
     }
 
-    fun onRemoveMedication(logId: String) {
-        _uiState.update { state ->
-            val log = state.log ?: return@update state
-            val newLogs = log.medicationLogs.filterNot { it.id == logId }
-            state.copy(log = log.copy(medicationLogs = newLogs))
-        }
-    }
-
+    /**
+     * Creates a new medication in the library and immediately adds it to the current day's log.
+     */
     fun onCreateAndAddMedication(name: String) {
         if (name.isBlank()) return
         viewModelScope.launch {
+            // This repository method is smart: it either creates a new med or returns the existing one.
             val newMed = cycleRepository.createOrGetMedicationInLibrary(name.trim())
-            onAddMedication(newMed)
+            // Now that the med is guaranteed to be in the library, toggle it into the log.
+            onToggleMedication(newMed)
         }
     }
 

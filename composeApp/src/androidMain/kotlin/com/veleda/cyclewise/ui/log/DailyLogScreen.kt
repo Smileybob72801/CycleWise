@@ -104,10 +104,9 @@ fun DailyLogScreen(
                     SectionTitle("Medications")
                     MedicationLogger(
                         loggedMedications = log.medicationLogs,
-                        medicationLibrary = viewModel.medicationLibrary.collectAsState().value,
-                        onAddMedication = { viewModel.onAddMedication(it) },
-                        onCreateAndAddMedication = { viewModel.onCreateAndAddMedication(it) },
-                        onRemoveMedication = { viewModel.onRemoveMedication(it) }
+                        medicationLibrary = uiState.medicationLibrary, // Pass in the full library
+                        onToggleMedication = { viewModel.onToggleMedication(it) },
+                        onCreateAndAddMedication = { viewModel.onCreateAndAddMedication(it) }
                     )
 
                     SectionTitle("Custom Tags")
@@ -202,114 +201,57 @@ private fun SymptomSelector(
         }
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun MedicationLogger(
     loggedMedications: List<MedicationLog>,
     medicationLibrary: List<Medication>,
-    onAddMedication: (Medication) -> Unit,
-    onCreateAndAddMedication: (String) -> Unit,
-    onRemoveMedication: (String) -> Unit
+    onToggleMedication: (Medication) -> Unit,
+    onCreateAndAddMedication: (String) -> Unit
 ) {
-    var query by remember { mutableStateOf("") }
-    var isSearchExpanded by remember { mutableStateOf(false) }
+    var newMedicationName by remember { mutableStateOf("") }
 
-    val filteredLibrary = remember(query, medicationLibrary) {
-        if (query.isBlank()) {
-            emptyList()
-        } else {
-            medicationLibrary.filter { it.name.contains(query, ignoreCase = true) }
-        }
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // --- 1. Display currently logged medications ---
-        if (loggedMedications.isNotEmpty()) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Part 1: Display the entire library as selectable chips
+        if (medicationLibrary.isNotEmpty()) {
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                loggedMedications.forEach { log ->
-                    // Find the full medication info from the library using the ID
-                    val medInfo = medicationLibrary.find { it.id == log.medicationId }
-                    if (medInfo != null) {
-                        InputChip(
-                            // vvv THE FIX IS HERE vvv
-                            selected = false, // This chip is just for display, not selection
-                            onClick = { /* No action on click */ },
-                            // ^^^ THE FIX IS HERE ^^^
-                            label = { Text(medInfo.name) },
-                            trailingIcon = {
-                                IconButton(
-                                    onClick = { onRemoveMedication(log.id) },
-                                    modifier = Modifier.size(18.dp)
-                                ) {
-                                    Icon(Icons.Default.Close, contentDescription = "Remove ${medInfo.name}")
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        // --- 2. Autocomplete search and add box ---
-        ExposedDropdownMenuBox(
-            expanded = isSearchExpanded && query.isNotEmpty(),
-            onExpandedChange = {
-                // We don't want to change the expanded state on click, only through focus.
-            }
-        ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = {
-                    query = it
-                    isSearchExpanded = true // Show dropdown when user types
-                },
-                label = { Text("Search or add medication...") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(), // Connects the text field to the dropdown
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = "" }) { // Clear button
-                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
-                        }
-                    }
-                }
-            )
-
-            // The actual dropdown menu
-            ExposedDropdownMenu(
-                expanded = isSearchExpanded && query.isNotEmpty(),
-                onDismissRequest = { isSearchExpanded = false } // Hide when user clicks away
-            ) {
-                filteredLibrary.forEach { med ->
-                    DropdownMenuItem(
-                        text = { Text(med.name) },
-                        onClick = {
-                            onAddMedication(med)
-                            query = ""
-                            isSearchExpanded = false
-                        }
-                    )
-                }
-                // Show "Create new" option if the query doesn't exactly match any library item
-                if (query.isNotEmpty() && filteredLibrary.none { it.name.equals(query, ignoreCase = true) }) {
-                    DropdownMenuItem(
-                        text = {
-                            Text("Create new: \"$query\"")
-                        },
-                        onClick = {
-                            onCreateAndAddMedication(query)
-                            query = ""
-                            isSearchExpanded = false
-                        },
-                        leadingIcon = { Icon(Icons.Default.Add, contentDescription = "Create new") }
+                medicationLibrary.forEach { medication ->
+                    val isSelected = loggedMedications.any { it.medicationId == medication.id }
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onToggleMedication(medication) },
+                        label = { Text(medication.name) }
                     )
                 }
             }
         }
+
+        // Part 2: Text field to add a new medication to the library
+        OutlinedTextField(
+            value = newMedicationName,
+            onValueChange = { newMedicationName = it },
+            label = { Text("Add new medication...") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                onCreateAndAddMedication(newMedicationName)
+                newMedicationName = "" // Clear text after adding
+            }),
+            trailingIcon = {
+                IconButton(
+                    onClick = {
+                        onCreateAndAddMedication(newMedicationName)
+                        newMedicationName = ""
+                    },
+                    enabled = newMedicationName.isNotBlank()
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Create and Add Medication")
+                }
+            }
+        )
     }
 }
 
