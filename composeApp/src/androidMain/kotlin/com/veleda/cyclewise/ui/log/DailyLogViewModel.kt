@@ -6,6 +6,7 @@ import com.benasher44.uuid.uuid4
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.repository.CycleRepository
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
@@ -137,6 +138,56 @@ class DailyLogViewModel(
         viewModelScope.launch {
             // Call the correct, refactored repository method
             cycleRepository.saveFullLog(logToSave)
+        }
+    }
+
+    fun onAddMedication(name: String) {
+        if (name.isBlank()) return
+        _uiState.update { state ->
+            val currentLog = state.log ?: return@update state
+            val newMedication = Medication(
+                id = uuid4().toString(),
+                entryId = currentLog.entry.id,
+                name = name.trim()
+            )
+            val newMedications = currentLog.medications + newMedication
+            state.copy(log = currentLog.copy(medications = newMedications))
+        }
+    }
+
+    fun onRemoveMedication(medicationId: String) {
+        _uiState.update { state ->
+            val currentLog = state.log ?: return@update state
+            val newMedications = currentLog.medications.filterNot { it.id == medicationId }
+            state.copy(log = currentLog.copy(medications = newMedications))
+        }
+    }
+
+    fun onAddTag(tag: String) {
+        if (tag.isBlank()) return
+        _uiState.update { state ->
+            val currentLog = state.log ?: return@update state
+            // Prevent duplicate tags
+            if (currentLog.entry.customTags.contains(tag.trim())) return@update state
+
+            val newTags = currentLog.entry.customTags + tag.trim()
+            val newEntry = currentLog.entry.copy(customTags = newTags)
+            state.copy(log = currentLog.copy(entry = newEntry))
+        }
+    }
+
+    fun onRemoveTag(tag: String) {
+        _uiState.update { state ->
+            val currentLog = state.log ?: return@update state
+            val newTags = currentLog.entry.customTags.filterNot { it == tag }
+            val newEntry = currentLog.entry.copy(customTags = newTags)
+            state.copy(log = currentLog.copy(entry = newEntry))
+        }
+    }
+
+    fun onNoteChanged(newText: String) {
+        _uiState.update { state ->
+            state.copy(log = state.log?.copy(entry = state.log.entry.copy(note = newText)))
         }
     }
 }

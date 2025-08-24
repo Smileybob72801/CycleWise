@@ -11,6 +11,7 @@ import com.veleda.cyclewise.androidData.local.dao.MedicationDao
 import com.veleda.cyclewise.androidData.local.dao.SymptomDao
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_1_2
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_2_3
+import com.veleda.cyclewise.androidData.local.database.migrations.Migration_3_4
 import com.veleda.cyclewise.androidData.local.entities.CycleEntity
 import com.veleda.cyclewise.androidData.local.entities.Converters
 import com.veleda.cyclewise.androidData.local.entities.DailyEntryEntity
@@ -25,7 +26,7 @@ import net.sqlcipher.database.SupportFactory
         SymptomEntity::class,
         MedicationEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -47,6 +48,7 @@ abstract class CycleDatabase : RoomDatabase() {
                 .addMigrations(
                     Migration_1_2,
                     Migration_2_3,
+                    Migration_3_4,
                 )
                 .build()
         }

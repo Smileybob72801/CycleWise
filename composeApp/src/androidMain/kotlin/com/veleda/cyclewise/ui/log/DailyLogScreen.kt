@@ -2,9 +2,13 @@ package com.veleda.cyclewise.ui.log
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Star
@@ -12,10 +16,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.domain.models.FlowIntensity
+import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
 import kotlinx.datetime.LocalDate
 import org.koin.androidx.compose.koinViewModel
@@ -92,6 +101,26 @@ fun DailyLogScreen(
                         onSymptomClick = { viewModel.toggleSymptom(it) }
                     )
 
+                    SectionTitle("Medications")
+                    MedicationLogger(
+                        medications = log.medications,
+                        onAddMedication = { viewModel.onAddMedication(it) },
+                        onRemoveMedication = { viewModel.onRemoveMedication(it) }
+                    )
+
+                    SectionTitle("Custom Tags")
+                    CustomTagLogger(
+                        tags = log.entry.customTags,
+                        onAddTag = { viewModel.onAddTag(it) },
+                        onRemoveTag = { viewModel.onRemoveTag(it) }
+                    )
+
+                    SectionTitle("Notes")
+                    NoteEditor(
+                        note = log.entry.note ?: "",
+                        onNoteChanged = { viewModel.onNoteChanged(it) }
+                    )
+
                     Spacer(Modifier.height(80.dp)) // Spacer for the FAB
                 }
             }
@@ -114,7 +143,6 @@ private fun FlowIntensitySelector(
     selectedIntensity: FlowIntensity?,
     onSelectionChanged: (FlowIntensity?) -> Unit
 ) {
-    // We can now get the options directly from the enum
     val options = FlowIntensity.entries
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -171,4 +199,118 @@ private fun SymptomSelector(
             )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MedicationLogger(
+    medications: List<Medication>,
+    onAddMedication: (String) -> Unit,
+    onRemoveMedication: (String) -> Unit
+) {
+    var text by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            label = { Text("Add medication...") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                onAddMedication(text)
+                text = "" // Clear text after adding
+            }),
+            trailingIcon = {
+                IconButton(onClick = {
+                    onAddMedication(text)
+                    text = ""
+                }, enabled = text.isNotBlank()) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Medication")
+                }
+            }
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            medications.forEach { med ->
+                InputChip(
+                    selected = false,
+                    onClick = { /* Not used */ },
+                    label = { Text(med.name) },
+                    trailingIcon = {
+                        IconButton(onClick = { onRemoveMedication(med.id) }, modifier = Modifier.size(18.dp)) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove ${med.name}")
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CustomTagLogger(
+    tags: List<String>,
+    onAddTag: (String) -> Unit,
+    onRemoveTag: (String) -> Unit
+) {
+    var text by remember { mutableStateOf("") }
+    // Similar implementation to MedicationLogger
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            label = { Text("Add a custom tag...") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                onAddTag(text)
+                text = ""
+            }),
+            trailingIcon = {
+                IconButton(onClick = {
+                    onAddTag(text)
+                    text = ""
+                }, enabled = text.isNotBlank()) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Tag")
+                }
+            }
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            tags.forEach { tag ->
+                InputChip(
+                    selected = false,
+                    onClick = { /* Not used */ },
+                    label = { Text(tag) },
+                    trailingIcon = {
+                        IconButton(onClick = { onRemoveTag(tag) }, modifier = Modifier.size(18.dp)) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove $tag")
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoteEditor(
+    note: String,
+    onNoteChanged: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = note,
+        onValueChange = onNoteChanged,
+        label = { Text("Add any notes...") },
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 120.dp),
+        placeholder = { Text("How are you feeling? Any observations?") }
+    )
 }

@@ -16,6 +16,7 @@ data class DailyEntry(
     val libidoLevel: LibidoLevel? = null, // e.g., LibidoLevel.MEDIUM
     val spotting: Boolean = false,
     val customTags: List<String> = emptyList(), // For flexible user tags
+    val note: String? = null,
     val cyclePhase: String? = null, // e.g., "FOLLICULAR"
     val createdAt: Instant,
     val updatedAt: Instant
