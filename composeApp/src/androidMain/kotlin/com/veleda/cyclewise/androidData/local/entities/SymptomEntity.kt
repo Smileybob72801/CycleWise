@@ -19,7 +19,7 @@ import androidx.room.PrimaryKey
 data class SymptomEntity(
     @PrimaryKey val id: String, // UUID
     @ColumnInfo(name = "entry_id", index = true) val entryId: String,
-    @ColumnInfo(name = "symptom_type") val type: String, // e.g., "CRAMPS", "ACNE"
-    val severity: Int, // 1-5
+    @ColumnInfo(name = "symptom_type") val type: String,
+    val severity: Int,
     val note: String? = null
 )

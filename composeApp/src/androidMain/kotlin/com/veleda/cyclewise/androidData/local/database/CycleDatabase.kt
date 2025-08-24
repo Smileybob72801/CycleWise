@@ -7,13 +7,13 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.veleda.cyclewise.androidData.local.dao.CycleDao
 import com.veleda.cyclewise.androidData.local.dao.DailyEntryDao
+import com.veleda.cyclewise.androidData.local.dao.MedicationDao
+import com.veleda.cyclewise.androidData.local.dao.SymptomDao
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_1_2
+import com.veleda.cyclewise.androidData.local.database.migrations.Migration_2_3
 import com.veleda.cyclewise.androidData.local.entities.CycleEntity
 import com.veleda.cyclewise.androidData.local.entities.Converters
 import com.veleda.cyclewise.androidData.local.entities.DailyEntryEntity
-import com.veleda.cyclewise.androidData.local.dao.MedicationDao
-import com.veleda.cyclewise.androidData.local.dao.SymptomDao
-import com.veleda.cyclewise.androidData.local.database.migrations.Migration_2_3
 import com.veleda.cyclewise.androidData.local.entities.MedicationEntity
 import com.veleda.cyclewise.androidData.local.entities.SymptomEntity
 import net.sqlcipher.database.SupportFactory

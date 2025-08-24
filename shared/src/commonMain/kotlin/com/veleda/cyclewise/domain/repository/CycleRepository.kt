@@ -4,6 +4,7 @@ import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.YearMonth
 
 /**
  * Shared interface for accessing and modifying cycle data.
@@ -20,21 +21,27 @@ interface CycleRepository {
     /** Starts a new cycle on the given start date. */
     suspend fun startNewCycle(startDate: LocalDate) : Cycle
 
+    /** Updates the end date of an existing cycle. Can be null to make it ongoing. */
+    suspend fun updateCycleEndDate(cycleId: String, endDate: LocalDate?): Cycle?
+
     /** Marks an existing cycle as ended on the given date. */
     suspend fun endCycle(cycleId: String, endDate: LocalDate): Cycle?
 
     /** Returns the currently active (non-ended) cycle, if any. */
     suspend fun getCurrentlyOngoingCycle(): Cycle?
 
-    /** Returns a daily entry for a specific date, if one exists. */
-    suspend fun getEntryForDate(date: LocalDate): DailyEntry?
-
-    /** Returns all daily entries for a given cycle. */
-    suspend fun getEntriesForCycle(cycleId: String): List<DailyEntry>
-
-    /** Returns all data for a day. */
+    /** Fetches all daily logs for a given month. */
     suspend fun getFullLogForDate(date: LocalDate): FullDailyLog?
 
     /** Store all data for a day. */
     suspend fun saveFullLog(log: FullDailyLog)
+
+    /** Returns all data for a day. */
+    suspend fun getLogsForMonth(yearMonth: YearMonth): List<FullDailyLog>
+
+    /** Creates a new, already-completed cycle in the database. */
+    suspend fun createCompletedCycle(startDate: LocalDate, endDate: LocalDate): Cycle
+
+    /** Checks if a given date range overlaps with any existing cycles. */
+    suspend fun isDateRangeAvailable(startDate: LocalDate, endDate: LocalDate): Boolean
 }

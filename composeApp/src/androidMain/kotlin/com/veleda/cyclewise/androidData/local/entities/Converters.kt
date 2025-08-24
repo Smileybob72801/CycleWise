@@ -45,14 +45,26 @@ object Converters {
     }
 
     @TypeConverter
-    fun fromFlowIntensity(value: FlowIntensity?): String? = value?.name
+    fun fromFlowIntensity(value: FlowIntensity?): String? {
+        // Converts the enum to its String name for storing in the database.
+        // E.g., FlowIntensity.HEAVY -> "HEAVY"
+        return value?.name
+    }
 
     @TypeConverter
-    fun toFlowIntensity(value: String?): FlowIntensity? = value?.let { FlowIntensity.valueOf(it) }
+    fun toFlowIntensity(value: String?): FlowIntensity? {
+        // Converts a String from the database back into the corresponding enum.
+        // E.g., "HEAVY" -> FlowIntensity.HEAVY
+        return value?.let { FlowIntensity.valueOf(it) }
+    }
 
     @TypeConverter
-    fun fromLibidoLevel(value: LibidoLevel?): String? = value?.name
+    fun fromLibidoLevel(value: LibidoLevel?): String? {
+        return value?.name
+    }
 
     @TypeConverter
-    fun toLibidoLevel(value: String?): LibidoLevel? = value?.let { LibidoLevel.valueOf(it) }
+    fun toLibidoLevel(value: String?): LibidoLevel? {
+        return value?.let { LibidoLevel.valueOf(it) }
+    }
 }

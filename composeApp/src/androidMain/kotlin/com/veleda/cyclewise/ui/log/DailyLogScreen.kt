@@ -22,7 +22,7 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) // <-- Add ExperimentalLayoutApi
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) // Add ExperimentalLayoutApi
 @Composable
 fun DailyLogScreen(
     date: LocalDate,
@@ -38,7 +38,8 @@ fun DailyLogScreen(
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                viewModel.saveLog() // Changed from saveEntry to saveLog
+                // vvv FIX: Call the correct save function vvv
+                viewModel.saveLog()
                 onSaveComplete()
             }) {
                 Icon(Icons.Default.Check, contentDescription = "Save Log")
@@ -56,6 +57,7 @@ fun DailyLogScreen(
                     Text(text = uiState.error!!, color = MaterialTheme.colorScheme.error)
                 }
             }
+            // vvv FIX: Use the new 'log' state object vvv
             uiState.log != null -> {
                 val log = uiState.log!!
                 Column(
@@ -73,7 +75,7 @@ fun DailyLogScreen(
 
                     SectionTitle("Flow")
                     FlowIntensitySelector(
-                        selectedIntensity = log.entry.flowIntensity,
+                        selectedIntensity = log.entry.flowIntensity, // Pass the enum
                         onSelectionChanged = { viewModel.setFlowIntensity(it) }
                     )
 
@@ -83,16 +85,13 @@ fun DailyLogScreen(
                         onSelectionChanged = { viewModel.setMoodScore(it) }
                     )
 
-                    // vvv THE NEW UI SECTION vvv
                     SectionTitle("Symptoms")
                     SymptomSelector(
                         allSymptoms = viewModel.commonSymptoms,
                         selectedSymptoms = log.symptoms,
                         onSymptomClick = { viewModel.toggleSymptom(it) }
                     )
-                    // ^^^ THE NEW UI SECTION ^^^
 
-                    // We will add Medications here later
                     Spacer(Modifier.height(80.dp)) // Spacer for the FAB
                 }
             }
@@ -109,48 +108,26 @@ private fun SectionTitle(title: String) {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FlowIntensitySelector(
     selectedIntensity: FlowIntensity?,
     onSelectionChanged: (FlowIntensity?) -> Unit
 ) {
-    val options = listOf(FlowIntensity.LIGHT, FlowIntensity.MEDIUM, FlowIntensity.HEAVY)
+    // We can now get the options directly from the enum
+    val options = FlowIntensity.entries
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        options.forEach { intensity ->
+        for (intensity in options) {
             FilterChip(
                 selected = selectedIntensity == intensity,
                 onClick = {
                     val newSelection = if (selectedIntensity == intensity) null else intensity
                     onSelectionChanged(newSelection)
                 },
-                label = { Text(intensity.toString().replaceFirstChar { it.uppercase() }) }
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
-@Composable
-private fun SymptomSelector(
-    allSymptoms: List<String>,
-    selectedSymptoms: List<Symptom>,
-    onSymptomClick: (String) -> Unit
-) {
-    // FlowRow is an experimental layout that arranges items like a ChipGroup,
-    // wrapping them to the next line if the current one is full.
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        allSymptoms.forEach { symptomType ->
-            val isSelected = selectedSymptoms.any { it.type == symptomType }
-            FilterChip(
-                selected = isSelected,
-                onClick = { onSymptomClick(symptomType) },
-                label = { Text(symptomType.replaceFirstChar { it.uppercase() }) }
+                label = { Text(intensity.name.replaceFirstChar { it.uppercase() }) }
             )
         }
     }
@@ -167,9 +144,31 @@ private fun MoodSelector(
     ) {
         (1..5).forEach { score ->
             IconButton(onClick = { onSelectionChanged(score) }) {
-                val icon = if (score <= (selectedMood ?: 0)) Icons.Default.Star else Icons.Outlined.Clear
+                val icon = if (score <= (selectedMood ?: 0)) Icons.Filled.Star else Icons.Outlined.Clear
                 Icon(icon, contentDescription = "Mood score $score", modifier = Modifier.size(40.dp))
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun SymptomSelector(
+    allSymptoms: List<String>,
+    selectedSymptoms: List<Symptom>,
+    onSymptomClick: (String) -> Unit
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        allSymptoms.forEach { symptomType ->
+            val isSelected = selectedSymptoms.any { it.type == symptomType }
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSymptomClick(symptomType) },
+                label = { Text(symptomType.replaceFirstChar { it.uppercase() }) }
+            )
         }
     }
 }

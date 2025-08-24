@@ -3,7 +3,6 @@ package com.veleda.cyclewise.androidData.local.entities
 import com.veleda.cyclewise.domain.models.Cycle
 import kotlin.time.ExperimentalTime
 import com.veleda.cyclewise.domain.models.DailyEntry
-import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
 import kotlinx.serialization.json.Json
@@ -70,11 +69,10 @@ fun DailyEntry.toEntity(): DailyEntryEntity =
         updatedAt = updatedAt
     )
 
-// --- Symptom Mappers ---
+/** Symptom Mappers */
 fun SymptomEntity.toDomain(): Symptom = Symptom(id, entryId, type, severity, note)
 fun Symptom.toEntity(): SymptomEntity = SymptomEntity(id, entryId, type, severity, note)
 
-
-// --- Medication Mappers ---
+/** Medication Mappers */
 fun MedicationEntity.toDomain(): Medication = Medication(id, entryId, name, note)
 fun Medication.toEntity(): MedicationEntity = MedicationEntity(id, entryId, name, note)

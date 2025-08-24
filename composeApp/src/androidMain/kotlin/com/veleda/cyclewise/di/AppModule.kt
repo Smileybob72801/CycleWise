@@ -21,8 +21,9 @@ import com.veleda.cyclewise.settings.AppSettings
 import org.koin.dsl.module
 import org.koin.core.scope.Scope
 import kotlinx.datetime.LocalDate
+import org.koin.core.qualifier.Qualifier
 
-val SESSION_SCOPE = named("UnlockedSessionScope")
+val SESSION_SCOPE: Qualifier = named("UnlockedSessionScope")
 
 val appModule = module {
     // Persistent salt for Argon2
@@ -56,21 +57,19 @@ val appModule = module {
                 cycleDao = get(),
                 dailyEntryDao = get(),
                 symptomDao = get(),
-                medicationDao = get()
+                medicationDao = get(),
             )
         }
 
         // Use Case Providers
-        scoped { StartNewCycleUseCase(get()) }
-        scoped { EndCycleUseCase(get()) }
+        // scoped { StartNewCycleUseCase(get()) }
+        // scoped { EndCycleUseCase(get()) }
         scoped { GetOrCreateDailyEntryUseCase(get()) }
 
         // ViewModel Providers
         viewModel {
             CycleViewModel(
-                cycleRepository = get(),
-                startNewCycleUseCase = get(),
-                endCycleUseCase = get()
+                cycleRepository = get()
             )
         }
 
@@ -78,7 +77,6 @@ val appModule = module {
         viewModel { (date: LocalDate) ->
             DailyLogViewModel(
                 entryDate = date,
-                getOrCreateDailyEntryUseCase = get(),
                 cycleRepository = get()
             )
         }

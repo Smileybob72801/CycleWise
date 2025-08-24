@@ -44,6 +44,7 @@ kotlin {
             implementation(libs.security.crypto)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.androidx.datastore.preferences)
+            implementation(libs.compose.calendar)
             implementation(libs.uuid)
         }
         commonMain.dependencies {
