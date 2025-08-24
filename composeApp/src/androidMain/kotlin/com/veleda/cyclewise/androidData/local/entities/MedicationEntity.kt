@@ -2,23 +2,18 @@ package com.veleda.cyclewise.androidData.local.entities
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
-import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
+@OptIn(ExperimentalTime::class)
 @Entity(
-    tableName = "medications",
-    foreignKeys = [
-        ForeignKey(
-            entity = DailyEntryEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["entry_id"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ]
+    tableName = "medication_library",
+    indices = [Index(value = ["name"], unique = true)] // Ensure medication names are unique
 )
 data class MedicationEntity(
     @PrimaryKey val id: String, // UUID
-    @ColumnInfo(name = "entry_id", index = true) val entryId: String,
-    @ColumnInfo(name = "medication_name") val name: String,
-    val note: String? = null
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "created_at") val createdAt: Instant
 )

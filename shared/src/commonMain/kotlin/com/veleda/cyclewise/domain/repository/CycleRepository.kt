@@ -3,6 +3,8 @@ package com.veleda.cyclewise.domain.repository
 import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.Medication
+import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.YearMonth
 
@@ -44,4 +46,13 @@ interface CycleRepository {
 
     /** Checks if a given date range overlaps with any existing cycles. */
     suspend fun isDateRangeAvailable(startDate: LocalDate, endDate: LocalDate): Boolean
+
+    /** Returns a reactive Flow of all unique medications in the user's library. */
+    fun getMedicationLibrary(): Flow<List<Medication>>
+
+    /**
+     * Creates a new unique medication in the library if it doesn't already exist by name,
+     * then returns the Medication object (either the new one or the existing one).
+     */
+    suspend fun createOrGetMedicationInLibrary(name: String): Medication
 }

@@ -4,9 +4,9 @@ import com.veleda.cyclewise.domain.models.Cycle
 import kotlin.time.ExperimentalTime
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.encodeToString
 
 /** Convert Room entity → shared domain model */
 @OptIn(ExperimentalTime::class)
@@ -75,6 +75,10 @@ fun DailyEntry.toEntity(): DailyEntryEntity =
 fun SymptomEntity.toDomain(): Symptom = Symptom(id, entryId, type, severity, note)
 fun Symptom.toEntity(): SymptomEntity = SymptomEntity(id, entryId, type, severity, note)
 
-/** Medication Mappers */
-fun MedicationEntity.toDomain(): Medication = Medication(id, entryId, name, note)
-fun Medication.toEntity(): MedicationEntity = MedicationEntity(id, entryId, name, note)
+// --- Medication Library Mappers ---
+fun MedicationEntity.toDomain(): Medication = Medication(id, name, createdAt)
+fun Medication.toEntity(): MedicationEntity = MedicationEntity(id, name, createdAt)
+
+// --- Medication Log Mappers ---
+fun MedicationLogEntity.toDomain(): MedicationLog = MedicationLog(id, entryId, medicationId, createdAt)
+fun MedicationLog.toEntity(): MedicationLogEntity = MedicationLogEntity(id, entryId, medicationId, createdAt)

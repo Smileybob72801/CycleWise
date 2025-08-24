@@ -21,10 +21,10 @@ object Migration_2_3 : Migration(2, 3) {
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_symptoms_entry_id` ON `symptoms` (`entry_id`)")
 
-        // Create the 'medications' table
+        // Create the 'medication-logs' table
         db.execSQL(
             """
-            CREATE TABLE IF NOT EXISTS `medications` (
+            CREATE TABLE IF NOT EXISTS `medication_logs` (
                 `id` TEXT NOT NULL,
                 `entry_id` TEXT NOT NULL,
                 `medication_name` TEXT NOT NULL,
@@ -34,6 +34,6 @@ object Migration_2_3 : Migration(2, 3) {
             )
             """.trimIndent()
         )
-        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medications_entry_id` ON `medications` (`entry_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medications_entry_id` ON `medication_logs` (`entry_id`)")
     }
 }

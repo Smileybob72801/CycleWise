@@ -7,9 +7,9 @@ import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.repository.CycleRepository
-import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -24,16 +24,19 @@ import kotlin.time.Clock
 data class DailyLogUiState(
     val isLoading: Boolean = true,
     val log: FullDailyLog? = null,
-    val error: String? = null
+    val error: String? = null,
+    val medications: List<MedicationLog> = emptyList()
 )
 
 class DailyLogViewModel(
     private val entryDate: LocalDate,
     private val cycleRepository: CycleRepository
-) : ViewModel() {
-
+) : ViewModel()
+{
     private val _uiState = MutableStateFlow(DailyLogUiState())
     val uiState = _uiState.asStateFlow()
+    private val _medicationLibrary = MutableStateFlow<List<Medication>>(emptyList())
+    val medicationLibrary = _medicationLibrary.asStateFlow()
 
     // A predefined list of common symptoms for the user to select from.
     // TODO: get this from config file or settings.
@@ -58,6 +61,12 @@ class DailyLogViewModel(
 
     init {
         loadLog()
+
+        viewModelScope.launch {
+            cycleRepository.getMedicationLibrary().collect { meds ->
+                _medicationLibrary.value = meds
+            }
+        }
     }
 
     private fun loadLog() {
@@ -141,25 +150,33 @@ class DailyLogViewModel(
         }
     }
 
-    fun onAddMedication(name: String) {
-        if (name.isBlank()) return
+    fun onAddMedication(medication: Medication) {
         _uiState.update { state ->
-            val currentLog = state.log ?: return@update state
-            val newMedication = Medication(
+            val log = state.log ?: return@update state
+            if (log.medicationLogs.any { it.medicationId == medication.id }) return@update state
+            val newLog = MedicationLog(
                 id = uuid4().toString(),
-                entryId = currentLog.entry.id,
-                name = name.trim()
+                entryId = log.entry.id,
+                medicationId = medication.id,
+                createdAt = Clock.System.now()
             )
-            val newMedications = currentLog.medications + newMedication
-            state.copy(log = currentLog.copy(medications = newMedications))
+            state.copy(log = log.copy(medicationLogs = log.medicationLogs + newLog))
         }
     }
 
-    fun onRemoveMedication(medicationId: String) {
+    fun onRemoveMedication(logId: String) {
         _uiState.update { state ->
-            val currentLog = state.log ?: return@update state
-            val newMedications = currentLog.medications.filterNot { it.id == medicationId }
-            state.copy(log = currentLog.copy(medications = newMedications))
+            val log = state.log ?: return@update state
+            val newLogs = log.medicationLogs.filterNot { it.id == logId }
+            state.copy(log = log.copy(medicationLogs = newLogs))
+        }
+    }
+
+    fun onCreateAndAddMedication(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            val newMed = cycleRepository.createOrGetMedicationInLibrary(name.trim())
+            onAddMedication(newMed)
         }
     }
 
