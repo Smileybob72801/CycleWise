@@ -186,4 +186,38 @@ class RoomCycleRepository(
         symptomDao.insert(newSymptom.toEntity())
         return newSymptom
     }
+
+    @OptIn(ExperimentalTime::class)
+    override suspend fun prepopulateSymptomLibrary() {
+        val now = Clock.System.now()
+        val defaultSymptoms = listOf(
+            Symptom(uuid4().toString(), "Cramps", SymptomCategory.PAIN, now),
+            Symptom(uuid4().toString(), "Headache", SymptomCategory.PAIN, now),
+            Symptom(uuid4().toString(), "Joint Pain", SymptomCategory.PAIN, now),
+            Symptom(uuid4().toString(), "Back Pain", SymptomCategory.PAIN, now),
+            Symptom(uuid4().toString(), "Breast Tenderness", SymptomCategory.PAIN, now),
+            Symptom(uuid4().toString(), "Fatigue", SymptomCategory.ENERGY, now),
+            Symptom(uuid4().toString(), "Brain Fog", SymptomCategory.ENERGY, now),
+            Symptom(uuid4().toString(), "Insomnia", SymptomCategory.ENERGY, now),
+            Symptom(uuid4().toString(), "Dizziness", SymptomCategory.ENERGY, now),
+            Symptom(uuid4().toString(), "Acne", SymptomCategory.SKIN, now),
+            Symptom(uuid4().toString(), "Anxiety", SymptomCategory.MOOD, now),
+            Symptom(uuid4().toString(), "Sadness", SymptomCategory.MOOD, now),
+            Symptom(uuid4().toString(), "Mood Swings", SymptomCategory.MOOD, now),
+            Symptom(uuid4().toString(), "Irritability", SymptomCategory.MOOD, now),
+            Symptom(uuid4().toString(), "Constipation", SymptomCategory.DIGESTIVE, now),
+            Symptom(uuid4().toString(), "Nausea", SymptomCategory.DIGESTIVE, now),
+            Symptom(uuid4().toString(), "Diarrhea", SymptomCategory.DIGESTIVE, now),
+            Symptom(uuid4().toString(), "Bloating", SymptomCategory.DIGESTIVE, now),
+            Symptom(uuid4().toString(), "Increased Appetite", SymptomCategory.DIGESTIVE, now),
+            Symptom(uuid4().toString(), "Decreased Appetite", SymptomCategory.DIGESTIVE, now),
+            // TODO: Add additional Symptoms
+        )
+
+        // We can't use insertAll because we need onConflict=IGNORE.
+        // Looping is fine for this one-time operation.
+        defaultSymptoms.forEach { symptom ->
+            symptomDao.insert(symptom.toEntity())
+        }
+    }
 }

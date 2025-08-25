@@ -66,4 +66,7 @@ interface CycleRepository {
      * then returns the Symptom object (either the new one or the existing one).
      */
     suspend fun createOrGetSymptomInLibrary(name: String, category: SymptomCategory = SymptomCategory.OTHER): Symptom
+
+    /** Pre-populates the symptom library with a default set of symptoms. */
+    suspend fun prepopulateSymptomLibrary()
 }
