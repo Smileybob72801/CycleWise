@@ -4,6 +4,8 @@ import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.SymptomCategory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.YearMonth
@@ -55,4 +57,13 @@ interface CycleRepository {
      * then returns the Medication object (either the new one or the existing one).
      */
     suspend fun createOrGetMedicationInLibrary(name: String): Medication
+
+    /** Returns a reactive Flow of all unique symptoms in the user's library. */
+    fun getSymptomLibrary(): Flow<List<Symptom>>
+
+    /**
+     * Creates a new unique symptom in the library if it doesn't already exist by name,
+     * then returns the Symptom object (either the new one or the existing one).
+     */
+    suspend fun createOrGetSymptomInLibrary(name: String, category: SymptomCategory = SymptomCategory.OTHER): Symptom
 }

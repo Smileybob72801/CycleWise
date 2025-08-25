@@ -27,6 +27,7 @@ import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.SymptomLog
 import kotlinx.datetime.LocalDate
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
@@ -95,16 +96,17 @@ fun DailyLogScreen(
                     )
 
                     SectionTitle("Symptoms")
-                    SymptomSelector(
-                        allSymptoms = viewModel.commonSymptoms,
-                        selectedSymptoms = log.symptoms,
-                        onSymptomClick = { viewModel.toggleSymptom(it) }
+                    SymptomLogger(
+                        loggedSymptoms = log.symptomLogs,
+                        symptomLibrary = uiState.symptomLibrary,
+                        onToggleSymptom = { viewModel.onToggleSymptom(it) },
+                        onCreateAndAddSymptom = { viewModel.onCreateAndAddSymptom(it) }
                     )
 
                     SectionTitle("Medications")
                     MedicationLogger(
                         loggedMedications = log.medicationLogs,
-                        medicationLibrary = uiState.medicationLibrary, // Pass in the full library
+                        medicationLibrary = uiState.medicationLibrary,
                         onToggleMedication = { viewModel.onToggleMedication(it) },
                         onCreateAndAddMedication = { viewModel.onCreateAndAddMedication(it) }
                     )
@@ -180,27 +182,6 @@ private fun MoodSelector(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
-@Composable
-private fun SymptomSelector(
-    allSymptoms: List<String>,
-    selectedSymptoms: List<Symptom>,
-    onSymptomClick: (String) -> Unit
-) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        allSymptoms.forEach { symptomType ->
-            val isSelected = selectedSymptoms.any { it.type == symptomType }
-            FilterChip(
-                selected = isSelected,
-                onClick = { onSymptomClick(symptomType) },
-                label = { Text(symptomType.replaceFirstChar { it.uppercase() }) }
-            )
-        }
-    }
-}
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun MedicationLogger(
@@ -318,4 +299,58 @@ private fun NoteEditor(
             .heightIn(min = 120.dp),
         placeholder = { Text("How are you feeling? Any observations?") }
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun SymptomLogger(
+    loggedSymptoms: List<SymptomLog>,
+    symptomLibrary: List<Symptom>,
+    onToggleSymptom: (Symptom) -> Unit,
+    onCreateAndAddSymptom: (String) -> Unit
+) {
+    var newMedicationName by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Part 1: Display the entire library as selectable chips
+        if (symptomLibrary.isNotEmpty()) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                symptomLibrary.forEach { symptom ->
+                    val isSelected = loggedSymptoms.any { it.symptomId == symptom.id }
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onToggleSymptom(symptom) },
+                        label = { Text(symptom.name) }
+                    )
+                }
+            }
+        }
+
+        // Part 2: Text field to add a new symptom to the library
+        OutlinedTextField(
+            value = newMedicationName,
+            onValueChange = { newMedicationName = it },
+            label = { Text("Add new symptom...") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                onCreateAndAddSymptom(newMedicationName)
+                newMedicationName = "" // Clear text after adding
+            }),
+            trailingIcon = {
+                IconButton(
+                    onClick = {
+                        onCreateAndAddSymptom(newMedicationName)
+                        newMedicationName = ""
+                    },
+                    enabled = newMedicationName.isNotBlank()
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Create and Add Symptom")
+                }
+            }
+        )
+    }
 }

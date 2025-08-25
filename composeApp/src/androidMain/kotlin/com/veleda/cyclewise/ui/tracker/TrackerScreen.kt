@@ -39,6 +39,7 @@ import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.veleda.cyclewise.di.SESSION_SCOPE
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.ui.nav.NavRoute
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -94,6 +95,7 @@ fun TrackerScreen(navController: NavController) {
             // Pass the stable lambda we created
             LogSummarySheetContent(
                 log = uiState.logForSheet!!,
+                symptomLibrary = uiState.symptomLibrary,
                 onEditClick = onEditClick
             )
         }
@@ -173,7 +175,10 @@ fun TrackerScreen(navController: NavController) {
 }
 
 @Composable
-private fun LogSummarySheetContent(log: FullDailyLog, onEditClick: (LocalDate) -> Unit) {
+private fun LogSummarySheetContent(
+    log: FullDailyLog,
+    symptomLibrary: List<Symptom>,
+    onEditClick: (LocalDate) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -206,14 +211,18 @@ private fun LogSummarySheetContent(log: FullDailyLog, onEditClick: (LocalDate) -
         }
 
         // Symptoms
-        if (log.symptoms.isNotEmpty()) {
+        if (log.symptomLogs.isNotEmpty()) {
             Text("Symptoms", style = MaterialTheme.typography.titleMedium)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(log.symptoms) { symptom ->
-                    SuggestionChip(
-                        onClick = {},
-                        label = { Text(symptom.type) }
-                    )
+                items(log.symptomLogs) { symptomLog ->
+                    // For each log, find the corresponding symptom from the library
+                    val symptomInfo = symptomLibrary.find { it.id == symptomLog.symptomId }
+                    if (symptomInfo != null) {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text(symptomInfo.name) } // Display the name
+                        )
+                    }
                 }
             }
         }

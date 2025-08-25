@@ -6,6 +6,7 @@ import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.SymptomLog
 import kotlinx.serialization.json.Json
 
 /** Convert Room entity → shared domain model */
@@ -71,10 +72,6 @@ fun DailyEntry.toEntity(): DailyEntryEntity =
         updatedAt = updatedAt
     )
 
-/** Symptom Mappers */
-fun SymptomEntity.toDomain(): Symptom = Symptom(id, entryId, type, severity, note)
-fun Symptom.toEntity(): SymptomEntity = SymptomEntity(id, entryId, type, severity, note)
-
 // --- Medication Library Mappers ---
 fun MedicationEntity.toDomain(): Medication = Medication(id, name, createdAt)
 fun Medication.toEntity(): MedicationEntity = MedicationEntity(id, name, createdAt)
@@ -82,3 +79,11 @@ fun Medication.toEntity(): MedicationEntity = MedicationEntity(id, name, created
 // --- Medication Log Mappers ---
 fun MedicationLogEntity.toDomain(): MedicationLog = MedicationLog(id, entryId, medicationId, createdAt)
 fun MedicationLog.toEntity(): MedicationLogEntity = MedicationLogEntity(id, entryId, medicationId, createdAt)
+
+// --- Symptom Library Mappers ---
+fun SymptomEntity.toDomain(): Symptom = Symptom(id, name, category, createdAt)
+fun Symptom.toEntity(): SymptomEntity = SymptomEntity(id, name, category, createdAt)
+
+// --- Symptom Log Mappers ---
+fun SymptomLogEntity.toDomain(): SymptomLog = SymptomLog(id, entryId, symptomId, severity, createdAt)
+fun SymptomLog.toEntity(): SymptomLogEntity = SymptomLogEntity(id, entryId, symptomId, severity, createdAt)

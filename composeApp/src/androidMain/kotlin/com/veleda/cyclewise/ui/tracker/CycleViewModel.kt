@@ -7,6 +7,10 @@ import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
+import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.CycleRepository
 import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
@@ -33,7 +37,10 @@ data class TrackerUiState(
 
     // This holds the data for the bottom sheet.
     // When it's not null, the sheet will be visible.
-    val logForSheet: FullDailyLog? = null
+    val logForSheet: FullDailyLog? = null,
+
+    val symptomLibrary: List<Symptom> = emptyList(),
+    val medicationLibrary: List<Medication> = emptyList(),
 ) {
     val ongoingCycle: Cycle? = cycles.find { it.endDate == null }
     val isSelectingRange: Boolean = selectionStartDate != null
@@ -41,7 +48,9 @@ data class TrackerUiState(
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CycleViewModel(
-    private val cycleRepository: CycleRepository
+    private val cycleRepository: CycleRepository,
+    private val symptomLibraryProvider: SymptomLibraryProvider,
+    private  val medicationLibraryProvider: MedicationLibraryProvider,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TrackerUiState())
@@ -56,6 +65,19 @@ class CycleViewModel(
                 _uiState.update { it.copy(cycles = cycles) }
             }
         }
+
+        viewModelScope.launch {
+            symptomLibraryProvider.symptoms.collect { symptoms ->
+                _uiState.update { it.copy(symptomLibrary = symptoms) }
+            }
+        }
+
+        viewModelScope.launch {
+            medicationLibraryProvider.medications.collect { medications ->
+                _uiState.update { it.copy(medicationLibrary = medications) }
+            }
+        }
+
         refreshData()
     }
 

@@ -9,6 +9,9 @@ import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
+import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.CycleRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,12 +28,15 @@ data class DailyLogUiState(
     val isLoading: Boolean = true,
     val log: FullDailyLog? = null,
     val error: String? = null,
+    val symptomLibrary: List<Symptom> = emptyList(),
     val medicationLibrary: List<Medication> = emptyList()
 )
 
 class DailyLogViewModel(
     private val entryDate: LocalDate,
-    private val cycleRepository: CycleRepository
+    private val cycleRepository: CycleRepository,
+    private val symptomLibraryProvider: SymptomLibraryProvider,
+    private val medicationLibraryProvider: MedicationLibraryProvider
 ) : ViewModel()
 {
     private val _uiState = MutableStateFlow(DailyLogUiState())
@@ -61,8 +67,13 @@ class DailyLogViewModel(
         loadLog()
 
         viewModelScope.launch {
-            cycleRepository.getMedicationLibrary().collect { meds ->
-                _uiState.update { it.copy(medicationLibrary = meds) }
+            symptomLibraryProvider.symptoms.collect { symptoms ->
+                _uiState.update { it.copy(symptomLibrary = symptoms) }
+            }
+        }
+        viewModelScope.launch {
+            medicationLibraryProvider.medications.collect { medications ->
+                _uiState.update { it.copy(medicationLibrary = medications) }
             }
         }
     }
@@ -117,26 +128,6 @@ class DailyLogViewModel(
     fun setMoodScore(score: Int) {
         _uiState.update { state ->
             state.copy(log = state.log?.copy(entry = state.log.entry.copy(moodScore = score)))
-        }
-    }
-
-    fun toggleSymptom(symptomType: String) {
-        _uiState.update { state ->
-            val currentLog = state.log ?: return@update state
-            val currentSymptoms = currentLog.symptoms
-            val isSelected = currentSymptoms.any { it.type == symptomType }
-
-            val newSymptoms = if (isSelected) {
-                currentSymptoms.filterNot { it.type == symptomType }
-            } else {
-                currentSymptoms + Symptom(
-                    id = uuid4().toString(),
-                    entryId = currentLog.entry.id,
-                    type = symptomType,
-                    severity = 3 // Default severity
-                )
-            }
-            state.copy(log = currentLog.copy(symptoms = newSymptoms))
         }
     }
 
@@ -212,6 +203,34 @@ class DailyLogViewModel(
     fun onNoteChanged(newText: String) {
         _uiState.update { state ->
             state.copy(log = state.log?.copy(entry = state.log.entry.copy(note = newText)))
+        }
+    }
+
+    fun onToggleSymptom(symptom: Symptom, severity: Int = 3) {
+        _uiState.update { state ->
+            val log = state.log ?: return@update state
+            val existingLog = log.symptomLogs.find { it.symptomId == symptom.id }
+            val newLogs = if (existingLog != null) {
+                log.symptomLogs.filterNot { it.id == existingLog.id }
+            } else {
+                val newLog = SymptomLog(
+                    id = uuid4().toString(),
+                    entryId = log.entry.id,
+                    symptomId = symptom.id,
+                    severity = severity,
+                    createdAt = Clock.System.now()
+                )
+                log.symptomLogs + newLog
+            }
+            state.copy(log = log.copy(symptomLogs = newLogs))
+        }
+    }
+
+    fun onCreateAndAddSymptom(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            val newSymptom = cycleRepository.createOrGetSymptomInLibrary(name.trim())
+            onToggleSymptom(newSymptom)
         }
     }
 }

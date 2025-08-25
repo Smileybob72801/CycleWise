@@ -7,12 +7,15 @@ import com.veleda.cyclewise.androidData.local.dao.DailyEntryDao
 import com.veleda.cyclewise.androidData.local.dao.MedicationDao
 import com.veleda.cyclewise.androidData.local.dao.MedicationLogDao
 import com.veleda.cyclewise.androidData.local.dao.SymptomDao
+import com.veleda.cyclewise.androidData.local.dao.SymptomLogDao
 import com.veleda.cyclewise.androidData.local.database.CycleDatabase
 import com.veleda.cyclewise.androidData.local.entities.toDomain
 import com.veleda.cyclewise.androidData.local.entities.toEntity
 import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.SymptomCategory
 import com.veleda.cyclewise.domain.repository.CycleRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -28,10 +31,9 @@ class RoomCycleRepository(
     private val dailyEntryDao: DailyEntryDao,
     private val symptomDao: SymptomDao,
     private val medicationDao: MedicationDao,
-    private val medicationLogDao: MedicationLogDao
+    private val medicationLogDao: MedicationLogDao,
+    private val symptomLogDao: SymptomLogDao,
 ) : CycleRepository {
-    // This class now correctly implements the updated interface
-    // All Cycle methods are unchanged and correct.
     override suspend fun getAllCycles(): List<Cycle> =
         cycleDao.getAllCycles().first().map { it.toDomain() }
 
@@ -44,7 +46,7 @@ class RoomCycleRepository(
     @OptIn(ExperimentalTime::class)
     override suspend fun startNewCycle(startDate: LocalDate): Cycle {
         val now = Clock.System.now()
-        val uuid = uuid4().toString() // Uses the imported KMP library
+        val uuid = uuid4().toString()
         val domainCycle = Cycle(
             id = uuid,
             startDate = startDate,
@@ -69,11 +71,11 @@ class RoomCycleRepository(
 
     override suspend fun getFullLogForDate(date: LocalDate): FullDailyLog? {
         val entryEntity = dailyEntryDao.getEntryForDate(date).firstOrNull() ?: return null
-        val symptoms = symptomDao.getSymptomsForEntry(entryEntity.id).firstOrNull() ?: emptyList()
+        val symptomLogs = symptomLogDao.getLogsForEntry(entryEntity.id).firstOrNull() ?: emptyList()
         val medicationLogs = medicationLogDao.getLogsForEntry(entryEntity.id).firstOrNull() ?: emptyList()
         return FullDailyLog(
             entry = entryEntity.toDomain(),
-            symptoms = symptoms.map { it.toDomain() },
+            symptomLogs = symptomLogs.map { it.toDomain() },
             medicationLogs = medicationLogs.map { it.toDomain() }
         )
     }
@@ -81,9 +83,9 @@ class RoomCycleRepository(
     override suspend fun saveFullLog(log: FullDailyLog) {
         db.withTransaction {
             dailyEntryDao.insert(log.entry.toEntity())
-            symptomDao.deleteSymptomsForEntry(log.entry.id)
-            if (log.symptoms.isNotEmpty()) {
-                symptomDao.insertSymptoms(log.symptoms.map { it.toEntity() })
+            symptomLogDao.deleteLogsForEntry(log.entry.id)
+            if (log.symptomLogs.isNotEmpty()) {
+                symptomLogDao.insertAll(log.symptomLogs.map { it.toEntity() })
             }
             medicationLogDao.deleteLogsForEntry(log.entry.id)
             if (log.medicationLogs.isNotEmpty()) {
@@ -100,13 +102,13 @@ class RoomCycleRepository(
         if (entryEntities.isEmpty()) return emptyList()
 
         val entryIds = entryEntities.map { it.id }
-        val allSymptoms = symptomDao.getSymptomsForEntries(entryIds).firstOrNull()?.groupBy { it.entryId } ?: emptyMap()
+        val allSymptomLogs = symptomLogDao.getLogsForEntries(entryIds).firstOrNull()?.groupBy { it.entryId } ?: emptyMap()
         val allMedicationLogs = medicationLogDao.getLogsForEntries(entryIds).firstOrNull()?.groupBy { it.entryId } ?: emptyMap()
 
         return entryEntities.map { entryEntity ->
             FullDailyLog(
                 entry = entryEntity.toDomain(),
-                symptoms = allSymptoms[entryEntity.id]?.map { it.toDomain() } ?: emptyList(),
+                symptomLogs = allSymptomLogs[entryEntity.id]?.map { it.toDomain() } ?: emptyList(),
                 medicationLogs = allMedicationLogs[entryEntity.id]?.map { it.toDomain() } ?: emptyList()
             )
         }
@@ -161,5 +163,27 @@ class RoomCycleRepository(
         )
         medicationDao.insert(newMed.toEntity())
         return newMed
+    }
+
+    override fun getSymptomLibrary(): Flow<List<Symptom>> {
+        return symptomDao.getAllSymptoms().map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
+    @OptIn(ExperimentalTime::class)
+    override suspend fun createOrGetSymptomInLibrary(name: String, category: SymptomCategory): Symptom {
+        val existing = symptomDao.getSymptomByName(name)
+        if (existing != null) {
+            return existing.toDomain()
+        }
+        val newSymptom = Symptom(
+            id = uuid4().toString(),
+            name = name,
+            category = category,
+            createdAt = Clock.System.now()
+        )
+        symptomDao.insert(newSymptom.toEntity())
+        return newSymptom
     }
 }

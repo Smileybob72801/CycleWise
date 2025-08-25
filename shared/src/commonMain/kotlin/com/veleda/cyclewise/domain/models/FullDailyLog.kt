@@ -7,6 +7,6 @@ package com.veleda.cyclewise.domain.models
  */
 data class FullDailyLog(
     val entry: DailyEntry,
-    val symptoms: List<Symptom> = emptyList(),
+    val symptomLogs: List<SymptomLog> = emptyList(),
     val medicationLogs: List<MedicationLog> = emptyList()
 )
