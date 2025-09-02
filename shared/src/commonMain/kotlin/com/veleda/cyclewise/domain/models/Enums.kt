@@ -11,3 +11,12 @@ enum class LibidoLevel {
     MEDIUM,
     HIGH
 }
+
+enum class SymptomCategory {
+    PAIN,
+    MOOD,
+    DIGESTIVE,
+    SKIN,
+    ENERGY,
+    OTHER
+}

@@ -1,9 +1,14 @@
 package com.veleda.cyclewise.domain.models
 
-data class Symptom(
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+
+/**
+ * Represents a unique symptom type in the user's library.
+ */
+data class Symptom @OptIn(ExperimentalTime::class) constructor(
     val id: String, // UUID
-    val entryId: String, // FK to DailyEntry
-    val type: String, // e.g., "CRAMPS", "ACNE"
-    val severity: Int, // 1-5
-    val note: String? = null
+    val name: String,
+    val category: SymptomCategory,
+    val createdAt: Instant
 )

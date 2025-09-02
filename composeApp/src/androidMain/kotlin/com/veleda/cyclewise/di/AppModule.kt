@@ -12,6 +12,8 @@ import com.veleda.cyclewise.domain.services.PassphraseService
 import com.veleda.cyclewise.services.PassphraseServiceAndroid
 import com.veleda.cyclewise.androidData.local.database.CycleDatabase
 import com.veleda.cyclewise.androidData.repository.RoomCycleRepository
+import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
+import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
 import org.koin.core.qualifier.named
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
@@ -49,6 +51,8 @@ val appModule = module {
         scoped { get<CycleDatabase>().dailyEntryDao() }
         scoped { get<CycleDatabase>().symptomDao() }
         scoped { get<CycleDatabase>().medicationDao() }
+        scoped { get<CycleDatabase>().medicationLogDao() }
+        scoped { get<CycleDatabase>().symptomLogDao() }
 
         // Repository Provider
         scoped<CycleRepository> {
@@ -58,8 +62,14 @@ val appModule = module {
                 dailyEntryDao = get(),
                 symptomDao = get(),
                 medicationDao = get(),
+                medicationLogDao = get(),
+                symptomLogDao = get(),
             )
         }
+
+        // --- LIBRARY PROVIDERS ---
+        scoped { SymptomLibraryProvider(get()) }
+        scoped { MedicationLibraryProvider(get()) }
 
         // Use Case Providers
         // scoped { StartNewCycleUseCase(get()) }
@@ -69,7 +79,9 @@ val appModule = module {
         // ViewModel Providers
         viewModel {
             CycleViewModel(
-                cycleRepository = get()
+                cycleRepository = get(),
+                symptomLibraryProvider = get(),
+                medicationLibraryProvider = get()
             )
         }
 
@@ -77,7 +89,9 @@ val appModule = module {
         viewModel { (date: LocalDate) ->
             DailyLogViewModel(
                 entryDate = date,
-                cycleRepository = get()
+                cycleRepository = get(),
+                symptomLibraryProvider = get(),
+                medicationLibraryProvider = get()
             )
         }
     }

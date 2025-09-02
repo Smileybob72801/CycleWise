@@ -4,9 +4,10 @@ import com.veleda.cyclewise.domain.models.Cycle
 import kotlin.time.ExperimentalTime
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.SymptomLog
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.encodeToString
 
 /** Convert Room entity → shared domain model */
 @OptIn(ExperimentalTime::class)
@@ -45,6 +46,7 @@ fun DailyEntryEntity.toDomain(): DailyEntry =
         libidoLevel = Converters.toLibidoLevel(libidoLevel),
         spotting = spotting,
         customTags = Json.decodeFromString(customTags),
+        note = note,
         cyclePhase = cyclePhase,
         createdAt = createdAt,
         updatedAt = updatedAt
@@ -64,15 +66,24 @@ fun DailyEntry.toEntity(): DailyEntryEntity =
         libidoLevel = Converters.fromLibidoLevel(libidoLevel),
         spotting = spotting,
         customTags = Json.encodeToString(customTags),
+        note = note,
         cyclePhase = cyclePhase,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
 
-/** Symptom Mappers */
-fun SymptomEntity.toDomain(): Symptom = Symptom(id, entryId, type, severity, note)
-fun Symptom.toEntity(): SymptomEntity = SymptomEntity(id, entryId, type, severity, note)
+// --- Medication Library Mappers ---
+fun MedicationEntity.toDomain(): Medication = Medication(id, name, createdAt)
+fun Medication.toEntity(): MedicationEntity = MedicationEntity(id, name, createdAt)
 
-/** Medication Mappers */
-fun MedicationEntity.toDomain(): Medication = Medication(id, entryId, name, note)
-fun Medication.toEntity(): MedicationEntity = MedicationEntity(id, entryId, name, note)
+// --- Medication Log Mappers ---
+fun MedicationLogEntity.toDomain(): MedicationLog = MedicationLog(id, entryId, medicationId, createdAt)
+fun MedicationLog.toEntity(): MedicationLogEntity = MedicationLogEntity(id, entryId, medicationId, createdAt)
+
+// --- Symptom Library Mappers ---
+fun SymptomEntity.toDomain(): Symptom = Symptom(id, name, category, createdAt)
+fun Symptom.toEntity(): SymptomEntity = SymptomEntity(id, name, category, createdAt)
+
+// --- Symptom Log Mappers ---
+fun SymptomLogEntity.toDomain(): SymptomLog = SymptomLog(id, entryId, symptomId, severity, createdAt)
+fun SymptomLog.toEntity(): SymptomLogEntity = SymptomLogEntity(id, entryId, symptomId, severity, createdAt)

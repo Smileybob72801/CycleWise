@@ -3,9 +3,9 @@ package com.veleda.cyclewise.domain.models
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-// Represents a unique medication in the user's library.
-data class Medication @OptIn(ExperimentalTime::class) constructor(
+data class MedicationLog @OptIn(ExperimentalTime::class) constructor(
     val id: String, // UUID
-    val name: String,
+    val entryId: String, // FK to DailyEntry
+    val medicationId: String,
     val createdAt: Instant
 )

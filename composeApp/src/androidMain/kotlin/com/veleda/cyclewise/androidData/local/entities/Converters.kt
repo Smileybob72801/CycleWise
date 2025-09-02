@@ -3,6 +3,7 @@ package com.veleda.cyclewise.androidData.local.entities
 import androidx.room.TypeConverter
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.LibidoLevel
+import com.veleda.cyclewise.domain.models.SymptomCategory
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlin.time.ExperimentalTime
@@ -66,5 +67,15 @@ object Converters {
     @TypeConverter
     fun toLibidoLevel(value: String?): LibidoLevel? {
         return value?.let { LibidoLevel.valueOf(it) }
+    }
+
+    @TypeConverter
+    fun fromSymptomCategory(value: SymptomCategory?): String? {
+        return value?.name
+    }
+
+    @TypeConverter
+    fun toSymptomCategory(value: String?): SymptomCategory? {
+        return value?.let { SymptomCategory.valueOf(it) }
     }
 }

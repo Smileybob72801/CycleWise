@@ -2,21 +2,32 @@ package com.veleda.cyclewise.ui.log
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Clear
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.domain.models.FlowIntensity
+import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.SymptomLog
 import kotlinx.datetime.LocalDate
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
@@ -38,7 +49,6 @@ fun DailyLogScreen(
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                // vvv FIX: Call the correct save function vvv
                 viewModel.saveLog()
                 onSaveComplete()
             }) {
@@ -86,10 +96,32 @@ fun DailyLogScreen(
                     )
 
                     SectionTitle("Symptoms")
-                    SymptomSelector(
-                        allSymptoms = viewModel.commonSymptoms,
-                        selectedSymptoms = log.symptoms,
-                        onSymptomClick = { viewModel.toggleSymptom(it) }
+                    SymptomLogger(
+                        loggedSymptoms = log.symptomLogs,
+                        symptomLibrary = uiState.symptomLibrary,
+                        onToggleSymptom = { viewModel.onToggleSymptom(it) },
+                        onCreateAndAddSymptom = { viewModel.onCreateAndAddSymptom(it) }
+                    )
+
+                    SectionTitle("Medications")
+                    MedicationLogger(
+                        loggedMedications = log.medicationLogs,
+                        medicationLibrary = uiState.medicationLibrary,
+                        onToggleMedication = { viewModel.onToggleMedication(it) },
+                        onCreateAndAddMedication = { viewModel.onCreateAndAddMedication(it) }
+                    )
+
+                    SectionTitle("Custom Tags")
+                    CustomTagLogger(
+                        tags = log.entry.customTags,
+                        onAddTag = { viewModel.onAddTag(it) },
+                        onRemoveTag = { viewModel.onRemoveTag(it) }
+                    )
+
+                    SectionTitle("Notes")
+                    NoteEditor(
+                        note = log.entry.note ?: "",
+                        onNoteChanged = { viewModel.onNoteChanged(it) }
                     )
 
                     Spacer(Modifier.height(80.dp)) // Spacer for the FAB
@@ -114,7 +146,6 @@ private fun FlowIntensitySelector(
     selectedIntensity: FlowIntensity?,
     onSelectionChanged: (FlowIntensity?) -> Unit
 ) {
-    // We can now get the options directly from the enum
     val options = FlowIntensity.entries
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -151,24 +182,175 @@ private fun MoodSelector(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun SymptomSelector(
-    allSymptoms: List<String>,
-    selectedSymptoms: List<Symptom>,
-    onSymptomClick: (String) -> Unit
+private fun MedicationLogger(
+    loggedMedications: List<MedicationLog>,
+    medicationLibrary: List<Medication>,
+    onToggleMedication: (Medication) -> Unit,
+    onCreateAndAddMedication: (String) -> Unit
 ) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        allSymptoms.forEach { symptomType ->
-            val isSelected = selectedSymptoms.any { it.type == symptomType }
-            FilterChip(
-                selected = isSelected,
-                onClick = { onSymptomClick(symptomType) },
-                label = { Text(symptomType.replaceFirstChar { it.uppercase() }) }
-            )
+    var newMedicationName by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Part 1: Display the entire library as selectable chips
+        if (medicationLibrary.isNotEmpty()) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                medicationLibrary.forEach { medication ->
+                    val isSelected = loggedMedications.any { it.medicationId == medication.id }
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onToggleMedication(medication) },
+                        label = { Text(medication.name) }
+                    )
+                }
+            }
         }
+
+        // Part 2: Text field to add a new medication to the library
+        OutlinedTextField(
+            value = newMedicationName,
+            onValueChange = { newMedicationName = it },
+            label = { Text("Add new medication...") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                onCreateAndAddMedication(newMedicationName)
+                newMedicationName = "" // Clear text after adding
+            }),
+            trailingIcon = {
+                IconButton(
+                    onClick = {
+                        onCreateAndAddMedication(newMedicationName)
+                        newMedicationName = ""
+                    },
+                    enabled = newMedicationName.isNotBlank()
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Create and Add Medication")
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CustomTagLogger(
+    tags: List<String>,
+    onAddTag: (String) -> Unit,
+    onRemoveTag: (String) -> Unit
+) {
+    var text by remember { mutableStateOf("") }
+    // Similar implementation to MedicationLogger
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            label = { Text("Add a custom tag...") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                onAddTag(text)
+                text = ""
+            }),
+            trailingIcon = {
+                IconButton(onClick = {
+                    onAddTag(text)
+                    text = ""
+                }, enabled = text.isNotBlank()) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Tag")
+                }
+            }
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            tags.forEach { tag ->
+                InputChip(
+                    selected = false,
+                    onClick = { /* Not used */ },
+                    label = { Text(tag) },
+                    trailingIcon = {
+                        IconButton(onClick = { onRemoveTag(tag) }, modifier = Modifier.size(18.dp)) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove $tag")
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoteEditor(
+    note: String,
+    onNoteChanged: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = note,
+        onValueChange = onNoteChanged,
+        label = { Text("Add any notes...") },
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 120.dp),
+        placeholder = { Text("How are you feeling? Any observations?") }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun SymptomLogger(
+    loggedSymptoms: List<SymptomLog>,
+    symptomLibrary: List<Symptom>,
+    onToggleSymptom: (Symptom) -> Unit,
+    onCreateAndAddSymptom: (String) -> Unit
+) {
+    var newMedicationName by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Part 1: Display the entire library as selectable chips
+        if (symptomLibrary.isNotEmpty()) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                symptomLibrary.forEach { symptom ->
+                    val isSelected = loggedSymptoms.any { it.symptomId == symptom.id }
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onToggleSymptom(symptom) },
+                        label = { Text(symptom.name) }
+                    )
+                }
+            }
+        }
+
+        // Part 2: Text field to add a new symptom to the library
+        OutlinedTextField(
+            value = newMedicationName,
+            onValueChange = { newMedicationName = it },
+            label = { Text("Add new symptom...") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                onCreateAndAddSymptom(newMedicationName)
+                newMedicationName = "" // Clear text after adding
+            }),
+            trailingIcon = {
+                IconButton(
+                    onClick = {
+                        onCreateAndAddSymptom(newMedicationName)
+                        newMedicationName = ""
+                    },
+                    enabled = newMedicationName.isNotBlank()
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Create and Add Symptom")
+                }
+            }
+        )
     }
 }

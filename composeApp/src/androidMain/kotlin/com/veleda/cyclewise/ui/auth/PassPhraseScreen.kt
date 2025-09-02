@@ -16,6 +16,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
+import com.veleda.cyclewise.domain.repository.CycleRepository
+import com.veleda.cyclewise.settings.AppSettings
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun PassphraseScreen(
@@ -26,6 +29,7 @@ fun PassphraseScreen(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val koin = getKoin()
+    val appSettings: AppSettings = koin.get()
 
     Column(
         modifier = Modifier
@@ -55,6 +59,8 @@ fun PassphraseScreen(
                     coroutineScope.launch {
                         isUnlocking = true
                         try {
+                            val needsPrepopulation = !appSettings.isPrepopulated.first()
+
                             withContext(Dispatchers.IO) {
                                 val sessionScope = koin.getScopeOrNull("session")
                                     ?: koin.createScope(
@@ -63,12 +69,20 @@ fun PassphraseScreen(
                                     )
 
                                 sessionScope.get<CycleDatabase> { parametersOf(passphrase) }
+
+                                if (needsPrepopulation) {
+                                    val repository = sessionScope.get<CycleRepository>()
+                                    repository.prepopulateSymptomLibrary()
+                                    // IMPORTANT: Set the flag so this never runs again
+                                    appSettings.setPrepopulated(true)
+                                }
                             }
 
                             onPassphraseEntered()
 
                         } catch (e: Exception) {
                             e.printStackTrace()
+                            koin.getScopeOrNull("session")?.close()
                             withContext(Dispatchers.Main) {
                                 isUnlocking = false
                                 Toast.makeText(context, "Failed to unlock. Wrong passphrase?", Toast.LENGTH_LONG).show()

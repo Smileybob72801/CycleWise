@@ -30,7 +30,8 @@ data class DailyEntryEntity(
     @ColumnInfo(name = "energy_level") val energyLevel: Int? = null,
     @ColumnInfo(name = "libido_level") val libidoLevel: String? = null,
     val spotting: Boolean = false,
-    @ColumnInfo(name = "custom_tags") val customTags: String, // Stored as JSON string
+    @ColumnInfo(name = "custom_tags") val customTags: String,
+    @ColumnInfo(name = "note") val note: String? = null,
     @ColumnInfo(name = "cycle_phase") val cyclePhase: String? = null,
     @ColumnInfo(name = "created_at") val createdAt: Instant,
     @ColumnInfo(name = "updated_at") val updatedAt: Instant

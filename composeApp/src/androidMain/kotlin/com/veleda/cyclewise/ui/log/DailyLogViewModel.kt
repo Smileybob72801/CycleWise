@@ -6,9 +6,13 @@ import com.benasher44.uuid.uuid4
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
+import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.CycleRepository
-import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -23,14 +27,18 @@ import kotlin.time.Clock
 data class DailyLogUiState(
     val isLoading: Boolean = true,
     val log: FullDailyLog? = null,
-    val error: String? = null
+    val error: String? = null,
+    val symptomLibrary: List<Symptom> = emptyList(),
+    val medicationLibrary: List<Medication> = emptyList()
 )
 
 class DailyLogViewModel(
     private val entryDate: LocalDate,
-    private val cycleRepository: CycleRepository
-) : ViewModel() {
-
+    private val cycleRepository: CycleRepository,
+    private val symptomLibraryProvider: SymptomLibraryProvider,
+    private val medicationLibraryProvider: MedicationLibraryProvider
+) : ViewModel()
+{
     private val _uiState = MutableStateFlow(DailyLogUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -57,6 +65,17 @@ class DailyLogViewModel(
 
     init {
         loadLog()
+
+        viewModelScope.launch {
+            symptomLibraryProvider.symptoms.collect { symptoms ->
+                _uiState.update { it.copy(symptomLibrary = symptoms) }
+            }
+        }
+        viewModelScope.launch {
+            medicationLibraryProvider.medications.collect { medications ->
+                _uiState.update { it.copy(medicationLibrary = medications) }
+            }
+        }
     }
 
     private fun loadLog() {
@@ -112,31 +131,106 @@ class DailyLogViewModel(
         }
     }
 
-    fun toggleSymptom(symptomType: String) {
-        _uiState.update { state ->
-            val currentLog = state.log ?: return@update state
-            val currentSymptoms = currentLog.symptoms
-            val isSelected = currentSymptoms.any { it.type == symptomType }
-
-            val newSymptoms = if (isSelected) {
-                currentSymptoms.filterNot { it.type == symptomType }
-            } else {
-                currentSymptoms + Symptom(
-                    id = uuid4().toString(),
-                    entryId = currentLog.entry.id,
-                    type = symptomType,
-                    severity = 3 // Default severity
-                )
-            }
-            state.copy(log = currentLog.copy(symptoms = newSymptoms))
-        }
-    }
-
     fun saveLog() {
         val logToSave = _uiState.value.log ?: return
         viewModelScope.launch {
             // Call the correct, refactored repository method
             cycleRepository.saveFullLog(logToSave)
+        }
+    }
+
+    /**
+     * Toggles a medication's presence in the daily log.
+     * If it's already logged, it's removed. If not, it's added.
+     */
+    fun onToggleMedication(medication: Medication) {
+        _uiState.update { state ->
+            val currentLog = state.log ?: return@update state
+            val existingLog = currentLog.medicationLogs.find { it.medicationId == medication.id }
+
+            val newLogs = if (existingLog != null) {
+                // It exists, so remove it.
+                currentLog.medicationLogs.filterNot { it.id == existingLog.id }
+            } else {
+                // It doesn't exist, so add it.
+                val newLog = MedicationLog(
+                    id = uuid4().toString(),
+                    entryId = currentLog.entry.id,
+                    medicationId = medication.id,
+                    createdAt = Clock.System.now()
+                )
+                currentLog.medicationLogs + newLog
+            }
+            state.copy(log = currentLog.copy(medicationLogs = newLogs))
+        }
+    }
+
+    /**
+     * Creates a new medication in the library and immediately adds it to the current day's log.
+     */
+    fun onCreateAndAddMedication(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            // This repository method is smart: it either creates a new med or returns the existing one.
+            val newMed = cycleRepository.createOrGetMedicationInLibrary(name.trim())
+            // Now that the med is guaranteed to be in the library, toggle it into the log.
+            onToggleMedication(newMed)
+        }
+    }
+
+    fun onAddTag(tag: String) {
+        if (tag.isBlank()) return
+        _uiState.update { state ->
+            val currentLog = state.log ?: return@update state
+            // Prevent duplicate tags
+            if (currentLog.entry.customTags.contains(tag.trim())) return@update state
+
+            val newTags = currentLog.entry.customTags + tag.trim()
+            val newEntry = currentLog.entry.copy(customTags = newTags)
+            state.copy(log = currentLog.copy(entry = newEntry))
+        }
+    }
+
+    fun onRemoveTag(tag: String) {
+        _uiState.update { state ->
+            val currentLog = state.log ?: return@update state
+            val newTags = currentLog.entry.customTags.filterNot { it == tag }
+            val newEntry = currentLog.entry.copy(customTags = newTags)
+            state.copy(log = currentLog.copy(entry = newEntry))
+        }
+    }
+
+    fun onNoteChanged(newText: String) {
+        _uiState.update { state ->
+            state.copy(log = state.log?.copy(entry = state.log.entry.copy(note = newText)))
+        }
+    }
+
+    fun onToggleSymptom(symptom: Symptom, severity: Int = 3) {
+        _uiState.update { state ->
+            val log = state.log ?: return@update state
+            val existingLog = log.symptomLogs.find { it.symptomId == symptom.id }
+            val newLogs = if (existingLog != null) {
+                log.symptomLogs.filterNot { it.id == existingLog.id }
+            } else {
+                val newLog = SymptomLog(
+                    id = uuid4().toString(),
+                    entryId = log.entry.id,
+                    symptomId = symptom.id,
+                    severity = severity,
+                    createdAt = Clock.System.now()
+                )
+                log.symptomLogs + newLog
+            }
+            state.copy(log = log.copy(symptomLogs = newLogs))
+        }
+    }
+
+    fun onCreateAndAddSymptom(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            val newSymptom = cycleRepository.createOrGetSymptomInLibrary(name.trim())
+            onToggleSymptom(newSymptom)
         }
     }
 }
