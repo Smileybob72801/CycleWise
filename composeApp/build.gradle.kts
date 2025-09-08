@@ -60,6 +60,18 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+
+        getByName("androidUnitTest") {
+            dependencies {
+                implementation(libs.kotlin.test)
+                implementation(libs.kotlin.test.junit)
+                implementation(libs.mockk)
+                implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.androidx.arch.core.testing)
+                implementation(libs.robolectric)
+                implementation(libs.turbine)
+            }
+        }
     }
 }
 
@@ -76,7 +88,15 @@ android {
     }
     packaging {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/versions/**"
+
+            excludes += setOf(
+                "/META-INF/{AL2.0,LGPL2.1}",
+                "META-INF/LICENSE.md",
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "META-INF/DEPENDENCIES"
+            )
         }
     }
     buildTypes {
@@ -91,6 +111,13 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    testOptions {
+        unitTests {
+            // Required for Robolectric to access Android resources like themes.
+            isIncludeAndroidResources = true
+        }
     }
 }
 
