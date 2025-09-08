@@ -15,6 +15,7 @@ import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.CycleRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
@@ -89,7 +90,7 @@ class DailyLogViewModel(
                 // If no log exists, we must create a new, blank one.
                 // To do this, we need to find which cycle this date belongs to.
                 val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-                val allCycles = cycleRepository.getAllCycles()
+                val allCycles = cycleRepository.getAllCycles().first()
                 val parentCycle = allCycles.find { entryDate in (it.startDate..(it.endDate ?: today)) }
 
                 if (parentCycle != null) {

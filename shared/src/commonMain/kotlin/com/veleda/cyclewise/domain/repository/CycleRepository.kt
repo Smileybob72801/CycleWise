@@ -17,7 +17,7 @@ import kotlinx.datetime.YearMonth
 interface CycleRepository {
 
     /** Returns all known cycles, sorted by start date descending. */
-    suspend fun getAllCycles(): List<Cycle>
+    fun getAllCycles(): Flow<List<Cycle>>
 
     /** Returns a single cycle given its primary Id. */
     suspend fun getCycleById(cycleId: String): Cycle

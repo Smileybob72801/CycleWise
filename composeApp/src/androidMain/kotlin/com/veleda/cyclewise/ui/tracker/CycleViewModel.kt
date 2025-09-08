@@ -60,7 +60,7 @@ class CycleViewModel(
     init {
         viewModelScope.launch {
             refreshTrigger.flatMapLatest {
-                flow { emit(cycleRepository.getAllCycles()) }
+                cycleRepository.getAllCycles()
             }.collect { cycles ->
                 _uiState.update { it.copy(cycles = cycles) }
             }

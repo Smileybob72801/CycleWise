@@ -34,8 +34,11 @@ class RoomCycleRepository(
     private val medicationLogDao: MedicationLogDao,
     private val symptomLogDao: SymptomLogDao,
 ) : CycleRepository {
-    override suspend fun getAllCycles(): List<Cycle> =
-        cycleDao.getAllCycles().first().map { it.toDomain() }
+    override fun getAllCycles(): Flow<List<Cycle>> {
+        return cycleDao.getAllCycles().map { entityList ->
+            entityList.map { it.toDomain() }
+        }
+    }
 
     override suspend fun getCycleById(cycleId: String): Cycle {
         val entity = cycleDao.getByUuid(cycleId)
