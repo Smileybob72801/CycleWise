@@ -17,7 +17,7 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
-    
+
     listOf(
         iosX64(),
         iosArm64(),
@@ -28,7 +28,7 @@ kotlin {
             isStatic = true
         }
     }
-    
+
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.datetime)
@@ -46,6 +46,16 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+
+        getByName("androidUnitTest") {
+            dependencies {
+                // This maps the @Test annotation to the JUnit 4 runner.
+                implementation(kotlin("test-junit"))
+
+                implementation(libs.mockk)
+                implementation(libs.kotlinx.coroutines.test)
+            }
+        }
     }
 }
 
@@ -59,4 +69,14 @@ android {
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
     }
+    testOptions {
+        unitTests.all { test ->
+            test.testLogging {
+                events("passed", "skipped", "failed", "standardOut", "standardError")
+            }
+        }
+    }
+}
+dependencies {
+    testImplementation(libs.junit.junit)
 }
