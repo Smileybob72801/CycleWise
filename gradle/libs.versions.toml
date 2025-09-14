@@ -33,6 +33,7 @@ robolectric = "4.16"
 turbine = "1.2.1"
 bouncy = "1.81"
 androidx-test-core = "1.7.0"
+encoding = "2.4.0"
 
 [libraries]
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleViewmodelKtx" }
@@ -80,6 +81,7 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 androidx-test-core = { module = "androidx.test:core-ktx", version.ref = "androidx-test-core" }
 koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
 koin-test-junit4 = { module = "io.insert-koin:koin-test-junit4", version.ref = "koin" }
+encoding-base64 = { module = "io.matthewnelson.encoding:base64", version.ref = "encoding" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

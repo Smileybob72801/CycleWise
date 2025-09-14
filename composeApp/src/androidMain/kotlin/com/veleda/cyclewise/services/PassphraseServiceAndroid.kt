@@ -1,22 +1,18 @@
 package com.veleda.cyclewise.services
 
-import android.util.Base64
-import android.util.Log
 import com.veleda.cyclewise.domain.services.PassphraseService
 import org.bouncycastle.crypto.params.Argon2Parameters
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator
-import java.security.SecureRandom
+
 
 class PassphraseServiceAndroid(
     private val saltStorage: SaltStorage) : PassphraseService {
-    private val saltSize = 16
     private val keyLength = 32 // 256-bit
 
     override fun deriveKey(passphrase: String): ByteArray {
 
         // 1) get-or-create a stable salt
         val salt = saltStorage.getOrCreateSalt()
-        Log.d("SaltStorage", "Salt (Base64): ${Base64.encodeToString(salt, Base64.NO_WRAP)}")
 
         // 2) build Argon2 parameters
         val params = Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)

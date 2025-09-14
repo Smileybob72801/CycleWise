@@ -56,6 +56,7 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(projects.shared)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.encoding.base64)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
