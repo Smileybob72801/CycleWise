@@ -70,6 +70,9 @@ kotlin {
                 implementation(libs.androidx.arch.core.testing)
                 implementation(libs.robolectric)
                 implementation(libs.turbine)
+                implementation(libs.androidx.test.core)
+                implementation(libs.koin.test)
+                implementation(libs.koin.test.junit4)
             }
         }
     }
