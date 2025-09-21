@@ -48,40 +48,41 @@ class CycleViewModel(
     val uiState: StateFlow<TrackerUiState> = _uiState.asStateFlow()
 
     init {
-        // We launch separate collectors for each asynchronous data source.
-        // Each collector independently updates the single _uiState.
-
-        // 1. Collect the stream of Cycles
         viewModelScope.launch {
-            cycleRepository.getAllCycles().collect { cycles ->
-                _uiState.update { it.copy(cycles = cycles) }
-            }
-        }
+            // combine() will re-execute whenever ANY of its source flows emit a new value.
+            combine(
+                cycleRepository.getAllCycles(),
+                cycleRepository.getAllLogs(),
+                cycleRepository.observeAllPeriodDays(),
+                symptomLibraryProvider.symptoms,
+                medicationLibraryProvider.medications
+            ) { cycles, allLogs, periodDays, symptoms, medications ->
+                // Create a mutable map based on the period days.
+                val details = periodDays.associateWith { CalendarDayInfo(isPeriodDay = true) }.toMutableMap()
 
-        // 2. Collect the stream of ALL daily logs to power the decorators
-        viewModelScope.launch {
-            cycleRepository.getAllLogs().collect { allLogs ->
-                val details = allLogs.associate { log ->
-                    log.entry.entryDate to CalendarDayInfo(
-                        isPeriodDay = log.entry.flowIntensity != null,
+                // layer the log-specific details (symptoms/meds) on top.
+                for (log in allLogs) {
+                    val date = log.entry.entryDate
+                    val existingInfo = details[date] ?: CalendarDayInfo()
+                    details[date] = existingInfo.copy(
+                        // If flow is explicitly logged, we can still use it.
+                        // Otherwise, we rely on the `periodDays` set.
+                        isPeriodDay = existingInfo.isPeriodDay || log.entry.flowIntensity != null,
                         hasSymptoms = log.symptomLogs.isNotEmpty(),
                         hasMedications = log.medicationLogs.isNotEmpty()
                     )
                 }
-                _uiState.update { it.copy(dayDetails = details) }
-            }
-        }
 
-        viewModelScope.launch {
-            symptomLibraryProvider.symptoms.collect { symptoms ->
-                _uiState.update { it.copy(symptomLibrary = symptoms) }
-            }
-        }
-
-        viewModelScope.launch {
-            medicationLibraryProvider.medications.collect { medications ->
-                _uiState.update { it.copy(medicationLibrary = medications) }
-            }
+                // Update the UI state with all the new data at once.
+                _uiState.update {
+                    it.copy(
+                        cycles = cycles,
+                        dayDetails = details,
+                        symptomLibrary = symptoms,
+                        medicationLibrary = medications
+                    )
+                }
+            }.collect() // Use a terminal operator to keep the flow active.
         }
     }
 

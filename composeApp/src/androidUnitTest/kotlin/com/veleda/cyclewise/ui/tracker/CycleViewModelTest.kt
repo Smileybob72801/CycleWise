@@ -46,6 +46,8 @@ class CycleViewModelTest {
 
         // Mock the initial data flows to be empty
         every { mockRepository.getAllCycles() } returns flowOf(emptyList())
+        every { mockRepository.getAllLogs() } returns flowOf(emptyList())
+        every { mockRepository.observeAllPeriodDays() } returns flowOf(emptySet())
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
 
@@ -201,8 +203,10 @@ class CycleViewModelTest {
             updatedAt = Clock.System.now()
         )
         every { mockRepository.getAllCycles() } returns flowOf(listOf(fakeOngoingCycle))
+
         // Re-create ViewModel to pick up the new initial state
         viewModel = CycleViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
+        advanceUntilIdle()
 
         // ACT
         viewModel.onEndCurrentCycle()

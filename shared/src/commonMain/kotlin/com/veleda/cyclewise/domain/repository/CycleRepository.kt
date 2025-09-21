@@ -72,4 +72,7 @@ interface CycleRepository {
 
     /** Returns a reactive Flow of ALL daily logs that have been created. */
     fun getAllLogs(): Flow<List<FullDailyLog>>
+
+    /** Emits the set of all LocalDates that are part of any saved menstrual period. */
+    fun observeAllPeriodDays(): Flow<Set<LocalDate>>
 }

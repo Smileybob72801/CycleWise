@@ -104,7 +104,9 @@ fun DailyLogScreen(
                         loggedSymptoms = log.symptomLogs,
                         symptomLibrary = uiState.symptomLibrary,
                         onToggleSymptom = { viewModel.onToggleSymptom(it) },
-                        onCreateAndAddSymptom = { viewModel.onCreateAndAddSymptom(it) }
+                        newSymptomName = uiState.newSymptomName,
+                        onNewSymptomNameChange = viewModel::onNewSymptomNameChange,
+                        onCreateAndAddSymptom = viewModel::onCreateAndAddSymptom
                     )
 
                     SectionTitle("Medications")
@@ -311,10 +313,10 @@ private fun SymptomLogger(
     loggedSymptoms: List<SymptomLog>,
     symptomLibrary: List<Symptom>,
     onToggleSymptom: (Symptom) -> Unit,
-    onCreateAndAddSymptom: (String) -> Unit
+    newSymptomName: String,
+    onNewSymptomNameChange: (String) -> Unit,
+    onCreateAndAddSymptom: () -> Unit
 ) {
-    var newMedicationName by remember { mutableStateOf("") }
-
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Part 1: Display the entire library as selectable chips
         if (symptomLibrary.isNotEmpty()) {
@@ -336,24 +338,22 @@ private fun SymptomLogger(
 
         // Part 2: Text field to add a new symptom to the library
         OutlinedTextField(
-            value = newMedicationName,
-            onValueChange = { newMedicationName = it },
+            value = newSymptomName, // <-- USE a parameter
+            onValueChange = onNewSymptomNameChange, // <-- USE a parameter
             label = { Text("Add new symptom...") },
             modifier = Modifier
                 .testTag("create-symptom-textbox")
                 .fillMaxWidth(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = {
-                onCreateAndAddSymptom(newMedicationName)
-                newMedicationName = "" // Clear text after adding
+                onCreateAndAddSymptom() // <-- USE a parameter
             }),
             trailingIcon = {
                 IconButton(
                     onClick = {
-                        onCreateAndAddSymptom(newMedicationName)
-                        newMedicationName = ""
+                        onCreateAndAddSymptom() // <-- USE a parameter
                     },
-                    enabled = newMedicationName.isNotBlank(),
+                    enabled = newSymptomName.isNotBlank(),
                     modifier = Modifier.testTag("create-symptom-button")
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Create and Add Symptom")

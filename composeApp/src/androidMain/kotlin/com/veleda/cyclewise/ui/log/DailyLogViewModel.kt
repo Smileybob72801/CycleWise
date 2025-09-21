@@ -30,7 +30,8 @@ data class DailyLogUiState(
     val log: FullDailyLog? = null,
     val error: String? = null,
     val symptomLibrary: List<Symptom> = emptyList(),
-    val medicationLibrary: List<Medication> = emptyList()
+    val medicationLibrary: List<Medication> = emptyList(),
+    val newSymptomName: String = ""
 )
 
 class DailyLogViewModel(
@@ -227,11 +228,44 @@ class DailyLogViewModel(
         }
     }
 
-    fun onCreateAndAddSymptom(name: String) {
+    fun onNewSymptomNameChange(name: String) {
+        _uiState.update { it.copy(newSymptomName = name) }
+    }
+
+    fun onCreateAndAddSymptom() {
+        val name = _uiState.value.newSymptomName.trim()
         if (name.isBlank()) return
+
         viewModelScope.launch {
-            val newSymptom = cycleRepository.createOrGetSymptomInLibrary(name.trim())
-            onToggleSymptom(newSymptom)
+            // Step 1: Perform the async database operation to get the canonical Symptom object.
+            // This ensures it's persisted for the future.
+            val newSymptom = cycleRepository.createOrGetSymptomInLibrary(name)
+
+            // Step 2: Atomically update the UI state with EVERYTHING needed for the next render.
+            _uiState.update { currentState ->
+                val log = currentState.log ?: return@update currentState
+
+                // Create the new log object to be added to the list of symptoms for this day.
+                val newLogEntry = SymptomLog(
+                    id = uuid4().toString(),
+                    entryId = log.entry.id,
+                    symptomId = newSymptom.id,
+                    severity = 3, // A reasonable default severity
+                    createdAt = Clock.System.now()
+                )
+
+                // Manually add the new symptom to the local copy of the library.
+                // This ensures the UI can render the new chip immediately, without waiting for the database flow.
+                // The distinctBy prevents duplicates if the flow emits at the same time.
+                val updatedLibrary = (currentState.symptomLibrary + newSymptom).distinctBy { it.id }
+
+                // Return the new, complete state in a single operation.
+                currentState.copy(
+                    log = log.copy(symptomLogs = log.symptomLogs + newLogEntry),
+                    symptomLibrary = updatedLibrary,
+                    newSymptomName = "" // Clear the text field
+                )
+            }
         }
     }
 }

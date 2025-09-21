@@ -21,31 +21,14 @@ class CustomTestRunner : AndroidJUnitRunner() {
     }
 
     override fun callApplicationOnCreate(app: Application) {
-        // Wipe BOTH possible DBs in the AUT sandbox
-        val appCtx = app.applicationContext
-        val testDbName = "e2e_cyclewise.db"
-        val prodDbName = "cyclewise.db"
-
-        listOf(
-            testDbName, "$testDbName-shm", "$testDbName-wal",
-            prodDbName, "$prodDbName-shm", "$prodDbName-wal"
-        ).forEach { appCtx.getDatabasePath(it).delete() }
-
-        // Wipe the Argon2 salt in the AUT sandbox
-        appCtx.getSharedPreferences("cyclewise_salt_prefs", Context.MODE_PRIVATE)
-            .edit().clear().apply()
-
+        // Ensure a clean Koin state
         stopKoin()
 
-        // --- 2. Start Koin with Overrides ---
         startKoin {
             androidContext(app)
             allowOverride(true)
-            // Load production modules first, then our test overrides.
-            // Koin will replace the production database with the test one.
             modules(appModule, testOverridesModule)
         }
-
         super.callApplicationOnCreate(app)
     }
 }

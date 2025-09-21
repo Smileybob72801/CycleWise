@@ -1,12 +1,27 @@
 package com.veleda.cyclewise.e2e
 
-import androidx.compose.ui.test.*
+import android.content.Context
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+//import androidx.compose.ui.test.onNode
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.text.AnnotatedString
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.veleda.cyclewise.MainActivity
-import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,63 +31,116 @@ import org.koin.test.KoinTest
 class UnlockCreateLogE2ETest : KoinTest {
 
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<MainActivity>()
+    val compose = createAndroidComposeRule<MainActivity>()
 
-    // This must match the passphrase used by PassphraseScreen to derive the key
     private val testPassphrase = "E2E_TEST_PASSPHRASE"
+
+    private val shortWait = 2.seconds.toJavaDuration().toMillis()
+    private val mediumWait = 5.seconds.toJavaDuration().toMillis()
+    private val longWait = 8.seconds.toJavaDuration().toMillis()
+
+    @Before
+    fun setUp() {
+        // Clean only inside the target app context (test APK may have a different context)
+        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+
+        // Wipe both test and prod DBs (plus -shm/-wal)
+        val testDbName = "e2e_cyclewise.db"
+        val prodDbName = "cyclewise.db"
+        listOf(
+            testDbName, "$testDbName-shm", "$testDbName-wal",
+            prodDbName, "$prodDbName-shm", "$prodDbName-wal"
+        ).forEach { appContext.getDatabasePath(it).delete() }
+
+        // Clear salt prefs to ensure fresh key derivation
+        appContext.getSharedPreferences("cyclewise_salt_prefs", Context.MODE_PRIVATE)
+            .edit().clear().apply()
+    }
 
     @Test
     fun unlock_createCycle_logSymptom_showsCorrectlyOnCalendar() {
-        // --- 1. UNLOCK THE APP ---
-        // The app starts on the PassphraseScreen. We find the input field by its test tag,
-        // enter the passphrase, and click the unlock button.
-        composeTestRule.onNodeWithTag("passphrase-input").performTextInput(testPassphrase)
-        composeTestRule.onNodeWithTag("unlock-button").performClick()
+        // 1) Unlock
+        typeInto("passphrase-input", testPassphrase)
+        click("unlock-button")
+        waitForExists("calendar-root", timeoutMillis = longWait)
 
-        // Wait until the main tracker screen (with the calendar) is visible.
-        // `waitUntil` is crucial for making E2E tests stable.
-        composeTestRule.waitUntil(timeoutMillis = 40_000) {
-            composeTestRule.onAllNodesWithTag("calendar-root").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithTag("calendar-root").assertIsDisplayed()
-
-        // --- 2. CREATE A NEW CYCLE FOR TODAY ---
-        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+        // 2) Create a cycle today
+        val today = kotlin.time.Clock.System.todayIn(TimeZone.currentSystemDefault())
         val todayTag = "day-$today"
 
-        // Click on today's date in the calendar and then click the "Save Cycle" button.
-        composeTestRule.onNodeWithTag(todayTag).performClick()
-        composeTestRule.onNodeWithTag("save-cycle-button").performClick()
+        click(todayTag)
+        waitForExists("save-cycle-button", timeoutMillis = mediumWait)
+        click("save-cycle-button")
 
-        // Verify the UI has updated to the "in a cycle" state.
-        // The "End Cycle Today" button should now be visible.
-        composeTestRule.onNodeWithTag("end-cycle-button").assertIsDisplayed()
-        // An invisible tag confirms this day is marked as part of a period.
-        composeTestRule.onNodeWithTag("period-day-$today").assertExists()
+        waitForExists("end-cycle-button", timeoutMillis = longWait)
+        assertExists("period-day-$today", useUnmerged = true)
 
-        // --- 3. LOG A NEW SYMPTOM FOR TODAY ---
-        // Click today's date again to open the log summary bottom sheet.
-        composeTestRule.onNodeWithTag(todayTag).performClick()
-        // Click the "Edit" button to navigate to the full DailyLogScreen.
-        composeTestRule.onNodeWithTag("edit-log-button").performClick()
+        // 3) Open Daily Log screen for today
+        click(todayTag)
+        waitForExists("edit-log-button", timeoutMillis = mediumWait)
+        click("edit-log-button")
 
-        // On the DailyLogScreen, type a new symptom name and click the add button.
-        composeTestRule.onNodeWithTag("create-symptom-textbox").performTextInput("TestSymptom")
-        composeTestRule.onNodeWithTag("create-symptom-button").performClick()
+        // 4) Create a new symptom
+        val symptomName = "TestSymptom"
+        typeInto("create-symptom-textbox", symptomName)
+        click("create-symptom-button")
 
-        // Verify that the chip for the new symptom has been created and is selected.
-        composeTestRule.onNodeWithTag("chip-TESTSYMPTOM", useUnmergedTree = true).assertIsSelected()
+        // 5) VERIFY THE FINAL RESULT: Wait for the new chip to appear and assert it's selected.
+        val chipTag = "chip-${symptomName.uppercase()}"
+        waitForExists(chipTag, useUnmerged = true, timeoutMillis = longWait)
+        compose.onNodeWithTag(chipTag, useUnmergedTree = true).assertIsSelected()
 
-        // Save the log.
-        composeTestRule.onNodeWithTag("save_log_button").performClick()
+        // 6) Save the log and verify the calendar dot
+        click("save_log_button")
+        waitForExists("calendar-root", timeoutMillis = longWait)
 
-        // --- 4. VERIFY THE FINAL STATE ON THE CALENDAR ---
-        // We are now back on the TrackerScreen. The calendar must reflect the new symptom.
-        // We wait for the UI to update and show the symptom decorator dot.
-        composeTestRule.waitUntil(timeoutMillis = 20_000) {
-            composeTestRule.onAllNodesWithTag("symptom-dot-$today").fetchSemanticsNodes().isNotEmpty()
+        val dotTag = "symptom-dot-$today"
+        waitForExists(dotTag, useUnmerged = true, timeoutMillis = longWait)
+        compose.onNodeWithTag(dotTag, useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    // ---------- Helpers ----------
+
+    private fun click(tag: String, useUnmerged: Boolean = false) {
+        waitForExists(tag, useUnmerged, mediumWait)
+        compose.onNodeWithTag(tag, useUnmergedTree = useUnmerged).performClick()
+    }
+
+    private fun typeInto(tag: String, text: String, useUnmerged: Boolean = false) {
+        waitForExists(tag, useUnmerged, mediumWait)
+        compose.onNodeWithTag(tag, useUnmergedTree = useUnmerged).performTextInput(text)
+    }
+
+    private fun assertExists(tag: String, useUnmerged: Boolean = false) {
+        waitForExists(tag, useUnmerged, mediumWait)
+        compose.onNodeWithTag(tag, useUnmergedTree = useUnmerged).assertExists()
+    }
+
+    private fun waitForExists(
+        tag: String,
+        useUnmerged: Boolean = false,
+        timeoutMillis: Long = mediumWait
+    ) {
+        compose.waitUntil(timeoutMillis) {
+            compose.onAllNodesWithTag(tag, useUnmergedTree = useUnmerged)
+                .fetchSemanticsNodes().isNotEmpty()
         }
-        // Assert that the symptom dot for today now exists and is visible.
-        composeTestRule.onNodeWithTag("symptom-dot-$today").assertIsDisplayed()
+    }
+
+    private fun waitUntilTextboxCleared(
+        tag: String,
+        useUnmerged: Boolean = false,
+        timeoutMillis: Long = mediumWait
+    ) {
+        val editableIsEmpty = SemanticsMatcher("${tag}_isEmptyEditable") { node ->
+            val text = node.config.getOrNull(SemanticsProperties.EditableText)
+            text?.text?.isEmpty() == true
+        }
+        compose.waitUntil(timeoutMillis) {
+            compose.onAllNodes(
+                matcher = editableIsEmpty.and(hasTestTag(tag)),
+                useUnmergedTree = useUnmerged
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 }

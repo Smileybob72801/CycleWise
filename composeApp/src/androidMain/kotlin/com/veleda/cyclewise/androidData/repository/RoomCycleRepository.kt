@@ -12,6 +12,8 @@ import com.veleda.cyclewise.androidData.local.database.CycleDatabase
 import com.veleda.cyclewise.androidData.local.entities.toDomain
 import com.veleda.cyclewise.androidData.local.entities.toEntity
 import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.DailyEntry
+import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
@@ -53,15 +55,18 @@ class RoomCycleRepository(
     @OptIn(ExperimentalTime::class)
     override suspend fun startNewCycle(startDate: LocalDate): Cycle {
         val now = Clock.System.now()
-        val uuid = uuid4().toString()
+        val cycleUuid  = uuid4().toString()
+
         val domainCycle = Cycle(
-            id = uuid,
+            id = cycleUuid ,
             startDate = startDate,
             endDate = null,
             createdAt = now,
             updatedAt = now
         )
+
         cycleDao.insert(domainCycle.toEntity())
+
         return domainCycle
     }
 
@@ -251,6 +256,27 @@ class RoomCycleRepository(
                             symptomLogs = symptomsById[entry.id]?.map { it.toDomain() } ?: emptyList(),
                             medicationLogs = medicationsById[entry.id]?.map { it.toDomain() } ?: emptyList()
                         )
+                    }
+                }
+            }
+        }
+    }
+
+    override fun observeAllPeriodDays(): Flow<Set<LocalDate>> {
+        // This will automatically re-run whenever the 'cycles' table changes.
+        return cycleDao.getAllCycles().map { cycles ->
+            // Use buildSet for an efficient way to create the set of dates.
+            buildSet {
+                val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+                for (cycle in cycles) {
+                    val startDate = cycle.startDate
+                    // CRITICAL FIX: Use 'today' as the end date for ongoing cycles.
+                    val endDate = cycle.endDate ?: today
+
+                    var currentDate = startDate
+                    while (currentDate <= endDate) {
+                        add(currentDate)
+                        currentDate = currentDate.plus(1, DateTimeUnit.DAY)
                     }
                 }
             }
