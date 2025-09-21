@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.*
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import com.veleda.cyclewise.domain.models.DayDetails
 
 class RoomCycleRepository(
     private val db: CycleDatabase,
@@ -280,6 +281,38 @@ class RoomCycleRepository(
                     }
                 }
             }
+        }
+    }
+
+    override fun observeDayDetails(): Flow<Map<LocalDate, DayDetails>> {
+        return combine(
+            getAllCycles(),
+            getAllLogs()
+        ) { cycles, allLogs ->
+            val detailsMap = mutableMapOf<LocalDate, DayDetails>()
+            val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+
+            for (cycle in cycles) {
+                // Use the cycle's end date, or 'today' if the cycle is ongoing.
+                val endDate = cycle.endDate ?: today
+                var currentDate = cycle.startDate
+
+                while (currentDate <= endDate) {
+                    detailsMap[currentDate] = DayDetails(isPeriodDay = true)
+                    currentDate = currentDate.plus(1, DateTimeUnit.DAY)
+                }
+            }
+
+            for (log in allLogs) {
+                val date = log.entry.entryDate
+                val existingInfo = detailsMap[date] ?: DayDetails()
+                detailsMap[date] = existingInfo.copy(
+                    isPeriodDay = existingInfo.isPeriodDay || log.entry.flowIntensity != null,
+                    hasLoggedSymptoms = log.symptomLogs.isNotEmpty(),
+                    hasLoggedMedications = log.medicationLogs.isNotEmpty()
+                )
+            }
+            detailsMap
         }
     }
 }
