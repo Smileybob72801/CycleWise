@@ -6,9 +6,7 @@ sealed class NavRoute(val route: String, val label: String) {
     object Hello : NavRoute("hello", "Hello")
 
     object Passphrase : NavRoute("passphrase", "Pass Phrase")
-    object Tracker : NavRoute("tracker/{passphrase}", "Tracker") {
-        fun createRoute(passphrase: String) = "tracker/$passphrase"
-    }
+    object Tracker : NavRoute("tracker", "Tracker")
     object Settings : NavRoute("settings", "Settings")
 
     object DailyLog : NavRoute("log/{date}", "Daily Log") {

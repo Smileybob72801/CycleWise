@@ -12,14 +12,20 @@ import com.veleda.cyclewise.androidData.local.database.CycleDatabase
 import com.veleda.cyclewise.androidData.local.entities.toDomain
 import com.veleda.cyclewise.androidData.local.entities.toEntity
 import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.DailyEntry
+import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomCategory
 import com.veleda.cyclewise.domain.repository.CycleRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.*
 import kotlin.time.Clock
@@ -34,8 +40,11 @@ class RoomCycleRepository(
     private val medicationLogDao: MedicationLogDao,
     private val symptomLogDao: SymptomLogDao,
 ) : CycleRepository {
-    override suspend fun getAllCycles(): List<Cycle> =
-        cycleDao.getAllCycles().first().map { it.toDomain() }
+    override fun getAllCycles(): Flow<List<Cycle>> {
+        return cycleDao.getAllCycles().map { entityList ->
+            entityList.map { it.toDomain() }
+        }
+    }
 
     override suspend fun getCycleById(cycleId: String): Cycle {
         val entity = cycleDao.getByUuid(cycleId)
@@ -46,15 +55,18 @@ class RoomCycleRepository(
     @OptIn(ExperimentalTime::class)
     override suspend fun startNewCycle(startDate: LocalDate): Cycle {
         val now = Clock.System.now()
-        val uuid = uuid4().toString()
+        val cycleUuid  = uuid4().toString()
+
         val domainCycle = Cycle(
-            id = uuid,
+            id = cycleUuid ,
             startDate = startDate,
             endDate = null,
             createdAt = now,
             updatedAt = now
         )
+
         cycleDao.insert(domainCycle.toEntity())
+
         return domainCycle
     }
 
@@ -218,6 +230,56 @@ class RoomCycleRepository(
         // Looping is fine for this one-time operation.
         defaultSymptoms.forEach { symptom ->
             symptomDao.insert(symptom.toEntity())
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun getAllLogs(): Flow<List<FullDailyLog>> {
+        // This is a complex reactive query.
+        // It listens for changes in any of the log tables.
+        return dailyEntryDao.getAllEntries().flatMapLatest { entries ->
+            if (entries.isEmpty()) {
+                flowOf(emptyList())
+            } else {
+                val entryIds = entries.map { it.id }
+                // Combine the flows for symptoms and medications related to these entries
+                combine(
+                    symptomLogDao.getLogsForEntries(entryIds),
+                    medicationLogDao.getLogsForEntries(entryIds)
+                ) { symptoms, medications ->
+                    val symptomsById = symptoms.groupBy { it.entryId }
+                    val medicationsById = medications.groupBy { it.entryId }
+
+                    entries.map { entry ->
+                        FullDailyLog(
+                            entry = entry.toDomain(),
+                            symptomLogs = symptomsById[entry.id]?.map { it.toDomain() } ?: emptyList(),
+                            medicationLogs = medicationsById[entry.id]?.map { it.toDomain() } ?: emptyList()
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    override fun observeAllPeriodDays(): Flow<Set<LocalDate>> {
+        // This will automatically re-run whenever the 'cycles' table changes.
+        return cycleDao.getAllCycles().map { cycles ->
+            // Use buildSet for an efficient way to create the set of dates.
+            buildSet {
+                val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+                for (cycle in cycles) {
+                    val startDate = cycle.startDate
+                    // CRITICAL FIX: Use 'today' as the end date for ongoing cycles.
+                    val endDate = cycle.endDate ?: today
+
+                    var currentDate = startDate
+                    while (currentDate <= endDate) {
+                        add(currentDate)
+                        currentDate = currentDate.plus(1, DateTimeUnit.DAY)
+                    }
+                }
+            }
         }
     }
 }

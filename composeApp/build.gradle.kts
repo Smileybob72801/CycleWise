@@ -1,3 +1,4 @@
+import com.android.build.api.dsl.Packaging
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -56,9 +57,25 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(projects.shared)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.encoding.base64)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+
+        getByName("androidUnitTest") {
+            dependencies {
+                implementation(libs.kotlin.test)
+                implementation(libs.kotlin.test.junit)
+                implementation(libs.mockk)
+                implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.androidx.arch.core.testing)
+                implementation(libs.robolectric)
+                implementation(libs.turbine)
+                implementation(libs.androidx.test.core)
+                implementation(libs.koin.test)
+                implementation(libs.koin.test.junit4)
+            }
         }
     }
 }
@@ -73,12 +90,21 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        testInstrumentationRunner = "com.veleda.cyclewise.CustomTestRunner"
     }
+    // This is the standard, safe way to handle duplicate text files
+    // found in many third-party libraries. Instead of excluding with
+    // wildcards, we tell Gradle to just pick the first one it finds.
+    // It is generally unsafe to exclude the DEPENDENCIES or NOTICE files
+    // as some libraries rely on them for service loading.
     packaging {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // Prefer picking one over blanket excludes for multi-release files:
+            pickFirsts += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            excludes += "META-INF/versions/**"
         }
     }
+
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
@@ -92,10 +118,29 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests {
+            // Required for Robolectric to access Android resources like themes.
+            isIncludeAndroidResources = true
+        }
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
+    }
 }
 
 dependencies {
     debugImplementation(compose.uiTooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     ksp(libs.room.compiler)
+    implementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.koin.test)
+    androidTestImplementation(libs.koin.test.junit4)
+
+    androidTestUtil(libs.androidx.orchestrator)
 }
 

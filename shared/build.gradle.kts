@@ -1,6 +1,9 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import kotlin.time.ExperimentalTime
+import java.nio.file.Files
+import java.nio.charset.StandardCharsets
+import java.time.ZonedDateTime
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -17,7 +20,7 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
-    
+
     listOf(
         iosX64(),
         iosArm64(),
@@ -28,7 +31,7 @@ kotlin {
             isStatic = true
         }
     }
-    
+
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.datetime)
@@ -46,6 +49,16 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+
+        getByName("androidUnitTest") {
+            dependencies {
+                // This maps the @Test annotation to the JUnit 4 runner.
+                implementation(kotlin("test-junit"))
+
+                implementation(libs.mockk)
+                implementation(libs.kotlinx.coroutines.test)
+            }
+        }
     }
 }
 
@@ -59,4 +72,14 @@ android {
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
     }
+    testOptions {
+        unitTests.all { test ->
+            test.testLogging {
+                events("passed", "skipped", "failed", "standardOut", "standardError")
+            }
+        }
+    }
+}
+dependencies {
+    testImplementation(libs.junit.junit)
 }

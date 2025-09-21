@@ -17,7 +17,7 @@ import kotlinx.datetime.YearMonth
 interface CycleRepository {
 
     /** Returns all known cycles, sorted by start date descending. */
-    suspend fun getAllCycles(): List<Cycle>
+    fun getAllCycles(): Flow<List<Cycle>>
 
     /** Returns a single cycle given its primary Id. */
     suspend fun getCycleById(cycleId: String): Cycle
@@ -69,4 +69,10 @@ interface CycleRepository {
 
     /** Pre-populates the symptom library with a default set of symptoms. */
     suspend fun prepopulateSymptomLibrary()
+
+    /** Returns a reactive Flow of ALL daily logs that have been created. */
+    fun getAllLogs(): Flow<List<FullDailyLog>>
+
+    /** Emits the set of all LocalDates that are part of any saved menstrual period. */
+    fun observeAllPeriodDays(): Flow<Set<LocalDate>>
 }

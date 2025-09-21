@@ -7,6 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.androidData.local.database.CycleDatabase
@@ -51,7 +52,9 @@ fun PassphraseScreen(
                 label = { Text("Passphrase") },
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("passphrase-input")
             )
             Spacer(Modifier.height(24.dp))
             Button(
@@ -78,9 +81,12 @@ fun PassphraseScreen(
                                 }
                             }
 
-                            onPassphraseEntered()
+                            withContext(Dispatchers.Main) {
+                                onPassphraseEntered()
+                            }
 
                         } catch (e: Exception) {
+                            android.util.Log.e("PassphraseUnlock", "Unlock failed with exception", e)
                             e.printStackTrace()
                             koin.getScopeOrNull("session")?.close()
                             withContext(Dispatchers.Main) {
@@ -91,7 +97,9 @@ fun PassphraseScreen(
                     }
                 },
                 enabled = passphrase.isNotBlank() && !isUnlocking,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("unlock-button")
             ) {
                 Text("Unlock")
             }
