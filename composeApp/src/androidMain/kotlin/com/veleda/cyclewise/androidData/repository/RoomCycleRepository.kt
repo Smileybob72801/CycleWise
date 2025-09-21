@@ -17,9 +17,13 @@ import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomCategory
 import com.veleda.cyclewise.domain.repository.CycleRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.*
 import kotlin.time.Clock
@@ -221,6 +225,35 @@ class RoomCycleRepository(
         // Looping is fine for this one-time operation.
         defaultSymptoms.forEach { symptom ->
             symptomDao.insert(symptom.toEntity())
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun getAllLogs(): Flow<List<FullDailyLog>> {
+        // This is a complex reactive query.
+        // It listens for changes in any of the log tables.
+        return dailyEntryDao.getAllEntries().flatMapLatest { entries ->
+            if (entries.isEmpty()) {
+                flowOf(emptyList())
+            } else {
+                val entryIds = entries.map { it.id }
+                // Combine the flows for symptoms and medications related to these entries
+                combine(
+                    symptomLogDao.getLogsForEntries(entryIds),
+                    medicationLogDao.getLogsForEntries(entryIds)
+                ) { symptoms, medications ->
+                    val symptomsById = symptoms.groupBy { it.entryId }
+                    val medicationsById = medications.groupBy { it.entryId }
+
+                    entries.map { entry ->
+                        FullDailyLog(
+                            entry = entry.toDomain(),
+                            symptomLogs = symptomsById[entry.id]?.map { it.toDomain() } ?: emptyList(),
+                            medicationLogs = medicationsById[entry.id]?.map { it.toDomain() } ?: emptyList()
+                        )
+                    }
+                }
+            }
         }
     }
 }

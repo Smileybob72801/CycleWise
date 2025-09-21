@@ -1,3 +1,4 @@
+import com.android.build.api.dsl.Packaging
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -89,20 +90,21 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        testInstrumentationRunner = "com.veleda.cyclewise.CustomTestRunner"
     }
+    // This is the standard, safe way to handle duplicate text files
+    // found in many third-party libraries. Instead of excluding with
+    // wildcards, we tell Gradle to just pick the first one it finds.
+    // It is generally unsafe to exclude the DEPENDENCIES or NOTICE files
+    // as some libraries rely on them for service loading.
     packaging {
         resources {
+            // Prefer picking one over blanket excludes for multi-release files:
+            pickFirsts += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
             excludes += "META-INF/versions/**"
-
-            excludes += setOf(
-                "/META-INF/{AL2.0,LGPL2.1}",
-                "META-INF/LICENSE.md",
-                "META-INF/LICENSE*",
-                "META-INF/NOTICE*",
-                "META-INF/DEPENDENCIES"
-            )
         }
     }
+
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
@@ -122,11 +124,23 @@ android {
             // Required for Robolectric to access Android resources like themes.
             isIncludeAndroidResources = true
         }
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
 }
 
 dependencies {
     debugImplementation(compose.uiTooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     ksp(libs.room.compiler)
+    implementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.koin.test)
+    androidTestImplementation(libs.koin.test.junit4)
+
+    androidTestUtil(libs.androidx.orchestrator)
 }
 

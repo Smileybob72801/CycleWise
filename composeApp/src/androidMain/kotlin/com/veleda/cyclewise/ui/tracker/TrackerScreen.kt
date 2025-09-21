@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -118,7 +119,9 @@ fun TrackerScreen(navController: NavController) {
             })
             HorizontalCalendar(
                 state = calendarState,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("calendar-root"),
                 dayContent = { day ->
                     val date = day.date.toKotlinLocalDate()
 
@@ -130,8 +133,11 @@ fun TrackerScreen(navController: NavController) {
                         if (start != null && end != null) start..end else if (start != null) start..start else null
                     }
 
+                    val dayInfo = uiState.dayDetails[date]
+
                     Day(
                         day = day,
+                        dayInfo = dayInfo,
                         isSelected = date == uiState.selectionStartDate || date == uiState.selectionEndDate,
                         isStartDate = cycleForDate?.startDate == date,
                         isEndDate = cycleForDate?.endDate == date,
@@ -152,13 +158,17 @@ fun TrackerScreen(navController: NavController) {
                     ) {
                         Text("Cancel")
                     }
-                    Button(onClick = { viewModel.onSaveSelection() }) {
+                    Button(onClick = { viewModel.onSaveSelection() },
+                        modifier = Modifier.testTag("save-cycle-button")
+                    ) {
                         Text("Save Cycle")
                     }
                 }
             }
             AnimatedVisibility(visible = !uiState.isSelectingRange && uiState.ongoingCycle != null) {
-                Button(onClick = { viewModel.onEndCurrentCycle() }) {
+                Button(onClick = { viewModel.onEndCurrentCycle() },
+                    modifier = Modifier.testTag("end-cycle-button")
+                ) {
                     Text("End Cycle Today")
                 }
             }
@@ -194,7 +204,9 @@ private fun LogSummarySheetContent(
                 text = "Log for ${log.entry.entryDate}",
                 style = MaterialTheme.typography.titleLarge
             )
-            IconButton(onClick = { onEditClick(log.entry.entryDate) }) {
+            IconButton(onClick = { onEditClick(log.entry.entryDate) },
+                modifier = Modifier.testTag("edit-log-button")
+            ) {
                 Icon(Icons.Default.Edit, contentDescription = "Edit Log")
             }
         }
@@ -243,6 +255,7 @@ private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title
 @Composable
 private fun Day(
     day: CalendarDay,
+    dayInfo: CalendarDayInfo?,
     isSelected: Boolean,
     isStartDate: Boolean,
     isEndDate: Boolean,
@@ -250,6 +263,7 @@ private fun Day(
     isInSelectionRange: Boolean,
     onClick: () -> Unit
 ) {
+    val date = day.date.toKotlinLocalDate()
     val inRange = isInExistingRange || isInSelectionRange
     val shape = when {
         isStartDate && isEndDate -> CircleShape
@@ -263,13 +277,14 @@ private fun Day(
         modifier = Modifier
             .aspectRatio(1f)
             .padding(vertical = if (inRange && !isStartDate && !isEndDate) 0.dp else 4.dp)
+            .testTag("day-$date") // The main tag for clicking the day
             .border(
                 width = if (isSelected) 2.dp else 0.dp,
                 color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
                 shape = CircleShape
             )
             .background(
-                color = if (inRange) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                color = if (dayInfo?.isPeriodDay == true) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                 shape = shape
             )
             .clickable(
@@ -278,10 +293,52 @@ private fun Day(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = day.date.dayOfMonth.toString(),
-            color = if (day.position == DayPosition.MonthDate) MaterialTheme.colorScheme.onSurface else Color.Gray
-        )
+        // We use a Column to stack the date number on top of the decorator dots
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = day.date.dayOfMonth.toString(),
+                color = if (day.position == DayPosition.MonthDate) MaterialTheme.colorScheme.onSurface else Color.Gray
+            )
+
+            // This Row will contain the small dots below the date number.
+            Row(
+                modifier = Modifier.padding(top = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                // Symptom Dot
+                if (dayInfo?.hasSymptoms == true) {
+                    Box(
+                        modifier = Modifier
+                            .size(4.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.secondary)
+                            // The test tag for the visible dot
+                            .testTag("symptom-dot-$date")
+                    )
+                }
+                // Medication Dot
+                if (dayInfo?.hasMedications == true) {
+                    Box(
+                        modifier = Modifier
+                            .size(4.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.tertiary)
+                            // The test tag for the visible dot
+                            .testTag("medication-dot-$date")
+                    )
+                }
+            }
+
+            // --- INVISIBLE TEST TAGS FOR STATE VERIFICATION ---
+            // These have no size and are purely for the test to find.
+            if (dayInfo?.isPeriodDay == true) {
+                Box(modifier = Modifier.testTag("period-day-$date"))
+            }
+            // --- END INVISIBLE TEST TAGS ---
+        }
     }
 }
 

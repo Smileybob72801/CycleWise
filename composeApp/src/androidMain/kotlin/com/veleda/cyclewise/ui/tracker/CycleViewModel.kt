@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.YearMonth
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
@@ -27,13 +28,10 @@ data class TrackerUiState(
     val cycles: List<Cycle> = emptyList(),
     val selectionStartDate: LocalDate? = null,
     val selectionEndDate: LocalDate? = null,
-
-    // This holds the data for the bottom sheet.
-    // When it's not null, the sheet will be visible.
     val logForSheet: FullDailyLog? = null,
-
     val symptomLibrary: List<Symptom> = emptyList(),
     val medicationLibrary: List<Medication> = emptyList(),
+    val dayDetails: Map<LocalDate, CalendarDayInfo> = emptyMap()
 ) {
     val ongoingCycle: Cycle? = cycles.find { it.endDate == null }
     val isSelectingRange: Boolean = selectionStartDate != null
@@ -45,47 +43,82 @@ class CycleViewModel(
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private  val medicationLibraryProvider: MedicationLibraryProvider,
 ) : ViewModel() {
+    private val _uiState = MutableStateFlow(TrackerUiState())
+    // We expose it as an immutable, public state flow.
+    val uiState: StateFlow<TrackerUiState> = _uiState.asStateFlow()
 
-    private val _selectionState = MutableStateFlow<Pair<LocalDate?, LocalDate?>>(Pair(null, null))
-    private val _logForSheetState = MutableStateFlow<FullDailyLog?>(null)
+    init {
+        // We launch separate collectors for each asynchronous data source.
+        // Each collector independently updates the single _uiState.
 
-    val uiState: StateFlow<TrackerUiState> = combine(
-        cycleRepository.getAllCycles(), // Directly use the repository flow
-        symptomLibraryProvider.symptoms,
-        medicationLibraryProvider.medications,
-        _selectionState,
-        _logForSheetState
-    ) { cycles, symptoms, medications, selection, logForSheet ->
-        TrackerUiState(
-            cycles = cycles,
-            symptomLibrary = symptoms,
-            medicationLibrary = medications,
-            selectionStartDate = selection.first,
-            selectionEndDate = selection.second,
-            logForSheet = logForSheet
-        )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.Eagerly,
-        initialValue = TrackerUiState()
-    )
+        // 1. Collect the stream of Cycles
+        viewModelScope.launch {
+            cycleRepository.getAllCycles().collect { cycles ->
+                _uiState.update { it.copy(cycles = cycles) }
+            }
+        }
+
+        // 2. Collect the stream of ALL daily logs to power the decorators
+        viewModelScope.launch {
+            cycleRepository.getAllLogs().collect { allLogs ->
+                val details = allLogs.associate { log ->
+                    log.entry.entryDate to CalendarDayInfo(
+                        isPeriodDay = log.entry.flowIntensity != null,
+                        hasSymptoms = log.symptomLogs.isNotEmpty(),
+                        hasMedications = log.medicationLogs.isNotEmpty()
+                    )
+                }
+                _uiState.update { it.copy(dayDetails = details) }
+            }
+        }
+
+        viewModelScope.launch {
+            symptomLibraryProvider.symptoms.collect { symptoms ->
+                _uiState.update { it.copy(symptomLibrary = symptoms) }
+            }
+        }
+
+        viewModelScope.launch {
+            medicationLibraryProvider.medications.collect { medications ->
+                _uiState.update { it.copy(medicationLibrary = medications) }
+            }
+        }
+    }
+
+    private fun fetchDayDetails(cycles: List<Cycle>): Flow<Unit> = flow {
+        if (cycles.isEmpty()) {
+            _uiState.update { it.copy(dayDetails = emptyMap()) }
+            return@flow
+        }
+        val currentMonth = YearMonth(Clock.System.todayIn(TimeZone.currentSystemDefault()).year, Clock.System.todayIn(TimeZone.currentSystemDefault()).month)
+        val logs = cycleRepository.getLogsForMonth(currentMonth)
+        val details = logs.associate { log ->
+            log.entry.entryDate to CalendarDayInfo(
+                isPeriodDay = log.entry.flowIntensity != null,
+                hasSymptoms = log.symptomLogs.isNotEmpty(),
+                hasMedications = log.medicationLogs.isNotEmpty()
+            )
+        }
+        _uiState.update { it.copy(dayDetails = details) }
+        emit(Unit)
+    }
 
     fun onDateClicked(date: LocalDate, cycleForDate: Cycle?) {
         if (cycleForDate != null) {
             showLogSheetForDate(date, cycleForDate)
         } else {
-            val currentState = uiState.value
+            val currentState = _uiState.value // Read the latest value
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
             if (date > today || currentState.ongoingCycle != null) return
             val currentSelectionStart = currentState.selectionStartDate
             if (currentSelectionStart == null) {
-                _selectionState.value = Pair(date, null)
+                _uiState.update { it.copy(selectionStartDate = date, selectionEndDate = null) }
             } else if (date < currentSelectionStart) {
-                _selectionState.value = Pair(date, null)
+                _uiState.update { it.copy(selectionStartDate = date, selectionEndDate = null) }
             } else if (date == currentSelectionStart) {
                 clearSelection()
             } else {
-                _selectionState.value = Pair(currentSelectionStart, date)
+                _uiState.update { it.copy(selectionEndDate = date) }
             }
         }
     }
@@ -110,18 +143,19 @@ class CycleViewModel(
                 log = FullDailyLog(entry = newBlankEntry)
             }
 
-            _logForSheetState.value = log
+            _uiState.update { it.copy(logForSheet = log) }
         }
     }
 
     fun onDismissLogSheet() {
-        _logForSheetState.value = null
+        _uiState.update { it.copy(logForSheet = null) }
     }
 
     fun onSaveSelection() {
-        val startDate = uiState.value.selectionStartDate ?: return
-        val endDate = uiState.value.selectionEndDate ?: startDate
         viewModelScope.launch {
+            val currentState = _uiState.value
+            val startDate = currentState.selectionStartDate ?: return@launch
+            val endDate = currentState.selectionEndDate ?: startDate
             if (cycleRepository.isDateRangeAvailable(startDate, endDate)) {
                 val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
                 if (startDate == today) {
@@ -137,7 +171,7 @@ class CycleViewModel(
     }
 
     fun clearSelection() {
-        _selectionState.value = Pair(null, null)
+        _uiState.update { it.copy(selectionStartDate = null, selectionEndDate = null) }
     }
 
     fun onEndCurrentCycle() {

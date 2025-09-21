@@ -5,6 +5,6 @@ package com.veleda.cyclewise.ui.tracker
  */
 data class CalendarDayInfo(
     val isPeriodDay: Boolean = false,
-    val hasSymptoms: Boolean = false
-    // TODO: Add more flags here later, like `tookMedication`
+    val hasSymptoms: Boolean = false,
+    val hasMedications: Boolean = false
 )

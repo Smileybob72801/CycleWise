@@ -18,6 +18,7 @@ kotlinxDatetime = "0.7.1"
 ktorVersion = "3.2.2"
 lifecycleViewmodelKtx = "2.9.2"
 koin = "4.1.0"
+orchestrator = "1.6.1"
 room = "2.7.2"
 sqlcipher = "4.5.4"
 security_crypto = "1.1.0"
@@ -34,12 +35,15 @@ turbine = "1.2.1"
 bouncy = "1.81"
 androidx-test-core = "1.7.0"
 encoding = "2.4.0"
+compose-bom = "2025.09.00"
+androidx-test = "1.7.0"
 
 [libraries]
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleViewmodelKtx" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelKtx" }
 androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "androidx-lifecycle" }
 androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
+androidx-orchestrator = { module = "androidx.test:orchestrator", version.ref = "orchestrator" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
 androidx-testExt-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-testExt" }
@@ -78,10 +82,19 @@ junit-junit = { group = "junit", name = "junit", version.ref = "junitVersion" }
 androidx-arch-core-testing = { module = "androidx.arch.core:core-testing", version.ref = "androidx-arch-core" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
-androidx-test-core = { module = "androidx.test:core-ktx", version.ref = "androidx-test-core" }
+encoding-base64 = { module = "io.matthewnelson.encoding:base64", version.ref = "encoding" }
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+
+# --- ANDROIDX TEST ---
+androidx-test-core = { module = "androidx.test:core-ktx", version.ref = "androidx-test" } # This should exist
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test" } # <-- ADD THIS
+androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidx-test" }   # <-- ADD THIS
+androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" } # Version from BOM
+androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" } # Version from BOM
+
+# --- Koin Test ---
 koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
 koin-test-junit4 = { module = "io.insert-koin:koin-test-junit4", version.ref = "koin" }
-encoding-base64 = { module = "io.matthewnelson.encoding:base64", version.ref = "encoding" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

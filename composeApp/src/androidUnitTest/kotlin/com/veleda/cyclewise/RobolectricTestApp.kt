@@ -7,7 +7,7 @@ import android.app.Application
  * This prevents the real `startKoin` in the production app from being called
  * during tests, giving our KoinTestRule full control.
  */
-class TestCycleWiseApp : Application() {
+class RobolectricTestApp : Application() {
     override fun onCreate() {
         // We keep this empty on purpose to override the production app's initialization.
         super.onCreate()

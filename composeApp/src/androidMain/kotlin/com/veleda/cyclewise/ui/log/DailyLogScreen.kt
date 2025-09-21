@@ -32,6 +32,7 @@ import kotlinx.datetime.LocalDate
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
+import androidx.compose.ui.platform.testTag
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) // Add ExperimentalLayoutApi
 @Composable
@@ -48,10 +49,13 @@ fun DailyLogScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                viewModel.saveLog()
-                onSaveComplete()
-            }) {
+            FloatingActionButton(
+                onClick = {
+                    viewModel.saveLog()
+                    onSaveComplete()
+                },
+                modifier = Modifier.testTag("save_log_button") // <-- ADD THIS
+            ) {
                 Icon(Icons.Default.Check, contentDescription = "Save Log")
             }
         }
@@ -67,7 +71,7 @@ fun DailyLogScreen(
                     Text(text = uiState.error!!, color = MaterialTheme.colorScheme.error)
                 }
             }
-            // vvv FIX: Use the new 'log' state object vvv
+
             uiState.log != null -> {
                 val log = uiState.log!!
                 Column(
@@ -321,6 +325,7 @@ private fun SymptomLogger(
                 symptomLibrary.forEach { symptom ->
                     val isSelected = loggedSymptoms.any { it.symptomId == symptom.id }
                     FilterChip(
+                        modifier = Modifier.testTag("chip-${symptom.name.uppercase()}"),
                         selected = isSelected,
                         onClick = { onToggleSymptom(symptom) },
                         label = { Text(symptom.name) }
@@ -334,7 +339,9 @@ private fun SymptomLogger(
             value = newMedicationName,
             onValueChange = { newMedicationName = it },
             label = { Text("Add new symptom...") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .testTag("create-symptom-textbox")
+                .fillMaxWidth(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = {
                 onCreateAndAddSymptom(newMedicationName)
@@ -346,7 +353,8 @@ private fun SymptomLogger(
                         onCreateAndAddSymptom(newMedicationName)
                         newMedicationName = ""
                     },
-                    enabled = newMedicationName.isNotBlank()
+                    enabled = newMedicationName.isNotBlank(),
+                    modifier = Modifier.testTag("create-symptom-button")
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Create and Add Symptom")
                 }

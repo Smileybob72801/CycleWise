@@ -47,12 +47,16 @@ abstract class CycleDatabase : RoomDatabase() {
     abstract fun symptomLogDao(): SymptomLogDao
 
     companion object {
-        fun create(context: Context, passphrase: ByteArray): CycleDatabase {
+        fun create(
+            context: Context,
+            passphrase: ByteArray,
+            dbName: String = "cyclewise.db"
+        ): CycleDatabase {
             val factory = SupportFactory(passphrase)
             return Room.databaseBuilder(
                 context,
                 CycleDatabase::class.java,
-                "cyclewise.db"
+                dbName
             )
                 .openHelperFactory(factory)
                 .addMigrations(

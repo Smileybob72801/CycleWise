@@ -69,4 +69,7 @@ interface CycleRepository {
 
     /** Pre-populates the symptom library with a default set of symptoms. */
     suspend fun prepopulateSymptomLibrary()
+
+    /** Returns a reactive Flow of ALL daily logs that have been created. */
+    fun getAllLogs(): Flow<List<FullDailyLog>>
 }
