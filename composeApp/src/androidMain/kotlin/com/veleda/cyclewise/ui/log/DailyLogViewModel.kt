@@ -13,7 +13,9 @@ import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.CycleRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -23,6 +25,8 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 
 // Represents the state of the UI, holding the FullDailyLog
 data class DailyLogUiState(
@@ -31,7 +35,6 @@ data class DailyLogUiState(
     val error: String? = null,
     val symptomLibrary: List<Symptom> = emptyList(),
     val medicationLibrary: List<Medication> = emptyList(),
-    val newSymptomName: String = ""
 )
 
 class DailyLogViewModel(
@@ -43,6 +46,9 @@ class DailyLogViewModel(
 {
     private val _uiState = MutableStateFlow(DailyLogUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _saveCompleteEvent = MutableSharedFlow<Unit>(replay = 0)
+    val saveCompleteEvent: SharedFlow<Unit> = _saveCompleteEvent
 
     // A predefined list of common symptoms for the user to select from.
     // TODO: get this from config file or settings.
@@ -66,56 +72,189 @@ class DailyLogViewModel(
     )
 
     init {
-        loadLog()
+        // 1. Initial data load dispatches a single, comprehensive event when complete.
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val initialSymptoms = symptomLibraryProvider.symptoms.first()
+            val initialMedications = medicationLibraryProvider.medications.first()
+            val result = cycleRepository.getFullLogForDate(entryDate)
+                ?: createNewBlankLog(initialSymptoms, initialMedications)
 
-        viewModelScope.launch {
-            symptomLibraryProvider.symptoms.collect { symptoms ->
-                _uiState.update { it.copy(symptomLibrary = symptoms) }
-            }
+            onEvent(DailyLogEvent.LogLoaded(result, initialSymptoms, initialMedications))
         }
-        viewModelScope.launch {
-            medicationLibraryProvider.medications.collect { medications ->
-                _uiState.update { it.copy(medicationLibrary = medications) }
-            }
+
+        // 2. Subsequent library changes also dispatch events instead of mutating state directly.
+        symptomLibraryProvider.symptoms
+            .onEach { symptoms -> onEvent(DailyLogEvent.LibraryUpdated(symptoms, _uiState.value.medicationLibrary)) }
+            .launchIn(viewModelScope)
+
+        medicationLibraryProvider.medications
+            .onEach { medications -> onEvent(DailyLogEvent.LibraryUpdated(_uiState.value.symptomLibrary, medications)) }
+            .launchIn(viewModelScope)
+    }
+
+    // 3. The SINGLE entry point for all state modifications.
+    fun onEvent(event: DailyLogEvent) {
+        _uiState.update { currentState ->
+            reduce(currentState, event)
         }
     }
 
-    private fun loadLog() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-
-            // First, try to fetch an existing log.
-            var result = cycleRepository.getFullLogForDate(entryDate)
-
-            if (result == null) {
-                // If no log exists, we must create a new, blank one.
-                // To do this, we need to find which cycle this date belongs to.
-                val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-                val allCycles = cycleRepository.getAllCycles().first()
-                val parentCycle = allCycles.find { entryDate in (it.startDate..(it.endDate ?: today)) }
-
-                if (parentCycle != null) {
-                    // We found the parent cycle, so we can create a new blank entry.
-                    val dayInCycle = parentCycle.startDate.daysUntil(entryDate) + 1
-                    val newBlankEntry = DailyEntry(
-                        id = uuid4().toString(),
-                        cycleId = parentCycle.id,
-                        entryDate = entryDate,
-                        dayInCycle = dayInCycle,
-                        createdAt = Clock.System.now(),
-                        updatedAt = Clock.System.now()
-                    )
-                    result = FullDailyLog(entry = newBlankEntry)
+    // 4. The REDUCER: A pure function that takes the current state and an event, and returns the new state.
+    private fun reduce(currentState: DailyLogUiState, event: DailyLogEvent): DailyLogUiState {
+        return when (event) {
+            is DailyLogEvent.SaveLog -> {
+                currentState.log?.let { logToSave ->
+                    viewModelScope.launch {
+                        cycleRepository.saveFullLog(logToSave)
+                        _saveCompleteEvent.emit(Unit)
+                    }
                 }
+                currentState
             }
 
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    log = result,
-                    error = if (result == null) "Could not find a parent cycle for this date." else null
-                )
+            is DailyLogEvent.LogLoaded -> currentState.copy(
+                isLoading = false,
+                log = event.log,
+                symptomLibrary = event.initialSymptoms,
+                medicationLibrary = event.initialMedications,
+                error = if (event.log == null) "Could not find a parent cycle for this date." else null
+            )
+            is DailyLogEvent.LibraryUpdated -> currentState.copy(
+                symptomLibrary = event.symptoms,
+                medicationLibrary = event.medications
+            )
+
+            is DailyLogEvent.CreateAndAddSymptom -> {
+                val name = event.name.trim()
+                if (name.isBlank() || currentState.log == null) {
+                    return currentState
+                }
+
+                // Launch a coroutine to handle the database interaction and subsequent state update.
+                viewModelScope.launch {
+                    // Step 1: Persist the new symptom to the library, getting back the canonical object.
+                    val newSymptom = cycleRepository.createOrGetSymptomInLibrary(name)
+
+                    // Step 2: Create the log entry to mark this symptom as active for today.
+                    val newLogEntry = SymptomLog(
+                        id = uuid4().toString(),
+                        entryId = currentState.log.entry.id,
+                        symptomId = newSymptom.id,
+                        severity = 3, // A reasonable default severity.
+                        createdAt = Clock.System.now()
+                    )
+
+                    // Step 3: Perform a single, atomic state update that includes EVERYTHING.
+                    _uiState.update {
+                        val updatedLogs = it.log!!.symptomLogs + newLogEntry
+
+                        val updatedLibrary = if (it.symptomLibrary.any { s -> s.id == newSymptom.id }) {
+                            it.symptomLibrary
+                        } else {
+                            it.symptomLibrary + newSymptom
+                        }
+
+                        it.copy(
+                            log = it.log.copy(symptomLogs = updatedLogs),
+                            symptomLibrary = updatedLibrary
+                        )
+                    }
+                }
+                return currentState
             }
+
+            is DailyLogEvent.SymptomToggled -> {
+                val log = currentState.log ?: return currentState
+                val existingLog = log.symptomLogs.find { it.symptomId == event.symptom.id }
+                val newLogs = if (existingLog != null) {
+                    log.symptomLogs.filterNot { it.id == existingLog.id }
+                } else {
+                    log.symptomLogs + SymptomLog(uuid4().toString(), log.entry.id, event.symptom.id, 3, Clock.System.now())
+                }
+                currentState.copy(log = log.copy(symptomLogs = newLogs))
+            }
+
+            is DailyLogEvent.SaveLog -> {
+                currentState.log?.let { logToSave ->
+                    viewModelScope.launch { cycleRepository.saveFullLog(logToSave) }
+                }
+                currentState
+            }
+
+            is DailyLogEvent.MedicationToggled -> {
+                val log = currentState.log ?: return currentState
+                val existingLog = log.medicationLogs.find { it.medicationId == event.medication.id }
+
+                val newLogs = if (existingLog != null) {
+                    // It exists, so remove it.
+                    log.medicationLogs.filterNot { it.id == existingLog.id }
+                } else {
+                    // It doesn't exist, so add it.
+                    val newLog = MedicationLog(
+                        id = uuid4().toString(),
+                        entryId = log.entry.id,
+                        medicationId = event.medication.id,
+                        createdAt = Clock.System.now()
+                    )
+                    log.medicationLogs + newLog
+                }
+                currentState.copy(log = log.copy(medicationLogs = newLogs))
+            }
+
+            is DailyLogEvent.MedicationCreatedAndAdded -> {
+                val name = event.name.trim()
+                if (name.isBlank()) return currentState
+
+                viewModelScope.launch {
+                    // This suspend call persists the new medication to the database
+                    val newMedication = cycleRepository.createOrGetMedicationInLibrary(name)
+
+                    val newLogEntry = MedicationLog(
+                        id = uuid4().toString(),
+                        entryId = _uiState.value.log!!.entry.id,
+                        medicationId = newMedication.id,
+                        createdAt = Clock.System.now()
+                    )
+
+                    // Atomically update the state with the new log AND the new library item
+                    _uiState.update {
+                        val updatedLibrary = if (it.medicationLibrary.any { m -> m.id == newMedication.id }) {
+                            it.medicationLibrary
+                        } else {
+                            it.medicationLibrary + newMedication
+                        }
+
+                        it.copy(
+                            log = it.log?.copy(medicationLogs = it.log.medicationLogs + newLogEntry),
+                            medicationLibrary = updatedLibrary
+                        )
+                    }
+                }
+
+                // Immediately return the current state. The launch block will update it again.
+                currentState
+            }
+
+            // ... handle other events like NoteChanged, MoodScoreChanged, etc.
+            else -> currentState
+        }
+    }
+
+    private suspend fun createNewBlankLog(symptoms: List<Symptom>, medications: List<Medication>): FullDailyLog? {
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+        val parentCycle = cycleRepository.getAllCycles().first().find { entryDate in (it.startDate..(it.endDate ?: today)) }
+        return parentCycle?.let {
+            val dayInCycle = it.startDate.daysUntil(entryDate) + 1
+            val newBlankEntry = DailyEntry(
+                id = uuid4().toString(),
+                cycleId = it.id,
+                entryDate = entryDate,
+                dayInCycle = dayInCycle,
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now()
+            )
+            FullDailyLog(entry = newBlankEntry)
         }
     }
 
@@ -225,47 +364,6 @@ class DailyLogViewModel(
                 log.symptomLogs + newLog
             }
             state.copy(log = log.copy(symptomLogs = newLogs))
-        }
-    }
-
-    fun onNewSymptomNameChange(name: String) {
-        _uiState.update { it.copy(newSymptomName = name) }
-    }
-
-    fun onCreateAndAddSymptom() {
-        val name = _uiState.value.newSymptomName.trim()
-        if (name.isBlank()) return
-
-        viewModelScope.launch {
-            // Step 1: Perform the async database operation to get the canonical Symptom object.
-            // This ensures it's persisted for the future.
-            val newSymptom = cycleRepository.createOrGetSymptomInLibrary(name)
-
-            // Step 2: Atomically update the UI state with EVERYTHING needed for the next render.
-            _uiState.update { currentState ->
-                val log = currentState.log ?: return@update currentState
-
-                // Create the new log object to be added to the list of symptoms for this day.
-                val newLogEntry = SymptomLog(
-                    id = uuid4().toString(),
-                    entryId = log.entry.id,
-                    symptomId = newSymptom.id,
-                    severity = 3, // A reasonable default severity
-                    createdAt = Clock.System.now()
-                )
-
-                // Manually add the new symptom to the local copy of the library.
-                // This ensures the UI can render the new chip immediately, without waiting for the database flow.
-                // The distinctBy prevents duplicates if the flow emits at the same time.
-                val updatedLibrary = (currentState.symptomLibrary + newSymptom).distinctBy { it.id }
-
-                // Return the new, complete state in a single operation.
-                currentState.copy(
-                    log = log.copy(symptomLogs = log.symptomLogs + newLogEntry),
-                    symptomLibrary = updatedLibrary,
-                    newSymptomName = "" // Clear the text field
-                )
-            }
         }
     }
 }

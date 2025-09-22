@@ -1,19 +1,23 @@
 package com.veleda.cyclewise.e2e
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 //import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.test.printToLog
+import androidx.compose.ui.test.printToString
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.veleda.cyclewise.MainActivity
@@ -25,10 +29,10 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.koin.test.KoinTest
+import java.io.File
 
 @RunWith(AndroidJUnit4::class)
-class UnlockCreateLogE2ETest : KoinTest {
+class UnlockCreateLogE2ETest {
 
     @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
@@ -41,10 +45,10 @@ class UnlockCreateLogE2ETest : KoinTest {
 
     @Before
     fun setUp() {
-        // Clean only inside the target app context (test APK may have a different context)
+        // Get the target app's context to access its storage.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
 
-        // Wipe both test and prod DBs (plus -shm/-wal)
+        // 1. Wipe Room Databases (and their journal/write-ahead-log files)
         val testDbName = "e2e_cyclewise.db"
         val prodDbName = "cyclewise.db"
         listOf(
@@ -52,9 +56,15 @@ class UnlockCreateLogE2ETest : KoinTest {
             prodDbName, "$prodDbName-shm", "$prodDbName-wal"
         ).forEach { appContext.getDatabasePath(it).delete() }
 
-        // Clear salt prefs to ensure fresh key derivation
+        // 2. Clear all SharedPreferences
         appContext.getSharedPreferences("cyclewise_salt_prefs", Context.MODE_PRIVATE)
             .edit().clear().apply()
+
+        // 3. Clear all Jetpack DataStore files
+        val dataStoreDir = File(appContext.filesDir, "datastore")
+        if (dataStoreDir.exists()) {
+            dataStoreDir.deleteRecursively()
+        }
     }
 
     @Test
@@ -83,7 +93,23 @@ class UnlockCreateLogE2ETest : KoinTest {
         // 4) Create a new symptom
         val symptomName = "TestSymptom"
         typeInto("create-symptom-textbox", symptomName)
-        click("create-symptom-button")
+
+        compose.onNodeWithTag("create-symptom-textbox").assert(
+            SemanticsMatcher("Editable text is '$symptomName'") { node ->
+                node.config.getOrNull(SemanticsProperties.EditableText)?.text == symptomName
+            }
+        )
+
+        // Print the default MERGED tree
+        compose.onRoot().printToLog("MergedTree")
+
+        // Print the UNMERGED tree to see all nodes
+        compose.onRoot(useUnmergedTree = true).printToLog("UnmergedTree")
+
+        Log.d("E2E_DEBUG", compose.onRoot().printToString())
+        Log.d("E2E_DEBUG", compose.onRoot(useUnmergedTree = true).printToString())
+
+        compose.onNodeWithTag("create-symptom-textbox", useUnmergedTree = true).performImeAction()
 
         // 5) VERIFY THE FINAL RESULT: Wait for the new chip to appear and assert it's selected.
         val chipTag = "chip-${symptomName.uppercase()}"
@@ -124,23 +150,6 @@ class UnlockCreateLogE2ETest : KoinTest {
         compose.waitUntil(timeoutMillis) {
             compose.onAllNodesWithTag(tag, useUnmergedTree = useUnmerged)
                 .fetchSemanticsNodes().isNotEmpty()
-        }
-    }
-
-    private fun waitUntilTextboxCleared(
-        tag: String,
-        useUnmerged: Boolean = false,
-        timeoutMillis: Long = mediumWait
-    ) {
-        val editableIsEmpty = SemanticsMatcher("${tag}_isEmptyEditable") { node ->
-            val text = node.config.getOrNull(SemanticsProperties.EditableText)
-            text?.text?.isEmpty() == true
-        }
-        compose.waitUntil(timeoutMillis) {
-            compose.onAllNodes(
-                matcher = editableIsEmpty.and(hasTestTag(tag)),
-                useUnmergedTree = useUnmerged
-            ).fetchSemanticsNodes().isNotEmpty()
         }
     }
 }

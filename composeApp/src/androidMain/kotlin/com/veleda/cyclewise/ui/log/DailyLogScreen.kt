@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,14 +48,19 @@ fun DailyLogScreen(
     )
     val uiState by viewModel.uiState.collectAsState()
 
+    LaunchedEffect(Unit) {
+        viewModel.saveCompleteEvent.collect {
+            onSaveComplete() // Call the navigation lambda when the event is received
+        }
+    }
+
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    viewModel.saveLog()
-                    onSaveComplete()
+                    viewModel.onEvent(DailyLogEvent.SaveLog)
                 },
-                modifier = Modifier.testTag("save_log_button") // <-- ADD THIS
+                modifier = Modifier.testTag("save_log_button")
             ) {
                 Icon(Icons.Default.Check, contentDescription = "Save Log")
             }
@@ -103,18 +109,25 @@ fun DailyLogScreen(
                     SymptomLogger(
                         loggedSymptoms = log.symptomLogs,
                         symptomLibrary = uiState.symptomLibrary,
-                        onToggleSymptom = { viewModel.onToggleSymptom(it) },
-                        newSymptomName = uiState.newSymptomName,
-                        onNewSymptomNameChange = viewModel::onNewSymptomNameChange,
-                        onCreateAndAddSymptom = viewModel::onCreateAndAddSymptom
+                        onToggleSymptom = { symptom ->
+                            viewModel.onEvent(DailyLogEvent.SymptomToggled(symptom))
+                        },
+                        onCreateAndAddSymptom = { name ->
+                            viewModel.onEvent(DailyLogEvent.CreateAndAddSymptom(name))
+                        }
                     )
 
+                    // TODO: Refactor meds to use events like symptoms
                     SectionTitle("Medications")
                     MedicationLogger(
                         loggedMedications = log.medicationLogs,
                         medicationLibrary = uiState.medicationLibrary,
-                        onToggleMedication = { viewModel.onToggleMedication(it) },
-                        onCreateAndAddMedication = { viewModel.onCreateAndAddMedication(it) }
+                        onToggleMedication = { medication ->
+                            viewModel.onEvent(DailyLogEvent.MedicationToggled(medication))
+                        },
+                        onCreateAndAddMedication = { name ->
+                            viewModel.onEvent(DailyLogEvent.MedicationCreatedAndAdded(name))
+                        }
                     )
 
                     SectionTitle("Custom Tags")
@@ -313,10 +326,18 @@ private fun SymptomLogger(
     loggedSymptoms: List<SymptomLog>,
     symptomLibrary: List<Symptom>,
     onToggleSymptom: (Symptom) -> Unit,
-    newSymptomName: String,
-    onNewSymptomNameChange: (String) -> Unit,
-    onCreateAndAddSymptom: () -> Unit
+    onCreateAndAddSymptom: (String) -> Unit
 ) {
+    android.util.Log.d(
+        "E2E_DEBUG",
+        "SymptomLogger Recomposing: " +
+        "library count=${symptomLibrary.size}, " +
+        "logged symptoms count=${loggedSymptoms.size}, " +
+        "logged IDs=${loggedSymptoms.map { it.symptomId }}"
+    )
+
+    var newSymptomName by remember { mutableStateOf("") }
+
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Part 1: Display the entire library as selectable chips
         if (symptomLibrary.isNotEmpty()) {
@@ -338,20 +359,24 @@ private fun SymptomLogger(
 
         // Part 2: Text field to add a new symptom to the library
         OutlinedTextField(
-            value = newSymptomName, // <-- USE a parameter
-            onValueChange = onNewSymptomNameChange, // <-- USE a parameter
+            value = newSymptomName,
+            onValueChange = { newSymptomName = it },
             label = { Text("Add new symptom...") },
             modifier = Modifier
                 .testTag("create-symptom-textbox")
                 .fillMaxWidth(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = {
-                onCreateAndAddSymptom() // <-- USE a parameter
+                if (newSymptomName.isNotBlank()) {
+                    onCreateAndAddSymptom(newSymptomName) // 1. Hoist the event with data
+                    newSymptomName = ""                  // 2. Clear the local state
+                }
             }),
             trailingIcon = {
                 IconButton(
                     onClick = {
-                        onCreateAndAddSymptom() // <-- USE a parameter
+                        onCreateAndAddSymptom(newSymptomName)
+                        newSymptomName = ""
                     },
                     enabled = newSymptomName.isNotBlank(),
                     modifier = Modifier.testTag("create-symptom-button")

@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.YearMonth
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
@@ -48,60 +47,43 @@ class CycleViewModel(
     val uiState: StateFlow<TrackerUiState> = _uiState.asStateFlow()
 
     init {
+        // Collector 1: Handles all calendar day decorations.
         viewModelScope.launch {
-            // combine() will re-execute whenever ANY of its source flows emit a new value.
-            combine(
-                cycleRepository.getAllCycles(),
-                cycleRepository.getAllLogs(),
-                cycleRepository.observeAllPeriodDays(),
-                symptomLibraryProvider.symptoms,
-                medicationLibraryProvider.medications
-            ) { cycles, allLogs, periodDays, symptoms, medications ->
-                // Create a mutable map based on the period days.
-                val details = periodDays.associateWith { CalendarDayInfo(isPeriodDay = true) }.toMutableMap()
-
-                // layer the log-specific details (symptoms/meds) on top.
-                for (log in allLogs) {
-                    val date = log.entry.entryDate
-                    val existingInfo = details[date] ?: CalendarDayInfo()
-                    details[date] = existingInfo.copy(
-                        // If flow is explicitly logged, we can still use it.
-                        // Otherwise, we rely on the `periodDays` set.
-                        isPeriodDay = existingInfo.isPeriodDay || log.entry.flowIntensity != null,
-                        hasSymptoms = log.symptomLogs.isNotEmpty(),
-                        hasMedications = log.medicationLogs.isNotEmpty()
-                    )
+            cycleRepository.observeDayDetails()
+                .map { domainDetailsMap ->
+                    // transform the repository's data into the specific data class for UI
+                    domainDetailsMap.mapValues { (_, domainDetails) ->
+                        CalendarDayInfo(
+                            isPeriodDay = domainDetails.isPeriodDay,
+                            hasSymptoms = domainDetails.hasLoggedSymptoms,
+                            hasMedications = domainDetails.hasLoggedMedications
+                        )
+                    }
                 }
-
-                // Update the UI state with all the new data at once.
-                _uiState.update {
-                    it.copy(
-                        cycles = cycles,
-                        dayDetails = details,
-                        symptomLibrary = symptoms,
-                        medicationLibrary = medications
-                    )
+                .collect { uiReadyDetailsMap ->
+                    _uiState.update { it.copy(dayDetails = uiReadyDetailsMap) }
                 }
-            }.collect() // Use a terminal operator to keep the flow active.
         }
-    }
 
-    private fun fetchDayDetails(cycles: List<Cycle>): Flow<Unit> = flow {
-        if (cycles.isEmpty()) {
-            _uiState.update { it.copy(dayDetails = emptyMap()) }
-            return@flow
+        // Collector 2: Handles the list of cycles for business logic (e.g., finding ongoing cycle).
+        viewModelScope.launch {
+            cycleRepository.getAllCycles().collect { cycles ->
+                _uiState.update { it.copy(cycles = cycles) }
+            }
         }
-        val currentMonth = YearMonth(Clock.System.todayIn(TimeZone.currentSystemDefault()).year, Clock.System.todayIn(TimeZone.currentSystemDefault()).month)
-        val logs = cycleRepository.getLogsForMonth(currentMonth)
-        val details = logs.associate { log ->
-            log.entry.entryDate to CalendarDayInfo(
-                isPeriodDay = log.entry.flowIntensity != null,
-                hasSymptoms = log.symptomLogs.isNotEmpty(),
-                hasMedications = log.medicationLogs.isNotEmpty()
-            )
+
+        // Collector 3 & 4: Handle library data needed for the summary sheet.
+        viewModelScope.launch {
+            symptomLibraryProvider.symptoms.collect { symptoms ->
+                _uiState.update { it.copy(symptomLibrary = symptoms) }
+            }
         }
-        _uiState.update { it.copy(dayDetails = details) }
-        emit(Unit)
+
+        viewModelScope.launch {
+            medicationLibraryProvider.medications.collect { medications ->
+                _uiState.update { it.copy(medicationLibrary = medications) }
+            }
+        }
     }
 
     fun onDateClicked(date: LocalDate, cycleForDate: Cycle?) {

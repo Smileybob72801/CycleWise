@@ -2,6 +2,7 @@ package com.veleda.cyclewise.domain.repository
 
 import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.DailyEntry
+import com.veleda.cyclewise.domain.models.DayDetails
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
@@ -75,4 +76,11 @@ interface CycleRepository {
 
     /** Emits the set of all LocalDates that are part of any saved menstrual period. */
     fun observeAllPeriodDays(): Flow<Set<LocalDate>>
+
+    /**
+     * Observes all underlying data sources (cycles, logs, etc.) and emits a consolidated
+     * map of details for each relevant day, using a UI-agnostic domain model.
+     * This is the single source of truth for the calendar UI.
+     */
+    fun observeDayDetails(): Flow<Map<LocalDate, DayDetails>>
 }
