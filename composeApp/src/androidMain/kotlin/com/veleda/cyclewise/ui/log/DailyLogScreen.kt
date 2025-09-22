@@ -8,10 +8,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.Star as StarOutlined
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,7 +34,7 @@ import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 import androidx.compose.ui.platform.testTag
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) // Add ExperimentalLayoutApi
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DailyLogScreen(
     date: LocalDate,
@@ -95,14 +94,14 @@ fun DailyLogScreen(
 
                     SectionTitle("Flow")
                     FlowIntensitySelector(
-                        selectedIntensity = log.entry.flowIntensity, // Pass the enum
-                        onSelectionChanged = { viewModel.setFlowIntensity(it) }
+                        selectedIntensity = log.entry.flowIntensity,
+                        onSelectionChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) }
                     )
 
                     SectionTitle("Mood")
                     MoodSelector(
                         selectedMood = log.entry.moodScore,
-                        onSelectionChanged = { viewModel.setMoodScore(it) }
+                        onSelectionChanged = { viewModel.onEvent(DailyLogEvent.MoodScoreChanged(it)) }
                     )
 
                     SectionTitle("Symptoms")
@@ -117,7 +116,6 @@ fun DailyLogScreen(
                         }
                     )
 
-                    // TODO: Refactor meds to use events like symptoms
                     SectionTitle("Medications")
                     MedicationLogger(
                         loggedMedications = log.medicationLogs,
@@ -133,14 +131,14 @@ fun DailyLogScreen(
                     SectionTitle("Custom Tags")
                     CustomTagLogger(
                         tags = log.entry.customTags,
-                        onAddTag = { viewModel.onAddTag(it) },
-                        onRemoveTag = { viewModel.onRemoveTag(it) }
+                        onAddTag = { viewModel.onEvent(DailyLogEvent.TagAdded(it)) },
+                        onRemoveTag = { viewModel.onEvent(DailyLogEvent.TagRemoved(it)) }
                     )
 
                     SectionTitle("Notes")
                     NoteEditor(
                         note = log.entry.note ?: "",
-                        onNoteChanged = { viewModel.onNoteChanged(it) }
+                        onNoteChanged = { viewModel.onEvent(DailyLogEvent.NoteChanged(it)) }
                     )
 
                     Spacer(Modifier.height(80.dp)) // Spacer for the FAB
@@ -194,7 +192,7 @@ private fun MoodSelector(
     ) {
         (1..5).forEach { score ->
             IconButton(onClick = { onSelectionChanged(score) }) {
-                val icon = if (score <= (selectedMood ?: 0)) Icons.Filled.Star else Icons.Outlined.Clear
+                val icon = if (score <= (selectedMood ?: 0)) Icons.Filled.Star else Icons.Outlined.StarOutlined
                 Icon(icon, contentDescription = "Mood score $score", modifier = Modifier.size(40.dp))
             }
         }
@@ -212,7 +210,6 @@ private fun MedicationLogger(
     var newMedicationName by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Part 1: Display the entire library as selectable chips
         if (medicationLibrary.isNotEmpty()) {
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -229,7 +226,6 @@ private fun MedicationLogger(
             }
         }
 
-        // Part 2: Text field to add a new medication to the library
         OutlinedTextField(
             value = newMedicationName,
             onValueChange = { newMedicationName = it },
@@ -238,7 +234,7 @@ private fun MedicationLogger(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = {
                 onCreateAndAddMedication(newMedicationName)
-                newMedicationName = "" // Clear text after adding
+                newMedicationName = ""
             }),
             trailingIcon = {
                 IconButton(
@@ -255,7 +251,7 @@ private fun MedicationLogger(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun CustomTagLogger(
     tags: List<String>,
@@ -263,7 +259,6 @@ private fun CustomTagLogger(
     onRemoveTag: (String) -> Unit
 ) {
     var text by remember { mutableStateOf("") }
-    // Similar implementation to MedicationLogger
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value = text,
@@ -328,18 +323,9 @@ private fun SymptomLogger(
     onToggleSymptom: (Symptom) -> Unit,
     onCreateAndAddSymptom: (String) -> Unit
 ) {
-    android.util.Log.d(
-        "E2E_DEBUG",
-        "SymptomLogger Recomposing: " +
-        "library count=${symptomLibrary.size}, " +
-        "logged symptoms count=${loggedSymptoms.size}, " +
-        "logged IDs=${loggedSymptoms.map { it.symptomId }}"
-    )
-
     var newSymptomName by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Part 1: Display the entire library as selectable chips
         if (symptomLibrary.isNotEmpty()) {
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -357,7 +343,6 @@ private fun SymptomLogger(
             }
         }
 
-        // Part 2: Text field to add a new symptom to the library
         OutlinedTextField(
             value = newSymptomName,
             onValueChange = { newSymptomName = it },
@@ -368,8 +353,8 @@ private fun SymptomLogger(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = {
                 if (newSymptomName.isNotBlank()) {
-                    onCreateAndAddSymptom(newSymptomName) // 1. Hoist the event with data
-                    newSymptomName = ""                  // 2. Clear the local state
+                    onCreateAndAddSymptom(newSymptomName)
+                    newSymptomName = ""
                 }
             }),
             trailingIcon = {
