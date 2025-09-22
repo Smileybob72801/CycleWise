@@ -8,7 +8,6 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 //import androidx.compose.ui.test.onNode
@@ -16,11 +15,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.test.printToString
-import androidx.compose.ui.text.AnnotatedString
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.veleda.cyclewise.MainActivity
@@ -32,7 +29,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.koin.test.KoinTest
 import java.io.File
 
 @RunWith(AndroidJUnit4::class)
@@ -154,23 +150,6 @@ class UnlockCreateLogE2ETest {
         compose.waitUntil(timeoutMillis) {
             compose.onAllNodesWithTag(tag, useUnmergedTree = useUnmerged)
                 .fetchSemanticsNodes().isNotEmpty()
-        }
-    }
-
-    private fun waitUntilTextboxCleared(
-        tag: String,
-        useUnmerged: Boolean = false,
-        timeoutMillis: Long = mediumWait
-    ) {
-        val editableIsEmpty = SemanticsMatcher("${tag}_isEmptyEditable") { node ->
-            val text = node.config.getOrNull(SemanticsProperties.EditableText)
-            text?.text?.isEmpty() == true
-        }
-        compose.waitUntil(timeoutMillis) {
-            compose.onAllNodes(
-                matcher = editableIsEmpty.and(hasTestTag(tag)),
-                useUnmergedTree = useUnmerged
-            ).fetchSemanticsNodes().isNotEmpty()
         }
     }
 }
