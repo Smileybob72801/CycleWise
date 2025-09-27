@@ -141,14 +141,32 @@ class DailyLogViewModel(
             }
             is DailyLogEvent.CreateAndAddSymptom -> {
                 val name = event.name.trim()
-                if (name.isNotBlank()) {
-                    viewModelScope.launch {
-                        val newSymptom = cycleRepository.createOrGetSymptomInLibrary(name)
-                        // After creation, dispatch another event to add it to the log state.
-                        onEvent(DailyLogEvent.SymptomToggled(newSymptom))
+                if (name.isBlank() || currentState.log == null) {
+                    return currentState
+                }
+                viewModelScope.launch {
+                    val newSymptom = cycleRepository.createOrGetSymptomInLibrary(name)
+                    val newLogEntry = SymptomLog(
+                        id = uuid4().toString(),
+                        entryId = currentState.log.entry.id,
+                        symptomId = newSymptom.id,
+                        severity = 3,
+                        createdAt = Clock.System.now()
+                    )
+                    _uiState.update {
+                        val updatedLogs = it.log!!.symptomLogs + newLogEntry
+                        val updatedLibrary = if (it.symptomLibrary.any { s -> s.id == newSymptom.id }) {
+                            it.symptomLibrary
+                        } else {
+                            it.symptomLibrary + newSymptom
+                        }
+                        it.copy(
+                            log = it.log.copy(symptomLogs = updatedLogs),
+                            symptomLibrary = updatedLibrary
+                        )
                     }
                 }
-                currentState // Return current state; the launch block will trigger a new update.
+                currentState
             }
             is DailyLogEvent.MedicationToggled -> {
                 val existingLog = log.medicationLogs.find { it.medicationId == event.medication.id }
@@ -161,23 +179,39 @@ class DailyLogViewModel(
             }
             is DailyLogEvent.MedicationCreatedAndAdded -> {
                 val name = event.name.trim()
-                if (name.isNotBlank()) {
-                    viewModelScope.launch {
-                        val newMedication = cycleRepository.createOrGetMedicationInLibrary(name)
-                        // After creation, dispatch another event to add it to the log state.
-                        onEvent(DailyLogEvent.MedicationToggled(newMedication))
+                if (name.isBlank() || currentState.log == null) {
+                    return currentState
+                }
+                viewModelScope.launch {
+                    val newMedication = cycleRepository.createOrGetMedicationInLibrary(name)
+                    val newLogEntry = MedicationLog(
+                        id = uuid4().toString(),
+                        entryId = currentState.log.entry.id,
+                        medicationId = newMedication.id,
+                        createdAt = Clock.System.now()
+                    )
+                    _uiState.update {
+                        val updatedLogs = it.log!!.medicationLogs + newLogEntry
+                        val updatedLibrary = if (it.medicationLibrary.any { m -> m.id == newMedication.id }) {
+                            it.medicationLibrary
+                        } else {
+                            it.medicationLibrary + newMedication
+                        }
+                        it.copy(
+                            log = it.log.copy(medicationLogs = updatedLogs),
+                            medicationLibrary = updatedLibrary
+                        )
                     }
                 }
-                currentState // Return current state; the launch block will trigger a new update.
+                currentState
             }
             is DailyLogEvent.SaveLog -> {
                 viewModelScope.launch {
                     cycleRepository.saveFullLog(log)
                     _saveCompleteEvent.emit(Unit)
                 }
-                currentState // No immediate state change, just side-effect.
+                currentState
             }
-            // These events are handled at the top of the function.
             is DailyLogEvent.LogLoaded, is DailyLogEvent.LibraryUpdated, is DailyLogEvent.SymptomNameChanged -> currentState
         }
     }

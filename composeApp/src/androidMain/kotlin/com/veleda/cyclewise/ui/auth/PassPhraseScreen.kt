@@ -10,27 +10,32 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.veleda.cyclewise.androidData.local.database.CycleDatabase
-import com.veleda.cyclewise.di.SESSION_SCOPE
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.koin.compose.getKoin
-import org.koin.core.parameter.parametersOf
-import com.veleda.cyclewise.domain.repository.CycleRepository
-import com.veleda.cyclewise.settings.AppSettings
-import kotlinx.coroutines.flow.first
+import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun PassphraseScreen(
     onPassphraseEntered: () -> Unit
 ) {
-    var passphrase by remember { mutableStateOf("") }
-    var isUnlocking by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
+    val viewModel: PassphraseViewModel = koinViewModel()
+    val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val koin = getKoin()
-    val appSettings: AppSettings = koin.get()
+
+    // Local state for the text field; it doesn't need to live in the ViewModel.
+    var passphrase by remember { mutableStateOf("") }
+
+    // This effect listens for the one-time unlock success event to navigate.
+    LaunchedEffect(Unit) {
+        viewModel.unlockSuccess.collect {
+            onPassphraseEntered()
+        }
+    }
+
+    // This effect shows a Toast message whenever an error occurs.
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -39,7 +44,7 @@ fun PassphraseScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (isUnlocking) {
+        if (uiState.isUnlocking) {
             CircularProgressIndicator()
             Spacer(Modifier.height(16.dp))
             Text("Unlocking...")
@@ -52,6 +57,7 @@ fun PassphraseScreen(
                 label = { Text("Passphrase") },
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
+                isError = uiState.error != null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("passphrase-input")
@@ -59,44 +65,9 @@ fun PassphraseScreen(
             Spacer(Modifier.height(24.dp))
             Button(
                 onClick = {
-                    coroutineScope.launch {
-                        isUnlocking = true
-                        try {
-                            val needsPrepopulation = !appSettings.isPrepopulated.first()
-
-                            withContext(Dispatchers.IO) {
-                                val sessionScope = koin.getScopeOrNull("session")
-                                    ?: koin.createScope(
-                                        scopeId = "session",
-                                        qualifier = SESSION_SCOPE
-                                    )
-
-                                sessionScope.get<CycleDatabase> { parametersOf(passphrase) }
-
-                                if (needsPrepopulation) {
-                                    val repository = sessionScope.get<CycleRepository>()
-                                    repository.prepopulateSymptomLibrary()
-                                    // IMPORTANT: Set the flag so this never runs again
-                                    appSettings.setPrepopulated(true)
-                                }
-                            }
-
-                            withContext(Dispatchers.Main) {
-                                onPassphraseEntered()
-                            }
-
-                        } catch (e: Exception) {
-                            android.util.Log.e("PassphraseUnlock", "Unlock failed with exception", e)
-                            e.printStackTrace()
-                            koin.getScopeOrNull("session")?.close()
-                            withContext(Dispatchers.Main) {
-                                isUnlocking = false
-                                Toast.makeText(context, "Failed to unlock. Wrong passphrase?", Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    }
+                    viewModel.onEvent(PassphraseEvent.UnlockClicked(passphrase))
                 },
-                enabled = passphrase.isNotBlank() && !isUnlocking,
+                enabled = passphrase.isNotBlank() && !uiState.isUnlocking,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("unlock-button")
