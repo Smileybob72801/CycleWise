@@ -20,6 +20,7 @@ import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
 import com.veleda.cyclewise.session.SessionBus
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
 import com.veleda.cyclewise.settings.AppSettings
+import com.veleda.cyclewise.ui.auth.PassphraseViewModel
 import org.koin.dsl.module
 import org.koin.core.scope.Scope
 import kotlinx.datetime.LocalDate
@@ -37,6 +38,9 @@ val appModule = module {
 
     // KDF: Argon2 passphrase service
     single<PassphraseService> { PassphraseServiceAndroid(get()) }
+
+    // PassphraseViewModel here, outside of any scope
+    viewModel { PassphraseViewModel(appSettings = get()) }
 
     // Session-scoped SQLCipher DB and related services
     scope(SESSION_SCOPE) {
@@ -72,8 +76,6 @@ val appModule = module {
         scoped { MedicationLibraryProvider(get()) }
 
         // Use Case Providers
-        // scoped { StartNewCycleUseCase(get()) }
-        // scoped { EndCycleUseCase(get()) }
         scoped { GetOrCreateDailyEntryUseCase(get()) }
 
         // ViewModel Providers
@@ -84,7 +86,6 @@ val appModule = module {
                 medicationLibraryProvider = get()
             )
         }
-
 
         viewModel { (date: LocalDate) ->
             DailyLogViewModel(

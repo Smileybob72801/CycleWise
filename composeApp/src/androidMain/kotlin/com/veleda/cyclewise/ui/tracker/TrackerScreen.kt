@@ -4,58 +4,42 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerInputChange
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.kizitonwose.calendar.compose.CalendarState
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
-import com.veleda.cyclewise.di.SESSION_SCOPE
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.ui.nav.NavRoute
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.toKotlinLocalDate
-import org.koin.androidx.viewmodel.ext.android.getViewModel
-import org.koin.compose.getKoin
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.YearMonth
-import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
-import org.koin.compose.viewmodel.koinViewModel
+import org.koin.compose.getKoin
+import org.koin.compose.koinInject
 import kotlin.time.Clock
 import java.time.DayOfWeek as JavaDayOfWeek
 import java.time.YearMonth as JavaYearMonth
@@ -63,19 +47,17 @@ import java.time.YearMonth as JavaYearMonth
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackerScreen(navController: NavController) {
-    val viewModel: CycleViewModel = koinViewModel(scope = getKoin().getScope("session"))
+    val viewModel: CycleViewModel = koinInject(scope = getKoin().getScope("session"))
     val uiState by viewModel.uiState.collectAsState()
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
-
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
-    val onEditClick: (LocalDate) -> Unit = remember(navController, sheetState, viewModel) {
+    val onEditClick: (LocalDate) -> Unit = remember(navController, sheetState) {
         { date ->
-            // Launch a single coroutine using the captured scope
             coroutineScope.launch {
                 sheetState.hide()
-                viewModel.onDismissLogSheet()
+                viewModel.onEvent(TrackerEvent.DismissLogSheet)
                 navController.navigate(NavRoute.DailyLog.createRoute(date))
             }
         }
@@ -87,13 +69,11 @@ fun TrackerScreen(navController: NavController) {
     val firstDayOfWeek = remember { firstDayOfWeekFromLocale() }
     val calendarState = rememberCalendarState(startMonth, endMonth, currentMonth, firstDayOfWeek)
 
-    // --- BOTTOM SHEET ---
     if (uiState.logForSheet != null) {
         ModalBottomSheet(
-            onDismissRequest = { viewModel.onDismissLogSheet() },
+            onDismissRequest = { viewModel.onEvent(TrackerEvent.DismissLogSheet) },
             sheetState = sheetState
         ) {
-            // Pass the stable lambda we created
             LogSummarySheetContent(
                 log = uiState.logForSheet!!,
                 symptomLibrary = uiState.symptomLibrary,
@@ -124,15 +104,12 @@ fun TrackerScreen(navController: NavController) {
                     .testTag("calendar-root"),
                 dayContent = { day ->
                     val date = day.date.toKotlinLocalDate()
-
                     val cycleForDate = uiState.cycles.find { date in (it.startDate..(it.endDate ?: today)) }
-
                     val selectionRange = remember(uiState.selectionStartDate, uiState.selectionEndDate) {
                         val start = uiState.selectionStartDate
                         val end = uiState.selectionEndDate
                         if (start != null && end != null) start..end else if (start != null) start..start else null
                     }
-
                     val dayInfo = uiState.dayDetails[date]
 
                     Day(
@@ -143,22 +120,22 @@ fun TrackerScreen(navController: NavController) {
                         isEndDate = cycleForDate?.endDate == date,
                         isInExistingRange = cycleForDate != null,
                         isInSelectionRange = selectionRange?.contains(date) ?: false,
-                        onClick = { viewModel.onDateClicked(date, cycleForDate) }
+                        onClick = { viewModel.onEvent(TrackerEvent.DateClicked(date, cycleForDate)) }
                     )
                 }
             )
 
-            // --- DYNAMIC ACTION BUTTONS ---
             Spacer(Modifier.height(16.dp))
             AnimatedVisibility(visible = uiState.isSelectingRange) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = { viewModel.clearSelection() },
+                        onClick = { viewModel.onEvent(TrackerEvent.ClearSelectionClicked) },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                     ) {
                         Text("Cancel")
                     }
-                    Button(onClick = { viewModel.onSaveSelection() },
+                    Button(
+                        onClick = { viewModel.onEvent(TrackerEvent.SaveSelectionClicked) },
                         modifier = Modifier.testTag("save-cycle-button")
                     ) {
                         Text("Save Cycle")
@@ -166,7 +143,8 @@ fun TrackerScreen(navController: NavController) {
                 }
             }
             AnimatedVisibility(visible = !uiState.isSelectingRange && uiState.ongoingCycle != null) {
-                Button(onClick = { viewModel.onEndCurrentCycle() },
+                Button(
+                    onClick = { viewModel.onEvent(TrackerEvent.EndCycleClicked) },
                     modifier = Modifier.testTag("end-cycle-button")
                 ) {
                     Text("End Cycle Today")
@@ -213,33 +191,29 @@ private fun LogSummarySheetContent(
 
         HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
 
-        // Flow
         log.entry.flowIntensity?.let {
             InfoRow(icon = Icons.Default.Build, title = "Flow", value = it.name)
         }
-        // Mood
         log.entry.moodScore?.let {
             InfoRow(icon = Icons.Outlined.Star, title = "Mood", value = "$it / 5")
         }
 
-        // Symptoms
         if (log.symptomLogs.isNotEmpty()) {
             Text("Symptoms", style = MaterialTheme.typography.titleMedium)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(log.symptomLogs) { symptomLog ->
-                    // For each log, find the corresponding symptom from the library
                     val symptomInfo = symptomLibrary.find { it.id == symptomLog.symptomId }
                     if (symptomInfo != null) {
                         SuggestionChip(
                             onClick = {},
-                            label = { Text(symptomInfo.name) } // Display the name
+                            label = { Text(symptomInfo.name) }
                         )
                     }
                 }
             }
         }
 
-        Spacer(Modifier.height(16.dp)) // Padding at the bottom
+        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -277,7 +251,7 @@ private fun Day(
         modifier = Modifier
             .aspectRatio(1f)
             .padding(vertical = if (inRange && !isStartDate && !isEndDate) 0.dp else 4.dp)
-            .testTag("day-$date") // The main tag for clicking the day
+            .testTag("day-$date")
             .border(
                 width = if (isSelected) 2.dp else 0.dp,
                 color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
@@ -293,7 +267,6 @@ private fun Day(
             ),
         contentAlignment = Alignment.Center
     ) {
-        // We use a Column to stack the date number on top of the decorator dots
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -303,41 +276,32 @@ private fun Day(
                 color = if (day.position == DayPosition.MonthDate) MaterialTheme.colorScheme.onSurface else Color.Gray
             )
 
-            // This Row will contain the small dots below the date number.
             Row(
                 modifier = Modifier.padding(top = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                // Symptom Dot
                 if (dayInfo?.hasSymptoms == true) {
                     Box(
                         modifier = Modifier
                             .size(4.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.secondary)
-                            // The test tag for the visible dot
                             .testTag("symptom-dot-$date")
                     )
                 }
-                // Medication Dot
                 if (dayInfo?.hasMedications == true) {
                     Box(
                         modifier = Modifier
                             .size(4.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.tertiary)
-                            // The test tag for the visible dot
                             .testTag("medication-dot-$date")
                     )
                 }
             }
-
-            // --- INVISIBLE TEST TAGS FOR STATE VERIFICATION ---
-            // These have no size and are purely for the test to find.
             if (dayInfo?.isPeriodDay == true) {
                 Box(modifier = Modifier.testTag("period-day-$date"))
             }
-            // --- END INVISIBLE TEST TAGS ---
         }
     }
 }

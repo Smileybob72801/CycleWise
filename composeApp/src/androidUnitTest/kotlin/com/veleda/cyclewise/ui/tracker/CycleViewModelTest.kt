@@ -39,19 +39,16 @@ class CycleViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
 
-        // Mock all dependencies
         mockRepository = mockk(relaxed = true)
         mockSymptomProvider = mockk(relaxed = true)
         mockMedicationProvider = mockk(relaxed = true)
 
-        // Mock the initial data flows to be empty
+        // Mock initial data flows
+        every { mockRepository.observeDayDetails() } returns flowOf(emptyMap())
         every { mockRepository.getAllCycles() } returns flowOf(emptyList())
-        every { mockRepository.getAllLogs() } returns flowOf(emptyList())
-        every { mockRepository.observeAllPeriodDays() } returns flowOf(emptySet())
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
 
-        // Create the ViewModel instance for tests
         viewModel = CycleViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
     }
 
@@ -64,95 +61,66 @@ class CycleViewModelTest {
     private val pastDate = today.minus(5, DateTimeUnit.DAY)
     private val futureDate = today.plus(5, DateTimeUnit.DAY)
 
-    // --- onDateClicked Tests ---
-
     @Test
-    fun onDateClicked_WHEN_dateIsInExistingCycle_THEN_showsLogSheet() = runTest {
-        // ARRANGE
+    fun onEvent_DateClicked_WHEN_dateIsInExistingCycle_THEN_showsLogSheet() = runTest {
         val testCycle = mockk<Cycle>()
         val fakeLog = mockk<FullDailyLog>()
         coEvery { mockRepository.getFullLogForDate(pastDate) } returns fakeLog
 
-        // ACT
-        viewModel.onDateClicked(pastDate, testCycle)
+        viewModel.onEvent(TrackerEvent.DateClicked(pastDate, testCycle))
 
-        // ASSERT
         viewModel.uiState.test {
             assertEquals(fakeLog, awaitItem().logForSheet, "Log for sheet should be set")
         }
     }
 
     @Test
-    fun onDateClicked_WHEN_dateIsFuture_THEN_doesNothing() = runTest {
+    fun onEvent_DateClicked_WHEN_dateIsFuture_THEN_doesNothing() = runTest {
         val initialState = viewModel.uiState.value
 
-        // ACT
-        viewModel.onDateClicked(futureDate, null)
+        viewModel.onEvent(TrackerEvent.DateClicked(futureDate, null))
 
-        // ASSERT
         assertEquals(initialState, viewModel.uiState.value, "State should not change for future date")
     }
 
     @Test
-    fun onDateClicked_WHEN_cycleIsOngoing_THEN_doesNothing() = runTest {
-        // ARRANGE
-        val ongoingCycle = Cycle(
-            id = "ongoing-id-1",
-            startDate = today.minus(2, DateTimeUnit.DAY),
-            endDate = null, // This is the crucial property
-            createdAt = Clock.System.now(),
-            updatedAt = Clock.System.now()
-        )
-
+    fun onEvent_DateClicked_WHEN_cycleIsOngoing_THEN_doesNothing() = runTest {
+        val ongoingCycle = Cycle("ongoing-id", today.minus(2, DateTimeUnit.DAY), null, Clock.System.now(), Clock.System.now())
         every { mockRepository.getAllCycles() } returns flowOf(listOf(ongoingCycle))
-
-        // Re-create ViewModel to pick up the new initial state
         viewModel = CycleViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
-
-        advanceUntilIdle()
-
+        advanceUntilIdle() // Ensure the new state is collected
         val initialState = viewModel.uiState.value
 
         assertNotNull(initialState.ongoingCycle, "Precondition failed: ongoingCycle should be set")
 
-        // ACT
-        viewModel.onDateClicked(pastDate, null)
+        viewModel.onEvent(TrackerEvent.DateClicked(pastDate, null))
 
-        // ASSERT
         val finalState = viewModel.uiState.value
         assertEquals(initialState.selectionStartDate, finalState.selectionStartDate, "Selection should not start if a cycle is ongoing")
-
-        // Assert that the state object itself hasn't changed
         assertEquals(initialState, finalState)
     }
 
     @Test
-    fun onDateClicked_WHEN_firstTapOnValidDate_THEN_setsSelectionStartDate() = runTest {
-        // ACT
-        viewModel.onDateClicked(pastDate, null)
+    fun onEvent_DateClicked_WHEN_firstTapOnValidDate_THEN_setsSelectionStartDate() = runTest {
+        viewModel.onEvent(TrackerEvent.DateClicked(pastDate, null))
 
-        // ASSERT
         viewModel.uiState.test {
             assertEquals(pastDate, awaitItem().selectionStartDate)
         }
     }
 
-    // --- onSaveSelection Tests ---
-
     @Test
-    fun onSaveSelection_WHEN_rangeIsInPastAndAvailable_THEN_createsCompletedCycle() = runTest {
-        // ARRANGE
+    fun onEvent_SaveSelectionClicked_WHEN_rangeIsInPastAndAvailable_THEN_createsCompletedCycle() = runTest {
         val startDate = today.minus(10, DateTimeUnit.DAY)
         val endDate = today.minus(5, DateTimeUnit.DAY)
         coEvery { mockRepository.isDateRangeAvailable(startDate, endDate) } returns true
 
-        viewModel.onDateClicked(startDate, null)
-        viewModel.onDateClicked(endDate, null)
+        viewModel.onEvent(TrackerEvent.DateClicked(startDate, null))
+        viewModel.onEvent(TrackerEvent.DateClicked(endDate, null))
 
-        // ACT
-        viewModel.onSaveSelection()
+        viewModel.onEvent(TrackerEvent.SaveSelectionClicked)
+        advanceUntilIdle()
 
-        // ASSERT
         coVerify(exactly = 1) { mockRepository.createCompletedCycle(startDate, endDate) }
         viewModel.uiState.test {
             assertNull(awaitItem().selectionStartDate, "Selection should be cleared after save")
@@ -160,58 +128,42 @@ class CycleViewModelTest {
     }
 
     @Test
-    fun onSaveSelection_WHEN_startDateIsToday_THEN_startsNewOngoingCycle() = runTest {
-        // ARRANGE
+    fun onEvent_SaveSelectionClicked_WHEN_startDateIsToday_THEN_startsNewOngoingCycle() = runTest {
         coEvery { mockRepository.isDateRangeAvailable(today, today) } returns true
-        viewModel.onDateClicked(today, null)
+        viewModel.onEvent(TrackerEvent.DateClicked(today, null))
 
-        // ACT
-        viewModel.onSaveSelection()
+        viewModel.onEvent(TrackerEvent.SaveSelectionClicked)
+        advanceUntilIdle()
 
-        // ASSERT
         coVerify(exactly = 1) { mockRepository.startNewCycle(today) }
     }
 
     @Test
-    fun onSaveSelection_WHEN_rangeOverlaps_THEN_doesNotCreateCycle() = runTest {
-        // ARRANGE
+    fun onEvent_SaveSelectionClicked_WHEN_rangeOverlaps_THEN_doesNotCreateCycle() = runTest {
         val startDate = today.minus(10, DateTimeUnit.DAY)
         val endDate = today.minus(5, DateTimeUnit.DAY)
-        coEvery { mockRepository.isDateRangeAvailable(startDate, endDate) } returns false // Simulate overlap
+        coEvery { mockRepository.isDateRangeAvailable(startDate, endDate) } returns false
 
-        viewModel.onDateClicked(startDate, null)
-        viewModel.onDateClicked(endDate, null)
+        viewModel.onEvent(TrackerEvent.DateClicked(startDate, null))
+        viewModel.onEvent(TrackerEvent.DateClicked(endDate, null))
 
-        // ACT
-        viewModel.onSaveSelection()
+        viewModel.onEvent(TrackerEvent.SaveSelectionClicked)
+        advanceUntilIdle()
 
-        // ASSERT
         coVerify(exactly = 0) { mockRepository.createCompletedCycle(any(), any()) }
         coVerify(exactly = 0) { mockRepository.startNewCycle(any()) }
     }
 
-    // --- onEndCurrentCycle Test ---
-
     @Test
-    fun onEndCurrentCycle_WHEN_ongoingCycleExists_THEN_callsRepositoryEndCycle() = runTest {
-        // ARRANGE
-        val fakeOngoingCycle = Cycle(
-            id = "ongoing-id",
-            startDate = today.minus(5, DateTimeUnit.DAY),
-            endDate = null,
-            createdAt = Clock.System.now(),
-            updatedAt = Clock.System.now()
-        )
+    fun onEvent_EndCycleClicked_WHEN_ongoingCycleExists_THEN_callsRepositoryEndCycle() = runTest {
+        val fakeOngoingCycle = Cycle("ongoing-id", today.minus(5, DateTimeUnit.DAY), null, Clock.System.now(), Clock.System.now())
         every { mockRepository.getAllCycles() } returns flowOf(listOf(fakeOngoingCycle))
-
-        // Re-create ViewModel to pick up the new initial state
         viewModel = CycleViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
         advanceUntilIdle()
 
-        // ACT
-        viewModel.onEndCurrentCycle()
+        viewModel.onEvent(TrackerEvent.EndCycleClicked)
+        advanceUntilIdle()
 
-        // ASSERT
         coVerify(exactly = 1) { mockRepository.endCycle(fakeOngoingCycle.id, today) }
     }
 }
