@@ -220,4 +220,45 @@ class RoomCycleRepositoryTest : KoinTest {
         // ASSERT
         assertFalse(isAvailable)
     }
+
+    @Test
+    fun getAllSymptomLogs_WHEN_logsExist_THEN_returnsAllLogsFromAllCycles() = runTest {
+        // ARRANGE
+        // Create two separate cycles and entries
+        val cycle1 = repository.startNewCycle(LocalDate(2025, 1, 1))
+        val cycle2 = repository.createCompletedCycle(LocalDate(2025, 2, 1), LocalDate(2025, 2, 28))
+        val symptom1 = repository.createOrGetSymptomInLibrary("Headache", SymptomCategory.PAIN)
+
+        val log1 = FullDailyLog(DailyEntry("entry-1", cycle1.id, LocalDate(2025, 1, 5), 5, createdAt = Clock.System.now(), updatedAt = Clock.System.now()), symptomLogs = listOf(SymptomLog("slog-1", "entry-1", symptom1.id, 3, Clock.System.now())))
+        val log2 = FullDailyLog(DailyEntry("entry-2", cycle2.id, LocalDate(2025, 2, 5), 5, createdAt = Clock.System.now(), updatedAt = Clock.System.now()), symptomLogs = listOf(SymptomLog("slog-2", "entry-2", symptom1.id, 4, Clock.System.now())))
+        val log3WithNoSymptoms = FullDailyLog(DailyEntry("entry-3", cycle2.id, LocalDate(2025, 2, 6), 6, createdAt = Clock.System.now(), updatedAt = Clock.System.now()))
+        repository.saveFullLog(log1)
+        repository.saveFullLog(log2)
+        repository.saveFullLog(log3WithNoSymptoms)
+
+        // ACT
+        val allLogs = repository.getAllSymptomLogs()
+
+        // ASSERT
+        assertEquals(2, allLogs.size, "Should fetch all symptom logs regardless of cycle")
+        assertTrue(allLogs.any { it.id == "slog-1" })
+        assertTrue(allLogs.any { it.id == "slog-2" })
+    }
+
+    @Test
+    fun getAllMedicationLogs_WHEN_logsExist_THEN_returnsAllLogs() = runTest {
+        // ARRANGE
+        val cycle1 = repository.startNewCycle(LocalDate(2025, 1, 1))
+        val med1 = repository.createOrGetMedicationInLibrary("Ibuprofen")
+
+        val log1 = FullDailyLog(DailyEntry("entry-1", cycle1.id, LocalDate(2025, 1, 5), 5, createdAt = Clock.System.now(), updatedAt = Clock.System.now()), medicationLogs = listOf(MedicationLog("mlog-1", "entry-1", med1.id, Clock.System.now())))
+        repository.saveFullLog(log1)
+
+        // ACT
+        val allLogs = repository.getAllMedicationLogs()
+
+        // ASSERT
+        assertEquals(1, allLogs.size)
+        assertEquals("mlog-1", allLogs.first().id)
+    }
 }

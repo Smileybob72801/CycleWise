@@ -17,6 +17,7 @@ import com.veleda.cyclewise.ui.nav.*
 import com.veleda.cyclewise.ui.tracker.TrackerScreen
 import com.veleda.cyclewise.ui.auth.PassphraseScreen
 import androidx.compose.runtime.getValue
+import com.veleda.cyclewise.ui.insights.InsightsScreen
 import com.veleda.cyclewise.ui.log.DailyLogScreen
 import com.veleda.cyclewise.ui.settings.SettingsScreen
 import kotlinx.datetime.LocalDate
@@ -42,7 +43,6 @@ fun CycleWiseAppUI() {
             startDestination = NavRoute.Passphrase.route,
             modifier = Modifier.padding(padding)
         ) {
-            // 1) Passphrase entry
             composable(NavRoute.Passphrase.route) {
                 PassphraseScreen {
                     navController.navigate(NavRoute.Tracker.route) {
@@ -50,17 +50,14 @@ fun CycleWiseAppUI() {
                     }
                 }
             }
-            // 2) Tracker
             composable(NavRoute.Tracker.route) {
                 TrackerScreen(navController)
             }
-            // 3) Settings placeholder
+            composable(NavRoute.Insights.route) {
+                InsightsScreen()
+            }
             composable(NavRoute.Settings.route) {
                 SettingsScreen(navController)
-            }
-
-            composable(NavRoute.Hello.route) {
-                Text("Hello!")
             }
 
             composable(

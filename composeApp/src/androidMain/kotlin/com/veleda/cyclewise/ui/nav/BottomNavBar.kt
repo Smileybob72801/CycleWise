@@ -19,8 +19,8 @@ fun BottomNavBar(navController: NavController) {
                 icon = {
                     Icon(
                         imageVector = when (route) {
-                            NavRoute.Hello ->  Icons.Default.Face
                             NavRoute.Tracker -> Icons.Default.DateRange
+                            NavRoute.Insights -> Icons.Default.Info
                             NavRoute.Settings -> Icons.Default.Settings
                             else -> error("Unexpected route in BottomNavBar: ${route.route}")
                         },

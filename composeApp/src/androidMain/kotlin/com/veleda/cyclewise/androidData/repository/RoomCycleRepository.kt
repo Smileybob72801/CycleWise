@@ -14,6 +14,8 @@ import com.veleda.cyclewise.androidData.local.entities.toEntity
 import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FlowIntensity
+import com.veleda.cyclewise.domain.models.MedicationLog
+import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
@@ -314,5 +316,13 @@ class RoomCycleRepository(
             }
             detailsMap
         }
+    }
+
+    override suspend fun getAllSymptomLogs(): List<SymptomLog> {
+        return symptomLogDao.getAllSymptomLogs().first().map { it.toDomain() }
+    }
+
+    override suspend fun getAllMedicationLogs(): List<MedicationLog> {
+        return medicationLogDao.getAllMedicationLogs().first().map { it.toDomain() }
     }
 }
