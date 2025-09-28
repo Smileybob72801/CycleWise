@@ -12,6 +12,7 @@ import com.veleda.cyclewise.domain.services.PassphraseService
 import com.veleda.cyclewise.services.PassphraseServiceAndroid
 import com.veleda.cyclewise.androidData.local.database.CycleDatabase
 import com.veleda.cyclewise.androidData.repository.RoomCycleRepository
+import com.veleda.cyclewise.domain.insights.InsightEngine
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
@@ -21,6 +22,7 @@ import com.veleda.cyclewise.session.SessionBus
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.auth.PassphraseViewModel
+import com.veleda.cyclewise.ui.insights.InsightsViewModel
 import org.koin.dsl.module
 import org.koin.core.scope.Scope
 import kotlinx.datetime.LocalDate
@@ -38,6 +40,8 @@ val appModule = module {
 
     // KDF: Argon2 passphrase service
     single<PassphraseService> { PassphraseServiceAndroid(get()) }
+
+    factory { InsightEngine() }
 
     // PassphraseViewModel here, outside of any scope
     viewModel { PassphraseViewModel(appSettings = get()) }
@@ -93,6 +97,13 @@ val appModule = module {
                 cycleRepository = get(),
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get()
+            )
+        }
+
+        viewModel {
+            InsightsViewModel(
+                cycleRepository = get(),
+                insightEngine = get()
             )
         }
     }

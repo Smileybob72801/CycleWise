@@ -20,4 +20,7 @@ interface MedicationLogDao {
 
     @Query("DELETE FROM medication_logs WHERE entry_id = :dailyEntryId")
     suspend fun deleteLogsForEntry(dailyEntryId: String)
+
+    @Query("SELECT * FROM medication_logs")
+    fun getAllMedicationLogs(): Flow<List<MedicationLogEntity>>
 }

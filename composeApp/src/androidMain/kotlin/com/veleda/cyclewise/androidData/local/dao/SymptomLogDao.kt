@@ -17,4 +17,7 @@ interface SymptomLogDao {
 
     @Query("DELETE FROM symptom_logs WHERE entry_id = :dailyEntryId")
     suspend fun deleteLogsForEntry(dailyEntryId: String)
+
+    @Query("SELECT * FROM symptom_logs")
+    fun getAllSymptomLogs(): Flow<List<SymptomLogEntity>>
 }

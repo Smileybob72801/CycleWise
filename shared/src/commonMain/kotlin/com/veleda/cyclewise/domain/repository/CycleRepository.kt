@@ -5,8 +5,10 @@ import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.DayDetails
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomCategory
+import com.veleda.cyclewise.domain.models.SymptomLog
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.YearMonth
@@ -83,4 +85,10 @@ interface CycleRepository {
      * This is the single source of truth for the calendar UI.
      */
     fun observeDayDetails(): Flow<Map<LocalDate, DayDetails>>
+
+    /** Fetches a one-shot list of all symptom logs. */
+    suspend fun getAllSymptomLogs(): List<SymptomLog>
+
+    /** Fetches a one-shot list of all medication logs. */
+    suspend fun getAllMedicationLogs(): List<MedicationLog>
 }
