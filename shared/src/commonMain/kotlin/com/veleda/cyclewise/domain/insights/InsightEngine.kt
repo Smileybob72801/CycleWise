@@ -3,7 +3,11 @@ package com.veleda.cyclewise.domain.insights
 import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.daysUntil
+import kotlinx.datetime.plus
+import kotlin.math.roundToInt
 
 /**
  * Analyzes user data to generate a list of actionable or interesting insights.
@@ -12,11 +16,6 @@ class InsightEngine {
 
     /**
      * The primary function that orchestrates the generation of all available insights.
-     *
-     * @param allCycles A complete list of the user's cycles.
-     * @param allSymptomLogs A complete list of all symptom log entries.
-     * @param symptomLibrary The user's symptom library for name lookups.
-     * @return A list of generated `Insight` objects, sorted by priority.
      */
     fun generateInsights(
         allCycles: List<Cycle>,
@@ -25,38 +24,61 @@ class InsightEngine {
     ): List<Insight> {
         val insights = mutableListOf<Insight>()
 
-        // --- Generator 1: Cycle Length Average ---
-        generateCycleLengthAverage(allCycles)?.let { insights.add(it) }
+        // Calculate the correct average cycle length once.
+        val averageCycleLength = calculateAverageCycleLength(allCycles)
 
-        // --- Generator 2: Symptom Recurrence ---
+        // --- Generator 1: Next Period Prediction ---
+        // This generator uses the calculated average.
+        if (averageCycleLength != null) {
+            generateNextPeriodPrediction(allCycles, averageCycleLength)?.let { insights.add(it) }
+        }
+
+        // --- Generator 2: Cycle Length Average ---
+        // This generator also uses the calculated average.
+        if (averageCycleLength != null) {
+            insights.add(CycleLengthAverage(averageCycleLength))
+        }
+
+        // --- Generator 3: Symptom Recurrence ---
         generateSymptomRecurrence(allSymptomLogs, symptomLibrary)?.let { insights.add(it) }
 
-        // Return all found insights, with the highest priority ones first.
         return insights.sortedByDescending { it.priority }
     }
 
-    /**
-     * Calculates the average length of a user's completed menstrual cycles.
-     * Requires at least two completed cycles to generate a meaningful average.
-     */
-    private fun generateCycleLengthAverage(allCycles: List<Cycle>): CycleLengthAverage? {
+    private fun calculateAverageCycleLength(allCycles: List<Cycle>): Double? {
         val completedCycles = allCycles.filter { it.endDate != null }
 
-        // We need at least two data points to calculate a meaningful average.
-        if (completedCycles.size < 2) {
+        // The repo sorts descending, so we reverse to get chronological order.
+        val chronologicalCycles = completedCycles.reversed()
+
+        // We need at least two cycles to calculate one duration between them.
+        if (chronologicalCycles.size < 2) {
             return null
         }
 
-        val average = completedCycles
-            .map { it.startDate.daysUntil(it.endDate!!) + 1 } // +1 to be inclusive
-            .average()
+        // Use zipWithNext to create pairs of consecutive cycles, e.g., (Cycle1, Cycle2), (Cycle2, Cycle3).
+        val cycleDurations = chronologicalCycles.zipWithNext { current, next ->
+            current.startDate.daysUntil(next.startDate).toDouble()
+        }
 
-        return CycleLengthAverage(average)
+        // It's possible to have cycles but no durations if there are fewer than 2.
+        if (cycleDurations.isEmpty()) return null
+
+        return cycleDurations.average()
     }
 
-    /**
-     * Identifies the symptom that has been logged most frequently by the user.
-     */
+    private fun generateNextPeriodPrediction(allCycles: List<Cycle>, averageLength: Double): NextPeriodPrediction? {
+        // The repository sorts cycles by start date descending, so the first is the latest.
+        val latestCycle = allCycles.firstOrNull() ?: return null
+
+        val averageLengthInDays = averageLength.roundToInt()
+
+        // The prediction is the start date of the last cycle plus the average length.
+        val predictedDate = latestCycle.startDate.plus(averageLengthInDays, DateTimeUnit.DAY)
+
+        return NextPeriodPrediction(predictedDate)
+    }
+
     private fun generateSymptomRecurrence(
         allSymptomLogs: List<SymptomLog>,
         symptomLibrary: List<Symptom>
@@ -64,17 +86,11 @@ class InsightEngine {
         if (allSymptomLogs.isEmpty()) {
             return null
         }
-
-        // Group logs by symptomId and find the group with the largest size.
         val mostFrequentEntry = allSymptomLogs
             .groupBy { it.symptomId }
             .maxByOrNull { it.value.size }
+            ?: return null
 
-        if (mostFrequentEntry == null) {
-            return null
-        }
-
-        // Look up the symptom's name from the library using its ID.
         val symptomInfo = symptomLibrary.find { it.id == mostFrequentEntry.key }
 
         return symptomInfo?.let {
