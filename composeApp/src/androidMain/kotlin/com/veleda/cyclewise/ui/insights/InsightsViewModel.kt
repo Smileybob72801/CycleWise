@@ -35,13 +35,13 @@ class InsightsViewModel(
 
             // Fetch all necessary data in one go
             val allCycles = cycleRepository.getAllCycles().first()
-            val allSymptomLogs = cycleRepository.getAllSymptomLogs()
+            val allLogs = cycleRepository.getAllLogs().first()
             val symptomLibrary = cycleRepository.getSymptomLibrary().first()
 
             // Run the analysis
             val generatedInsights = insightEngine.generateInsights(
                 allCycles = allCycles,
-                allSymptomLogs = allSymptomLogs,
+                allLogs = allLogs,
                 symptomLibrary = symptomLibrary
             )
 

@@ -23,4 +23,7 @@ interface MedicationLogDao {
 
     @Query("SELECT * FROM medication_logs")
     fun getAllMedicationLogs(): Flow<List<MedicationLogEntity>>
+
+    @Query("DELETE FROM medication_logs")
+    suspend fun deleteAll()
 }

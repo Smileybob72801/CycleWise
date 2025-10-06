@@ -47,7 +47,7 @@ fun InsightsScreen() {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(uiState.insights, key = { it.title }) { insight ->
+                    items(uiState.insights, key = { it.id }) { insight ->
                         InsightCard(insight = insight)
                     }
                 }

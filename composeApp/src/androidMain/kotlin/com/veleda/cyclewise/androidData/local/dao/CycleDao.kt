@@ -43,4 +43,7 @@ interface CycleDao {
         AND (:endDate >= start_date)
     """)
     suspend fun getOverlappingCyclesCount(startDate: LocalDate, endDate: LocalDate): Int
+
+    @Query("DELETE FROM cycles")
+    suspend fun deleteAll()
 }

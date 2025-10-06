@@ -13,8 +13,17 @@ import com.veleda.cyclewise.services.PassphraseServiceAndroid
 import com.veleda.cyclewise.androidData.local.database.CycleDatabase
 import com.veleda.cyclewise.androidData.repository.RoomCycleRepository
 import com.veleda.cyclewise.domain.insights.InsightEngine
+import com.veleda.cyclewise.domain.insights.generators.CycleLengthAverageGenerator
+import com.veleda.cyclewise.domain.insights.generators.CycleLengthTrendGenerator
+import com.veleda.cyclewise.domain.insights.generators.InsightGenerator
+import com.veleda.cyclewise.domain.insights.generators.MoodPhasePatternGenerator
+import com.veleda.cyclewise.domain.insights.generators.NextPeriodPredictionGenerator
+import com.veleda.cyclewise.domain.insights.generators.PremenstrualMoodPatternGenerator
+import com.veleda.cyclewise.domain.insights.generators.SymptomPhasePatternGenerator
+import com.veleda.cyclewise.domain.insights.generators.SymptomRecurrenceGenerator
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
+import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
 import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
 import org.koin.core.qualifier.named
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
@@ -41,7 +50,18 @@ val appModule = module {
     // KDF: Argon2 passphrase service
     single<PassphraseService> { PassphraseServiceAndroid(get()) }
 
-    factory { InsightEngine() }
+    factory {
+        InsightEngine(
+            listOf(
+                CycleLengthAverageGenerator(),
+                NextPeriodPredictionGenerator(),
+                SymptomRecurrenceGenerator(),
+                MoodPhasePatternGenerator(),
+                CycleLengthTrendGenerator(),
+                SymptomPhasePatternGenerator()
+            )
+        )
+    }
 
     // PassphraseViewModel here, outside of any scope
     viewModel { PassphraseViewModel(appSettings = get()) }
@@ -81,6 +101,7 @@ val appModule = module {
 
         // Use Case Providers
         scoped { GetOrCreateDailyEntryUseCase(get()) }
+        scoped { DebugSeederUseCase(get()) }
 
         // ViewModel Providers
         viewModel {
