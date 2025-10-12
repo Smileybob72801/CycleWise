@@ -72,6 +72,6 @@ Signed-off-by: Your Name <you@example.com>
 Released under the Apache License 2.0.
 See LICENSE.md
 
-© 2025 Veleda – RythmWise™
+© 2025 Veleda - RythmWise™
 Veleda and RythmWise are registered trademarks of Veleda.
 See TRADEMARK_POLICY.md for details.
