@@ -20,4 +20,7 @@ interface SymptomLogDao {
 
     @Query("SELECT * FROM symptom_logs")
     fun getAllSymptomLogs(): Flow<List<SymptomLogEntity>>
+
+    @Query("DELETE FROM symptom_logs")
+    suspend fun deleteAll()
 }

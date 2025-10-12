@@ -2,6 +2,7 @@ import com.android.build.api.dsl.Packaging
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import androidx.room.gradle.RoomExtension
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -10,6 +11,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.room)
 }
 
 kotlin {
@@ -117,6 +119,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
@@ -126,6 +129,10 @@ android {
         }
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
+}
+
+extensions.configure<RoomExtension> {
+    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {

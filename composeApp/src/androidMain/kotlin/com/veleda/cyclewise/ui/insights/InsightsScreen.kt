@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.domain.insights.Insight
+import com.veleda.cyclewise.domain.insights.TopSymptomsInsight
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
 import org.koin.compose.koinInject
@@ -47,7 +48,7 @@ fun InsightsScreen() {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(uiState.insights, key = { it.title }) { insight ->
+                    items(uiState.insights, key = { it.id }) { insight ->
                         InsightCard(insight = insight)
                     }
                 }
@@ -74,6 +75,41 @@ private fun InsightCard(insight: Insight) {
                 text = insight.description,
                 style = MaterialTheme.typography.bodyMedium
             )
+        }
+    }
+}
+
+/**
+ * A new, custom card specifically for displaying the list of top symptoms.
+ */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun TopSymptomsCard(insight: TopSymptomsInsight) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = insight.title,
+                style = MaterialTheme.typography.titleLarge
+            )
+            // Use a FlowRow to display the list of symptoms as chips.
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                insight.topSymptoms.forEach { symptomName ->
+                    SuggestionChip(
+                        onClick = {}, // Not clickable for now
+                        label = { Text(symptomName) }
+                    )
+                }
+            }
         }
     }
 }

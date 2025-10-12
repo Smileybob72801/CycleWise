@@ -91,4 +91,7 @@ interface CycleRepository {
 
     /** Fetches a one-shot list of all medication logs. */
     suspend fun getAllMedicationLogs(): List<MedicationLog>
+
+    /** [DEBUG ONLY] Clears and seeds the database with test data. */
+    suspend fun seedDatabaseForDebug()
 }

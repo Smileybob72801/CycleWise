@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.veleda.cyclewise.domain.insights.Insight
 import com.veleda.cyclewise.domain.insights.InsightEngine
 import com.veleda.cyclewise.domain.repository.CycleRepository
+import com.veleda.cyclewise.settings.AppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +20,8 @@ data class InsightsUiState(
 
 class InsightsViewModel(
     private val cycleRepository: CycleRepository,
-    private val insightEngine: InsightEngine
+    private val insightEngine: InsightEngine,
+    private val appSettings: AppSettings
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(InsightsUiState())
@@ -35,14 +37,16 @@ class InsightsViewModel(
 
             // Fetch all necessary data in one go
             val allCycles = cycleRepository.getAllCycles().first()
-            val allSymptomLogs = cycleRepository.getAllSymptomLogs()
+            val allLogs = cycleRepository.getAllLogs().first()
             val symptomLibrary = cycleRepository.getSymptomLibrary().first()
+            val topSymptomsCount = appSettings.topSymptomsCount.first()
 
-            // Run the analysis
+            // Run the analysis, passing the config value to the engine.
             val generatedInsights = insightEngine.generateInsights(
                 allCycles = allCycles,
-                allSymptomLogs = allSymptomLogs,
-                symptomLibrary = symptomLibrary
+                allLogs = allLogs,
+                symptomLibrary = symptomLibrary,
+                topSymptomsCount = topSymptomsCount
             )
 
             // Update the state with the results

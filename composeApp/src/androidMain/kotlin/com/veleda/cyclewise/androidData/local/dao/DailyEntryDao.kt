@@ -24,4 +24,7 @@ interface DailyEntryDao {
 
     @Query("SELECT * FROM daily_entries")
     fun getAllEntries(): Flow<List<DailyEntryEntity>>
+
+    @Query("DELETE FROM daily_entries")
+    suspend fun deleteAll()
 }

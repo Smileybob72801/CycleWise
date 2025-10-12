@@ -1,100 +1,57 @@
 package com.veleda.cyclewise.domain.insights
 
+import com.veleda.cyclewise.domain.insights.generators.InsightData
+import com.veleda.cyclewise.domain.insights.generators.InsightGenerator
+import com.veleda.cyclewise.domain.insights.generators.NextPeriodPredictionGenerator
+import com.veleda.cyclewise.domain.insights.generators.SymptomPhasePatternGenerator
 import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Symptom
-import com.veleda.cyclewise.domain.models.SymptomLog
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.daysUntil
-import kotlinx.datetime.plus
-import kotlin.math.roundToInt
 
-/**
- * Analyzes user data to generate a list of actionable or interesting insights.
- */
-class InsightEngine {
-
-    /**
-     * The primary function that orchestrates the generation of all available insights.
-     */
+class InsightEngine(
+    private val generators: List<InsightGenerator>,
+) {
     fun generateInsights(
         allCycles: List<Cycle>,
-        allSymptomLogs: List<SymptomLog>,
-        symptomLibrary: List<Symptom>
+        allLogs: List<FullDailyLog>,
+        symptomLibrary: List<Symptom>,
+        topSymptomsCount: Int
     ): List<Insight> {
         val insights = mutableListOf<Insight>()
 
-        // Calculate the correct average cycle length once.
-        val averageCycleLength = calculateAverageCycleLength(allCycles)
+        // 1. Prepare the initial data.
+        val baseData = InsightData(
+            allCycles = allCycles,
+            allLogs = allLogs,
+            symptomLibrary = symptomLibrary,
+            averageCycleLength = calculateAverageCycleLength(allCycles),
+            topSymptomsCount = topSymptomsCount
+        )
 
-        // --- Generator 1: Next Period Prediction ---
-        // This generator uses the calculated average.
-        if (averageCycleLength != null) {
-            generateNextPeriodPrediction(allCycles, averageCycleLength)?.let { insights.add(it) }
+        // 2. Run generators that have no dependencies first (like prediction).
+        // This is a simple way to handle dependency order for now.
+        val predictionGenerator = generators.find { it is NextPeriodPredictionGenerator }
+        predictionGenerator?.let { insights.addAll(it.generate(baseData)) }
+
+        // 3. Prepare data for the next set of generators, now including the prediction.
+        val dataWithPrediction = baseData.copy(generatedInsights = insights)
+
+        // 4. Run all other generators.
+        generators.filterNot { it is NextPeriodPredictionGenerator }.forEach { generator ->
+            insights.addAll(generator.generate(dataWithPrediction))
         }
 
-        // --- Generator 2: Cycle Length Average ---
-        // This generator also uses the calculated average.
-        if (averageCycleLength != null) {
-            insights.add(CycleLengthAverage(averageCycleLength))
-        }
-
-        // --- Generator 3: Symptom Recurrence ---
-        generateSymptomRecurrence(allSymptomLogs, symptomLibrary)?.let { insights.add(it) }
-
-        return insights.sortedByDescending { it.priority }
+        // 5. Sort the final list by priority.
+        return insights.distinctBy { it.id }.sortedByDescending { it.priority }
     }
 
     private fun calculateAverageCycleLength(allCycles: List<Cycle>): Double? {
-        val completedCycles = allCycles.filter { it.endDate != null }
-
-        // The repo sorts descending, so we reverse to get chronological order.
-        val chronologicalCycles = completedCycles.reversed()
-
-        // We need at least two cycles to calculate one duration between them.
-        if (chronologicalCycles.size < 2) {
-            return null
-        }
-
-        // Use zipWithNext to create pairs of consecutive cycles, e.g., (Cycle1, Cycle2), (Cycle2, Cycle3).
+        val chronologicalCycles = allCycles.filter { it.endDate != null }.reversed()
+        if (chronologicalCycles.size < 2) return null
         val cycleDurations = chronologicalCycles.zipWithNext { current, next ->
             current.startDate.daysUntil(next.startDate).toDouble()
         }
-
-        // It's possible to have cycles but no durations if there are fewer than 2.
-        if (cycleDurations.isEmpty()) return null
-
-        return cycleDurations.average()
-    }
-
-    private fun generateNextPeriodPrediction(allCycles: List<Cycle>, averageLength: Double): NextPeriodPrediction? {
-        // The repository sorts cycles by start date descending, so the first is the latest.
-        val latestCycle = allCycles.firstOrNull() ?: return null
-
-        val averageLengthInDays = averageLength.roundToInt()
-
-        // The prediction is the start date of the last cycle plus the average length.
-        val predictedDate = latestCycle.startDate.plus(averageLengthInDays, DateTimeUnit.DAY)
-
-        return NextPeriodPrediction(predictedDate)
-    }
-
-    private fun generateSymptomRecurrence(
-        allSymptomLogs: List<SymptomLog>,
-        symptomLibrary: List<Symptom>
-    ): SymptomRecurrence? {
-        if (allSymptomLogs.isEmpty()) {
-            return null
-        }
-        val mostFrequentEntry = allSymptomLogs
-            .groupBy { it.symptomId }
-            .maxByOrNull { it.value.size }
-            ?: return null
-
-        val symptomInfo = symptomLibrary.find { it.id == mostFrequentEntry.key }
-
-        return symptomInfo?.let {
-            SymptomRecurrence(symptomName = it.name)
-        }
+        return cycleDurations.takeIf { it.isNotEmpty() }?.average()
     }
 }
