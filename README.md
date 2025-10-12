@@ -1,6 +1,6 @@
-# CycleWise
+# RythmWise
 
-**CycleWise** is a privacy-first menstrual-cycle tracker built with **Kotlin Multiplatform (KMP)**.  
+**RythmWise** is a privacy-first menstrual-cycle tracker built with **Kotlin Multiplatform (KMP)**.  
 It stores all data **locally**, encrypted with a **passphrase-derived key**, ensuring total user autonomy and zero data harvesting.
 
 ---
@@ -25,7 +25,7 @@ See [`SECURITY_MODEL.md`](SECURITY_MODEL.md) for detailed implementation.
 ---
 
 ## 🏗️ Architecture Overview
-CycleWise follows a **Clean Architecture** layout:
+RythmWise follows a **Clean Architecture** layout:
 ```
 shared/
 ├── domain/ # Use-cases, entities, pure logic
@@ -72,6 +72,6 @@ Signed-off-by: Your Name <you@example.com>
 Released under the Apache License 2.0.
 See LICENSE.md
 
-© 2025 Veleda – CycleWise™
-Veleda and CycleWise are registered trademarks of Veleda.
+© 2025 Veleda – RythmWise™
+Veleda and RythmWise are registered trademarks of Veleda.
 See TRADEMARK_POLICY.md for details.
