@@ -68,6 +68,28 @@ Please read CONTRIBUTING.md **before** opening an issue or PR.
 All commits must include a DCO sign-off:
 Signed-off-by: Your Name <you@example.com>
 
+## 📚 Documentation Map
+
+CycleWise maintains clear, structured documentation to make it easy for new
+contributors, auditors, and users to understand how the project works.
+
+| Area | Description | Location |
+|------|--------------|-----------|
+| **Architecture** | System layout, KMP structure, DI, and module design | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| **Security Model** | Key derivation, encryption, session scopes, and privacy guarantees | [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) |
+| **Code Style Guide** | Kotlin, Compose, and testing conventions | [`docs/CODE_STYLE.md`](docs/CODE_STYLE.md) |
+| **First PR Tutorial** | Step-by-step guide for your first contribution | [`docs/FIRST_PR_TUTORIAL.md`](docs/FIRST_PR_TUTORIAL.md) |
+| **Governance** | Maintainer responsibilities and decision-making process | [`GOVERNANCE.md`](GOVERNANCE.md) |
+| **Contributing Guide** | Branching model, DCO, CI/CD rules, and review policy | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| **Code of Conduct** | Contributor behavior and community standards | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) |
+| **Trademark Policy** | Rules for using the CycleWise™ and Daniel Simmons names or logos | [`TRADEMARK_POLICY.md`](TRADEMARK_POLICY.md) |
+| **Developer Certificate of Origin (DCO)** | Legal attestation for all contributions | [`DCO.md`](DCO.md) |
+| **License** | Project license (Apache 2.0) | [`LICENSE`](LICENSE) |
+
+Additional technical or meta documentation may be found in the [`docs/`](docs)
+directory. Each document is self-contained and linked from the others for easy
+navigation.
+
 ## ⚖️ License
 Released under the Apache License 2.0.
 See LICENSE.md
