@@ -10,12 +10,13 @@ import com.veleda.cyclewise.domain.models.Symptom
 import kotlinx.datetime.daysUntil
 
 class InsightEngine(
-    private val generators: List<InsightGenerator>
+    private val generators: List<InsightGenerator>,
 ) {
     fun generateInsights(
         allCycles: List<Cycle>,
         allLogs: List<FullDailyLog>,
-        symptomLibrary: List<Symptom>
+        symptomLibrary: List<Symptom>,
+        topSymptomsCount: Int
     ): List<Insight> {
         val insights = mutableListOf<Insight>()
 
@@ -24,11 +25,12 @@ class InsightEngine(
             allCycles = allCycles,
             allLogs = allLogs,
             symptomLibrary = symptomLibrary,
-            averageCycleLength = calculateAverageCycleLength(allCycles)
+            averageCycleLength = calculateAverageCycleLength(allCycles),
+            topSymptomsCount = topSymptomsCount
         )
 
         // 2. Run generators that have no dependencies first (like prediction).
-        // This is a simple way to handle dependency order.
+        // This is a simple way to handle dependency order for now.
         val predictionGenerator = generators.find { it is NextPeriodPredictionGenerator }
         predictionGenerator?.let { insights.addAll(it.generate(baseData)) }
 

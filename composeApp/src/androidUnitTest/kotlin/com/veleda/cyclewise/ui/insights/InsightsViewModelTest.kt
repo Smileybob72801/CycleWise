@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.veleda.cyclewise.domain.insights.CycleLengthAverage
 import com.veleda.cyclewise.domain.insights.InsightEngine
 import com.veleda.cyclewise.domain.repository.CycleRepository
+import com.veleda.cyclewise.settings.AppSettings
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -32,14 +33,15 @@ class InsightsViewModelTest {
 
     private lateinit var mockRepository: CycleRepository
     private lateinit var mockInsightEngine: InsightEngine
-    // Note: The viewModel is not initialized here anymore.
     private lateinit var viewModel: InsightsViewModel
+    private lateinit var mockAppSettings: AppSettings
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         mockRepository = mockk()
         mockInsightEngine = mockk()
+        mockAppSettings = mockk()
     }
 
     @After
@@ -51,13 +53,14 @@ class InsightsViewModelTest {
     fun `init WHEN data is loaded successfully THEN uiState is updated with insights`() = runTest {
         // ARRANGE
         val fakeInsights = listOf(CycleLengthAverage(28.5))
+        coEvery { mockAppSettings.topSymptomsCount } returns flowOf(3)
         coEvery { mockRepository.getAllCycles() } returns flowOf(emptyList())
-        coEvery { mockRepository.getAllSymptomLogs() } returns emptyList()
+        coEvery { mockRepository.getAllLogs() } returns flowOf(emptyList())
         coEvery { mockRepository.getSymptomLibrary() } returns flowOf(emptyList())
-        coEvery { mockInsightEngine.generateInsights(any(), any(), any()) } returns fakeInsights
+        coEvery { mockInsightEngine.generateInsights(any(), any(), any(), any()) } returns fakeInsights
 
         // ACT - Create the ViewModel *after* mocks are set up.
-        viewModel = InsightsViewModel(mockRepository, mockInsightEngine)
+        viewModel = InsightsViewModel(mockRepository, mockInsightEngine, mockAppSettings)
 
         // ASSERT
         viewModel.uiState.test {
@@ -75,13 +78,14 @@ class InsightsViewModelTest {
     @Test
     fun `init WHEN engine returns no insights THEN uiState is updated with empty list`() = runTest {
         // ARRANGE
+        coEvery { mockAppSettings.topSymptomsCount } returns flowOf(3)
         coEvery { mockRepository.getAllCycles() } returns flowOf(emptyList())
-        coEvery { mockRepository.getAllSymptomLogs() } returns emptyList()
+        coEvery { mockRepository.getAllLogs() } returns flowOf(emptyList())
         coEvery { mockRepository.getSymptomLibrary() } returns flowOf(emptyList())
-        coEvery { mockInsightEngine.generateInsights(any(), any(), any()) } returns emptyList()
+        coEvery { mockInsightEngine.generateInsights(any(), any(), any(), any()) } returns emptyList()
 
         // ACT
-        viewModel = InsightsViewModel(mockRepository, mockInsightEngine)
+        viewModel = InsightsViewModel(mockRepository, mockInsightEngine, mockAppSettings)
 
         // ASSERT
         viewModel.uiState.test {

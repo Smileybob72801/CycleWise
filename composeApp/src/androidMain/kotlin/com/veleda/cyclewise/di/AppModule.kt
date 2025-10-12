@@ -18,7 +18,6 @@ import com.veleda.cyclewise.domain.insights.generators.CycleLengthTrendGenerator
 import com.veleda.cyclewise.domain.insights.generators.InsightGenerator
 import com.veleda.cyclewise.domain.insights.generators.MoodPhasePatternGenerator
 import com.veleda.cyclewise.domain.insights.generators.NextPeriodPredictionGenerator
-import com.veleda.cyclewise.domain.insights.generators.PremenstrualMoodPatternGenerator
 import com.veleda.cyclewise.domain.insights.generators.SymptomPhasePatternGenerator
 import com.veleda.cyclewise.domain.insights.generators.SymptomRecurrenceGenerator
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
@@ -124,7 +123,8 @@ val appModule = module {
         viewModel {
             InsightsViewModel(
                 cycleRepository = get(),
-                insightEngine = get()
+                insightEngine = get(),
+                appSettings = get()
             )
         }
     }

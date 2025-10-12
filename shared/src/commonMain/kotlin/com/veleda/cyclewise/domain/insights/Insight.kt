@@ -70,16 +70,6 @@ data class NextPeriodPrediction @OptIn(ExperimentalTime::class) constructor(
 }
 
 /**
- * An insight identifying a pattern of lower mood before a period.
- */
-object PremenstrualMoodPattern : Insight {
-    override val id: String = "PREMENSTRUAL_MOOD_PATTERN"
-    override val title: String = "Premenstrual Mood"
-    override val description: String = "You often report a lower mood in the 2-3 days leading up to your period."
-    override val priority: Int = 102
-}
-
-/**
  * An insight that identifies a trend in cycle length over time.
  * @param trendDescription A user-facing string like "shortened", "lengthened", or "remained consistent".
  * @param changeInDays The number of days the cycle has changed by.
@@ -115,8 +105,6 @@ data class SymptomPhasePattern(
 ) : Insight {
     override val id: String = "PATTERN_${symptomName}_$phaseDescription"
     override val title: String = "Symptom Pattern Detected"
-
-    // The description will now be dynamic, including the prediction if available.
     override val description: String
         get() {
             val baseDescription = "You've logged '$symptomName' $phaseDescription in $recurrenceRate of your recent cycles."
@@ -142,9 +130,6 @@ data class MoodPhasePattern(
 ) : Insight {
     override val id: String = "MOOD_PATTERN_${moodType}_$phaseDescription"
     override val title: String = "Mood Pattern Detected"
-
-    // ** THE FIX IS HERE **
-    // The logic for constructing the full description now lives in one place.
     override val description: String
         get() {
             val baseDescription = "You've logged a '$moodType' mood $phaseDescription in $recurrenceRate of your recent cycles."
@@ -156,4 +141,17 @@ data class MoodPhasePattern(
             return "$baseDescription $suffix"
         }
     override val priority: Int = 106
+}
+
+/**
+ * An insight that lists the user's most frequently logged symptoms overall.
+ * @param topSymptoms A list of the names of the most common symptoms.
+ */
+data class TopSymptomsInsight(
+    val topSymptoms: List<String>
+) : Insight {
+    override val id: String = "TOP_SYMPTOMS_OVERALL"
+    override val title: String = "Most Frequent Symptoms"
+    override val description: String = "Your most commonly logged symptoms are: ${topSymptoms.joinToString(", ")}."
+    override val priority: Int = 90
 }

@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.domain.insights
 
+import com.veleda.cyclewise.domain.insights.generators.*
 import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
@@ -25,7 +26,6 @@ class InsightEngineTest {
         Symptom("symptom-2", "Cramps", SymptomCategory.PAIN, Clock.System.now())
     )
 
-    // We now need FullDailyLog objects, not just SymptomLogs
     @OptIn(ExperimentalTime::class)
     private val fullLogs = listOf(
         FullDailyLog(
@@ -52,18 +52,28 @@ class InsightEngineTest {
 
     @BeforeTest
     fun setUp() {
-        insightEngine = InsightEngine()
+        // Instantiate the engine with the list of real generators.
+        insightEngine = InsightEngine(
+            listOf(
+                CycleLengthAverageGenerator(),
+                CycleLengthTrendGenerator(),
+                MoodPhasePatternGenerator(),
+                NextPeriodPredictionGenerator(),
+                SymptomPhasePatternGenerator(),
+                SymptomRecurrenceGenerator()
+            )
+        )
     }
 
     @Test
     fun generateInsights_WHEN_sufficientDataExists_THEN_returnsAllInsightsSortedByPriority() {
         // ACT
-        val insights = insightEngine.generateInsights(cycles, fullLogs, symptomLib)
+        val insights = insightEngine.generateInsights(cycles, fullLogs, symptomLib, topSymptomsCount = 3)
 
         // ASSERT
         assertTrue(insights.any { it is NextPeriodPrediction }, "Missing NextPeriodPrediction")
         assertTrue(insights.any { it is CycleLengthAverage }, "Missing CycleLengthAverage")
-        assertTrue(insights.any { it is SymptomRecurrence }, "Missing SymptomRecurrence")
+        assertTrue(insights.any { it is TopSymptomsInsight }, "Missing TopSymptomsInsight")
 
         val cycleInsight = insights.filterIsInstance<CycleLengthAverage>().first()
         assertEquals(29.0, cycleInsight.averageDays, 0.1)
@@ -82,11 +92,11 @@ class InsightEngineTest {
         )
 
         // ACT
-        val insights = insightEngine.generateInsights(insufficientCycles, fullLogs, symptomLib)
+        val insights = insightEngine.generateInsights(insufficientCycles, fullLogs, symptomLib, topSymptomsCount = 3)
 
         // ASSERT
         assertTrue(insights.none { it is NextPeriodPrediction || it is CycleLengthAverage })
-        assertTrue(insights.any { it is SymptomRecurrence }, "Symptom insight should still be generated")
+        assertTrue(insights.any { it is TopSymptomsInsight }, "Symptom insight should still be generated")
     }
 
     @Test
@@ -95,18 +105,18 @@ class InsightEngineTest {
         val noLogs = emptyList<FullDailyLog>()
 
         // ACT
-        val insights = insightEngine.generateInsights(cycles, noLogs, symptomLib)
+        val insights = insightEngine.generateInsights(cycles, noLogs, symptomLib, topSymptomsCount = 3)
 
         // ASSERT
         assertTrue(insights.any { it is NextPeriodPrediction })
         assertTrue(insights.any { it is CycleLengthAverage })
-        assertTrue(insights.none { it is SymptomRecurrence || it is RecurringPeriodSymptom })
+        assertTrue(insights.none { it is TopSymptomsInsight || it is SymptomPhasePattern })
     }
 
     @Test
     fun generateInsights_WHEN_noData_THEN_returnsEmptyList() {
         // ACT
-        val insights = insightEngine.generateInsights(emptyList(), emptyList(), emptyList())
+        val insights = insightEngine.generateInsights(emptyList(), emptyList(), emptyList(), topSymptomsCount = 3)
 
         // ASSERT
         assertTrue(insights.isEmpty(), "Expected no insights when no data is provided")

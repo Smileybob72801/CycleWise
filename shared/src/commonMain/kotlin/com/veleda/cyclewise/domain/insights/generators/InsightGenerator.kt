@@ -14,7 +14,8 @@ data class InsightData(
     val allLogs: List<FullDailyLog>,
     val symptomLibrary: List<Symptom>,
     val averageCycleLength: Double?,
-    val generatedInsights: List<Insight> = emptyList()
+    val generatedInsights: List<Insight> = emptyList(),
+    val topSymptomsCount: Int
 )
 
 /**
