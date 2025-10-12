@@ -70,7 +70,7 @@ Signed-off-by: Your Name <you@example.com>
 
 ## 📚 Documentation Map
 
-CycleWise maintains clear, structured documentation to make it easy for new
+RythmWise maintains clear, structured documentation to make it easy for new
 contributors, auditors, and users to understand how the project works.
 
 | Area | Description | Location |
@@ -82,7 +82,7 @@ contributors, auditors, and users to understand how the project works.
 | **Governance** | Maintainer responsibilities and decision-making process | [`GOVERNANCE.md`](GOVERNANCE.md) |
 | **Contributing Guide** | Branching model, DCO, CI/CD rules, and review policy | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | **Code of Conduct** | Contributor behavior and community standards | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) |
-| **Trademark Policy** | Rules for using the CycleWise™ and Daniel Simmons names or logos | [`TRADEMARK_POLICY.md`](TRADEMARK_POLICY.md) |
+| **Trademark Policy** | Rules for using the RythmWise™ and Daniel Simmons names or logos | [`TRADEMARK_POLICY.md`](TRADEMARK_POLICY.md) |
 | **Developer Certificate of Origin (DCO)** | Legal attestation for all contributions | [`DCO.md`](DCO.md) |
 | **License** | Project license (Apache 2.0) | [`LICENSE`](LICENSE) |
 
