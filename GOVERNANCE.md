@@ -1,11 +1,11 @@
-# RythmWise Governance Model
+# RhythmWise Governance Model
 
 _Last updated: October 2025_
 
 ---
 
 ## 🧭 Overview
-RythmWise is an open-source project created and maintained by **Daniel Simmons**.
+RhythmWise is an open-source project created and maintained by **Daniel Simmons**.
 Its governance model follows a **maintainer-led** structure: decisions are made
 collaboratively with community input, but final authority and direction remain
 with the maintainer.
@@ -32,7 +32,7 @@ analytics) to trusted collaborators while retaining overall oversight.
 ---
 
 ## 🤝 Community Participation
-RythmWise welcomes community contributions through issues, pull requests, and
+RhythmWise welcomes community contributions through issues, pull requests, and
 discussions.
 
 Contributors are expected to:

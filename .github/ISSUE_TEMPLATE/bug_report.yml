@@ -1,0 +1,66 @@
+name: 🐞 Bug Report
+about: Create a report to help us improve RhythmWise
+title: "[Bug] A brief, descriptive title of the bug"
+labels: bug
+assignees:
+  - SmileyBob72801
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Describe the bug
+        A clear and concise description of what the bug is.
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Please provide detailed steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App Version
+      placeholder: e.g., 1.0.1
+
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      placeholder: e.g., Pixel 8, Samsung S23
+
+  - type: input
+    id: android-version
+    attributes:
+      label: Android Version
+      placeholder: e.g., Android 14
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional Context
+      description: Add any other context or screenshots here.

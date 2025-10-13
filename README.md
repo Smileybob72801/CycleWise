@@ -1,6 +1,6 @@
-# RythmWise
+# RhythmWise
 
-**RythmWise** is a privacy-first menstrual-cycle tracker built with **Kotlin Multiplatform (KMP)**.  
+**RhythmWise** is a privacy-first menstrual-cycle tracker built with **Kotlin Multiplatform (KMP)**.  
 It stores all data **locally**, encrypted with a **passphrase-derived key**, ensuring total user autonomy and zero data harvesting.
 
 ---
@@ -20,12 +20,12 @@ It stores all data **locally**, encrypted with a **passphrase-derived key**, ens
 - Key material lives only during an **active unlock session**.
 - No recovery mechanisms, accounts, or telemetry.
 
-See [`SECURITY_MODEL.md`](SECURITY_MODEL.md) for detailed implementation.
+See [`SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) for detailed implementation.
 
 ---
 
 ## 🏗️ Architecture Overview
-RythmWise follows a **Clean Architecture** layout:
+RhythmWise follows a **Clean Architecture** layout:
 ```
 shared/
 ├── domain/ # Use-cases, entities, pure logic
@@ -40,7 +40,7 @@ androidApp/
 ```
 
 
-Dependency graph and DI wiring explained in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+Dependency graph and DI wiring explained in [`ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
@@ -65,26 +65,47 @@ Open the project in Android Studio and run on an emulator or device.
 Contributions are welcome!
 Please read CONTRIBUTING.md **before** opening an issue or PR.
 
+RhythmWise follows the Conventional Commit Specification for commit messages:
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
+
 All commits must include a DCO sign-off:
 Signed-off-by: Your Name <you@example.com>
 
+## 🧭 Maintainer Rights & Governance
+
+RhythmWise is an open-source project created and maintained by **Daniel Simmons**.
+
+Daniel Simmons retains long-term stewardship and decision-making authority over:
+- The project’s **vision, roadmap, and release cadence**
+- The official **RhythmWise™** name, logos, and visual identity
+- Approval of pull requests and code merges to protected branches
+
+Community contributions are warmly encouraged and reviewed on their technical
+and ethical merit, but inclusion in the official repository and releases
+is at Daniel Simmons’s discretion.
+
+This structure ensures that RhythmWise continues to uphold its core values of
+privacy, transparency, and user autonomy while maintaining a consistent and
+trustworthy experience for everyone.
+
 ## 📚 Documentation Map
 
-RythmWise maintains clear, structured documentation to make it easy for new
+RhythmWise maintains clear, structured documentation to make it easy for new
 contributors, auditors, and users to understand how the project works.
 
-| Area | Description | Location |
-|------|--------------|-----------|
-| **Architecture** | System layout, KMP structure, DI, and module design | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| **Security Model** | Key derivation, encryption, session scopes, and privacy guarantees | [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) |
-| **Code Style Guide** | Kotlin, Compose, and testing conventions | [`docs/CODE_STYLE.md`](docs/CODE_STYLE.md) |
-| **First PR Tutorial** | Step-by-step guide for your first contribution | [`docs/FIRST_PR_TUTORIAL.md`](docs/FIRST_PR_TUTORIAL.md) |
-| **Governance** | Maintainer responsibilities and decision-making process | [`GOVERNANCE.md`](GOVERNANCE.md) |
-| **Contributing Guide** | Branching model, DCO, CI/CD rules, and review policy | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| **Code of Conduct** | Contributor behavior and community standards | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) |
-| **Trademark Policy** | Rules for using the RythmWise™ and Daniel Simmons names or logos | [`TRADEMARK_POLICY.md`](TRADEMARK_POLICY.md) |
-| **Developer Certificate of Origin (DCO)** | Legal attestation for all contributions | [`DCO.md`](DCO.md) |
-| **License** | Project license (Apache 2.0) | [`LICENSE`](LICENSE) |
+| Area                                      | Description                                                        | Location                                                    |
+|-------------------------------------------|--------------------------------------------------------------------|-------------------------------------------------------------|
+| **Architecture**                          | System layout, KMP structure, DI, and module design                | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)              |
+| **Security Model**                        | Key derivation, encryption, session scopes, and privacy guarantees | [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md)          |
+| **Code Style Guide**                      | Kotlin, Compose, and testing conventions                           | [`docs/CODE_STYLE.md`](docs/CODE_STYLE.md)                  |
+| **First PR Tutorial**                     | Step-by-step guide for your first contribution                     | [`docs/FIRST_PR_TUTORIAL.md`](docs/FIRST_PR_TUTORIAL.md)    |
+| **Governance**                            | Maintainer responsibilities and decision-making process            | [`GOVERNANCE.md`](GOVERNANCE.md)                            |
+| **Contributing Guide**                    | Branching model, DCO, CI/CD rules, and review policy               | [`CONTRIBUTING.md`](CONTRIBUTING.md)                        |
+| **Git Commit Guide**                      | Conventional Commits Specification                                 | [`GIT_COMMIT_GUIDELINES.md`](docs/GIT_COMMIT_GUIDELINES.md) |
+| **Code of Conduct**                       | Contributor behavior and community standards                       | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)                  |
+| **Trademark Policy**                      | Rules for using the RhythmWise™ and Daniel Simmons names or logos  | [`TRADEMARK_POLICY.md`](TRADEMARK_POLICY.md)                |
+| **Developer Certificate of Origin (DCO)** | Legal attestation for all contributions                            | [`DCO.md`](DCO.md)                                          |
+| **License**                               | Project license (Apache 2.0)                                       | [`LICENSE`](LICENSE)                                        |
 
 Additional technical or meta documentation may be found in the [`docs/`](docs)
 directory. Each document is self-contained and linked from the others for easy
@@ -94,6 +115,6 @@ navigation.
 Released under the Apache License 2.0.
 See LICENSE.md
 
-© 2025 Veleda - RythmWise™
-Veleda and RythmWise are registered trademarks of Veleda.
+© 2025 Veleda - RhythmWise™
+RhythmWise is a registered trademarks.
 See TRADEMARK_POLICY.md for details.
