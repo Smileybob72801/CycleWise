@@ -26,21 +26,15 @@ class InsightEngineTest {
         Symptom("symptom-2", "Cramps", SymptomCategory.PAIN, Clock.System.now())
     )
 
+    // Expanded fullLogs to meet the > 10 symptom logs requirement for the generator.
     @OptIn(ExperimentalTime::class)
-    private val fullLogs = listOf(
+    private val fullLogs = (1..12).map { i ->
         FullDailyLog(
-            entry = DailyEntry("entry-1", "cycle-2", LocalDate(2025, 2, 2), 2, createdAt = Clock.System.now(), updatedAt = Clock.System.now()),
-            symptomLogs = listOf(SymptomLog("log-1", "entry-1", "symptom-1", 3, Clock.System.now()))
-        ),
-        FullDailyLog(
-            entry = DailyEntry("entry-2", "cycle-3", LocalDate(2025, 3, 1), 2, createdAt = Clock.System.now(), updatedAt = Clock.System.now()),
-            symptomLogs = listOf(SymptomLog("log-2", "entry-2", "symptom-2", 4, Clock.System.now()))
-        ),
-        FullDailyLog(
-            entry = DailyEntry("entry-3", "cycle-4", LocalDate(2025, 3, 31), 2, createdAt = Clock.System.now(), updatedAt = Clock.System.now()),
-            symptomLogs = listOf(SymptomLog("log-3", "entry-3", "symptom-1", 5, Clock.System.now())) // Headache is most common
+            entry = DailyEntry("entry-$i", "cycle-2", LocalDate(2025, 2, i), i, createdAt = Clock.System.now(), updatedAt = Clock.System.now()),
+            // Log a headache every time to make it the most common symptom.
+            symptomLogs = listOf(SymptomLog("log-$i", "entry-$i", "symptom-1", 3, Clock.System.now()))
         )
-    )
+    }
 
     @OptIn(ExperimentalTime::class)
     private val cycles = listOf(
@@ -52,7 +46,7 @@ class InsightEngineTest {
 
     @BeforeTest
     fun setUp() {
-        // Instantiate the engine with the list of real generators.
+        // Instantiate the engine with the list of generators.
         insightEngine = InsightEngine(
             listOf(
                 CycleLengthAverageGenerator(),
@@ -68,12 +62,15 @@ class InsightEngineTest {
     @Test
     fun generateInsights_WHEN_sufficientDataExists_THEN_returnsAllInsightsSortedByPriority() {
         // ACT
-        val insights = insightEngine.generateInsights(cycles, fullLogs, symptomLib, topSymptomsCount = 3)
+        val insights = insightEngine.generateInsights(cycles, fullLogs, symptomLib, topSymptomsCount = 1)
 
         // ASSERT
         assertTrue(insights.any { it is NextPeriodPrediction }, "Missing NextPeriodPrediction")
         assertTrue(insights.any { it is CycleLengthAverage }, "Missing CycleLengthAverage")
         assertTrue(insights.any { it is TopSymptomsInsight }, "Missing TopSymptomsInsight")
+
+        val topSymptoms = insights.filterIsInstance<TopSymptomsInsight>().first()
+        assertEquals(listOf("Headache"), topSymptoms.topSymptoms)
 
         val cycleInsight = insights.filterIsInstance<CycleLengthAverage>().first()
         assertEquals(29.0, cycleInsight.averageDays, 0.1)
@@ -92,10 +89,11 @@ class InsightEngineTest {
         )
 
         // ACT
-        val insights = insightEngine.generateInsights(insufficientCycles, fullLogs, symptomLib, topSymptomsCount = 3)
+        val insights = insightEngine.generateInsights(insufficientCycles, fullLogs, symptomLib, topSymptomsCount = 1)
 
         // ASSERT
         assertTrue(insights.none { it is NextPeriodPrediction || it is CycleLengthAverage })
+
         assertTrue(insights.any { it is TopSymptomsInsight }, "Symptom insight should still be generated")
     }
 
@@ -105,7 +103,7 @@ class InsightEngineTest {
         val noLogs = emptyList<FullDailyLog>()
 
         // ACT
-        val insights = insightEngine.generateInsights(cycles, noLogs, symptomLib, topSymptomsCount = 3)
+        val insights = insightEngine.generateInsights(cycles, noLogs, symptomLib, topSymptomsCount = 1)
 
         // ASSERT
         assertTrue(insights.any { it is NextPeriodPrediction })
@@ -116,7 +114,7 @@ class InsightEngineTest {
     @Test
     fun generateInsights_WHEN_noData_THEN_returnsEmptyList() {
         // ACT
-        val insights = insightEngine.generateInsights(emptyList(), emptyList(), emptyList(), topSymptomsCount = 3)
+        val insights = insightEngine.generateInsights(emptyList(), emptyList(), emptyList(), topSymptomsCount = 1)
 
         // ASSERT
         assertTrue(insights.isEmpty(), "Expected no insights when no data is provided")
