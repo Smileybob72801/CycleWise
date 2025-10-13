@@ -1,0 +1,18 @@
+# ------------------------------------------------------------------------------
+# RhythmWise CODEOWNERS
+# ------------------------------------------------------------------------------
+# This file defines the individuals or teams responsible for code review and
+# approval across the repository. GitHub and GitLab both use CODEOWNERS to
+# automatically request reviews and block merges until the owner(s) approve.
+# ------------------------------------------------------------------------------
+
+# Global default owner — all files require review and approval by Daniel Simmons
+* @SmileyBob72801
+
+# Optional: specify submodules or directories if you later add collaborators
+# Example:
+# shared/data/    @trusted-collaborator
+# androidApp/ui/  @trusted-ui-dev
+
+# Documentation may optionally have lighter review rules later
+# docs/           @SmileyBob72801
