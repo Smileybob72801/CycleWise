@@ -1,6 +1,6 @@
 package com.veleda.cyclewise.domain.insights.generators
 
-import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.insights.Insight
@@ -10,7 +10,7 @@ import com.veleda.cyclewise.domain.insights.Insight
  * This simplifies the generator interface.
  */
 data class InsightData(
-    val allCycles: List<Cycle>,
+    val allPeriods: List<Period>,
     val allLogs: List<FullDailyLog>,
     val symptomLibrary: List<Symptom>,
     val averageCycleLength: Double?,

@@ -1,21 +1,18 @@
 package com.veleda.cyclewise.di
 
-import com.veleda.cyclewise.domain.repository.CycleRepository
-import com.veleda.cyclewise.domain.usecases.StartNewCycleUseCase
+import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.services.SaltStorage
-import com.veleda.cyclewise.ui.tracker.CycleViewModel
+import com.veleda.cyclewise.ui.tracker.TrackerViewModel
 import org.koin.core.module.dsl.*
 import org.koin.dsl.module
 import org.koin.android.ext.koin.androidContext
-import org.koin.core.parameter.parametersOf
 import com.veleda.cyclewise.domain.services.PassphraseService
 import com.veleda.cyclewise.services.PassphraseServiceAndroid
-import com.veleda.cyclewise.androidData.local.database.CycleDatabase
-import com.veleda.cyclewise.androidData.repository.RoomCycleRepository
+import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
+import com.veleda.cyclewise.androidData.repository.RoomPeriodRepository
 import com.veleda.cyclewise.domain.insights.InsightEngine
 import com.veleda.cyclewise.domain.insights.generators.CycleLengthAverageGenerator
 import com.veleda.cyclewise.domain.insights.generators.CycleLengthTrendGenerator
-import com.veleda.cyclewise.domain.insights.generators.InsightGenerator
 import com.veleda.cyclewise.domain.insights.generators.MoodPhasePatternGenerator
 import com.veleda.cyclewise.domain.insights.generators.NextPeriodPredictionGenerator
 import com.veleda.cyclewise.domain.insights.generators.SymptomPhasePatternGenerator
@@ -23,16 +20,13 @@ import com.veleda.cyclewise.domain.insights.generators.SymptomRecurrenceGenerato
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
-import com.veleda.cyclewise.domain.usecases.EndCycleUseCase
 import org.koin.core.qualifier.named
-import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyEntryUseCase
+import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
 import com.veleda.cyclewise.session.SessionBus
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.auth.PassphraseViewModel
 import com.veleda.cyclewise.ui.insights.InsightsViewModel
-import org.koin.dsl.module
-import org.koin.core.scope.Scope
 import kotlinx.datetime.LocalDate
 import org.koin.core.qualifier.Qualifier
 
@@ -70,22 +64,22 @@ val appModule = module {
         // DB Provider
         scoped { (passphrase: String) ->
             val key = get<PassphraseService>().deriveKey(passphrase)
-            CycleDatabase.create(androidContext(), key)
+            PeriodDatabase.create(androidContext(), key)
         }
 
         // DAO Providers
-        scoped { get<CycleDatabase>().cycleDao() }
-        scoped { get<CycleDatabase>().dailyEntryDao() }
-        scoped { get<CycleDatabase>().symptomDao() }
-        scoped { get<CycleDatabase>().medicationDao() }
-        scoped { get<CycleDatabase>().medicationLogDao() }
-        scoped { get<CycleDatabase>().symptomLogDao() }
+        scoped { get<PeriodDatabase>().periodDao() }
+        scoped { get<PeriodDatabase>().dailyEntryDao() }
+        scoped { get<PeriodDatabase>().symptomDao() }
+        scoped { get<PeriodDatabase>().medicationDao() }
+        scoped { get<PeriodDatabase>().medicationLogDao() }
+        scoped { get<PeriodDatabase>().symptomLogDao() }
 
         // Repository Provider
-        scoped<CycleRepository> {
-            RoomCycleRepository(
+        scoped<PeriodRepository> {
+            RoomPeriodRepository(
                 db = get(),
-                cycleDao = get(),
+                periodDao = get(),
                 dailyEntryDao = get(),
                 symptomDao = get(),
                 medicationDao = get(),
@@ -99,13 +93,13 @@ val appModule = module {
         scoped { MedicationLibraryProvider(get()) }
 
         // Use Case Providers
-        scoped { GetOrCreateDailyEntryUseCase(get()) }
+        scoped { GetOrCreateDailyLogUseCase(get()) }
         scoped { DebugSeederUseCase(get()) }
 
         // ViewModel Providers
         viewModel {
-            CycleViewModel(
-                cycleRepository = get(),
+            TrackerViewModel(
+                periodRepository = get(),
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get()
             )
@@ -114,7 +108,7 @@ val appModule = module {
         viewModel { (date: LocalDate) ->
             DailyLogViewModel(
                 entryDate = date,
-                cycleRepository = get(),
+                periodRepository = get(),
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get()
             )
@@ -122,7 +116,7 @@ val appModule = module {
 
         viewModel {
             InsightsViewModel(
-                cycleRepository = get(),
+                periodRepository = get(),
                 insightEngine = get(),
                 appSettings = get()
             )

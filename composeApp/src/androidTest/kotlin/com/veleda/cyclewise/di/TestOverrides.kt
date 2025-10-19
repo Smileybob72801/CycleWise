@@ -1,13 +1,11 @@
 package com.veleda.cyclewise.di
 
 import android.content.Context
-import com.veleda.cyclewise.androidData.local.database.CycleDatabase
+import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.domain.services.PassphraseService
-import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
-import com.veleda.cyclewise.di.SESSION_SCOPE
 
 /**
  * A deterministic, fast, and safe PassphraseService for use in E2E tests.
@@ -32,16 +30,16 @@ val testOverridesModule = module {
     // 1. Replace the production PassphraseService with our deterministic test version.
     single<PassphraseService> { TestPassphraseService() }
 
-    // 2. Replace the session-scoped CycleDatabase provider.
+    // 2. Replace the session-scoped PeriodDatabase provider.
     scope(SESSION_SCOPE) {
-        scoped<CycleDatabase> { (passphrase: String) ->
+        scoped<PeriodDatabase> { (passphrase: String) ->
             val context: Context = get()
             val testDbName = "e2e_cyclewise.db"
 
             // The key is derived by our deterministic TestPassphraseService above.
             val key = get<PassphraseService>().deriveKey(passphrase)
 
-            CycleDatabase.create(
+            PeriodDatabase.create(
                 context = context,
                 passphrase = key,
                 dbName = testDbName

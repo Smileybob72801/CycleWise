@@ -2,9 +2,9 @@ package com.veleda.cyclewise.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.veleda.cyclewise.androidData.local.database.CycleDatabase
+import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.di.SESSION_SCOPE
-import com.veleda.cyclewise.domain.repository.CycleRepository
+import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -50,10 +50,10 @@ class PassphraseViewModel(
                             qualifier = SESSION_SCOPE
                         )
 
-                    sessionScope.get<CycleDatabase> { parametersOf(passphrase) }
+                    sessionScope.get<PeriodDatabase> { parametersOf(passphrase) }
 
                     if (needsPrepopulation) {
-                        val repository = sessionScope.get<CycleRepository>()
+                        val repository = sessionScope.get<PeriodRepository>()
                         repository.prepopulateSymptomLibrary()
                         appSettings.setPrepopulated(true)
                     }

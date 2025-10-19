@@ -1,7 +1,7 @@
 package com.veleda.cyclewise.domain.usecases
 
-import com.veleda.cyclewise.domain.models.Cycle
-import com.veleda.cyclewise.domain.repository.CycleRepository
+import com.veleda.cyclewise.domain.models.Period
+import com.veleda.cyclewise.domain.repository.PeriodRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -16,13 +16,13 @@ import kotlin.time.ExperimentalTime
 
 class StartNewCycleUseCaseTest {
 
-    private lateinit var mockRepository: CycleRepository
-    private lateinit var useCase: StartNewCycleUseCase
+    private lateinit var mockRepository: PeriodRepository
+    private lateinit var useCase: StartNewPeriodUseCase
 
     @BeforeTest
     fun setUp() {
-        mockRepository = mockk<CycleRepository>(relaxed = true)
-        useCase = StartNewCycleUseCase(mockRepository)
+        mockRepository = mockk<PeriodRepository>(relaxed = true)
+        useCase = StartNewPeriodUseCase(mockRepository)
     }
 
     @OptIn(ExperimentalTime::class)
@@ -33,7 +33,7 @@ class StartNewCycleUseCaseTest {
             val testStartDate = Clock.System.todayIn(TimeZone.currentSystemDefault())
 
             // Mock the repository to return `null`, indicating no cycle is currently ongoing.
-            coEvery { mockRepository.getCurrentlyOngoingCycle() } returns null
+            coEvery { mockRepository.getCurrentlyOngoingPeriod() } returns null
 
             // --- ACT ---
             val result = useCase(startDate = testStartDate)
@@ -42,10 +42,10 @@ class StartNewCycleUseCaseTest {
             // 1. Assert that the use case did not fail.
             assertNotNull(result)
 
-            // 2. Verify that the repository's `startNewCycle` method was called
+            // 2. Verify that the repository's `startNewPeriod` method was called
             //    exactly once with the correct start date.
             coVerify(exactly = 1) {
-                mockRepository.startNewCycle(startDate = testStartDate)
+                mockRepository.startNewPeriod(startDate = testStartDate)
             }
         }
     }
@@ -56,7 +56,7 @@ class StartNewCycleUseCaseTest {
         runTest {
             // --- ARRANGE ---
             val testStartDate = Clock.System.todayIn(TimeZone.currentSystemDefault())
-            val fakeOngoingCycle = Cycle(
+            val fakeOngoingPeriod = Period(
                 id = "ongoing-cycle-id-123",
                 startDate = testStartDate.minus(5, DateTimeUnit.DAY),
                 endDate = null,
@@ -65,7 +65,7 @@ class StartNewCycleUseCaseTest {
             )
 
             // Mock the repository to return a valid, existing ongoing cycle.
-            coEvery { mockRepository.getCurrentlyOngoingCycle() } returns fakeOngoingCycle
+            coEvery { mockRepository.getCurrentlyOngoingPeriod() } returns fakeOngoingPeriod
 
             // --- ACT ---
             val result = useCase(startDate = testStartDate)
@@ -74,8 +74,8 @@ class StartNewCycleUseCaseTest {
             // 1. Assert that the use case correctly returned null to indicate failure.
             assertNull(result)
 
-            // 2. Verify that `startNewCycle` was NEVER called.
-            coVerify(exactly = 0) { mockRepository.startNewCycle(any()) }
+            // 2. Verify that `startNewPeriod` was NEVER called.
+            coVerify(exactly = 0) { mockRepository.startNewPeriod(any()) }
         }
     }
 }

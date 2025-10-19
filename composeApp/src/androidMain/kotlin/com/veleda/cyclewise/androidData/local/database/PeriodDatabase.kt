@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.veleda.cyclewise.androidData.local.dao.CycleDao
+import com.veleda.cyclewise.androidData.local.dao.PeriodDao
 import com.veleda.cyclewise.androidData.local.dao.DailyEntryDao
 import com.veleda.cyclewise.androidData.local.dao.MedicationDao
 import com.veleda.cyclewise.androidData.local.dao.MedicationLogDao
@@ -16,7 +16,8 @@ import com.veleda.cyclewise.androidData.local.database.migrations.Migration_2_3
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_3_4
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_4_5
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_5_6
-import com.veleda.cyclewise.androidData.local.entities.CycleEntity
+import com.veleda.cyclewise.androidData.local.database.migrations.Migration_6_7
+import com.veleda.cyclewise.androidData.local.entities.PeriodEntity
 import com.veleda.cyclewise.androidData.local.entities.Converters
 import com.veleda.cyclewise.androidData.local.entities.DailyEntryEntity
 import com.veleda.cyclewise.androidData.local.entities.MedicationEntity
@@ -27,19 +28,19 @@ import net.sqlcipher.database.SupportFactory
 
 @Database(
     entities = [
-        CycleEntity::class,
+        PeriodEntity::class,
         DailyEntryEntity::class,
         SymptomEntity::class,
         MedicationEntity::class,
         MedicationLogEntity::class,
         SymptomLogEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
-abstract class CycleDatabase : RoomDatabase() {
-    abstract fun cycleDao(): CycleDao
+abstract class PeriodDatabase : RoomDatabase() {
+    abstract fun periodDao(): PeriodDao
     abstract fun dailyEntryDao(): DailyEntryDao
     abstract fun symptomDao(): SymptomDao
     abstract fun medicationDao(): MedicationDao
@@ -51,11 +52,11 @@ abstract class CycleDatabase : RoomDatabase() {
             context: Context,
             passphrase: ByteArray,
             dbName: String = "cyclewise.db"
-        ): CycleDatabase {
+        ): PeriodDatabase {
             val factory = SupportFactory(passphrase)
             return Room.databaseBuilder(
                 context,
-                CycleDatabase::class.java,
+                PeriodDatabase::class.java,
                 dbName
             )
                 .openHelperFactory(factory)
@@ -65,6 +66,7 @@ abstract class CycleDatabase : RoomDatabase() {
                     Migration_3_4,
                     Migration_4_5,
                     Migration_5_6,
+                    Migration_6_7
                 )
                 .build()
         }

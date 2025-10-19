@@ -1,121 +1,132 @@
 package com.veleda.cyclewise.domain.usecases
 
-import com.veleda.cyclewise.domain.models.Cycle
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
-import com.veleda.cyclewise.domain.repository.CycleRepository
+import com.veleda.cyclewise.domain.models.Period
+import com.veleda.cyclewise.domain.repository.PeriodRepository
 import io.mockk.coEvery
 import io.mockk.mockk
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.todayIn
-import org.junit.Before
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.daysUntil
+import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertEquals
-import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.minus
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.time.ExperimentalTime
 
-class GetOrCreateDailyEntryUseCaseTest {
+class GetOrCreateDailyLogUseCaseTest {
 
-    // --- 1. SETUP ---
+    private lateinit var mockRepository: PeriodRepository
+    private lateinit var useCase: GetOrCreateDailyLogUseCase
 
-    private lateinit var mockRepository: CycleRepository
-    private lateinit var useCase: GetOrCreateDailyEntryUseCase
+    // --- Test Data Setup ---
+    // A stable, predictable set of periods for all tests. Oldest first.
+    @OptIn(ExperimentalTime::class)
+    private val testPeriods = listOf(
+        Period("period-1", LocalDate(2025, 1, 1), LocalDate(2025, 1, 5), Clock.System.now(), Clock.System.now()),
+        Period("period-2", LocalDate(2025, 1, 29), LocalDate(2025, 2, 2), Clock.System.now(), Clock.System.now()), // 28-day cycle
+        Period("period-3", LocalDate(2025, 2, 28), LocalDate(2025, 3, 4), Clock.System.now(), Clock.System.now())  // 30-day cycle
+    )
 
     @Before
     fun setUp() {
-        mockRepository = mockk<CycleRepository>()
+        mockRepository = mockk()
+        useCase = GetOrCreateDailyLogUseCase(mockRepository)
 
-        useCase = GetOrCreateDailyEntryUseCase(mockRepository)
+        // Mock the repository to return our stable list of periods by default for all tests.
+        coEvery { mockRepository.getAllPeriods() } returns flowOf(testPeriods.reversed()) // Repository returns newest first
     }
 
     @OptIn(ExperimentalTime::class)
     @Test
-    fun invoke_WHEN_RepositoryReturnsExisting_THEN_Log_returnsCorrectDailyEntry() {
-        runTest {
-            // --- ARRANGE ---
-            val testDate = Clock.System.todayIn(TimeZone.currentSystemDefault())
+    fun invoke_whenLogAlreadyExists_returnsTheExistingLog() = runTest {
+        // ARRANGE
+        val testDate = LocalDate(2025, 1, 15)
+        val existingEntry = DailyEntry(
+            id = "existing-id",
+            entryDate = testDate,
+            dayInCycle = 15,
+            createdAt = Clock.System.now(),
+            updatedAt = Clock.System.now()
+        )
+        val existingLog = FullDailyLog(entry = existingEntry)
+        coEvery { mockRepository.getFullLogForDate(testDate) } returns existingLog
 
-            val expectedEntry = DailyEntry(
-                id = "test-entry-id",
-                cycleId = "test-cycle-id",
-                entryDate = testDate,
-                dayInCycle = 1,
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now()
-            )
+        // ACT
+        val result = useCase(testDate)
 
-            val fakeLog = FullDailyLog(entry = expectedEntry)
-            coEvery { mockRepository.getFullLogForDate(any()) } returns fakeLog
-
-            // --- ACT ---
-            val result = useCase(testDate)
-
-            // --- ASSERT ---
-            assertEquals(expectedEntry, result)
-        }
+        // ASSERT
+        assertNotNull(result)
+        assertEquals(existingLog, result, "Should return the exact log provided by the repository")
     }
 
-    @OptIn(ExperimentalTime::class)
     @Test
-    fun invoke_WHEN_no_log_exists_THEN_creates_and_returns_a_new_DailyEntry () {
-        runTest {
-            // --- ARRANGE ---
-            val testDate = Clock.System.todayIn(TimeZone.currentSystemDefault())
-            val fakeOngoingCycle = Cycle(
-                id = "ongoing-cycle-id-123",
-                startDate = testDate.minus(5, DateTimeUnit.DAY), // Cycle started 5 days ago
-                endDate = null,
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now()
-            )
+    fun invoke_whenNoLogExists_createsNewLogLinkedToCorrectParentPeriod() = runTest {
+        // ARRANGE
+        // This date falls into the cycle that started on Jan 29.
+        val testDate = LocalDate(2025, 2, 10)
+        coEvery { mockRepository.getFullLogForDate(testDate) } returns null
 
-            // We tell the mock repository two things:
-            // 1. There is no existing log for this date.
-            coEvery { mockRepository.getFullLogForDate(any()) } returns null
-            // 2. There IS a currently ongoing cycle to link the new log to.
-            coEvery { mockRepository.getCurrentlyOngoingCycle() } returns fakeOngoingCycle
+        // The parent period should be period-2, which started on 2025-01-29.
+        val parentPeriod = testPeriods[1]
+        val expectedDayInCycle = parentPeriod.startDate.daysUntil(testDate) + 1
 
-            // --- ACT ---
-            val result = useCase(testDate)
+        // ACT
+        val result = useCase(testDate)
 
-            // --- ASSERT ---
-            // 1. Assert that the result is not null (a new entry was created).
-            assertNotNull(result)
-            // 2. Assert that the new entry is for the correct date.
-            assertEquals(testDate, result?.entryDate)
-            // 3. Assert that the new entry is correctly linked to the ongoing cycle.
-            assertEquals(fakeOngoingCycle.id, result?.cycleId)
-            // 4. Assert the day in cycle is calculated correctly (today is day 6 of the cycle).
-            assertEquals(6, result?.dayInCycle)
-        }
+        // ASSERT
+        assertNotNull(result)
+        assertEquals(testDate, result.entry.entryDate)
+        // This is the most crucial assertion: it proves the use case correctly identified
+        // the parent period to calculate the day of the cycle.
+        assertEquals(expectedDayInCycle, result.entry.dayInCycle, "Day in cycle should be calculated from the correct parent period")
+        assertEquals(13, expectedDayInCycle) // Explicitly check the math for this test case
     }
 
-    @OptIn(ExperimentalTime::class)
     @Test
-    fun invoke_WHEN_noOngoingCycle_THEN_returnsNull() {
-        runTest {
-            // --- ARRANGE ---
-            val testDate = Clock.System.todayIn(TimeZone.currentSystemDefault())
+    fun invoke_whenDateIsStartOfAPeriod_createsNewLogWithDayInCycleOne() = runTest {
+        // ARRANGE
+        // This date is the exact start of the second period.
+        val testDate = LocalDate(2025, 1, 29)
+        coEvery { mockRepository.getFullLogForDate(testDate) } returns null
 
-            // We tell the mock repository two things:
-            // 1. There is no existing log for this date.
-            coEvery { mockRepository.getFullLogForDate(any()) } returns null
-            // 2. Crucially, there is NO ongoing cycle. This simulates the app's state
-            //    before the very first cycle has been started.
-            coEvery { mockRepository.getCurrentlyOngoingCycle() } returns null
+        // ACT
+        val result = useCase(testDate)
 
-            // --- ACT ---
-            // Try to create a log entry when it's impossible to link it to a cycle.
-            val result = useCase(testDate)
+        // ASSERT
+        assertNotNull(result)
+        assertEquals(1, result.entry.dayInCycle, "Day in cycle should be 1 on the first day of a period")
+    }
 
-            // --- ASSERT ---
-            // The use case should fail gracefully by returning null.
-            assertNull(result)
-        }
+    @Test
+    fun invoke_whenDateIsBeforeFirstEverPeriod_returnsNull() = runTest {
+        // ARRANGE
+        // A date that occurs before any logged periods in the repository.
+        val testDate = LocalDate(2024, 12, 31)
+        coEvery { mockRepository.getFullLogForDate(testDate) } returns null
+
+        // ACT
+        val result = useCase(testDate)
+
+        // ASSERT
+        assertNull(result, "Should return null because no parent period exists for a date before the first logged period")
+    }
+
+    @Test
+    fun invoke_whenNoPeriodsExistAtAll_returnsNull() = runTest {
+        // ARRANGE
+        val testDate = LocalDate(2025, 1, 15)
+        coEvery { mockRepository.getFullLogForDate(testDate) } returns null
+        coEvery { mockRepository.getAllPeriods() } returns flowOf(emptyList()) // Override default setup
+
+        // ACT
+        val result = useCase(testDate)
+
+        // ASSERT
+        assertNull(result, "Should return null if the database is completely empty")
     }
 }

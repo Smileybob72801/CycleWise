@@ -47,7 +47,7 @@ import java.time.YearMonth as JavaYearMonth
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackerScreen(navController: NavController) {
-    val viewModel: CycleViewModel = koinInject(scope = getKoin().getScope("session"))
+    val viewModel: TrackerViewModel = koinInject(scope = getKoin().getScope("session"))
     val uiState by viewModel.uiState.collectAsState()
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -104,7 +104,7 @@ fun TrackerScreen(navController: NavController) {
                     .testTag("calendar-root"),
                 dayContent = { day ->
                     val date = day.date.toKotlinLocalDate()
-                    val cycleForDate = uiState.cycles.find { date in (it.startDate..(it.endDate ?: today)) }
+                    val cycleForDate = uiState.periods.find { date in (it.startDate..(it.endDate ?: today)) }
                     val selectionRange = remember(uiState.selectionStartDate, uiState.selectionEndDate) {
                         val start = uiState.selectionStartDate
                         val end = uiState.selectionEndDate
@@ -138,19 +138,19 @@ fun TrackerScreen(navController: NavController) {
                         onClick = { viewModel.onEvent(TrackerEvent.SaveSelectionClicked) },
                         modifier = Modifier.testTag("save-cycle-button")
                     ) {
-                        Text("Save Cycle")
+                        Text("Save Period")
                     }
                 }
             }
-            AnimatedVisibility(visible = !uiState.isSelectingRange && uiState.ongoingCycle != null) {
+            AnimatedVisibility(visible = !uiState.isSelectingRange && uiState.ongoingPeriod != null) {
                 Button(
-                    onClick = { viewModel.onEvent(TrackerEvent.EndCycleClicked) },
+                    onClick = { viewModel.onEvent(TrackerEvent.EndPeriodClicked) },
                     modifier = Modifier.testTag("end-cycle-button")
                 ) {
-                    Text("End Cycle Today")
+                    Text("End Period Today")
                 }
             }
-            AnimatedVisibility(visible = !uiState.isSelectingRange && uiState.ongoingCycle == null) {
+            AnimatedVisibility(visible = !uiState.isSelectingRange && uiState.ongoingPeriod == null) {
                 Text(
                     "Tap a date to log a new cycle",
                     style = MaterialTheme.typography.bodyMedium,

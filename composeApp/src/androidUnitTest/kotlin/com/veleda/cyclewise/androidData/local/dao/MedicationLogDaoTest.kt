@@ -2,7 +2,7 @@ package com.veleda.cyclewise.androidData.local.dao
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.veleda.cyclewise.androidData.local.database.CycleDatabase
+import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.androidData.local.entities.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -18,7 +18,6 @@ import org.koin.dsl.module
 import org.koin.test.KoinTest
 import org.koin.test.inject
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -27,10 +26,9 @@ class MedicationLogDaoTest : KoinTest {
 
     // --- SETUP ---
     private val dao: MedicationLogDao by inject()
-    private val db: CycleDatabase by inject()
+    private val db: PeriodDatabase by inject()
 
-    // We need all parent DAOs to set up foreign key relationships
-    private val cycleDao: CycleDao by inject()
+    // We need parent DAOs to set up foreign key relationships
     private val dailyEntryDao: DailyEntryDao by inject()
     private val medicationDao: MedicationDao by inject()
 
@@ -38,18 +36,18 @@ class MedicationLogDaoTest : KoinTest {
         single {
             Room.inMemoryDatabaseBuilder(
                 ApplicationProvider.getApplicationContext(),
-                CycleDatabase::class.java
+                PeriodDatabase::class.java
             )
                 .allowMainThreadQueries()
                 .build()
         }
         // Provide all DAOs
-        single { get<CycleDatabase>().cycleDao() }
-        single { get<CycleDatabase>().dailyEntryDao() }
-        single { get<CycleDatabase>().symptomDao() }
-        single { get<CycleDatabase>().symptomLogDao() }
-        single { get<CycleDatabase>().medicationDao() }
-        single { get<CycleDatabase>().medicationLogDao() }
+        single { get<PeriodDatabase>().periodDao() }
+        single { get<PeriodDatabase>().dailyEntryDao() }
+        single { get<PeriodDatabase>().symptomDao() }
+        single { get<PeriodDatabase>().symptomLogDao() }
+        single { get<PeriodDatabase>().medicationDao() }
+        single { get<PeriodDatabase>().medicationLogDao() }
     }
 
     @Before
@@ -66,20 +64,12 @@ class MedicationLogDaoTest : KoinTest {
     }
 
     // --- Test Data ---
-    // We need to pre-populate the parent tables for foreign keys to be valid.
-    private val parentCycle = CycleEntity(
-        uuid = "cycle-1",
-        startDate = LocalDate(2025, 1, 1),
-        endDate = null,
-        createdAt = Clock.System.now(),
-        updatedAt = Clock.System.now()
-    )
-    private val parentEntry1 = DailyEntryEntity("entry-1", "cycle-1", LocalDate(2025, 1, 5), 5, customTags = "[]", createdAt = Clock.System.now(), updatedAt = Clock.System.now())
-    private val parentEntry2 = DailyEntryEntity("entry-2", "cycle-1", LocalDate(2025, 1, 6), 6, customTags = "[]", createdAt = Clock.System.now(), updatedAt = Clock.System.now())
+    // The parent PeriodEntity is no longer needed.
+    private val parentEntry1 = DailyEntryEntity("entry-1", LocalDate(2025, 1, 5), 5, customTags = "[]", createdAt = Clock.System.now(), updatedAt = Clock.System.now())
+    private val parentEntry2 = DailyEntryEntity("entry-2", LocalDate(2025, 1, 6), 6, customTags = "[]", createdAt = Clock.System.now(), updatedAt = Clock.System.now())
     private val parentMed1 = MedicationEntity("med-1", "Ibuprofen", Clock.System.now())
     private val parentMed2 = MedicationEntity("med-2", "Aspirin", Clock.System.now())
 
-    // The actual log entries we will be testing
     private val log1_med1_entry1 = MedicationLogEntity("log-1", "entry-1", "med-1", Clock.System.now())
     private val log2_med2_entry1 = MedicationLogEntity("log-2", "entry-1", "med-2", Clock.System.now())
     private val log3_med1_entry2 = MedicationLogEntity("log-3", "entry-2", "med-1", Clock.System.now())
@@ -89,7 +79,6 @@ class MedicationLogDaoTest : KoinTest {
     @Test
     fun insertAll_WHEN_logsAreNew_THEN_addsAllToDatabase() = runTest {
         // ARRANGE: Insert all required parent data
-        cycleDao.insert(parentCycle)
         dailyEntryDao.insert(parentEntry1)
         medicationDao.insert(parentMed1)
         medicationDao.insert(parentMed2)
@@ -105,7 +94,6 @@ class MedicationLogDaoTest : KoinTest {
     @Test
     fun insertAll_WHEN_logWithSameIdExists_THEN_onConflictReplaceUpdatesTheRecord() = runTest {
         // ARRANGE
-        cycleDao.insert(parentCycle)
         dailyEntryDao.insert(parentEntry1)
         medicationDao.insert(parentMed1)
         dao.insertAll(listOf(log1_med1_entry1))
@@ -128,7 +116,6 @@ class MedicationLogDaoTest : KoinTest {
     @Test
     fun getLogsForEntry_WHEN_dataExists_THEN_returnsCorrectLogs() = runTest {
         // ARRANGE
-        cycleDao.insert(parentCycle)
         dailyEntryDao.insert(parentEntry1)
         dailyEntryDao.insert(parentEntry2)
         medicationDao.insert(parentMed1)
@@ -151,7 +138,6 @@ class MedicationLogDaoTest : KoinTest {
     @Test
     fun getLogsForEntries_WHEN_multipleIdsProvided_THEN_returnsAllAssociatedLogs() = runTest {
         // ARRANGE
-        cycleDao.insert(parentCycle)
         dailyEntryDao.insert(parentEntry1)
         dailyEntryDao.insert(parentEntry2)
         medicationDao.insert(parentMed1)
@@ -170,7 +156,6 @@ class MedicationLogDaoTest : KoinTest {
     @Test
     fun deleteLogsForEntry_WHEN_called_THEN_removesOnlyLogsForThatEntry() = runTest {
         // ARRANGE
-        cycleDao.insert(parentCycle)
         dailyEntryDao.insert(parentEntry1)
         dailyEntryDao.insert(parentEntry2)
         medicationDao.insert(parentMed1)

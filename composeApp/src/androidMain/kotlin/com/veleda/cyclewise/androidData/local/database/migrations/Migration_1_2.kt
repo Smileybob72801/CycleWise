@@ -22,7 +22,7 @@ object Migration_1_2 : Migration(1, 2) {
                 `created_at` INTEGER NOT NULL, 
                 `updated_at` INTEGER NOT NULL, 
                 PRIMARY KEY(`id`), 
-                FOREIGN KEY(`cycle_id`) REFERENCES `cycles`(`uuid`) ON UPDATE NO ACTION ON DELETE CASCADE
+                FOREIGN KEY(`cycle_id`) REFERENCES `periods`(`uuid`) ON UPDATE NO ACTION ON DELETE CASCADE
             )
             """.trimIndent()
         )

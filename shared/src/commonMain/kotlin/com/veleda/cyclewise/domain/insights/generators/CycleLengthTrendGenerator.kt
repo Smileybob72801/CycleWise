@@ -8,7 +8,7 @@ import kotlin.math.roundToInt
 
 class CycleLengthTrendGenerator : InsightGenerator {
     override fun generate(data: InsightData): List<Insight> {
-        val completedCycles = data.allCycles.filter { it.endDate != null }.reversed()
+        val completedCycles = data.allPeriods.filter { it.endDate != null }.reversed()
         if (completedCycles.size < 6) {
             return emptyList()
         }

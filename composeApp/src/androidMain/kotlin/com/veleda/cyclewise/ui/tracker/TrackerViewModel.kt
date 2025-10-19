@@ -3,14 +3,14 @@ package com.veleda.cyclewise.ui.tracker
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.benasher44.uuid.uuid4
-import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
-import com.veleda.cyclewise.domain.repository.CycleRepository
+import com.veleda.cyclewise.domain.repository.PeriodRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -21,7 +21,7 @@ import kotlinx.datetime.todayIn
 import kotlin.time.Clock
 
 data class TrackerUiState(
-    val cycles: List<Cycle> = emptyList(),
+    val periods: List<Period> = emptyList(),
     val selectionStartDate: LocalDate? = null,
     val selectionEndDate: LocalDate? = null,
     val logForSheet: FullDailyLog? = null,
@@ -29,13 +29,13 @@ data class TrackerUiState(
     val medicationLibrary: List<Medication> = emptyList(),
     val dayDetails: Map<LocalDate, CalendarDayInfo> = emptyMap()
 ) {
-    val ongoingCycle: Cycle? = cycles.find { it.endDate == null }
+    val ongoingPeriod: Period? = periods.find { it.endDate == null }
     val isSelectingRange: Boolean = selectionStartDate != null
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class CycleViewModel(
-    private val cycleRepository: CycleRepository,
+class TrackerViewModel(
+    private val periodRepository: PeriodRepository,
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private  val medicationLibraryProvider: MedicationLibraryProvider,
 ) : ViewModel() {
@@ -44,7 +44,7 @@ class CycleViewModel(
 
     init {
         viewModelScope.launch {
-            cycleRepository.observeDayDetails()
+            periodRepository.observeDayDetails()
                 .map { domainDetailsMap ->
                     domainDetailsMap.mapValues { (_, domainDetails) ->
                         CalendarDayInfo(
@@ -60,8 +60,8 @@ class CycleViewModel(
         }
 
         viewModelScope.launch {
-            cycleRepository.getAllCycles().collect { cycles ->
-                _uiState.update { it.copy(cycles = cycles) }
+            periodRepository.getAllPeriods().collect { periods ->
+                _uiState.update { it.copy(periods = periods) }
             }
         }
 
@@ -87,13 +87,13 @@ class CycleViewModel(
     private fun reduce(currentState: TrackerUiState, event: TrackerEvent): TrackerUiState {
         return when (event) {
             is TrackerEvent.DateClicked -> {
-                if (event.cycleForDate != null) {
-                    showLogSheetForDate(event.date, event.cycleForDate)
+                if (event.periodForDate != null) {
+                    showLogSheetForDate(event.date, event.periodForDate)
                     return currentState // No immediate state change, handled by side-effect
                 }
 
                 val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-                if (event.date > today || currentState.ongoingCycle != null) {
+                if (event.date > today || currentState.ongoingPeriod != null) {
                     return currentState // Invalid selection, do nothing
                 }
 
@@ -109,23 +109,23 @@ class CycleViewModel(
                 viewModelScope.launch {
                     val startDate = currentState.selectionStartDate ?: return@launch
                     val endDate = currentState.selectionEndDate ?: startDate
-                    if (cycleRepository.isDateRangeAvailable(startDate, endDate)) {
+                    if (periodRepository.isDateRangeAvailable(startDate, endDate)) {
                         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
                         if (startDate == today) {
-                            cycleRepository.startNewCycle(startDate)
+                            periodRepository.startNewPeriod(startDate)
                         } else {
-                            cycleRepository.createCompletedCycle(startDate, endDate)
+                            periodRepository.createCompletedPeriod(startDate, endDate)
                         }
                     }
                     onEvent(TrackerEvent.ClearSelectionClicked) // Clear selection after saving
                 }
                 currentState // Return immediately; the launch block will trigger another event
             }
-            is TrackerEvent.EndCycleClicked -> {
-                currentState.ongoingCycle?.let {
+            is TrackerEvent.EndPeriodClicked -> {
+                currentState.ongoingPeriod?.let {
                     viewModelScope.launch {
                         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-                        cycleRepository.endCycle(it.id, today)
+                        periodRepository.endPeriod(it.id, today)
                     }
                 }
                 currentState
@@ -139,13 +139,12 @@ class CycleViewModel(
         }
     }
 
-    private fun showLogSheetForDate(date: LocalDate, cycleForDate: Cycle) {
+    private fun showLogSheetForDate(date: LocalDate, periodForDate: Period) {
         viewModelScope.launch {
-            val log = cycleRepository.getFullLogForDate(date) ?: run {
-                val dayInCycle = cycleForDate.startDate.daysUntil(date) + 1
+            val log = periodRepository.getFullLogForDate(date) ?: run {
+                val dayInCycle = periodForDate.startDate.daysUntil(date) + 1
                 val newBlankEntry = DailyEntry(
                     id = uuid4().toString(),
-                    cycleId = cycleForDate.id,
                     entryDate = date,
                     dayInCycle = dayInCycle,
                     createdAt = Clock.System.now(),

@@ -15,12 +15,12 @@ class MappersTest {
     private val testNow = Clock.System.now()
     private val testDate = LocalDate(2025, 8, 18)
 
-    // --- Tests for Cycle mappers ---
+    // --- Tests for Period mappers ---
 
     @Test
     fun toDomain_WHEN_calledOnCycleEntity_THEN_mapsAllFieldsCorrectly() {
         // ARRANGE
-        val cycleEntity = CycleEntity(
+        val periodEntity = PeriodEntity(
             id = 123,
             uuid = "cycle-uuid-1",
             startDate = testDate,
@@ -30,7 +30,7 @@ class MappersTest {
         )
 
         // ACT
-        val cycleDomain = cycleEntity.toDomain()
+        val cycleDomain = periodEntity.toDomain()
 
         // ASSERT
         assertEquals("cycle-uuid-1", cycleDomain.id)
@@ -43,7 +43,7 @@ class MappersTest {
     @Test
     fun toEntity_WHEN_calledOnCycle_THEN_mapsAllFieldsCorrectly() {
         // ARRANGE
-        val cycleDomain = Cycle(
+        val periodDomain = Period(
             id = "cycle-uuid-1",
             startDate = testDate,
             endDate = testDate,
@@ -52,7 +52,7 @@ class MappersTest {
         )
 
         // ACT
-        val cycleEntity = cycleDomain.toEntity()
+        val cycleEntity = periodDomain.toEntity()
 
         // ASSERT
         assertEquals(0, cycleEntity.id, "Internal DB ID should default to 0 for auto-generation")
@@ -70,7 +70,6 @@ class MappersTest {
         // ARRANGE
         val dailyEntryEntity = DailyEntryEntity(
             id = "entry-uuid-1",
-            cycleId = "cycle-uuid-1",
             entryDate = testDate,
             dayInCycle = 5,
             flowIntensity = "HEAVY", // String in entity
@@ -89,7 +88,6 @@ class MappersTest {
 
         // ASSERT
         assertEquals("entry-uuid-1", dailyEntryDomain.id)
-        assertEquals("cycle-uuid-1", dailyEntryDomain.cycleId)
         assertEquals(FlowIntensity.HEAVY, dailyEntryDomain.flowIntensity, "String should be converted to Enum")
         assertEquals(LibidoLevel.HIGH, dailyEntryDomain.libidoLevel, "String should be converted to Enum")
         assertEquals(listOf("tag1", "tag2"), dailyEntryDomain.customTags, "JSON String should be converted to List")
@@ -102,7 +100,6 @@ class MappersTest {
         // ARRANGE
         val dailyEntryDomain = DailyEntry(
             id = "entry-uuid-1",
-            cycleId = "cycle-uuid-1",
             entryDate = testDate,
             dayInCycle = 5,
             flowIntensity = FlowIntensity.HEAVY, // Enum in domain

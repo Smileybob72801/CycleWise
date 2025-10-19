@@ -1,6 +1,6 @@
 package com.veleda.cyclewise.ui.tracker
 
-import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.Period
 import kotlinx.datetime.LocalDate
 
 /**
@@ -8,13 +8,13 @@ import kotlinx.datetime.LocalDate
  */
 sealed interface TrackerEvent {
     /** The user has tapped on a specific date in the calendar. */
-    data class DateClicked(val date: LocalDate, val cycleForDate: Cycle?) : TrackerEvent
+    data class DateClicked(val date: LocalDate, val periodForDate: Period?) : TrackerEvent
 
-    /** The user has confirmed their date selection to create a new cycle. */
+    /** The user has confirmed their date selection to create a new period. */
     object SaveSelectionClicked : TrackerEvent
 
-    /** The user has tapped the button to end the currently ongoing cycle. */
-    object EndCycleClicked : TrackerEvent
+    /** The user has tapped the button to end the currently ongoing period. */
+    object EndPeriodClicked : TrackerEvent
 
     /** The user has canceled their date selection. */
     object ClearSelectionClicked : TrackerEvent

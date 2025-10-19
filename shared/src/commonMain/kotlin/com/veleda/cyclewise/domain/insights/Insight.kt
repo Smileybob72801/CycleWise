@@ -29,21 +29,8 @@ data class CycleLengthAverage(
 ) : Insight {
     override val id: String = "CYCLE_LENGTH_AVERAGE"
     override val title: String = "Average Cycle Length"
-    override val description: String = "Based on your completed cycles, your average length is ${averageDays.roundToInt()} days."
+    override val description: String = "Based on completed cycles, your average cycle length is ${averageDays.roundToInt()} days."
     override val priority: Int = 100
-}
-
-/**
- * An insight identifying one of the most frequently logged symptoms.
- * @param symptomName The name of the recurring symptom.
- */
-data class SymptomRecurrence(
-    val symptomName: String
-) : Insight {
-    override val id: String = "SYMPTOM_RECURRENCE_OVERALL"
-    override val title: String = "Frequent Symptom"
-    override val description: String = "$symptomName is one of your most frequently logged symptoms."
-    override val priority: Int = 90
 }
 
 /**

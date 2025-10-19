@@ -16,9 +16,6 @@ interface DailyEntryDao {
     @Query("SELECT * FROM daily_entries WHERE entry_date = :date LIMIT 1")
     fun getEntryForDate(date: LocalDate): Flow<DailyEntryEntity?>
 
-    @Query("SELECT * FROM daily_entries WHERE cycle_id = :cycleId ORDER BY entry_date ASC")
-    fun getEntriesForCycle(cycleId: String): Flow<List<DailyEntryEntity>>
-
     @Query("SELECT * FROM daily_entries WHERE entry_date BETWEEN :startDate AND :endDate")
     fun getEntriesForDateRange(startDate: LocalDate, endDate: LocalDate): Flow<List<DailyEntryEntity>>
 
