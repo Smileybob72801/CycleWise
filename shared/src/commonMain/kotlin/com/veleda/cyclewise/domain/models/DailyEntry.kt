@@ -7,7 +7,6 @@ import kotlin.time.Instant
 @OptIn(ExperimentalTime::class)
 data class DailyEntry(
     val id: String, // UUID
-    val cycleId: String, // FK to Cycle
     val entryDate: LocalDate,
     val dayInCycle: Int,
     val flowIntensity: FlowIntensity? = null, // e.g., FlowIntensity.MEDIUM

@@ -1,7 +1,6 @@
 package com.veleda.cyclewise.domain.repository
 
-import com.veleda.cyclewise.domain.models.Cycle
-import com.veleda.cyclewise.domain.models.DailyEntry
+import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.DayDetails
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
@@ -14,28 +13,28 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.YearMonth
 
 /**
- * Shared interface for accessing and modifying cycle data.
+ * Shared interface for accessing and modifying period data.
  * Platform-specific implementations will handle persistence.
  */
-interface CycleRepository {
+interface PeriodRepository {
 
-    /** Returns all known cycles, sorted by start date descending. */
-    fun getAllCycles(): Flow<List<Cycle>>
+    /** Returns all known periods, sorted by start date descending. */
+    fun getAllPeriods(): Flow<List<Period>>
 
-    /** Returns a single cycle given its primary Id. */
-    suspend fun getCycleById(cycleId: String): Cycle
+    /** Returns a single period given its primary Id. */
+    suspend fun getPeriodById(periodId: String): Period
 
-    /** Starts a new cycle on the given start date. */
-    suspend fun startNewCycle(startDate: LocalDate) : Cycle
+    /** Starts a new period on the given start date. */
+    suspend fun startNewPeriod(startDate: LocalDate) : Period
 
-    /** Updates the end date of an existing cycle. Can be null to make it ongoing. */
-    suspend fun updateCycleEndDate(cycleId: String, endDate: LocalDate?): Cycle?
+    /** Updates the end date of an existing period. Can be null to make it ongoing. */
+    suspend fun updatePeriodEndDate(periodId: String, endDate: LocalDate?): Period?
 
-    /** Marks an existing cycle as ended on the given date. */
-    suspend fun endCycle(cycleId: String, endDate: LocalDate): Cycle?
+    /** Marks an existing period as ended on the given date. */
+    suspend fun endPeriod(periodId: String, endDate: LocalDate): Period?
 
-    /** Returns the currently active (non-ended) cycle, if any. */
-    suspend fun getCurrentlyOngoingCycle(): Cycle?
+    /** Returns the currently active (non-ended) period, if any. */
+    suspend fun getCurrentlyOngoingPeriod(): Period?
 
     /** Fetches all daily logs for a given month. */
     suspend fun getFullLogForDate(date: LocalDate): FullDailyLog?
@@ -46,10 +45,10 @@ interface CycleRepository {
     /** Returns all data for a day. */
     suspend fun getLogsForMonth(yearMonth: YearMonth): List<FullDailyLog>
 
-    /** Creates a new, already-completed cycle in the database. */
-    suspend fun createCompletedCycle(startDate: LocalDate, endDate: LocalDate): Cycle
+    /** Creates a new, already-completed period in the database. */
+    suspend fun createCompletedPeriod(startDate: LocalDate, endDate: LocalDate): Period
 
-    /** Checks if a given date range overlaps with any existing cycles. */
+    /** Checks if a given date range overlaps with any existing periods. */
     suspend fun isDateRangeAvailable(startDate: LocalDate, endDate: LocalDate): Boolean
 
     /** Returns a reactive Flow of all unique medications in the user's library. */
@@ -80,7 +79,7 @@ interface CycleRepository {
     fun observeAllPeriodDays(): Flow<Set<LocalDate>>
 
     /**
-     * Observes all underlying data sources (cycles, logs, etc.) and emits a consolidated
+     * Observes all underlying data sources (Periods, logs, etc.) and emits a consolidated
      * map of details for each relevant day, using a UI-agnostic domain model.
      * This is the single source of truth for the calendar UI.
      */

@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.benasher44.uuid.uuid4
 import com.veleda.cyclewise.domain.models.DailyEntry
-import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
@@ -12,7 +11,7 @@ import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
-import com.veleda.cyclewise.domain.repository.CycleRepository
+import com.veleda.cyclewise.domain.repository.PeriodRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -39,7 +38,7 @@ data class DailyLogUiState(
 
 class DailyLogViewModel(
     private val entryDate: LocalDate,
-    private val cycleRepository: CycleRepository,
+    private val periodRepository: PeriodRepository,
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private val medicationLibraryProvider: MedicationLibraryProvider
 ) : ViewModel()
@@ -56,7 +55,7 @@ class DailyLogViewModel(
             _uiState.update { it.copy(isLoading = true) }
             val initialSymptoms = symptomLibraryProvider.symptoms.first()
             val initialMedications = medicationLibraryProvider.medications.first()
-            val result = cycleRepository.getFullLogForDate(entryDate)
+            val result = periodRepository.getFullLogForDate(entryDate)
                 ?: createNewBlankLog()
 
             onEvent(DailyLogEvent.LogLoaded(result, initialSymptoms, initialMedications))
@@ -145,7 +144,7 @@ class DailyLogViewModel(
                     return currentState
                 }
                 viewModelScope.launch {
-                    val newSymptom = cycleRepository.createOrGetSymptomInLibrary(name)
+                    val newSymptom = periodRepository.createOrGetSymptomInLibrary(name)
                     val newLogEntry = SymptomLog(
                         id = uuid4().toString(),
                         entryId = currentState.log.entry.id,
@@ -183,7 +182,7 @@ class DailyLogViewModel(
                     return currentState
                 }
                 viewModelScope.launch {
-                    val newMedication = cycleRepository.createOrGetMedicationInLibrary(name)
+                    val newMedication = periodRepository.createOrGetMedicationInLibrary(name)
                     val newLogEntry = MedicationLog(
                         id = uuid4().toString(),
                         entryId = currentState.log.entry.id,
@@ -207,7 +206,7 @@ class DailyLogViewModel(
             }
             is DailyLogEvent.SaveLog -> {
                 viewModelScope.launch {
-                    cycleRepository.saveFullLog(log)
+                    periodRepository.saveFullLog(log)
                     _saveCompleteEvent.emit(Unit)
                 }
                 currentState
@@ -218,12 +217,11 @@ class DailyLogViewModel(
 
     private suspend fun createNewBlankLog(): FullDailyLog? {
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-        val parentCycle = cycleRepository.getAllCycles().first().find { entryDate in (it.startDate..(it.endDate ?: today)) }
+        val parentCycle = periodRepository.getAllPeriods().first().find { entryDate in (it.startDate..(it.endDate ?: today)) }
         return parentCycle?.let {
             val dayInCycle = it.startDate.daysUntil(entryDate) + 1
             val newBlankEntry = DailyEntry(
                 id = uuid4().toString(),
-                cycleId = it.id,
                 entryDate = entryDate,
                 dayInCycle = dayInCycle,
                 createdAt = Clock.System.now(),

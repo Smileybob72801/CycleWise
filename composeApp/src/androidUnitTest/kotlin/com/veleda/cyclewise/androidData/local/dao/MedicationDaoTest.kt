@@ -2,7 +2,7 @@ package com.veleda.cyclewise.androidData.local.dao
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.veleda.cyclewise.androidData.local.database.CycleDatabase
+import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.androidData.local.entities.MedicationEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -17,7 +17,6 @@ import org.koin.dsl.module
 import org.koin.test.KoinTest
 import org.koin.test.inject
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -28,24 +27,24 @@ class MedicationDaoTest : KoinTest {
 
     // --- SETUP ---
     private val dao: MedicationDao by inject()
-    private val db: CycleDatabase by inject()
+    private val db: PeriodDatabase by inject()
 
     private val testModule = module {
         single {
             Room.inMemoryDatabaseBuilder(
                 ApplicationProvider.getApplicationContext(),
-                CycleDatabase::class.java
+                PeriodDatabase::class.java
             )
                 .allowMainThreadQueries()
                 .build()
         }
         // Provide all DAOs
-        single { get<CycleDatabase>().cycleDao() }
-        single { get<CycleDatabase>().dailyEntryDao() }
-        single { get<CycleDatabase>().symptomDao() }
-        single { get<CycleDatabase>().symptomLogDao() }
-        single { get<CycleDatabase>().medicationDao() }
-        single { get<CycleDatabase>().medicationLogDao() }
+        single { get<PeriodDatabase>().periodDao() }
+        single { get<PeriodDatabase>().dailyEntryDao() }
+        single { get<PeriodDatabase>().symptomDao() }
+        single { get<PeriodDatabase>().symptomLogDao() }
+        single { get<PeriodDatabase>().medicationDao() }
+        single { get<PeriodDatabase>().medicationLogDao() }
     }
 
     @Before

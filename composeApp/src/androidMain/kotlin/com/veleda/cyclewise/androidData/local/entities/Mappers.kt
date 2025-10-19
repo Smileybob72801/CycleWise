@@ -1,6 +1,6 @@
 package com.veleda.cyclewise.androidData.local.entities
 
-import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.Period
 import kotlin.time.ExperimentalTime
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.Medication
@@ -11,8 +11,8 @@ import kotlinx.serialization.json.Json
 
 /** Convert Room entity → shared domain model */
 @OptIn(ExperimentalTime::class)
-fun CycleEntity.toDomain(): Cycle =
-    Cycle(
+fun PeriodEntity.toDomain(): Period =
+    Period(
         id        = uuid,
         startDate = startDate,
         endDate   = endDate,
@@ -22,8 +22,8 @@ fun CycleEntity.toDomain(): Cycle =
 
 /** Convert shared domain model → Room entity (internal id left 0 for autogen) */
 @OptIn(ExperimentalTime::class)
-fun Cycle.toEntity(): CycleEntity =
-    CycleEntity(
+fun Period.toEntity(): PeriodEntity =
+    PeriodEntity(
         id        = 0,           //  Room will auto-generate
         uuid      = id,
         startDate = startDate,
@@ -37,7 +37,6 @@ fun Cycle.toEntity(): CycleEntity =
 fun DailyEntryEntity.toDomain(): DailyEntry =
     DailyEntry(
         id = id,
-        cycleId = cycleId,
         entryDate = entryDate,
         dayInCycle = dayInCycle,
         flowIntensity = Converters.toFlowIntensity(flowIntensity),
@@ -57,7 +56,6 @@ fun DailyEntryEntity.toDomain(): DailyEntry =
 fun DailyEntry.toEntity(): DailyEntryEntity =
     DailyEntryEntity(
         id = id,
-        cycleId = cycleId,
         entryDate = entryDate,
         dayInCycle = dayInCycle,
         flowIntensity = Converters.fromFlowIntensity(flowIntensity),

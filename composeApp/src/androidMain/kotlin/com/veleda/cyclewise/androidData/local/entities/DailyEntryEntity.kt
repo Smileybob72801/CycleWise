@@ -10,19 +10,11 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
 @Entity(
-    tableName = "daily_entries",
-    foreignKeys = [
-        ForeignKey(
-            entity = CycleEntity::class,
-            parentColumns = ["uuid"],
-            childColumns = ["cycle_id"],
-            onDelete = ForeignKey.CASCADE // If a cycle is deleted, its entries are too
-        )
-    ]
+    tableName = "daily_entries"
 )
+
 data class DailyEntryEntity(
     @PrimaryKey val id: String,
-    @ColumnInfo(name = "cycle_id", index = true) val cycleId: String,
     @ColumnInfo(name = "entry_date", index = true) val entryDate: LocalDate,
     @ColumnInfo(name = "day_in_cycle") val dayInCycle: Int,
     @ColumnInfo(name = "flow_intensity") val flowIntensity: String? = null,

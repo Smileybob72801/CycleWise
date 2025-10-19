@@ -3,8 +3,7 @@ package com.veleda.cyclewise.domain.insights
 import com.veleda.cyclewise.domain.insights.generators.InsightData
 import com.veleda.cyclewise.domain.insights.generators.InsightGenerator
 import com.veleda.cyclewise.domain.insights.generators.NextPeriodPredictionGenerator
-import com.veleda.cyclewise.domain.insights.generators.SymptomPhasePatternGenerator
-import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Symptom
 import kotlinx.datetime.daysUntil
@@ -13,7 +12,7 @@ class InsightEngine(
     private val generators: List<InsightGenerator>,
 ) {
     fun generateInsights(
-        allCycles: List<Cycle>,
+        allPeriods: List<Period>,
         allLogs: List<FullDailyLog>,
         symptomLibrary: List<Symptom>,
         topSymptomsCount: Int
@@ -22,10 +21,10 @@ class InsightEngine(
 
         // 1. Prepare the initial data.
         val baseData = InsightData(
-            allCycles = allCycles,
+            allPeriods = allPeriods,
             allLogs = allLogs,
             symptomLibrary = symptomLibrary,
-            averageCycleLength = calculateAverageCycleLength(allCycles),
+            averageCycleLength = calculateAverageCycleLength(allPeriods),
             topSymptomsCount = topSymptomsCount
         )
 
@@ -46,8 +45,8 @@ class InsightEngine(
         return insights.distinctBy { it.id }.sortedByDescending { it.priority }
     }
 
-    private fun calculateAverageCycleLength(allCycles: List<Cycle>): Double? {
-        val chronologicalCycles = allCycles.filter { it.endDate != null }.reversed()
+    private fun calculateAverageCycleLength(allPeriods: List<Period>): Double? {
+        val chronologicalCycles = allPeriods.filter { it.endDate != null }.reversed()
         if (chronologicalCycles.size < 2) return null
         val cycleDurations = chronologicalCycles.zipWithNext { current, next ->
             current.startDate.daysUntil(next.startDate).toDouble()

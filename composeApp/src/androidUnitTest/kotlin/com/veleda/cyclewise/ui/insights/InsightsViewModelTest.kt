@@ -4,7 +4,7 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import app.cash.turbine.test
 import com.veleda.cyclewise.domain.insights.CycleLengthAverage
 import com.veleda.cyclewise.domain.insights.InsightEngine
-import com.veleda.cyclewise.domain.repository.CycleRepository
+import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.settings.AppSettings
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -31,7 +31,7 @@ class InsightsViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
-    private lateinit var mockRepository: CycleRepository
+    private lateinit var mockRepository: PeriodRepository
     private lateinit var mockInsightEngine: InsightEngine
     private lateinit var viewModel: InsightsViewModel
     private lateinit var mockAppSettings: AppSettings
@@ -54,7 +54,7 @@ class InsightsViewModelTest {
         // ARRANGE
         val fakeInsights = listOf(CycleLengthAverage(28.5))
         coEvery { mockAppSettings.topSymptomsCount } returns flowOf(3)
-        coEvery { mockRepository.getAllCycles() } returns flowOf(emptyList())
+        coEvery { mockRepository.getAllPeriods() } returns flowOf(emptyList())
         coEvery { mockRepository.getAllLogs() } returns flowOf(emptyList())
         coEvery { mockRepository.getSymptomLibrary() } returns flowOf(emptyList())
         coEvery { mockInsightEngine.generateInsights(any(), any(), any(), any()) } returns fakeInsights
@@ -79,7 +79,7 @@ class InsightsViewModelTest {
     fun `init WHEN engine returns no insights THEN uiState is updated with empty list`() = runTest {
         // ARRANGE
         coEvery { mockAppSettings.topSymptomsCount } returns flowOf(3)
-        coEvery { mockRepository.getAllCycles() } returns flowOf(emptyList())
+        coEvery { mockRepository.getAllPeriods() } returns flowOf(emptyList())
         coEvery { mockRepository.getAllLogs() } returns flowOf(emptyList())
         coEvery { mockRepository.getSymptomLibrary() } returns flowOf(emptyList())
         coEvery { mockInsightEngine.generateInsights(any(), any(), any(), any()) } returns emptyList()

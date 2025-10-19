@@ -46,7 +46,7 @@ Our feature request template is designed to capture the "Why," "What," and "How"
 
 **Purpose:** This is the most critical section for implementation. It is a technical checklist that defines what "done" means. It forces the author to think through the implementation details and provides a clear roadmap for the developer.
 
--   **Good:** A detailed, bulleted list broken down by module and layer (e.g., "In `RoomCycleRepository.kt`, add a new function `getLogsForDateRange(...)`").
+-   **Good:** A detailed, bulleted list broken down by module and layer (e.g., "In `RoomPeriodRepository.kt`, add a new function `getLogsForDateRange(...)`").
 -   **Bad:** "Code the feature." or "The report should be generated."
 
 ## Anatomy of a Bug Report

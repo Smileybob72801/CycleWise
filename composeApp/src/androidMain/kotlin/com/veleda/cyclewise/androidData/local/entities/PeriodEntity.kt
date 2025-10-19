@@ -7,7 +7,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
- * Room entity representing a menstrual cycle.
+ * Room entity representing a period.
  *
  * @param id      Internal PK for Room (fast indexing, auto-generated).
  * @param uuid    External ID for exports/sync (TEXT UNIQUE NOT NULL).
@@ -17,11 +17,11 @@ import kotlin.time.Instant
  * @param updatedAt Record update timestamp
  */
 @Entity(
-    tableName = "cycles",
+    tableName = "periods",
     indices = [Index(value = ["uuid"], unique = true)]
 )
 @TypeConverters(Converters::class)
-data class CycleEntity @OptIn(ExperimentalTime::class) constructor(
+data class PeriodEntity @OptIn(ExperimentalTime::class) constructor(
 
     // internal only, auto-incremented for fast joins/indexing
     @PrimaryKey(autoGenerate = true)

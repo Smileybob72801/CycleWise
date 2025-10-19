@@ -5,7 +5,7 @@ import app.cash.turbine.test
 import com.veleda.cyclewise.domain.models.*
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
-import com.veleda.cyclewise.domain.repository.CycleRepository
+import com.veleda.cyclewise.domain.repository.PeriodRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -30,10 +30,10 @@ class CycleViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
-    private lateinit var mockRepository: CycleRepository
+    private lateinit var mockRepository: PeriodRepository
     private lateinit var mockSymptomProvider: SymptomLibraryProvider
     private lateinit var mockMedicationProvider: MedicationLibraryProvider
-    private lateinit var viewModel: CycleViewModel
+    private lateinit var viewModel: TrackerViewModel
 
     @Before
     fun setUp() {
@@ -45,11 +45,11 @@ class CycleViewModelTest {
 
         // Mock initial data flows
         every { mockRepository.observeDayDetails() } returns flowOf(emptyMap())
-        every { mockRepository.getAllCycles() } returns flowOf(emptyList())
+        every { mockRepository.getAllPeriods() } returns flowOf(emptyList())
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
 
-        viewModel = CycleViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
+        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
     }
 
     @After
@@ -63,11 +63,11 @@ class CycleViewModelTest {
 
     @Test
     fun onEvent_DateClicked_WHEN_dateIsInExistingCycle_THEN_showsLogSheet() = runTest {
-        val testCycle = mockk<Cycle>()
+        val testPeriod = mockk<Period>()
         val fakeLog = mockk<FullDailyLog>()
         coEvery { mockRepository.getFullLogForDate(pastDate) } returns fakeLog
 
-        viewModel.onEvent(TrackerEvent.DateClicked(pastDate, testCycle))
+        viewModel.onEvent(TrackerEvent.DateClicked(pastDate, testPeriod))
 
         viewModel.uiState.test {
             assertEquals(fakeLog, awaitItem().logForSheet, "Log for sheet should be set")
@@ -85,13 +85,13 @@ class CycleViewModelTest {
 
     @Test
     fun onEvent_DateClicked_WHEN_cycleIsOngoing_THEN_doesNothing() = runTest {
-        val ongoingCycle = Cycle("ongoing-id", today.minus(2, DateTimeUnit.DAY), null, Clock.System.now(), Clock.System.now())
-        every { mockRepository.getAllCycles() } returns flowOf(listOf(ongoingCycle))
-        viewModel = CycleViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
+        val ongoingPeriod = Period("ongoing-id", today.minus(2, DateTimeUnit.DAY), null, Clock.System.now(), Clock.System.now())
+        every { mockRepository.getAllPeriods() } returns flowOf(listOf(ongoingPeriod))
+        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
         advanceUntilIdle() // Ensure the new state is collected
         val initialState = viewModel.uiState.value
 
-        assertNotNull(initialState.ongoingCycle, "Precondition failed: ongoingCycle should be set")
+        assertNotNull(initialState.ongoingPeriod, "Precondition failed: ongoingPeriod should be set")
 
         viewModel.onEvent(TrackerEvent.DateClicked(pastDate, null))
 
@@ -121,7 +121,7 @@ class CycleViewModelTest {
         viewModel.onEvent(TrackerEvent.SaveSelectionClicked)
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { mockRepository.createCompletedCycle(startDate, endDate) }
+        coVerify(exactly = 1) { mockRepository.createCompletedPeriod(startDate, endDate) }
         viewModel.uiState.test {
             assertNull(awaitItem().selectionStartDate, "Selection should be cleared after save")
         }
@@ -135,7 +135,7 @@ class CycleViewModelTest {
         viewModel.onEvent(TrackerEvent.SaveSelectionClicked)
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { mockRepository.startNewCycle(today) }
+        coVerify(exactly = 1) { mockRepository.startNewPeriod(today) }
     }
 
     @Test
@@ -150,20 +150,20 @@ class CycleViewModelTest {
         viewModel.onEvent(TrackerEvent.SaveSelectionClicked)
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { mockRepository.createCompletedCycle(any(), any()) }
-        coVerify(exactly = 0) { mockRepository.startNewCycle(any()) }
+        coVerify(exactly = 0) { mockRepository.createCompletedPeriod(any(), any()) }
+        coVerify(exactly = 0) { mockRepository.startNewPeriod(any()) }
     }
 
     @Test
     fun onEvent_EndCycleClicked_WHEN_ongoingCycleExists_THEN_callsRepositoryEndCycle() = runTest {
-        val fakeOngoingCycle = Cycle("ongoing-id", today.minus(5, DateTimeUnit.DAY), null, Clock.System.now(), Clock.System.now())
-        every { mockRepository.getAllCycles() } returns flowOf(listOf(fakeOngoingCycle))
-        viewModel = CycleViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
+        val fakeOngoingPeriod = Period("ongoing-id", today.minus(5, DateTimeUnit.DAY), null, Clock.System.now(), Clock.System.now())
+        every { mockRepository.getAllPeriods() } returns flowOf(listOf(fakeOngoingPeriod))
+        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
         advanceUntilIdle()
 
-        viewModel.onEvent(TrackerEvent.EndCycleClicked)
+        viewModel.onEvent(TrackerEvent.EndPeriodClicked)
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { mockRepository.endCycle(fakeOngoingCycle.id, today) }
+        coVerify(exactly = 1) { mockRepository.endPeriod(fakeOngoingPeriod.id, today) }
     }
 }

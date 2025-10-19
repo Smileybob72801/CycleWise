@@ -2,8 +2,8 @@ package com.veleda.cyclewise.androidData.local.dao
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.veleda.cyclewise.androidData.local.database.CycleDatabase
-import com.veleda.cyclewise.androidData.local.entities.CycleEntity
+import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
+import com.veleda.cyclewise.androidData.local.entities.PeriodEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
@@ -24,11 +24,11 @@ import kotlin.test.assertTrue
 import kotlin.time.Clock
 
 @RunWith(RobolectricTestRunner::class)
-class CycleDaoTest : KoinTest {
-    private val dao: CycleDao by inject()
+class PeriodDaoTest : KoinTest {
+    private val dao: PeriodDao by inject()
 
     // We inject the database itself so we can close it in tearDown.
-    private val db: CycleDatabase by inject()
+    private val db: PeriodDatabase by inject()
 
     // Create a temporary Koin module specifically for this test class.
     private val testModule = module {
@@ -36,36 +36,36 @@ class CycleDaoTest : KoinTest {
         single {
             Room.inMemoryDatabaseBuilder(
                 ApplicationProvider.getApplicationContext(),
-                CycleDatabase::class.java
+                PeriodDatabase::class.java
             )
                 .allowMainThreadQueries()
                 .build()
         }
         // Define how to create all the DAOs from the database instance.
-        single { get<CycleDatabase>().cycleDao() }
-        single { get<CycleDatabase>().dailyEntryDao() }
-        single { get<CycleDatabase>().symptomDao() }
-        single { get<CycleDatabase>().symptomLogDao() }
-        single { get<CycleDatabase>().medicationDao() }
-        single { get<CycleDatabase>().medicationLogDao() }
+        single { get<PeriodDatabase>().periodDao() }
+        single { get<PeriodDatabase>().dailyEntryDao() }
+        single { get<PeriodDatabase>().symptomDao() }
+        single { get<PeriodDatabase>().symptomLogDao() }
+        single { get<PeriodDatabase>().medicationDao() }
+        single { get<PeriodDatabase>().medicationLogDao() }
         // (Add any other DAOs or test dependencies here)
     }
 
     // --- Test Data ---
     // Define reusable test entities to keep tests clean and consistent.
-    private val cyclePast = CycleEntity(
+    private val cyclePast = PeriodEntity(
         uuid = "uuid-past",
         startDate = LocalDate(2025, 1, 1),
         endDate = LocalDate(2025, 1, 5),
         createdAt = Clock.System.now(), updatedAt = Clock.System.now()
     )
-    private val cyclePresent = CycleEntity(
+    private val cyclePresent = PeriodEntity(
         uuid = "uuid-present",
         startDate = LocalDate(2025, 2, 1),
         endDate = LocalDate(2025, 2, 5),
         createdAt = Clock.System.now(), updatedAt = Clock.System.now()
     )
-    private val cycleOngoing = CycleEntity(
+    private val cycleOngoing = PeriodEntity(
         uuid = "uuid-ongoing",
         startDate = LocalDate(2025, 3, 1),
         endDate = null, // The key property for an ongoing cycle
@@ -89,11 +89,11 @@ class CycleDaoTest : KoinTest {
         stopKoin()
     }
 
-    // --- Tests for getAllCycles() ---
+    // --- Tests for getAllPeriods() ---
 
     @Test
     fun getAllCycles_WHEN_databaseIsEmpty_THEN_returnsEmptyFlow() = runTest {
-        val cycles = dao.getAllCycles().first()
+        val cycles = dao.getAllPeriods().first()
         assertTrue(cycles.isEmpty(), "Expected an empty list when DB is empty")
     }
 
@@ -105,7 +105,7 @@ class CycleDaoTest : KoinTest {
         dao.insert(cyclePresent) // Feb 1st
 
         // ACT
-        val cycles = dao.getAllCycles().first()
+        val cycles = dao.getAllPeriods().first()
 
         // ASSERT
         assertEquals(3, cycles.size)
@@ -137,7 +137,7 @@ class CycleDaoTest : KoinTest {
     fun update_WHEN_entityExists_THEN_modifiesTheRecord() = runTest {
         // --- ARRANGE ---
         // 1. Create the initial object. Let the `id` use its default value (0).
-        val initialCycle = CycleEntity(
+        val initialCycle = PeriodEntity(
             uuid = "uuid-past",
             startDate = LocalDate(2025, 1, 1),
             endDate = LocalDate(2025, 1, 5),
@@ -147,7 +147,7 @@ class CycleDaoTest : KoinTest {
 
         // 2. Retrieve the object we just inserted to get the auto-generated primary key.
         val insertedCycle = dao.getByUuid("uuid-past")
-        assertNotNull(insertedCycle, "Precondition failed: Cycle was not inserted correctly.")
+        assertNotNull(insertedCycle, "Precondition failed: Period was not inserted correctly.")
         // `insertedCycle` now has the correct, database-generated `id`.
 
         // --- ACT ---
@@ -163,14 +163,14 @@ class CycleDaoTest : KoinTest {
         assertEquals(LocalDate(2025, 1, 10), retrievedAfterUpdate.endDate)
     }
 
-    // --- Tests for getOngoingCycle() ---
+    // --- Tests for getOngoingPeriod() ---
 
     @Test
     fun getOngoingCycle_WHEN_oneOngoingCycleExists_THEN_returnsIt() = runTest {
         dao.insert(cyclePast)
         dao.insert(cycleOngoing)
 
-        val retrieved = dao.getOngoingCycle().first()
+        val retrieved = dao.getOngoingPeriod().first()
 
         assertNotNull(retrieved)
         assertEquals("uuid-ongoing", retrieved.uuid)
@@ -181,24 +181,24 @@ class CycleDaoTest : KoinTest {
         dao.insert(cyclePast)
         dao.insert(cyclePresent)
 
-        val retrieved = dao.getOngoingCycle().first()
+        val retrieved = dao.getOngoingPeriod().first()
 
         assertNull(retrieved, "Expected null when no cycle has a null end_date")
     }
 
-    // --- Tests for getOverlappingCyclesCount() ---
+    // --- Tests for getOverlappingPeriodsCount() ---
 
     @Test
-    fun getOverlappingCyclesCount_WHEN_rangeExactlyMatches_THEN_returnsOne() = runTest {
+    fun getOverlappingPeriodsCount_WHEN_rangeExactlyMatches_THEN_returnsOne() = runTest {
         dao.insert(cyclePast)
-        val count = dao.getOverlappingCyclesCount(cyclePast.startDate, cyclePast.endDate!!)
+        val count = dao.getOverlappingPeriodsCount(cyclePast.startDate, cyclePast.endDate!!)
         assertEquals(1, count)
     }
 
     @Test
-    fun getOverlappingCyclesCount_WHEN_rangeIsContainedWithin_THEN_returnsOne() = runTest {
+    fun getOverlappingPeriodsCount_WHEN_rangeIsContainedWithin_THEN_returnsOne() = runTest {
         dao.insert(cyclePast)
-        val count = dao.getOverlappingCyclesCount(
+        val count = dao.getOverlappingPeriodsCount(
             startDate = LocalDate(2025, 1, 2),
             endDate = LocalDate(2025, 1, 4)
         )
@@ -206,9 +206,9 @@ class CycleDaoTest : KoinTest {
     }
 
     @Test
-    fun getOverlappingCyclesCount_WHEN_rangeContains_THEN_returnsOne() = runTest {
+    fun getOverlappingPeriodsCount_WHEN_rangeContains_THEN_returnsOne() = runTest {
         dao.insert(cyclePast)
-        val count = dao.getOverlappingCyclesCount(
+        val count = dao.getOverlappingPeriodsCount(
             startDate = LocalDate(2024, 12, 30),
             endDate = LocalDate(2025, 1, 10)
         )
@@ -216,12 +216,12 @@ class CycleDaoTest : KoinTest {
     }
 
     @Test
-    fun getOverlappingCyclesCount_WHEN_rangeOverlapsOngoingCycle_THEN_returnsOne() = runTest {
+    fun getOverlappingPeriodsCount_WHEN_rangeOverlapsOngoingCycle_THEN_returnsOne() = runTest {
         // ARRANGE: An ongoing cycle starts on March 1st
         dao.insert(cycleOngoing)
 
         // ACT: Check for a range that starts after the ongoing cycle begins
-        val count = dao.getOverlappingCyclesCount(
+        val count = dao.getOverlappingPeriodsCount(
             startDate = LocalDate(2025, 3, 15),
             endDate = LocalDate(2025, 3, 20)
         )
@@ -231,12 +231,12 @@ class CycleDaoTest : KoinTest {
     }
 
     @Test
-    fun getOverlappingCyclesCount_WHEN_rangeIsAdjacentAndTouching_THEN_returnsOne() = runTest {
+    fun getOverlappingPeriodsCount_WHEN_rangeIsAdjacentAndTouching_THEN_returnsOne() = runTest {
         // ARRANGE
         dao.insert(cyclePast) // Ends on Jan 5th
 
         // ACT: A new cycle starts on the same day the old one ended
-        val count = dao.getOverlappingCyclesCount(
+        val count = dao.getOverlappingPeriodsCount(
             startDate = LocalDate(2025, 1, 5),
             endDate = LocalDate(2025, 1, 9)
         )
@@ -246,12 +246,12 @@ class CycleDaoTest : KoinTest {
     }
 
     @Test
-    fun getOverlappingCyclesCount_WHEN_rangeIsAdjacentButNotTouching_THEN_returnsZero() = runTest {
+    fun getOverlappingPeriodsCount_WHEN_rangeIsAdjacentButNotTouching_THEN_returnsZero() = runTest {
         // ARRANGE
         dao.insert(cyclePast) // Ends on Jan 5th
 
         // ACT: A new cycle starts the day after the old one ended
-        val count = dao.getOverlappingCyclesCount(
+        val count = dao.getOverlappingPeriodsCount(
             startDate = LocalDate(2025, 1, 6),
             endDate = LocalDate(2025, 1, 10)
         )

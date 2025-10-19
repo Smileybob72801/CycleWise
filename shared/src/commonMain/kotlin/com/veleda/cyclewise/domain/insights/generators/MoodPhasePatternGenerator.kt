@@ -2,7 +2,7 @@ package com.veleda.cyclewise.domain.insights.generators
 
 import com.veleda.cyclewise.domain.insights.Insight
 import com.veleda.cyclewise.domain.insights.MoodPhasePattern
-import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.Period
 import kotlinx.datetime.daysUntil
 import kotlin.math.abs
 
@@ -11,17 +11,22 @@ private enum class MoodType { LOW, HIGH }
 class MoodPhasePatternGenerator : InsightGenerator {
 
     override fun generate(data: InsightData): List<Insight> {
-        val chronologicalCycles = data.allCycles.filter { it.endDate != null }.reversed()
+        val chronologicalCycles = data.allPeriods.filter { it.endDate != null }.reversed()
         if (chronologicalCycles.size < 4) return emptyList()
 
         val cyclePairs = chronologicalCycles.zipWithNext()
-        val logsByCycleId = data.allLogs.groupBy { it.entry.cycleId }
+        //val logsByCycleId = data.allLogs.groupBy { it.entry.periodId }
 
         val patternTally = mutableMapOf<Pair<MoodType, Int>, Int>()
 
         for ((currentCycle, nextCycle) in cyclePairs.takeLast(8)) {
             val actualCycleLength = currentCycle.startDate.daysUntil(nextCycle.startDate)
-            val logsForCycle = logsByCycleId[currentCycle.id] ?: continue
+
+            val logsForCycle = data.allLogs.filter { it.entry.entryDate >= currentCycle.startDate
+                    && it.entry.entryDate < nextCycle.startDate }
+
+            if (logsForCycle.isEmpty()) continue
+
             for (log in logsForCycle) {
                 val mood = log.entry.moodScore ?: continue
                 val moodType = when {
@@ -91,7 +96,7 @@ class MoodPhasePatternGenerator : InsightGenerator {
         return potentialBlocks.filter { it.size >= 3 }
     }
 
-    private fun formatRelativePhase(group: List<Int>, cycles: List<Cycle>): String {
+    private fun formatRelativePhase(group: List<Int>, periods: List<Period>): String {
         if (group.isEmpty()) return ""
 
         val representativeDay = group.average().toInt()
@@ -106,7 +111,7 @@ class MoodPhasePatternGenerator : InsightGenerator {
                 else -> "from $firstDayBefore to $lastDayBefore days before your period"
             }
         } else {
-            val avgPeriodLength = cycles.mapNotNull { it.endDate?.let { endDate -> it.startDate.daysUntil(endDate) } }
+            val avgPeriodLength = periods.mapNotNull { it.endDate?.let { endDate -> it.startDate.daysUntil(endDate) } }
                 .average().takeIf { !it.isNaN() }?.toInt() ?: 5
 
             val firstDayAfter = group.first() - avgPeriodLength

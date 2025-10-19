@@ -5,7 +5,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
- * Represents a single menstrual cycle.
+ * Represents a single period.
  *
  * @property id        External UUID (TEXT UNIQUE) for this cycle
  * @property startDate The date the cycle began
@@ -13,7 +13,7 @@ import kotlin.time.Instant
  * @property createdAt Timestamp when this record was first created
  * @property updatedAt Timestamp of the last update to this record
  */
-data class Cycle @OptIn(ExperimentalTime::class) constructor(
+data class Period @OptIn(ExperimentalTime::class) constructor(
     val id: String,
     val startDate: LocalDate,
     val endDate: LocalDate?,

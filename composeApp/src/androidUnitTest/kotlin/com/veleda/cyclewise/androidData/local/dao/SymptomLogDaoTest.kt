@@ -2,7 +2,7 @@ package com.veleda.cyclewise.androidData.local.dao
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.veleda.cyclewise.androidData.local.database.CycleDatabase
+import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.androidData.local.entities.*
 import com.veleda.cyclewise.domain.models.SymptomCategory
 import kotlinx.coroutines.flow.first
@@ -19,7 +19,6 @@ import org.koin.dsl.module
 import org.koin.test.KoinTest
 import org.koin.test.inject
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -28,10 +27,9 @@ class SymptomLogDaoTest : KoinTest {
 
     // --- SETUP ---
     private val dao: SymptomLogDao by inject()
-    private val db: CycleDatabase by inject()
+    private val db: PeriodDatabase by inject()
 
-    // We need all parent DAOs to set up foreign key relationships
-    private val cycleDao: CycleDao by inject()
+    // We need parent DAOs to set up foreign key relationships
     private val dailyEntryDao: DailyEntryDao by inject()
     private val symptomDao: SymptomDao by inject()
 
@@ -39,18 +37,18 @@ class SymptomLogDaoTest : KoinTest {
         single {
             Room.inMemoryDatabaseBuilder(
                 ApplicationProvider.getApplicationContext(),
-                CycleDatabase::class.java
+                PeriodDatabase::class.java
             )
                 .allowMainThreadQueries()
                 .build()
         }
         // Provide all DAOs
-        single { get<CycleDatabase>().cycleDao() }
-        single { get<CycleDatabase>().dailyEntryDao() }
-        single { get<CycleDatabase>().symptomDao() }
-        single { get<CycleDatabase>().symptomLogDao() }
-        single { get<CycleDatabase>().medicationDao() }
-        single { get<CycleDatabase>().medicationLogDao() }
+        single { get<PeriodDatabase>().periodDao() }
+        single { get<PeriodDatabase>().dailyEntryDao() }
+        single { get<PeriodDatabase>().symptomDao() }
+        single { get<PeriodDatabase>().symptomLogDao() }
+        single { get<PeriodDatabase>().medicationDao() }
+        single { get<PeriodDatabase>().medicationLogDao() }
     }
 
     @Before
@@ -67,13 +65,11 @@ class SymptomLogDaoTest : KoinTest {
     }
 
     // --- Test Data ---
-    private val parentCycle = CycleEntity(uuid = "cycle-1", startDate = LocalDate(2025, 1, 1), endDate = null, createdAt = Clock.System.now(), updatedAt = Clock.System.now())
-    private val parentEntry1 = DailyEntryEntity("entry-1", "cycle-1", LocalDate(2025, 1, 5), 5, customTags = "[]", note = null, createdAt = Clock.System.now(), updatedAt = Clock.System.now())
-    private val parentEntry2 = DailyEntryEntity("entry-2", "cycle-1", LocalDate(2025, 1, 6), 6, customTags = "[]", note = null, createdAt = Clock.System.now(), updatedAt = Clock.System.now())
+    private val parentEntry1 = DailyEntryEntity("entry-1", LocalDate(2025, 1, 5), 5, customTags = "[]", note = null, createdAt = Clock.System.now(), updatedAt = Clock.System.now())
+    private val parentEntry2 = DailyEntryEntity("entry-2", LocalDate(2025, 1, 6), 6, customTags = "[]", note = null, createdAt = Clock.System.now(), updatedAt = Clock.System.now())
     private val parentSymptom1 = SymptomEntity("symptom-1", "Cramps", SymptomCategory.PAIN, Clock.System.now())
     private val parentSymptom2 = SymptomEntity("symptom-2", "Anxiety", SymptomCategory.MOOD, Clock.System.now())
 
-    // The actual log entries we will be testing
     private val log1_symptom1_entry1 = SymptomLogEntity("log-1", "entry-1", "symptom-1", 4, Clock.System.now())
     private val log2_symptom2_entry1 = SymptomLogEntity("log-2", "entry-1", "symptom-2", 2, Clock.System.now())
     private val log3_symptom1_entry2 = SymptomLogEntity("log-3", "entry-2", "symptom-1", 5, Clock.System.now())
@@ -83,7 +79,6 @@ class SymptomLogDaoTest : KoinTest {
     @Test
     fun insertAll_WHEN_logsAreNew_THEN_addsAllToDatabase() = runTest {
         // ARRANGE: Insert all required parent data
-        cycleDao.insert(parentCycle)
         dailyEntryDao.insert(parentEntry1)
         symptomDao.insert(parentSymptom1)
         symptomDao.insert(parentSymptom2)
@@ -99,7 +94,6 @@ class SymptomLogDaoTest : KoinTest {
     @Test
     fun insertAll_WHEN_logWithSameIdExists_THEN_onConflictReplaceUpdatesTheRecord() = runTest {
         // ARRANGE
-        cycleDao.insert(parentCycle)
         dailyEntryDao.insert(parentEntry1)
         symptomDao.insert(parentSymptom1)
         dao.insertAll(listOf(log1_symptom1_entry1)) // Initial severity is 4
@@ -121,7 +115,6 @@ class SymptomLogDaoTest : KoinTest {
     @Test
     fun getLogsForEntry_WHEN_dataExists_THEN_returnsCorrectLogs() = runTest {
         // ARRANGE
-        cycleDao.insert(parentCycle)
         dailyEntryDao.insert(parentEntry1)
         dailyEntryDao.insert(parentEntry2)
         symptomDao.insert(parentSymptom1)
@@ -144,7 +137,6 @@ class SymptomLogDaoTest : KoinTest {
     @Test
     fun getLogsForEntries_WHEN_multipleIdsProvided_THEN_returnsAllAssociatedLogs() = runTest {
         // ARRANGE
-        cycleDao.insert(parentCycle)
         dailyEntryDao.insert(parentEntry1)
         dailyEntryDao.insert(parentEntry2)
         symptomDao.insert(parentSymptom1)
@@ -163,7 +155,6 @@ class SymptomLogDaoTest : KoinTest {
     @Test
     fun deleteLogsForEntry_WHEN_called_THEN_removesOnlyLogsForThatEntry() = runTest {
         // ARRANGE
-        cycleDao.insert(parentCycle)
         dailyEntryDao.insert(parentEntry1)
         dailyEntryDao.insert(parentEntry2)
         symptomDao.insert(parentSymptom1)

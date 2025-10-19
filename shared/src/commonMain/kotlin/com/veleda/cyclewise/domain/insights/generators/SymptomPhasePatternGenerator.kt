@@ -3,7 +3,7 @@ package com.veleda.cyclewise.domain.insights.generators
 import com.veleda.cyclewise.domain.insights.Insight
 import com.veleda.cyclewise.domain.insights.NextPeriodPrediction
 import com.veleda.cyclewise.domain.insights.SymptomPhasePattern
-import com.veleda.cyclewise.domain.models.Cycle
+import com.veleda.cyclewise.domain.models.Period
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
@@ -22,24 +22,33 @@ class SymptomPhasePatternGenerator : InsightGenerator {
 
     @OptIn(ExperimentalTime::class)
     override fun generate(data: InsightData): List<Insight> {
-        val chronologicalCycles = data.allCycles.filter { it.endDate != null }.reversed()
-        if (chronologicalCycles.size < 4) return emptyList()
+        // Get all completed, logged periods, sorted from oldest to most recent.
+        val chronologicalPeriods = data.allPeriods.filter { it.endDate != null }.reversed()
 
-        val cyclePairs = chronologicalCycles.zipWithNext()
-        val logsByCycleId = data.allLogs.groupBy { it.entry.cycleId }
-        val periodDays = data.allCycles.flatMap { cycle ->
-            cycle.endDate?.let { endDate ->
-                (0..cycle.startDate.daysUntil(endDate)).map { cycle.startDate.plus(it, DateTimeUnit.DAY) }
-            } ?: emptyList()
-        }.toSet()
+        if (chronologicalPeriods.size < 4) return emptyList()
+
+
+        // This `cyclePairs` list is crucial. Each pair, like `(Period 1, Period 2)`, represents a single, complete menstrual cycle.
+        // The length of this cycle is the time from the start of Period 1 to the start of Period 2.
+        val cyclePairs = chronologicalPeriods.zipWithNext()
 
         val patternTally = mutableMapOf<Pair<String, Int>, Int>()
-        for ((currentCycle, nextCycle) in cyclePairs.takeLast(8)) {
-            val actualCycleLength = currentCycle.startDate.daysUntil(nextCycle.startDate)
-            val logsForCycle = logsByCycleId[currentCycle.id] ?: continue
+
+
+        // Iterate through each cycle (defined by the start of two consecutive periods).
+        for ((currentPeriod, nextPeriod) in cyclePairs.takeLast(8)) {
+            val actualCycleLength = currentPeriod.startDate.daysUntil(nextPeriod.startDate)
+
+            // Find all logs that fall within the date range of this specific cycle.
+            val logsForCycle = data.allLogs.filter {
+                it.entry.entryDate >= currentPeriod.startDate && it.entry.entryDate < nextPeriod.startDate
+            }
+            if (logsForCycle.isEmpty()) continue
+
             for (log in logsForCycle) {
                 for (symptomLog in log.symptomLogs) {
                     val day = log.entry.dayInCycle
+                    // The normalization logic remains correct as dayInCycle is still calculated.
                     val normalizedDay = if (day <= 16) day else day - actualCycleLength - 1
                     val key = Pair(symptomLog.symptomId, normalizedDay)
                     patternTally[key] = (patternTally[key] ?: 0) + 1
@@ -53,46 +62,41 @@ class SymptomPhasePatternGenerator : InsightGenerator {
         if (significantPatterns.isEmpty()) return emptyList()
 
         val nextPeriodPrediction = data.generatedInsights.filterIsInstance<NextPeriodPrediction>().firstOrNull()
-
         val patternsBySymptom = significantPatterns.entries.groupBy({ it.key.first }, { it.key.second })
         val resultingInsights = mutableListOf<SymptomPhasePattern>()
 
+        // Calculate the user's average period length to help identify period-related symptoms.
+        val avgPeriodLength = data.allPeriods
+            .mapNotNull { it.endDate?.let { endDate -> it.startDate.daysUntil(endDate) + 1 } }
+            .average()
+            .takeIf { !it.isNaN() } ?: 5.0 // Default to 5 days if not enough data.
+
         for ((symptomId, normalizedDays) in patternsBySymptom) {
             val symptom = data.symptomLibrary.find { it.id == symptomId } ?: continue
-            val sortedDays = normalizedDays.sorted()
+            val sortedDays = normalizedDays.distinct().sorted()
             val groupedDays = groupConsecutiveDays(sortedDays)
 
             for (group in groupedDays) {
-                val logsForPattern = data.allLogs.filter { log ->
-                    val cycle = chronologicalCycles.find { it.id == log.entry.cycleId }
-                    val nextCycle = chronologicalCycles.getOrNull(chronologicalCycles.indexOf(cycle) + 1)
-                    val normalizedDay = if (cycle != null && nextCycle != null) {
-                        val actualCycleLength = cycle.startDate.daysUntil(nextCycle.startDate)
-                        if (log.entry.dayInCycle <= 16) log.entry.dayInCycle else log.entry.dayInCycle - actualCycleLength - 1
-                    } else { log.entry.dayInCycle }
-                    log.symptomLogs.any { it.symptomId == symptomId } && normalizedDay in group
-                }
-                val periodLogInCount = logsForPattern.count { it.entry.entryDate in periodDays }
-                val isPeriodSymptom = logsForPattern.isNotEmpty() && (periodLogInCount.toDouble() / logsForPattern.size) > 0.5
+                // A pattern is considered a "period symptom" if all its normalized days
+                // fall within the calculated average period length.
+                val isPeriodSymptom = group.all { it > 0 && it <= avgPeriodLength }
                 val priority = if (isPeriodSymptom) HIGH_PRIORITY else NORMAL_PRIORITY
 
                 val recurrenceCount = group.mapNotNull { day -> significantPatterns[Pair(symptomId, day)] }.minOrNull() ?: 0
-                val phaseDescription = formatPhaseDescription(group, isPeriodSymptom, chronologicalCycles)
+                val phaseDescription = formatPhaseDescription(group, isPeriodSymptom, chronologicalPeriods)
 
                 var finalPredictedDate: kotlinx.datetime.LocalDate? = null
                 var chanceDescription: String? = null
 
                 if (nextPeriodPrediction != null) {
                     val representativeDay = group.average().toInt()
-
                     val predictedDate = if (representativeDay < 0) {
                         nextPeriodPrediction.predictedDate.plus(representativeDay, DateTimeUnit.DAY)
                     } else {
                         val predictedCycleStart = nextPeriodPrediction.predictedDate.plus(-(data.averageCycleLength?.toInt() ?: 28), DateTimeUnit.DAY)
-                        predictedCycleStart.plus(representativeDay -1, DateTimeUnit.DAY)
+                        predictedCycleStart.plus(representativeDay - 1, DateTimeUnit.DAY)
                     }
 
-                    // Only include the prediction if the date is today or in the future.
                     val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
                     if (predictedDate >= today) {
                         finalPredictedDate = predictedDate
@@ -131,34 +135,24 @@ class SymptomPhasePatternGenerator : InsightGenerator {
         return groups
     }
 
-    /**
-     * The main formatter that chooses between "day of period" and the more complex "before/after" wording.
-     */
-    private fun formatPhaseDescription(group: List<Int>, isPeriodSymptom: Boolean, cycles: List<Cycle>): String {
+    private fun formatPhaseDescription(group: List<Int>, isPeriodSymptom: Boolean, periods: List<Period>): String {
         if (group.isEmpty()) return ""
 
         if (isPeriodSymptom) {
-            // Use simple, user-friendly wording for period symptoms.
             return when (group.size) {
                 1 -> "on day ${group.first()} of your period"
                 2 -> "on days ${group.first()} & ${group.last()} of your period"
                 else -> "on days ${group.first()}-${group.last()} of your period"
             }
         } else {
-            // Use the advanced "before/after" logic for all other symptoms.
-            return formatRelativePhase(group, cycles)
+            return formatRelativePhase(group, periods)
         }
     }
 
-    /**
-     * New, advanced formatter that describes a day relative to the start or end of a period.
-     */
-    private fun formatRelativePhase(group: List<Int>, cycles: List<Cycle>): String {
+    private fun formatRelativePhase(group: List<Int>, periods: List<Period>): String {
         if (group.isEmpty()) return ""
-
-        // For a group, we use the average day to determine its position.
         val representativeDay = group.average().toInt()
-        val isLutealPhase = representativeDay > 16 || representativeDay < 0 // Occurs in second half of cycle
+        val isLutealPhase = representativeDay > 16 || representativeDay < 0
 
         if (isLutealPhase) {
             val daysBefore = abs(representativeDay)
@@ -172,10 +166,8 @@ class SymptomPhasePatternGenerator : InsightGenerator {
                 }
             }
         } else {
-            // Find the average period length to make the "after" more accurate.
-            val avgPeriodLength = cycles.mapNotNull { it.endDate?.let { endDate -> it.startDate.daysUntil(endDate) } }.average().toInt()
+            val avgPeriodLength = periods.mapNotNull { it.endDate?.let { endDate -> it.startDate.daysUntil(endDate) } }.average().toInt()
             val daysAfter = representativeDay - avgPeriodLength
-
             return when {
                 daysAfter <= 1 -> "right after your period"
                 group.size == 1 -> "$daysAfter days after your period"

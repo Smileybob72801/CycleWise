@@ -8,7 +8,7 @@ import kotlin.math.roundToInt
 
 class NextPeriodPredictionGenerator : InsightGenerator {
     override fun generate(data: InsightData): List<Insight> {
-        val latestCycle = data.allCycles.firstOrNull()
+        val latestCycle = data.allPeriods.firstOrNull()
         if (data.averageCycleLength == null || latestCycle == null) {
             return emptyList()
         }
