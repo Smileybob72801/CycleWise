@@ -7,6 +7,7 @@ import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
+import com.veleda.cyclewise.domain.models.PeriodLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
@@ -105,8 +106,23 @@ class DailyLogViewModel(
 
         return when (event) {
             is DailyLogEvent.FlowIntensityChanged -> {
-                val updatedEntry = log.entry.copy(flowIntensity = event.intensity)
-                currentState.copy(log = log.copy(entry = updatedEntry))
+                val newPeriodLog = if (event.intensity != null) {
+                    // Create/Update the PeriodLog
+                    val existingLog = log.periodLog
+                    val now = Clock.System.now()
+                    existingLog?.copy(flowIntensity = event.intensity, updatedAt = now)
+                        ?: PeriodLog(
+                            id = uuid4().toString(),
+                            entryId = log.entry.id,
+                            flowIntensity = event.intensity,
+                            createdAt = now,
+                            updatedAt = now
+                        )
+                } else {
+                    // Remove PeriodLog
+                    null
+                }
+                currentState.copy(log = log.copy(periodLog = newPeriodLog))
             }
             is DailyLogEvent.MoodScoreChanged -> {
                 val updatedEntry = log.entry.copy(moodScore = event.score)
@@ -140,7 +156,7 @@ class DailyLogViewModel(
             }
             is DailyLogEvent.CreateAndAddSymptom -> {
                 val name = event.name.trim()
-                if (name.isBlank() || currentState.log == null) {
+                if (name.isBlank()) {
                     return currentState
                 }
                 viewModelScope.launch {
@@ -178,7 +194,7 @@ class DailyLogViewModel(
             }
             is DailyLogEvent.MedicationCreatedAndAdded -> {
                 val name = event.name.trim()
-                if (name.isBlank() || currentState.log == null) {
+                if (name.isBlank()) {
                     return currentState
                 }
                 viewModelScope.launch {
@@ -217,17 +233,22 @@ class DailyLogViewModel(
 
     private suspend fun createNewBlankLog(): FullDailyLog? {
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+
         val parentCycle = periodRepository.getAllPeriods().first().find { entryDate in (it.startDate..(it.endDate ?: today)) }
-        return parentCycle?.let {
-            val dayInCycle = it.startDate.daysUntil(entryDate) + 1
-            val newBlankEntry = DailyEntry(
-                id = uuid4().toString(),
-                entryDate = entryDate,
-                dayInCycle = dayInCycle,
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now()
-            )
-            FullDailyLog(entry = newBlankEntry)
-        }
+
+        parentCycle ?: return null
+
+        val dayInCycle = parentCycle.startDate.daysUntil(entryDate) + 1
+
+        val newBlankEntry = DailyEntry(
+            id = uuid4().toString(),
+            entryDate = entryDate,
+            dayInCycle = dayInCycle,
+            createdAt = Clock.System.now(),
+            updatedAt = Clock.System.now()
+        )
+
+        // PeriodLog is initialized as null.
+        return FullDailyLog(entry = newBlankEntry, periodLog = null)
     }
 }

@@ -4,16 +4,20 @@ import kotlinx.datetime.LocalDate
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
+// TODO: Standardize mood, energy, and libido. Choose 1-5 or enums for all fields.
+// TODO: Chance phase to an enum as well.
+
+// TODO: Add more info fields such as mucous color and viscosity
+// see https://femia.health/health-library/your-cycle/health/cervical-mucus-chart/
+
 @OptIn(ExperimentalTime::class)
 data class DailyEntry(
     val id: String, // UUID
     val entryDate: LocalDate,
     val dayInCycle: Int,
-    val flowIntensity: FlowIntensity? = null, // e.g., FlowIntensity.MEDIUM
     val moodScore: Int? = null, // 1-5
     val energyLevel: Int? = null, // 1-5
     val libidoLevel: LibidoLevel? = null, // e.g., LibidoLevel.MEDIUM
-    val spotting: Boolean = false,
     val customTags: List<String> = emptyList(), // For flexible user tags
     val note: String? = null,
     val cyclePhase: String? = null, // e.g., "FOLLICULAR"

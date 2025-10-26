@@ -5,6 +5,7 @@ import kotlin.time.ExperimentalTime
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
+import com.veleda.cyclewise.domain.models.PeriodLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
 import kotlinx.serialization.json.Json
@@ -39,11 +40,9 @@ fun DailyEntryEntity.toDomain(): DailyEntry =
         id = id,
         entryDate = entryDate,
         dayInCycle = dayInCycle,
-        flowIntensity = Converters.toFlowIntensity(flowIntensity),
         moodScore = moodScore,
         energyLevel = energyLevel,
         libidoLevel = Converters.toLibidoLevel(libidoLevel),
-        spotting = spotting,
         customTags = Json.decodeFromString(customTags),
         note = note,
         cyclePhase = cyclePhase,
@@ -58,11 +57,9 @@ fun DailyEntry.toEntity(): DailyEntryEntity =
         id = id,
         entryDate = entryDate,
         dayInCycle = dayInCycle,
-        flowIntensity = Converters.fromFlowIntensity(flowIntensity),
         moodScore = moodScore,
         energyLevel = energyLevel,
         libidoLevel = Converters.fromLibidoLevel(libidoLevel),
-        spotting = spotting,
         customTags = Json.encodeToString(customTags),
         note = note,
         cyclePhase = cyclePhase,
@@ -85,3 +82,9 @@ fun Symptom.toEntity(): SymptomEntity = SymptomEntity(id, name, category, create
 // --- Symptom Log Mappers ---
 fun SymptomLogEntity.toDomain(): SymptomLog = SymptomLog(id, entryId, symptomId, severity, createdAt)
 fun SymptomLog.toEntity(): SymptomLogEntity = SymptomLogEntity(id, entryId, symptomId, severity, createdAt)
+
+// --- Period Log Mappers ---
+@OptIn(ExperimentalTime::class)
+fun PeriodLogEntity.toDomain(): PeriodLog = PeriodLog(id, entryId, flowIntensity, createdAt, updatedAt)
+@OptIn(ExperimentalTime::class)
+fun PeriodLog.toEntity(): PeriodLogEntity = PeriodLogEntity(id, entryId, flowIntensity, createdAt, updatedAt)

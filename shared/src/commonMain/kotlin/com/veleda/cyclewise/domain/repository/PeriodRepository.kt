@@ -93,4 +93,7 @@ interface PeriodRepository {
 
     /** [DEBUG ONLY] Clears and seeds the database with test data. */
     suspend fun seedDatabaseForDebug()
+
+    /** Permanently deletes a period. Associated period logs are also cleared. */
+    suspend fun deletePeriod(id: String)
 }

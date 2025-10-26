@@ -25,6 +25,7 @@ data class TrackerUiState(
     val selectionStartDate: LocalDate? = null,
     val selectionEndDate: LocalDate? = null,
     val logForSheet: FullDailyLog? = null,
+    val periodIdForSheet: String? = null,
     val symptomLibrary: List<Symptom> = emptyList(),
     val medicationLibrary: List<Medication> = emptyList(),
     val dayDetails: Map<LocalDate, CalendarDayInfo> = emptyMap()
@@ -134,7 +135,14 @@ class TrackerViewModel(
                 currentState.copy(selectionStartDate = null, selectionEndDate = null)
             }
             is TrackerEvent.DismissLogSheet -> {
-                currentState.copy(logForSheet = null)
+                currentState.copy(logForSheet = null, periodIdForSheet = null)
+            }
+            is TrackerEvent.DeletePeriodClicked -> {
+                viewModelScope.launch {
+                    periodRepository.deletePeriod(event.periodId)
+                }
+                // Clear the sheet, as the underlying log/period is now gone
+                currentState.copy(logForSheet = null, periodIdForSheet = null)
             }
         }
     }

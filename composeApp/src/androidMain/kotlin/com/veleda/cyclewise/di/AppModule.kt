@@ -74,6 +74,7 @@ val appModule = module {
         scoped { get<PeriodDatabase>().medicationDao() }
         scoped { get<PeriodDatabase>().medicationLogDao() }
         scoped { get<PeriodDatabase>().symptomLogDao() }
+        scoped { get<PeriodDatabase>().periodLogDao() }
 
         // Repository Provider
         scoped<PeriodRepository> {
@@ -85,6 +86,7 @@ val appModule = module {
                 medicationDao = get(),
                 medicationLogDao = get(),
                 symptomLogDao = get(),
+                periodLogDao = get(),
             )
         }
 

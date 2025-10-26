@@ -21,4 +21,7 @@ sealed interface TrackerEvent {
 
     /** The user has dismissed the bottom sheet showing the log summary. */
     object DismissLogSheet : TrackerEvent
+
+    /** The user has confirmed the deletion of an existing period. */
+    data class DeletePeriodClicked(val periodId: String) : TrackerEvent
 }

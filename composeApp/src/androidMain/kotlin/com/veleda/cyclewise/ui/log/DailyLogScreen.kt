@@ -41,10 +41,12 @@ fun DailyLogScreen(
     onSaveComplete: () -> Unit
 ) {
     val sessionScope = getKoin().getScope("session")
+
     val viewModel: DailyLogViewModel = koinViewModel(
         scope = sessionScope,
         parameters = { parametersOf(date) }
     )
+
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -94,7 +96,7 @@ fun DailyLogScreen(
 
                     SectionTitle("Flow")
                     FlowIntensitySelector(
-                        selectedIntensity = log.entry.flowIntensity,
+                        selectedIntensity = log.periodLog?.flowIntensity,
                         onSelectionChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) }
                     )
 

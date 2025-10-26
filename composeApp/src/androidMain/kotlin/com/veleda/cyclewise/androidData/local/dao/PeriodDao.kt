@@ -46,4 +46,8 @@ interface PeriodDao {
 
     @Query("DELETE FROM periods")
     suspend fun deleteAll()
+
+    /** Delete period by exposed UUID. */
+    @Query("DELETE FROM periods WHERE uuid = :uuid")
+    suspend fun deleteByUuid(uuid: String)
 }
