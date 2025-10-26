@@ -6,6 +6,7 @@ import com.veleda.cyclewise.androidData.local.dao.PeriodDao
 import com.veleda.cyclewise.androidData.local.dao.DailyEntryDao
 import com.veleda.cyclewise.androidData.local.dao.MedicationDao
 import com.veleda.cyclewise.androidData.local.dao.MedicationLogDao
+import com.veleda.cyclewise.androidData.local.dao.PeriodLogDao
 import com.veleda.cyclewise.androidData.local.dao.SymptomDao
 import com.veleda.cyclewise.androidData.local.dao.SymptomLogDao
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
@@ -33,6 +34,7 @@ import kotlinx.datetime.*
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import com.veleda.cyclewise.domain.models.DayDetails
+import com.veleda.cyclewise.domain.models.PeriodLog
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DateTimeUnit.Companion.DAY
 import kotlinx.datetime.TimeZone
@@ -49,6 +51,7 @@ class RoomPeriodRepository(
     private val medicationDao: MedicationDao,
     private val medicationLogDao: MedicationLogDao,
     private val symptomLogDao: SymptomLogDao,
+    private val periodLogDao: PeriodLogDao,
 ) : PeriodRepository {
     override fun getAllPeriods(): Flow<List<Period>> {
         return periodDao.getAllPeriods().map { entityList ->
@@ -93,10 +96,12 @@ class RoomPeriodRepository(
 
     override suspend fun getFullLogForDate(date: LocalDate): FullDailyLog? {
         val entryEntity = dailyEntryDao.getEntryForDate(date).firstOrNull() ?: return null
+        val periodLog = periodLogDao.getLogForEntry(entryEntity.id).firstOrNull()
         val symptomLogs = symptomLogDao.getLogsForEntry(entryEntity.id).firstOrNull() ?: emptyList()
         val medicationLogs = medicationLogDao.getLogsForEntry(entryEntity.id).firstOrNull() ?: emptyList()
         return FullDailyLog(
             entry = entryEntity.toDomain(),
+            periodLog = periodLog?.toDomain(),
             symptomLogs = symptomLogs.map { it.toDomain() },
             medicationLogs = medicationLogs.map { it.toDomain() }
         )
@@ -104,11 +109,22 @@ class RoomPeriodRepository(
 
     override suspend fun saveFullLog(log: FullDailyLog) {
         db.withTransaction {
+            // 1. Always save DailyEntry first
             dailyEntryDao.insert(log.entry.toEntity())
+
+            // 2. Handle PeriodLog (Flow data)
+            periodLogDao.deleteLogForEntry(log.entry.id)
+            log.periodLog?.let { periodLog ->
+                periodLogDao.insert(periodLog.toEntity())
+            }
+
+            // 3. Handle Symptom Logs
             symptomLogDao.deleteLogsForEntry(log.entry.id)
             if (log.symptomLogs.isNotEmpty()) {
                 symptomLogDao.insertAll(log.symptomLogs.map { it.toEntity() })
             }
+
+            // 4. Handle Medication Logs
             medicationLogDao.deleteLogsForEntry(log.entry.id)
             if (log.medicationLogs.isNotEmpty()) {
                 medicationLogDao.insertAll(log.medicationLogs.map { it.toEntity() })
@@ -252,17 +268,19 @@ class RoomPeriodRepository(
                 flowOf(emptyList())
             } else {
                 val entryIds = entries.map { it.id }
-                // Combine the flows for symptoms and medications related to these entries
+                // Combine the flows for all log types
                 combine(
+                    periodLogDao.getAllPeriodLogs().map { it.groupBy { log -> log.entryId } },
                     symptomLogDao.getLogsForEntries(entryIds),
                     medicationLogDao.getLogsForEntries(entryIds)
-                ) { symptoms, medications ->
+                ) { periods, symptoms, medications ->
                     val symptomsById = symptoms.groupBy { it.entryId }
                     val medicationsById = medications.groupBy { it.entryId }
 
                     entries.map { entry ->
                         FullDailyLog(
                             entry = entry.toDomain(),
+                            periodLog = periods[entry.id]?.firstOrNull()?.toDomain(),
                             symptomLogs = symptomsById[entry.id]?.map { it.toDomain() } ?: emptyList(),
                             medicationLogs = medicationsById[entry.id]?.map { it.toDomain() } ?: emptyList()
                         )
@@ -280,7 +298,6 @@ class RoomPeriodRepository(
                 val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
                 for (cycle in cycles) {
                     val startDate = cycle.startDate
-                    // CRITICAL FIX: Use 'today' as the end date for ongoing periods.
                     val endDate = cycle.endDate ?: today
 
                     var currentDate = startDate
@@ -316,7 +333,7 @@ class RoomPeriodRepository(
                 val date = log.entry.entryDate
                 val existingInfo = detailsMap[date] ?: DayDetails()
                 detailsMap[date] = existingInfo.copy(
-                    isPeriodDay = existingInfo.isPeriodDay || log.entry.flowIntensity != null,
+                    isPeriodDay = existingInfo.isPeriodDay || log.periodLog != null,
                     hasLoggedSymptoms = log.symptomLogs.isNotEmpty(),
                     hasLoggedMedications = log.medicationLogs.isNotEmpty()
                 )
@@ -333,12 +350,38 @@ class RoomPeriodRepository(
         return medicationLogDao.getAllMedicationLogs().first().map { it.toDomain() }
     }
 
+    override suspend fun deletePeriod(id: String) {
+        val periodToDelete = periodDao.getByUuid(id)
+        periodToDelete?.let { period ->
+            db.withTransaction {
+                // Determine the end date for the query range. Ongoing periods extend up to today.
+                val endDateForRange = period.endDate ?: Clock.System.todayIn(TimeZone.currentSystemDefault())
+
+                // 1. Find all existing DailyEntry IDs that fall within the date range of the period being deleted.
+                // We use .first() on the Flow to get the current snapshot.
+                val entriesInPeriod = dailyEntryDao.getEntriesForDateRange(
+                    period.startDate,
+                    endDateForRange
+                ).first()
+
+                // 2. Delete the PeriodLogs (menstruation-specific data) for each Daily Entry in the range.
+                // This keeps the core DailyEntry (mood, energy, tags) intact.
+                entriesInPeriod.forEach { entry ->
+                    periodLogDao.deleteLogForEntry(entry.id)
+                }
+
+                // 3. Delete the Period itself.
+                periodDao.deleteByUuid(id)
+            }
+        }
+    }
+
     /**
      * [DEBUG ONLY] Clears all user data and seeds the database with a fresh,
      * realistic dataset of 6 completed periods ending yesterday.
      */
     override suspend fun seedDatabaseForDebug() {
-        // --- 1. Get library items we will use ---
+        // --- Get library items we will use (prepopulate and clear) ---
         prepopulateSymptomLibrary()
         val cramps = createOrGetSymptomInLibrary("Cramps", SymptomCategory.PAIN)
         val headache = createOrGetSymptomInLibrary("Headache", SymptomCategory.PAIN)
@@ -346,132 +389,133 @@ class RoomPeriodRepository(
         val bloating = createOrGetSymptomInLibrary("Bloating", SymptomCategory.DIGESTIVE)
         val ibuprofen = createOrGetMedicationInLibrary("Ibuprofen")
 
-        // --- 2. Clear all existing user data in a single transaction ---
         db.withTransaction {
             medicationLogDao.deleteAll()
             symptomLogDao.deleteAll()
+            periodLogDao.deleteAll()
             dailyEntryDao.deleteAll()
             periodDao.deleteAll()
         }
 
-        // --- 3. Generate new data backwards from today ---
-        // This ensures the data is always fresh and relevant.
+        // --- Generate new data backwards from today ---
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-        var nextCycleStartDate = today.minus(Random.nextInt(10, 20), DateTimeUnit.DAY) // Start the *current* cycle 10-20 days ago
 
-        val cyclesToCreate = 6
+        // Start date of the most recent *completed* period (e.g., 28 days ago).
+        val LATEST_PERIOD_START_DAYS_AGO = 28
+        var currentCycleStartDate = today.minus(LATEST_PERIOD_START_DAYS_AGO, DateTimeUnit.DAY)
+
+        val cyclesToCreate = 6 // Generate 6 completed periods
         val allNewPeriods = mutableListOf<Period>()
         val allNewLogs = mutableListOf<FullDailyLog>()
 
-        // This loop works backwards in time.
         repeat(cyclesToCreate) { index ->
-            val isOngoingCycle = index == 0 // The first cycle we generate is the current, ongoing one.
-
             val cycleLength = Random.nextInt(27, 33)
-            val periodLength = Random.nextInt(4, 7)
-            val cycleStartDate = nextCycleStartDate
+            val periodLength = Random.nextInt(4, 7) // Realistic period length (4-7 days)
 
-            val newPeriod: Period
-            if (isOngoingCycle) {
-                // This is the current, active cycle. It has no end date.
-                newPeriod = Period(
-                    id = uuid4().toString(),
-                    startDate = cycleStartDate,
-                    endDate = null, // Ongoing cycle
-                    createdAt = Clock.System.now(),
-                    updatedAt = Clock.System.now()
-                )
-            } else {
-                // These are the historical, completed periods.
-                val periodEndDate = cycleStartDate.plus(periodLength - 1, DateTimeUnit.DAY)
-                newPeriod = Period(
-                    id = uuid4().toString(),
-                    startDate = cycleStartDate,
-                    endDate = periodEndDate,
-                    createdAt = Clock.System.now(),
-                    updatedAt = Clock.System.now()
-                )
-            }
+            val cycleStartDate = currentCycleStartDate
+
+            // All generated periods are historical and completed.
+            val newPeriod = Period(
+                id = uuid4().toString(),
+                startDate = cycleStartDate,
+                endDate = cycleStartDate.plus(periodLength - 1, DateTimeUnit.DAY),
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now()
+            )
             allNewPeriods.add(newPeriod)
 
-            // For an ongoing cycle, only log up to today. For past periods, log the full length.
-            val daysToLogInCycle = if (isOngoingCycle) cycleStartDate.daysUntil(today) + 1 else cycleLength
+            // Log data for the full generated cycle length.
+            val daysToLogInCycle = cycleLength
 
             for (dayOffset in 0 until daysToLogInCycle) {
                 val currentDate = cycleStartDate.plus(dayOffset, DAY)
                 val dayInCycle = dayOffset + 1
+                val entryId = uuid4().toString()
 
-                // --- Enhanced Realistic Pattern Generation ---
+                // --- Generate PeriodLog (Flow) ---
+                // Flow data only exists for the duration of the periodLength.
+                val isFlowDay = dayInCycle <= periodLength
+
+                val periodLog = if (isFlowDay) {
+                    PeriodLog(
+                        id = uuid4().toString(),
+                        entryId = entryId,
+                        flowIntensity = when (dayInCycle) {
+                            1 -> FlowIntensity.MEDIUM
+                            2, 3 -> FlowIntensity.HEAVY
+                            else -> FlowIntensity.LIGHT
+                        },
+                        createdAt = Clock.System.now(),
+                        updatedAt = Clock.System.now()
+                    )
+                } else null
+
+                // --- Generate Generic Daily Entry (Mood/Energy/etc.) ---
                 var mood: Int?
-                // Define the premenstrual (luteal) and early menstrual phases where mood is often lower.
-                val lowMoodWindowStart = cycleLength - 5 // 5 days before next cycle
-                val lowMoodWindowEnd = 4 // First 4 days of cycle
+                // Logic uses cycleLength to define pre-menstrual and menstrual phase windows for mood logging.
+                val lowMoodWindowStart = cycleLength - 5
+                val lowMoodWindowEnd = 4
 
                 when {
-                    // Create a strong, contiguous block of low mood data across the cycle boundary.
                     dayInCycle >= lowMoodWindowStart || dayInCycle <= lowMoodWindowEnd -> {
-                        // Use a very high probability to ensure the pattern is strong enough to be detected.
                         mood = if (Random.nextFloat() < 0.90f) Random.nextInt(1, 3) else Random.nextInt(3, 5)
                     }
-                    // A high mood window around ovulation.
                     dayInCycle in 10..18 && Random.nextFloat() < 0.80f -> {
                         mood = Random.nextInt(4, 6)
                     }
-                    // Default mood for other days.
                     else -> {
                         mood = Random.nextInt(3, 5)
                     }
                 }
-
-                // Add some randomness by occasionally having no logged mood.
-                if (Random.nextFloat() < 0.1f) {
-                    mood = null
-                }
-
-                // Energy is often correlated with mood.
+                if (Random.nextFloat() < 0.1f) mood = null
                 val energy = if (mood != null && mood < 3) Random.nextInt(1, 4) else Random.nextInt(3, 6)
 
                 val newEntry = DailyEntry(
-                    id = uuid4().toString(),
+                    id = entryId,
                     entryDate = currentDate,
                     dayInCycle = dayInCycle,
-                    flowIntensity = if (dayInCycle <= periodLength && newPeriod.endDate != null) FlowIntensity.entries.random() else null,
                     moodScore = mood,
-                    energyLevel = if (Random.nextFloat() < 0.85f) energy else null, // Not always logged
-                    spotting = dayInCycle > periodLength && Random.nextFloat() < 0.05f,
+                    energyLevel = if (Random.nextFloat() < 0.85f) energy else null,
                     createdAt = Clock.System.now(),
                     updatedAt = Clock.System.now()
                 )
 
+                // --- Generate Symptoms & Meds ---
+                val isActualFlowDay = periodLog != null
                 val symptomLogs = mutableListOf<SymptomLog>()
-                // Cramps are common during the period.
-                if (dayInCycle <= periodLength && newPeriod.endDate != null && Random.nextFloat() < 0.8f) symptomLogs.add(SymptomLog(uuid4().toString(), newEntry.id, cramps.id, Random.nextInt(2, 5), Clock.System.now()))
-                // Bloating is common before the period.
-                if (dayInCycle in (cycleLength - 5)..<cycleLength && Random.nextFloat() < 0.5f) symptomLogs.add(SymptomLog(uuid4().toString(), newEntry.id, bloating.id, Random.nextInt(2, 5), Clock.System.now()))
-                // Link anxiety to low mood scores for a more realistic correlation.
-                if ((newEntry.moodScore ?: 6) < 3 && Random.nextFloat() < 0.5f) symptomLogs.add(SymptomLog(uuid4().toString(), newEntry.id, anxiety.id, Random.nextInt(2, 5), Clock.System.now()))
-                // Random headaches.
-                if (Random.nextFloat() < 0.15f) symptomLogs.add(SymptomLog(uuid4().toString(), newEntry.id, headache.id, Random.nextInt(1, 4), Clock.System.now()))
-
-                val medicationLogs = mutableListOf<MedicationLog>()
-                // Taking medication is often linked to pain symptoms.
-                if (symptomLogs.any { it.symptomId == cramps.id || it.symptomId == headache.id } && Random.nextFloat() < 0.6f) {
-                    medicationLogs.add(MedicationLog(uuid4().toString(), newEntry.id, ibuprofen.id, Clock.System.now()))
+                if (isActualFlowDay && Random.nextFloat() < 0.8f) {
+                    symptomLogs.add(SymptomLog(uuid4().toString(), entryId, cramps.id, Random.nextInt(2, 5), Clock.System.now()))
+                }
+                // Bloating/Anxiety/Headache are logged around their predicted phase windows
+                if (dayInCycle in (cycleLength - 5)..<cycleLength && Random.nextFloat() < 0.5f) {
+                    symptomLogs.add(SymptomLog(uuid4().toString(), entryId, bloating.id, Random.nextInt(2, 5), Clock.System.now()))
+                }
+                if ((newEntry.moodScore ?: 6) < 3 && Random.nextFloat() < 0.5f) {
+                    symptomLogs.add(SymptomLog(uuid4().toString(), entryId, anxiety.id, Random.nextInt(2, 5), Clock.System.now()))
+                }
+                if (Random.nextFloat() < 0.15f) {
+                    symptomLogs.add(SymptomLog(uuid4().toString(), entryId, headache.id, Random.nextInt(1, 4), Clock.System.now()))
                 }
 
-                allNewLogs.add(FullDailyLog(newEntry, symptomLogs, medicationLogs))
+                val medicationLogs = mutableListOf<MedicationLog>()
+                if (symptomLogs.any { it.symptomId == cramps.id || it.symptomId == headache.id } && Random.nextFloat() < 0.6f) {
+                    medicationLogs.add(MedicationLog(uuid4().toString(), entryId, ibuprofen.id, Clock.System.now()))
+                }
+
+                allNewLogs.add(FullDailyLog(newEntry, periodLog, symptomLogs, medicationLogs))
             }
 
-            // Set up the start date for the *previous* cycle for the next loop iteration.
-            nextCycleStartDate = cycleStartDate.minus(cycleLength, DateTimeUnit.DAY)
+            // --- Update the start date for the PREVIOUS cycle ---
+            currentCycleStartDate = cycleStartDate.minus(cycleLength, DateTimeUnit.DAY)
         }
 
-        // --- 4. Save all generated data in a single transaction ---
+        // --- Save all generated data ---
         db.withTransaction {
-            // Reverse the cycle list so they are inserted in chronological order
+            // Reverse the period list so they are inserted in chronological order
             allNewPeriods.reversed().forEach { periodDao.insert(it.toEntity()) }
             allNewLogs.forEach { log ->
                 dailyEntryDao.insert(log.entry.toEntity())
+                log.periodLog?.let { periodLogDao.insert(it.toEntity()) }
                 if (log.symptomLogs.isNotEmpty()) symptomLogDao.insertAll(log.symptomLogs.map { it.toEntity() })
                 if (log.medicationLogs.isNotEmpty()) medicationLogDao.insertAll(log.medicationLogs.map { it.toEntity() })
             }

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -63,6 +64,15 @@ fun TrackerScreen(navController: NavController) {
         }
     }
 
+    val onDeleteClick: (String) -> Unit = remember(viewModel, coroutineScope, sheetState) {
+        { periodId ->
+            coroutineScope.launch {
+                sheetState.hide()
+                viewModel.onEvent(TrackerEvent.DeletePeriodClicked(periodId))
+            }
+        }
+    }
+
     val currentMonth = remember { JavaYearMonth.now() }
     val startMonth = remember { currentMonth.minusMonths(100) }
     val endMonth = remember { currentMonth.plusMonths(100) }
@@ -76,8 +86,10 @@ fun TrackerScreen(navController: NavController) {
         ) {
             LogSummarySheetContent(
                 log = uiState.logForSheet!!,
+                periodId = uiState.periodIdForSheet,
                 symptomLibrary = uiState.symptomLibrary,
-                onEditClick = onEditClick
+                onEditClick = onEditClick,
+                onDeleteClick = onDeleteClick
             )
         }
     }
@@ -165,8 +177,11 @@ fun TrackerScreen(navController: NavController) {
 @Composable
 private fun LogSummarySheetContent(
     log: FullDailyLog,
+    periodId: String?, // <-- ADDED: Needed for Delete Period feature
     symptomLibrary: List<Symptom>,
-    onEditClick: (LocalDate) -> Unit) {
+    onEditClick: (LocalDate) -> Unit,
+    onDeleteClick: (String) -> Unit // <-- ADDED: Needed for Delete Period feature
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -182,18 +197,31 @@ private fun LogSummarySheetContent(
                 text = "Log for ${log.entry.entryDate}",
                 style = MaterialTheme.typography.titleLarge
             )
-            IconButton(onClick = { onEditClick(log.entry.entryDate) },
-                modifier = Modifier.testTag("edit-log-button")
-            ) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit Log")
+            Row { // Group Edit and Delete buttons
+                IconButton(onClick = { onEditClick(log.entry.entryDate) },
+                    modifier = Modifier.testTag("edit-log-button")
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit Log")
+                }
+                // Show Delete button only if a period is associated with the log day
+                if (periodId != null) {
+                    IconButton(
+                        onClick = { onDeleteClick(periodId) },
+                        modifier = Modifier.testTag("delete-period-button")
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete Period")
+                    }
+                }
             }
         }
 
         HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
 
-        log.entry.flowIntensity?.let {
+        // FIX: Replaced log.entry.flowIntensity with log.periodLog access
+        log.periodLog?.flowIntensity?.let {
             InfoRow(icon = Icons.Default.Build, title = "Flow", value = it.name)
         }
+
         log.entry.moodScore?.let {
             InfoRow(icon = Icons.Outlined.Star, title = "Mood", value = "$it / 5")
         }
