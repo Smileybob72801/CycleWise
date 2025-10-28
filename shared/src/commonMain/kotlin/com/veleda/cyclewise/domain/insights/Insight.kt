@@ -35,22 +35,25 @@ data class CycleLengthAverage(
 
 /**
  * An insight that predicts the start date of the next menstrual period.
- * @param predictedDate The calculated date for the next period's start.
- * @param today The current date, used to create a dynamic description.
+ * @param predictedDate The calculated raw date for the next period's start.
+ * @param daysUntilPrediction The number of days from today until the predicted date.
+ * @param formattedDateString The localized date string for display (set by ViewModel).
  */
 data class NextPeriodPrediction @OptIn(ExperimentalTime::class) constructor(
     val predictedDate: LocalDate,
-    val today: LocalDate = Clock.System.todayIn(TimeZone.currentSystemDefault())
+    val daysUntilPrediction: Int,
+    val formattedDateString: String = predictedDate.toString() // Default is raw string for non-Android targets
 ) : Insight {
     override val id: String = "NEXT_PERIOD_PREDICTION"
     override val title: String = "Next Period Forecast"
     override val description: String
         get() {
-            val days = today.daysUntil(predictedDate)
+            val days = daysUntilPrediction
+            val dateStr = formattedDateString
             return when {
                 days == 0 -> "Your next period is predicted to start today."
-                days > 0 -> "Your next period is predicted to start in $days days."
-                else -> "Your period was expected ${abs(days)} days ago."
+                days > 0 -> "Your next period is predicted to start in $days days (on $dateStr)."
+                else -> "Your period was expected ${abs(days)} days ago (on $dateStr)."
             }
         }
     override val priority: Int = 110
@@ -81,6 +84,7 @@ data class CycleLengthTrend(
  * @param symptomName The name of the recurring symptom.
  * @param phaseDescription A user-friendly description of the cycle phase (e.g., "during your period").
  * @param recurrenceRate A string representing the pattern's strength (e.g., "4 out of 5").
+ * @param formattedPredictedDateString The localized date string for display (set by ViewModel).
  */
 data class SymptomPhasePattern(
     val symptomName: String,
@@ -88,19 +92,22 @@ data class SymptomPhasePattern(
     val recurrenceRate: String,
     override val priority: Int,
     val predictedDate: LocalDate? = null,
-    val chanceDescription: String? = null
+    val chanceDescription: String? = null,
+    val formattedPredictedDateString: String? = null
 ) : Insight {
     override val id: String = "PATTERN_${symptomName}_$phaseDescription"
     override val title: String = "Symptom Pattern Detected"
     override val description: String
-        get() {
-            val baseDescription = "You've logged '$symptomName' $phaseDescription in $recurrenceRate of your recent cycles."
-            return if (predictedDate != null && chanceDescription != null) {
-                "$baseDescription Based on this, there is a $chanceDescription of it recurring on or around $predictedDate."
-            } else {
-                baseDescription
-            }
+    get() {
+        val dateStr = formattedPredictedDateString
+        val baseDescription = "You've logged '$symptomName' $phaseDescription in $recurrenceRate of your recent cycles."
+
+        return if (dateStr != null && chanceDescription != null) {
+            "$baseDescription Based on this, there is a $chanceDescription of it recurring on or around $dateStr."
+        } else {
+            baseDescription
         }
+    }
 }
 
 /**
@@ -118,15 +125,15 @@ data class MoodPhasePattern(
     override val id: String = "MOOD_PATTERN_${moodType}_$phaseDescription"
     override val title: String = "Mood Pattern Detected"
     override val description: String
-        get() {
-            val baseDescription = "You've logged a '$moodType' mood $phaseDescription in $recurrenceRate of your recent cycles."
-            val suffix = if (moodType == "low") {
-                "Being aware of this pattern can help you plan for self-care."
-            } else {
-                "Knowing this can help you schedule activities you enjoy."
-            }
-            return "$baseDescription $suffix"
+    get() {
+        val baseDescription = "You've logged a '$moodType' mood $phaseDescription in $recurrenceRate of your recent cycles."
+        val suffix = if (moodType == "low") {
+            "Being aware of this pattern can help you plan for self-care."
+        } else {
+            "Knowing this can help you schedule activities you enjoy."
         }
+        return "$baseDescription $suffix"
+    }
     override val priority: Int = 106
 }
 

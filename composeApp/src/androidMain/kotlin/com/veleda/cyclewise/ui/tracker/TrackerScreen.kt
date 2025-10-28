@@ -32,6 +32,8 @@ import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.ui.nav.NavRoute
+import com.veleda.cyclewise.ui.utils.toLocalizedDateString
+import com.veleda.cyclewise.ui.utils.toLocalizedMonthYearString
 import kotlinx.coroutines.launch
 import kotlinx.datetime.toKotlinLocalDate
 import java.time.format.TextStyle
@@ -100,7 +102,7 @@ fun TrackerScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = calendarState.firstVisibleMonth.yearMonth.toString(),
+                text = calendarState.firstVisibleMonth.yearMonth.toLocalizedMonthYearString(),
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 textAlign = TextAlign.Center
@@ -194,7 +196,7 @@ private fun LogSummarySheetContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Log for ${log.entry.entryDate}",
+                text = "Log for ${log.entry.entryDate.toLocalizedDateString()}",
                 style = MaterialTheme.typography.titleLarge
             )
             Row { // Group Edit and Delete buttons
