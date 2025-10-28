@@ -28,6 +28,7 @@ import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.ui.utils.toLocalizedDateString
 import kotlinx.datetime.LocalDate
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
@@ -89,7 +90,7 @@ fun DailyLogScreen(
                         .verticalScroll(rememberScrollState())
                 ) {
                     Text(
-                        text = "Log for ${log.entry.entryDate}",
+                        text = "Log for ${log.entry.entryDate.toLocalizedDateString()}",
                         style = MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
