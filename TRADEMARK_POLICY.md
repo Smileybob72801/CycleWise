@@ -1,6 +1,6 @@
 # RhythmWise Trademark Policy
 
-**RhythmWise** is a trademarks of Daniel Simmons.
+**RhythmWise** is a trademark of Daniel Simmons.
 
 ---
 
