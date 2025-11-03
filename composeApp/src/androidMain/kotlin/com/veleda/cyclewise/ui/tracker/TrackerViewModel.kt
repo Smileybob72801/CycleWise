@@ -11,6 +11,7 @@ import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -22,8 +23,6 @@ import kotlin.time.Clock
 
 data class TrackerUiState(
     val periods: List<Period> = emptyList(),
-    val selectionStartDate: LocalDate? = null,
-    val selectionEndDate: LocalDate? = null,
     val logForSheet: FullDailyLog? = null,
     val periodIdForSheet: String? = null,
     val symptomLibrary: List<Symptom> = emptyList(),
@@ -31,7 +30,7 @@ data class TrackerUiState(
     val dayDetails: Map<LocalDate, CalendarDayInfo> = emptyMap()
 ) {
     val ongoingPeriod: Period? = periods.find { it.endDate == null }
-    val isSelectingRange: Boolean = selectionStartDate != null
+    val isSelectingRange: Boolean = false // Always false now that range selection is removed
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -39,6 +38,7 @@ class TrackerViewModel(
     private val periodRepository: PeriodRepository,
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private  val medicationLibraryProvider: MedicationLibraryProvider,
+    private val autoClosePeriodUseCase: AutoCloseOngoingPeriodUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TrackerUiState())
     val uiState: StateFlow<TrackerUiState> = _uiState.asStateFlow()
@@ -85,54 +85,48 @@ class TrackerViewModel(
         }
     }
 
+    // Public helper for the UI to check existence of a log (used by onSingleTap)
+    suspend fun getFullLogForDate(date: LocalDate): FullDailyLog? {
+        return periodRepository.getFullLogForDate(date)
+    }
+
+    // Public method to manually show the log sheet (used by onSingleTap after log is fetched)
+    fun showLogSheet(date: LocalDate, periodForDate: Period?) {
+        viewModelScope.launch {
+            // We expect the calling UI to ensure a log exists here.
+            // If it doesn't, fetching a log will return null, and this function will return.
+            val log = periodRepository.getFullLogForDate(date) ?: return@launch
+
+            // If the log is shown for a non-period day, periodIdForSheet will be null,
+            // which correctly disables the Delete Period button in the sheet.
+            val periodId = periodForDate?.id
+
+            _uiState.update { it.copy(logForSheet = log, periodIdForSheet = periodId) }
+        }
+    }
+
     private fun reduce(currentState: TrackerUiState, event: TrackerEvent): TrackerUiState {
         return when (event) {
-            is TrackerEvent.DateClicked -> {
-                if (event.periodForDate != null) {
-                    showLogSheetForDate(event.date, event.periodForDate)
-                    return currentState // No immediate state change, handled by side-effect
-                }
-
-                val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-                if (event.date > today || currentState.ongoingPeriod != null) {
-                    return currentState // Invalid selection, do nothing
-                }
-
-                val currentSelectionStart = currentState.selectionStartDate
-                when {
-                    currentSelectionStart == null -> currentState.copy(selectionStartDate = event.date, selectionEndDate = null)
-                    event.date < currentSelectionStart -> currentState.copy(selectionStartDate = event.date, selectionEndDate = null)
-                    event.date == currentSelectionStart -> currentState.copy(selectionStartDate = null, selectionEndDate = null) // Deselect
-                    else -> currentState.copy(selectionEndDate = event.date)
-                }
-            }
-            is TrackerEvent.SaveSelectionClicked -> {
+            is TrackerEvent.ScreenEntered -> {
+                // CRITICAL: Check for period closure immediately upon screen entry.
                 viewModelScope.launch {
-                    val startDate = currentState.selectionStartDate ?: return@launch
-                    val endDate = currentState.selectionEndDate ?: startDate
-                    if (periodRepository.isDateRangeAvailable(startDate, endDate)) {
-                        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-                        if (startDate == today) {
-                            periodRepository.startNewPeriod(startDate)
-                        } else {
-                            periodRepository.createCompletedPeriod(startDate, endDate)
-                        }
-                    }
-                    onEvent(TrackerEvent.ClearSelectionClicked) // Clear selection after saving
-                }
-                currentState // Return immediately; the launch block will trigger another event
-            }
-            is TrackerEvent.EndPeriodClicked -> {
-                currentState.ongoingPeriod?.let {
-                    viewModelScope.launch {
-                        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-                        periodRepository.endPeriod(it.id, today)
-                    }
+                    autoClosePeriodUseCase()
                 }
                 currentState
             }
-            is TrackerEvent.ClearSelectionClicked -> {
-                currentState.copy(selectionStartDate = null, selectionEndDate = null)
+            is TrackerEvent.PeriodMarkDay -> {
+                viewModelScope.launch {
+                    val periodForDate = currentState.periods.find { event.date in (it.startDate..(it.endDate ?: Clock.System.todayIn(TimeZone.currentSystemDefault()))) }
+
+                    if (periodForDate != null) {
+                        // Unmark / Split Period
+                        periodRepository.unLogPeriodDay(event.date)
+                    } else {
+                        // Mark / Merge Period
+                        periodRepository.logPeriodDay(event.date)
+                    }
+                }
+                currentState
             }
             is TrackerEvent.DismissLogSheet -> {
                 currentState.copy(logForSheet = null, periodIdForSheet = null)
@@ -144,23 +138,7 @@ class TrackerViewModel(
                 // Clear the sheet, as the underlying log/period is now gone
                 currentState.copy(logForSheet = null, periodIdForSheet = null)
             }
-        }
-    }
-
-    private fun showLogSheetForDate(date: LocalDate, periodForDate: Period) {
-        viewModelScope.launch {
-            val log = periodRepository.getFullLogForDate(date) ?: run {
-                val dayInCycle = periodForDate.startDate.daysUntil(date) + 1
-                val newBlankEntry = DailyEntry(
-                    id = uuid4().toString(),
-                    entryDate = date,
-                    dayInCycle = dayInCycle,
-                    createdAt = Clock.System.now(),
-                    updatedAt = Clock.System.now()
-                )
-                FullDailyLog(entry = newBlankEntry)
-            }
-            _uiState.update { it.copy(logForSheet = log) }
+            else -> currentState
         }
     }
 }

@@ -94,6 +94,12 @@ interface PeriodRepository {
     /** [DEBUG ONLY] Clears and seeds the database with test data. */
     suspend fun seedDatabaseForDebug()
 
-    /** Permanently deletes a period. Associated period logs are also cleared. */
+    /** Permanently deletes a period. */
     suspend fun deletePeriod(id: String)
+
+    /** Marks a specific date as a period day, merging or extending adjacent periods if necessary. */
+    suspend fun logPeriodDay(date: LocalDate)
+
+    /** Unmarks a specific date as a period day, splitting the existing period or deleting a 1-day period. */
+    suspend fun unLogPeriodDay(date: LocalDate)
 }

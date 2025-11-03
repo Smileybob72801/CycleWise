@@ -19,6 +19,7 @@ import com.veleda.cyclewise.domain.insights.generators.SymptomPhasePatternGenera
 import com.veleda.cyclewise.domain.insights.generators.SymptomRecurrenceGenerator
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
+import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
 import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
 import org.koin.core.qualifier.named
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
@@ -97,13 +98,15 @@ val appModule = module {
         // Use Case Providers
         scoped { GetOrCreateDailyLogUseCase(get()) }
         scoped { DebugSeederUseCase(get()) }
+        scoped { AutoCloseOngoingPeriodUseCase(get()) }
 
         // ViewModel Providers
         viewModel {
             TrackerViewModel(
                 periodRepository = get(),
                 symptomLibraryProvider = get(),
-                medicationLibraryProvider = get()
+                medicationLibraryProvider = get(),
+                autoClosePeriodUseCase = get()
             )
         }
 
