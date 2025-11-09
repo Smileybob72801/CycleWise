@@ -72,7 +72,12 @@ fun TrackerScreen(navController: NavController) {
             coroutineScope.launch {
                 sheetState.hide()
                 viewModel.onEvent(TrackerEvent.DismissLogSheet)
-                navController.navigate(NavRoute.DailyLog.createRoute(date))
+
+                // CRITICAL: Need to know if the current day is a period day to pass the boolean
+                val periodForDate = uiState.periods.find { date in (it.startDate..(it.endDate ?: today)) }
+                val isPeriodDay = periodForDate != null
+
+                navController.navigate(NavRoute.DailyLog.createRoute(date, isPeriodDay))
             }
         }
     }
@@ -92,7 +97,10 @@ fun TrackerScreen(navController: NavController) {
         { date ->
             coroutineScope.launch {
                 val periodForDate = uiState.periods.find { date in (it.startDate..(it.endDate ?: today)) }
+
                 val existingLog = viewModel.getFullLogForDate(date)
+
+                val isPeriodDay = periodForDate != null
 
                 if (existingLog != null) {
                     // Log exists: Show the summary sheet (regardless of period status)
@@ -100,7 +108,7 @@ fun TrackerScreen(navController: NavController) {
                     // The sheet's logic will use periodForDate to display Delete button if present.
                 } else {
                     // No log exists: Navigate directly to the Daily Log edit screen to create one.
-                    navController.navigate(NavRoute.DailyLog.createRoute(date))
+                    navController.navigate(NavRoute.DailyLog.createRoute(date, isPeriodDay))
                 }
             }
         }

@@ -35,16 +35,18 @@ data class DailyLogUiState(
     val error: String? = null,
     val symptomLibrary: List<Symptom> = emptyList(),
     val medicationLibrary: List<Medication> = emptyList(),
+    val isPeriodDay: Boolean = false
 )
 
 class DailyLogViewModel(
     private val entryDate: LocalDate,
     private val periodRepository: PeriodRepository,
     private val symptomLibraryProvider: SymptomLibraryProvider,
-    private val medicationLibraryProvider: MedicationLibraryProvider
+    private val medicationLibraryProvider: MedicationLibraryProvider,
+    private val isPeriodDay: Boolean
 ) : ViewModel()
 {
-    private val _uiState = MutableStateFlow(DailyLogUiState())
+    private val _uiState = MutableStateFlow(DailyLogUiState(isPeriodDay = isPeriodDay))
     val uiState = _uiState.asStateFlow()
 
     private val _saveCompleteEvent = MutableSharedFlow<Unit>(replay = 0)
@@ -95,6 +97,7 @@ class DailyLogViewModel(
                     log = event.log,
                     symptomLibrary = event.initialSymptoms,
                     medicationLibrary = event.initialMedications,
+                    isPeriodDay = isPeriodDay,
                     error = if (event.log == null) "Could not find a parent cycle for this date." else null
                 )
                 is DailyLogEvent.LibraryUpdated -> currentState.copy(

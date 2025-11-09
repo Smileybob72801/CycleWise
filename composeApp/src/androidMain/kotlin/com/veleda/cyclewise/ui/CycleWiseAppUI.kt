@@ -62,13 +62,18 @@ fun CycleWiseAppUI() {
 
             composable(
                 route = NavRoute.DailyLog.route,
-                arguments = listOf(navArgument("date") { type = NavType.StringType })
+                arguments = listOf(
+                    navArgument("date") { type = NavType.StringType },
+                    navArgument("isPeriodDay") { type = NavType.BoolType; defaultValue = false }
+                )
             ) { backStackEntry ->
                 val dateString = backStackEntry.arguments?.getString("date")
+                val isPeriodDay = backStackEntry.arguments?.getBoolean("isPeriodDay") ?: false
                 if (dateString != null) {
                     DailyLogScreen(
                         date = LocalDate.parse(dateString),
-                        onSaveComplete = { navController.popBackStack() }
+                        onSaveComplete = { navController.popBackStack() },
+                        isPeriodDay = isPeriodDay
                     )
                 }
             }

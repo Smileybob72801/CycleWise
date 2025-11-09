@@ -110,12 +110,13 @@ val appModule = module {
             )
         }
 
-        viewModel { (date: LocalDate) ->
+        viewModel { (date: LocalDate, isPeriodDay: Boolean) ->
             DailyLogViewModel(
                 entryDate = date,
                 periodRepository = get(),
                 symptomLibraryProvider = get(),
-                medicationLibraryProvider = get()
+                medicationLibraryProvider = get(),
+                isPeriodDay = isPeriodDay
             )
         }
 
