@@ -1,9 +1,10 @@
 package com.veleda.cyclewise.ui.tracker
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -30,6 +31,7 @@ import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.utils.toLocalizedDateString
@@ -47,7 +49,7 @@ import kotlin.time.Clock
 import java.time.DayOfWeek as JavaDayOfWeek
 import java.time.YearMonth as JavaYearMonth
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TrackerScreen(navController: NavController) {
     val viewModel: TrackerViewModel = koinInject(scope = getKoin().getScope("session"))
@@ -56,12 +58,26 @@ fun TrackerScreen(navController: NavController) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
+    // Trigger auto-close logic when the screen is first composed/entered.
+    LaunchedEffect(Unit) {
+        viewModel.onEvent(TrackerEvent.ScreenEntered)
+    }
+
+    // State for the confirmation dialog
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var periodIdToDelete by remember { mutableStateOf<String?>(null) }
+
     val onEditClick: (LocalDate) -> Unit = remember(navController, sheetState) {
         { date ->
             coroutineScope.launch {
                 sheetState.hide()
                 viewModel.onEvent(TrackerEvent.DismissLogSheet)
-                navController.navigate(NavRoute.DailyLog.createRoute(date))
+
+                // CRITICAL: Need to know if the current day is a period day to pass the boolean
+                val periodForDate = uiState.periods.find { date in (it.startDate..(it.endDate ?: today)) }
+                val isPeriodDay = periodForDate != null
+
+                navController.navigate(NavRoute.DailyLog.createRoute(date, isPeriodDay))
             }
         }
     }
@@ -69,9 +85,39 @@ fun TrackerScreen(navController: NavController) {
     val onDeleteClick: (String) -> Unit = remember(viewModel, coroutineScope, sheetState) {
         { periodId ->
             coroutineScope.launch {
-                sheetState.hide()
-                viewModel.onEvent(TrackerEvent.DeletePeriodClicked(periodId))
+                // Instead of deleting immediately, set the state to show confirmation
+                periodIdToDelete = periodId
+                showDeleteConfirmation = true
+                viewModel.onEvent(TrackerEvent.DismissLogSheet) // Clear the sheet state/hide it
             }
+        }
+    }
+
+    val onSingleTap: (LocalDate) -> Unit = remember(navController, coroutineScope, sheetState, viewModel) {
+        { date ->
+            coroutineScope.launch {
+                val periodForDate = uiState.periods.find { date in (it.startDate..(it.endDate ?: today)) }
+
+                val existingLog = viewModel.getFullLogForDate(date)
+
+                val isPeriodDay = periodForDate != null
+
+                if (existingLog != null) {
+                    // Log exists: Show the summary sheet (regardless of period status)
+                    viewModel.showLogSheet(date, periodForDate)
+                    // The sheet's logic will use periodForDate to display Delete button if present.
+                } else {
+                    // No log exists: Navigate directly to the Daily Log edit screen to create one.
+                    navController.navigate(NavRoute.DailyLog.createRoute(date, isPeriodDay))
+                }
+            }
+        }
+    }
+
+    val onLongPress: (LocalDate) -> Unit = remember(viewModel) {
+        { date ->
+            // Trigger the period marking/unmarking logic in the ViewModel
+            viewModel.onEvent(TrackerEvent.PeriodMarkDay(date))
         }
     }
 
@@ -94,6 +140,32 @@ fun TrackerScreen(navController: NavController) {
                 onDeleteClick = onDeleteClick
             )
         }
+    }
+
+    // --- New Confirmation Dialog ---
+    if (showDeleteConfirmation && periodIdToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false; periodIdToDelete = null },
+            title = { Text("Confirm Deletion") },
+            text = { Text("Are you sure you want to permanently delete this period and all its associated flow logs? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.onEvent(TrackerEvent.DeletePeriodClicked(periodIdToDelete!!))
+                        showDeleteConfirmation = false
+                        periodIdToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Period")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteConfirmation = false; periodIdToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Scaffold { padding ->
@@ -119,54 +191,49 @@ fun TrackerScreen(navController: NavController) {
                 dayContent = { day ->
                     val date = day.date.toKotlinLocalDate()
                     val cycleForDate = uiState.periods.find { date in (it.startDate..(it.endDate ?: today)) }
-                    val selectionRange = remember(uiState.selectionStartDate, uiState.selectionEndDate) {
-                        val start = uiState.selectionStartDate
-                        val end = uiState.selectionEndDate
-                        if (start != null && end != null) start..end else if (start != null) start..start else null
-                    }
+                    // selectionRange is now obsolete, removed usage.
                     val dayInfo = uiState.dayDetails[date]
+
+                    // Simplified logic: only check if the day is in the current month's dates
+                    val dayIsNotTappable = day.position != DayPosition.MonthDate
+
+                    // Tap action: Always check for existing log/summary first.
+                    val handleTap: (() -> Unit)? = if (dayIsNotTappable) null else {
+                        { onSingleTap(date) }
+                    }
+
+                    // Long Press action: Period marking remains the same.
+                    val handleLongPress: (() -> Unit)? = if (dayIsNotTappable) null else {
+                        { viewModel.onEvent(TrackerEvent.PeriodMarkDay(date)) }
+                    }
 
                     Day(
                         day = day,
                         dayInfo = dayInfo,
-                        isSelected = date == uiState.selectionStartDate || date == uiState.selectionEndDate,
+                        isSelected = false,
                         isStartDate = cycleForDate?.startDate == date,
                         isEndDate = cycleForDate?.endDate == date,
                         isInExistingRange = cycleForDate != null,
-                        isInSelectionRange = selectionRange?.contains(date) ?: false,
-                        onClick = { viewModel.onEvent(TrackerEvent.DateClicked(date, cycleForDate)) }
+                        isInSelectionRange = false,
+                        onTap = handleTap,
+                        onLongPress = handleLongPress
                     )
                 }
             )
 
             Spacer(Modifier.height(16.dp))
-            AnimatedVisibility(visible = uiState.isSelectingRange) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { viewModel.onEvent(TrackerEvent.ClearSelectionClicked) },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                    ) {
-                        Text("Cancel")
-                    }
-                    Button(
-                        onClick = { viewModel.onEvent(TrackerEvent.SaveSelectionClicked) },
-                        modifier = Modifier.testTag("save-cycle-button")
-                    ) {
-                        Text("Save Period")
-                    }
-                }
-            }
-            AnimatedVisibility(visible = !uiState.isSelectingRange && uiState.ongoingPeriod != null) {
-                Button(
-                    onClick = { viewModel.onEvent(TrackerEvent.EndPeriodClicked) },
-                    modifier = Modifier.testTag("end-cycle-button")
-                ) {
-                    Text("End Period Today")
-                }
-            }
-            AnimatedVisibility(visible = !uiState.isSelectingRange && uiState.ongoingPeriod == null) {
+
+            AnimatedVisibility(visible = uiState.ongoingPeriod != null) {
                 Text(
-                    "Tap a date to log a new cycle",
+                    "Ongoing Period: ${uiState.ongoingPeriod!!.startDate.toLocalizedDateString()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(8.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            AnimatedVisibility(visible = uiState.ongoingPeriod == null) {
+                Text(
+                    "Long press a day to start/mark your period. Tap to log details.",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(8.dp)
                 )
@@ -179,10 +246,10 @@ fun TrackerScreen(navController: NavController) {
 @Composable
 private fun LogSummarySheetContent(
     log: FullDailyLog,
-    periodId: String?, // <-- ADDED: Needed for Delete Period feature
+    periodId: String?,
     symptomLibrary: List<Symptom>,
     onEditClick: (LocalDate) -> Unit,
-    onDeleteClick: (String) -> Unit // <-- ADDED: Needed for Delete Period feature
+    onDeleteClick: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -219,7 +286,6 @@ private fun LogSummarySheetContent(
 
         HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
 
-        // FIX: Replaced log.entry.flowIntensity with log.periodLog access
         log.periodLog?.flowIntensity?.let {
             InfoRow(icon = Icons.Default.Build, title = "Flow", value = it.name)
         }
@@ -256,6 +322,7 @@ private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Day(
     day: CalendarDay,
@@ -265,7 +332,8 @@ private fun Day(
     isEndDate: Boolean,
     isInExistingRange: Boolean,
     isInSelectionRange: Boolean,
-    onClick: () -> Unit
+    onTap: (() -> Unit)?,
+    onLongPress: (() -> Unit)?
 ) {
     val date = day.date.toKotlinLocalDate()
     val inRange = isInExistingRange || isInSelectionRange
@@ -291,9 +359,10 @@ private fun Day(
                 color = if (dayInfo?.isPeriodDay == true) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                 shape = shape
             )
-            .clickable(
+            .combinedClickable(
                 enabled = day.position == DayPosition.MonthDate,
-                onClick = onClick
+                onClick = { onTap?.invoke() },
+                onLongClick = { onLongPress?.invoke() }
             ),
         contentAlignment = Alignment.Center
     ) {

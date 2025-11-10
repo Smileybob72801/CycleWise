@@ -5,7 +5,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 // TODO: Standardize mood, energy, and libido. Choose 1-5 or enums for all fields.
-// TODO: Chance phase to an enum as well.
+// TODO: Change phase to an enum as well.
 
 // TODO: Add more info fields such as mucous color and viscosity
 // see https://femia.health/health-library/your-cycle/health/cervical-mucus-chart/

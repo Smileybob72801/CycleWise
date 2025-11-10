@@ -35,16 +35,18 @@ data class DailyLogUiState(
     val error: String? = null,
     val symptomLibrary: List<Symptom> = emptyList(),
     val medicationLibrary: List<Medication> = emptyList(),
+    val isPeriodDay: Boolean = false
 )
 
 class DailyLogViewModel(
     private val entryDate: LocalDate,
     private val periodRepository: PeriodRepository,
     private val symptomLibraryProvider: SymptomLibraryProvider,
-    private val medicationLibraryProvider: MedicationLibraryProvider
+    private val medicationLibraryProvider: MedicationLibraryProvider,
+    private val isPeriodDay: Boolean
 ) : ViewModel()
 {
-    private val _uiState = MutableStateFlow(DailyLogUiState())
+    private val _uiState = MutableStateFlow(DailyLogUiState(isPeriodDay = isPeriodDay))
     val uiState = _uiState.asStateFlow()
 
     private val _saveCompleteEvent = MutableSharedFlow<Unit>(replay = 0)
@@ -95,6 +97,7 @@ class DailyLogViewModel(
                     log = event.log,
                     symptomLibrary = event.initialSymptoms,
                     medicationLibrary = event.initialMedications,
+                    isPeriodDay = isPeriodDay,
                     error = if (event.log == null) "Could not find a parent cycle for this date." else null
                 )
                 is DailyLogEvent.LibraryUpdated -> currentState.copy(
@@ -222,6 +225,11 @@ class DailyLogViewModel(
             }
             is DailyLogEvent.SaveLog -> {
                 viewModelScope.launch {
+                    if (isLogEmpty(log)) {
+                        // If log is empty, skip saving and just dismiss the screen
+                        _saveCompleteEvent.emit(Unit)
+                        return@launch
+                    }
                     periodRepository.saveFullLog(log)
                     _saveCompleteEvent.emit(Unit)
                 }
@@ -231,19 +239,45 @@ class DailyLogViewModel(
         }
     }
 
-    private suspend fun createNewBlankLog(): FullDailyLog? {
+    /**
+     * Determines if a FullDailyLog contains no user-entered data.
+     */
+    private fun isLogEmpty(log: FullDailyLog): Boolean {
+        val entry = log.entry
+        return log.periodLog == null &&
+                log.symptomLogs.isEmpty() &&
+                log.medicationLogs.isEmpty() &&
+                entry.moodScore == null &&
+                entry.energyLevel == null &&
+                entry.libidoLevel == null &&
+                entry.customTags.isEmpty() &&
+                entry.note.isNullOrBlank()
+    }
+
+    private suspend fun createNewBlankLog(): FullDailyLog {
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
 
-        val parentCycle = periodRepository.getAllPeriods().first().find { entryDate in (it.startDate..(it.endDate ?: today)) }
+        // 1: Find the *last completed* period to calculate the cycle day accurately.
+        // We look for the Period whose start date is closest to, but before, the entryDate.
+        // The repository returns periods newest-first.
+        val periods = periodRepository.getAllPeriods().first()
+        val logicalParentPeriod = periods
+            .filter { it.startDate <= entryDate }
+            .maxByOrNull { it.startDate } // Find the chronologically latest period whose start is before or on today.
 
-        parentCycle ?: return null
-
-        val dayInCycle = parentCycle.startDate.daysUntil(entryDate) + 1
+        // 2: Calculate dayInCycle or default
+        val dayInCycleValue = if (logicalParentPeriod != null) {
+            // Day 1 of cycle is the start of the logical parent period.
+            logicalParentPeriod.startDate.daysUntil(entryDate) + 1
+        } else {
+            // No historical cycle found. Use 1 as a sentinel value for the very first log.
+            1
+        }
 
         val newBlankEntry = DailyEntry(
             id = uuid4().toString(),
             entryDate = entryDate,
-            dayInCycle = dayInCycle,
+            dayInCycle = dayInCycleValue, // Now guaranteed to be an Int
             createdAt = Clock.System.now(),
             updatedAt = Clock.System.now()
         )

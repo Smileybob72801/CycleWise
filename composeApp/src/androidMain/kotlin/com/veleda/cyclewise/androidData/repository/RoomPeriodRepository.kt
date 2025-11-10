@@ -42,6 +42,7 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import kotlin.random.Random
+import com.veleda.cyclewise.androidData.local.entities.PeriodEntity
 
 class RoomPeriodRepository(
     private val db: PeriodDatabase,
@@ -171,10 +172,24 @@ class RoomPeriodRepository(
         return count == 0
     }
 
-    override suspend fun updatePeriodEndDate(periodId: String, endDate: LocalDate?): Period? {
+    // Helper to find a period that encompasses a date (needed for log/unlog logic)
+    private suspend fun getPeriodForDate(date: LocalDate): Period? {
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+        return periodDao.getAllPeriods().firstOrNull()?.find { date in (it.startDate..(it.endDate ?: today)) }?.toDomain()
+    }
+
+    // Helper to adjust period start date
+    private suspend fun updatePeriodStartDate(periodId: String, newStartDate: LocalDate): Period? {
         val existing = periodDao.getByUuid(periodId) ?: return null
-        // The .copy() method can handle a nullable value perfectly.
-        val updated = existing.copy(endDate = endDate, updatedAt = Clock.System.now())
+        val updated = existing.copy(startDate = newStartDate, updatedAt = Clock.System.now())
+        periodDao.update(updated)
+        return updated.toDomain()
+    }
+
+    // Helper to adjust period end date
+    override suspend fun updatePeriodEndDate(periodId: String, newEndDate: LocalDate?): Period? {
+        val existing = periodDao.getByUuid(periodId) ?: return null
+        val updated = existing.copy(endDate = newEndDate, updatedAt = Clock.System.now())
         periodDao.update(updated)
         return updated.toDomain()
     }
@@ -519,6 +534,102 @@ class RoomPeriodRepository(
                 if (log.symptomLogs.isNotEmpty()) symptomLogDao.insertAll(log.symptomLogs.map { it.toEntity() })
                 if (log.medicationLogs.isNotEmpty()) medicationLogDao.insertAll(log.medicationLogs.map { it.toEntity() })
             }
+        }
+    }
+
+    override suspend fun logPeriodDay(date: LocalDate) {
+        db.withTransaction {
+            // Find adjacent periods or period that contains the date.
+            // NOTE: We rely on getAllPeriods().first() then filtering in the repo to handle ongoing cycles correctly,
+            // as Room's @Query is limited with nullable/dynamic date ranges.
+            val periodBefore = getPeriodForDate(date.minus(1, DateTimeUnit.DAY))
+            val periodAfter = getPeriodForDate(date.plus(1, DateTimeUnit.DAY))
+            val periodContaining = getPeriodForDate(date) // Check if the date is already part of a period
+
+            when {
+                // Scenario 1: Already logged
+                periodContaining != null -> {
+                    // If it's the ongoing period, ensure the end date is nullified if it was closed prematurely
+                    if (periodContaining.endDate != null && periodContaining.endDate!! < date) {
+                        updatePeriodEndDate(periodContaining.id, null)
+                    }
+                    // Also ensure flow is logged for this day
+                    val entry = dailyEntryDao.getEntryForDate(date).firstOrNull()?.toDomain()
+                    entry?.let {
+                        periodLogDao.insert(PeriodLog(
+                            id = uuid4().toString(),
+                            entryId = it.id,
+                            flowIntensity = FlowIntensity.MEDIUM, // Default flow intensity for auto-log
+                            createdAt = Clock.System.now(),
+                            updatedAt = Clock.System.now()
+                        ).toEntity())
+                    }
+                }
+
+                // Scenario 2: Bridges two existing periods (MERGE)
+                periodBefore != null && periodAfter != null -> {
+                    // Update 'periodBefore' to span the new combined range (start of before, end of after)
+                    updatePeriodEndDate(periodBefore.id, periodAfter.endDate)
+                    // Delete the 'periodAfter' entity
+                    periodDao.deleteByUuid(periodAfter.id)
+                }
+
+                // Scenario 3: Extends an existing period (either forward or backward)
+                periodBefore != null -> {
+                    updatePeriodEndDate(periodBefore.id, date) // Extend the end date
+                }
+                periodAfter != null -> {
+                    updatePeriodStartDate(periodAfter.id, date) // Extend the start date
+                }
+
+                // Scenario 4: Day is an island (CREATE)
+                else -> {
+                    createCompletedPeriod(date, date) // Creates a 1-day period
+                }
+            }
+        }
+    }
+
+    override suspend fun unLogPeriodDay(date: LocalDate) {
+        db.withTransaction {
+            val periodToModify = getPeriodForDate(date)
+            periodToModify ?: return@withTransaction // Nothing to unmark
+
+            when {
+                // Scenario 1: Single-day period (DELETE)
+                periodToModify.startDate == periodToModify.endDate || periodToModify.startDate == date && periodToModify.endDate == null -> {
+                    // Safest to always use deletePeriod which clears associated PeriodLogs
+                    deletePeriod(periodToModify.id)
+                }
+
+                // Scenario 2: Unmarking the Start Date (ADJUST START)
+                periodToModify.startDate == date -> {
+                    updatePeriodStartDate(periodToModify.id, date.plus(1, DateTimeUnit.DAY))
+                }
+
+                // Scenario 3: Unmarking the End Date (ADJUST END)
+                periodToModify.endDate == date || periodToModify.endDate == null -> {
+                    updatePeriodEndDate(periodToModify.id, date.minus(1, DateTimeUnit.DAY))
+                }
+
+                // Scenario 4: Unmarking a Middle Day (SPLIT)
+                else -> {
+                    // Update existing period to end at X-1
+                    updatePeriodEndDate(periodToModify.id, date.minus(1, DateTimeUnit.DAY))
+
+                    // Create a new period from X+1 to Z (end of old period)
+                    periodDao.insert(Period(
+                        id = uuid4().toString(),
+                        startDate = date.plus(1, DateTimeUnit.DAY),
+                        endDate = periodToModify.endDate,
+                        createdAt = Clock.System.now(),
+                        updatedAt = Clock.System.now()
+                    ).toEntity())
+                }
+            }
+            // Delete the flow log for this specific day, as it is no longer a period day
+            val entryForDate = dailyEntryDao.getEntryForDate(date).firstOrNull()
+            entryForDate?.let { periodLogDao.deleteLogForEntry(it.id) }
         }
     }
 }

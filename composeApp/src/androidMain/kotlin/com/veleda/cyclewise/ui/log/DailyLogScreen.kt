@@ -39,13 +39,14 @@ import androidx.compose.ui.platform.testTag
 @Composable
 fun DailyLogScreen(
     date: LocalDate,
-    onSaveComplete: () -> Unit
+    onSaveComplete: () -> Unit,
+    isPeriodDay: Boolean
 ) {
     val sessionScope = getKoin().getScope("session")
 
     val viewModel: DailyLogViewModel = koinViewModel(
         scope = sessionScope,
-        parameters = { parametersOf(date) }
+        parameters = { parametersOf(date, isPeriodDay) }
     )
 
     val uiState by viewModel.uiState.collectAsState()
@@ -95,11 +96,13 @@ fun DailyLogScreen(
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
 
-                    SectionTitle("Flow")
-                    FlowIntensitySelector(
-                        selectedIntensity = log.periodLog?.flowIntensity,
-                        onSelectionChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) }
-                    )
+                    if (uiState.isPeriodDay) {
+                        SectionTitle("Flow")
+                        FlowIntensitySelector(
+                            selectedIntensity = log.periodLog?.flowIntensity,
+                            onSelectionChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) }
+                        )
+                    }
 
                     SectionTitle("Mood")
                     MoodSelector(
