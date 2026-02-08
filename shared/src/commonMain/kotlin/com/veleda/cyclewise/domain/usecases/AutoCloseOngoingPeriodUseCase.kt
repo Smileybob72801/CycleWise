@@ -24,22 +24,15 @@ class AutoCloseOngoingPeriodUseCase(
 
         val ongoingPeriod = repository.getCurrentlyOngoingPeriod() ?: return
 
-        // Find the last actual day that was part of a period.
         val allPeriodDays = repository.observeAllPeriodDays().first()
 
-        // The ongoing period's start date is the earliest period day.
-        // The *actual* last period day might be earlier than the current date.
         val lastLoggedPeriodDay = allPeriodDays
-            .filter { it >= ongoingPeriod.startDate } // Only consider days *after* the start
+            .filter { it >= ongoingPeriod.startDate }
             .maxOrNull() ?: ongoingPeriod.startDate
 
-        // If there is at least a one day gap since the last period day, I consider the period closed.
-        // Last period day was yesterday or earlier.
         val dateToCheck = lastLoggedPeriodDay.plus(1, DateTimeUnit.DAY)
 
-        // If the date to check is before or on today, it means the period has been over for at least a day.
         if (dateToCheck <= today) {
-            // The closure date is the day *before* the first gap.
             val closingDate = lastLoggedPeriodDay
             repository.updatePeriodEndDate(ongoingPeriod.id, closingDate)
         }

@@ -44,6 +44,10 @@ import kotlinx.datetime.todayIn
 import kotlin.random.Random
 import com.veleda.cyclewise.androidData.local.entities.PeriodEntity
 
+/**
+ * Room-backed implementation of [PeriodRepository].
+ * All data access is routed through SQLCipher-encrypted DAOs within a session scope.
+ */
 class RoomPeriodRepository(
     private val db: PeriodDatabase,
     private val periodDao: PeriodDao,
@@ -110,22 +114,18 @@ class RoomPeriodRepository(
 
     override suspend fun saveFullLog(log: FullDailyLog) {
         db.withTransaction {
-            // 1. Always save DailyEntry first
             dailyEntryDao.insert(log.entry.toEntity())
 
-            // 2. Handle PeriodLog (Flow data)
             periodLogDao.deleteLogForEntry(log.entry.id)
             log.periodLog?.let { periodLog ->
                 periodLogDao.insert(periodLog.toEntity())
             }
 
-            // 3. Handle Symptom Logs
             symptomLogDao.deleteLogsForEntry(log.entry.id)
             if (log.symptomLogs.isNotEmpty()) {
                 symptomLogDao.insertAll(log.symptomLogs.map { it.toEntity() })
             }
 
-            // 4. Handle Medication Logs
             medicationLogDao.deleteLogsForEntry(log.entry.id)
             if (log.medicationLogs.isNotEmpty()) {
                 medicationLogDao.insertAll(log.medicationLogs.map { it.toEntity() })
@@ -159,7 +159,7 @@ class RoomPeriodRepository(
         val domainPeriod = Period(
             id = uuid4().toString(),
             startDate = startDate,
-            endDate = endDate, // The end date is provided directly
+            endDate = endDate,
             createdAt = now,
             updatedAt = now
         )
@@ -172,13 +172,13 @@ class RoomPeriodRepository(
         return count == 0
     }
 
-    // Helper to find a period that encompasses a date (needed for log/unlog logic)
+    /** Finds the period that encompasses the given [date], accounting for ongoing periods. */
     private suspend fun getPeriodForDate(date: LocalDate): Period? {
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
         return periodDao.getAllPeriods().firstOrNull()?.find { date in (it.startDate..(it.endDate ?: today)) }?.toDomain()
     }
 
-    // Helper to adjust period start date
+    /** Updates the start date of the period identified by [periodId]. */
     private suspend fun updatePeriodStartDate(periodId: String, newStartDate: LocalDate): Period? {
         val existing = periodDao.getByUuid(periodId) ?: return null
         val updated = existing.copy(startDate = newStartDate, updatedAt = Clock.System.now())
@@ -186,7 +186,6 @@ class RoomPeriodRepository(
         return updated.toDomain()
     }
 
-    // Helper to adjust period end date
     override suspend fun updatePeriodEndDate(periodId: String, newEndDate: LocalDate?): Period? {
         val existing = periodDao.getByUuid(periodId) ?: return null
         val updated = existing.copy(endDate = newEndDate, updatedAt = Clock.System.now())
@@ -264,11 +263,8 @@ class RoomPeriodRepository(
             Symptom(uuid4().toString(), "Bloating", SymptomCategory.DIGESTIVE, now),
             Symptom(uuid4().toString(), "Increased Appetite", SymptomCategory.DIGESTIVE, now),
             Symptom(uuid4().toString(), "Decreased Appetite", SymptomCategory.DIGESTIVE, now),
-            // TODO: Add additional Symptoms
         )
 
-        // We can't use insertAll because we need onConflict=IGNORE.
-        // Looping is fine for this one-time operation.
         defaultSymptoms.forEach { symptom ->
             symptomDao.insert(symptom.toEntity())
         }
@@ -276,14 +272,11 @@ class RoomPeriodRepository(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun getAllLogs(): Flow<List<FullDailyLog>> {
-        // This is a complex reactive query.
-        // It listens for changes in any of the log tables.
         return dailyEntryDao.getAllEntries().flatMapLatest { entries ->
             if (entries.isEmpty()) {
                 flowOf(emptyList())
             } else {
                 val entryIds = entries.map { it.id }
-                // Combine the flows for all log types
                 combine(
                     periodLogDao.getAllPeriodLogs().map { it.groupBy { log -> log.entryId } },
                     symptomLogDao.getLogsForEntries(entryIds),
@@ -306,9 +299,7 @@ class RoomPeriodRepository(
     }
 
     override fun observeAllPeriodDays(): Flow<Set<LocalDate>> {
-        // This will automatically re-run whenever the 'periods' table changes.
         return periodDao.getAllPeriods().map { cycles ->
-            // Use buildSet for an efficient way to create the set of dates.
             buildSet {
                 val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
                 for (cycle in cycles) {
@@ -334,7 +325,6 @@ class RoomPeriodRepository(
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
 
             for (cycle in cycles) {
-                // Use the cycle's end date, or 'today' if the cycle is ongoing.
                 val endDate = cycle.endDate ?: today
                 var currentDate = cycle.startDate
 
@@ -369,23 +359,17 @@ class RoomPeriodRepository(
         val periodToDelete = periodDao.getByUuid(id)
         periodToDelete?.let { period ->
             db.withTransaction {
-                // Determine the end date for the query range. Ongoing periods extend up to today.
                 val endDateForRange = period.endDate ?: Clock.System.todayIn(TimeZone.currentSystemDefault())
 
-                // 1. Find all existing DailyEntry IDs that fall within the date range of the period being deleted.
-                // We use .first() on the Flow to get the current snapshot.
                 val entriesInPeriod = dailyEntryDao.getEntriesForDateRange(
                     period.startDate,
                     endDateForRange
                 ).first()
 
-                // 2. Delete the PeriodLogs (menstruation-specific data) for each Daily Entry in the range.
-                // This keeps the core DailyEntry (mood, energy, tags) intact.
                 entriesInPeriod.forEach { entry ->
                     periodLogDao.deleteLogForEntry(entry.id)
                 }
 
-                // 3. Delete the Period itself.
                 periodDao.deleteByUuid(id)
             }
         }
@@ -396,7 +380,6 @@ class RoomPeriodRepository(
      * realistic dataset of 6 completed periods ending yesterday.
      */
     override suspend fun seedDatabaseForDebug() {
-        // --- Get library items we will use (prepopulate and clear) ---
         prepopulateSymptomLibrary()
         val cramps = createOrGetSymptomInLibrary("Cramps", SymptomCategory.PAIN)
         val headache = createOrGetSymptomInLibrary("Headache", SymptomCategory.PAIN)
@@ -412,24 +395,21 @@ class RoomPeriodRepository(
             periodDao.deleteAll()
         }
 
-        // --- Generate new data backwards from today ---
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
 
-        // Start date of the most recent *completed* period (e.g., 28 days ago).
         val LATEST_PERIOD_START_DAYS_AGO = 28
         var currentCycleStartDate = today.minus(LATEST_PERIOD_START_DAYS_AGO, DateTimeUnit.DAY)
 
-        val cyclesToCreate = 6 // Generate 6 completed periods
+        val cyclesToCreate = 6
         val allNewPeriods = mutableListOf<Period>()
         val allNewLogs = mutableListOf<FullDailyLog>()
 
         repeat(cyclesToCreate) { index ->
             val cycleLength = Random.nextInt(27, 33)
-            val periodLength = Random.nextInt(4, 7) // Realistic period length (4-7 days)
+            val periodLength = Random.nextInt(4, 7)
 
             val cycleStartDate = currentCycleStartDate
 
-            // All generated periods are historical and completed.
             val newPeriod = Period(
                 id = uuid4().toString(),
                 startDate = cycleStartDate,
@@ -439,7 +419,6 @@ class RoomPeriodRepository(
             )
             allNewPeriods.add(newPeriod)
 
-            // Log data for the full generated cycle length.
             val daysToLogInCycle = cycleLength
 
             for (dayOffset in 0 until daysToLogInCycle) {
@@ -447,8 +426,6 @@ class RoomPeriodRepository(
                 val dayInCycle = dayOffset + 1
                 val entryId = uuid4().toString()
 
-                // --- Generate PeriodLog (Flow) ---
-                // Flow data only exists for the duration of the periodLength.
                 val isFlowDay = dayInCycle <= periodLength
 
                 val periodLog = if (isFlowDay) {
@@ -465,9 +442,7 @@ class RoomPeriodRepository(
                     )
                 } else null
 
-                // --- Generate Generic Daily Entry (Mood/Energy/etc.) ---
                 var mood: Int?
-                // Logic uses cycleLength to define pre-menstrual and menstrual phase windows for mood logging.
                 val lowMoodWindowStart = cycleLength - 5
                 val lowMoodWindowEnd = 4
 
@@ -495,13 +470,11 @@ class RoomPeriodRepository(
                     updatedAt = Clock.System.now()
                 )
 
-                // --- Generate Symptoms & Meds ---
                 val isActualFlowDay = periodLog != null
                 val symptomLogs = mutableListOf<SymptomLog>()
                 if (isActualFlowDay && Random.nextFloat() < 0.8f) {
                     symptomLogs.add(SymptomLog(uuid4().toString(), entryId, cramps.id, Random.nextInt(2, 5), Clock.System.now()))
                 }
-                // Bloating/Anxiety/Headache are logged around their predicted phase windows
                 if (dayInCycle in (cycleLength - 5)..<cycleLength && Random.nextFloat() < 0.5f) {
                     symptomLogs.add(SymptomLog(uuid4().toString(), entryId, bloating.id, Random.nextInt(2, 5), Clock.System.now()))
                 }
@@ -520,13 +493,10 @@ class RoomPeriodRepository(
                 allNewLogs.add(FullDailyLog(newEntry, periodLog, symptomLogs, medicationLogs))
             }
 
-            // --- Update the start date for the PREVIOUS cycle ---
             currentCycleStartDate = cycleStartDate.minus(cycleLength, DateTimeUnit.DAY)
         }
 
-        // --- Save all generated data ---
         db.withTransaction {
-            // Reverse the period list so they are inserted in chronological order
             allNewPeriods.reversed().forEach { periodDao.insert(it.toEntity()) }
             allNewLogs.forEach { log ->
                 dailyEntryDao.insert(log.entry.toEntity())
@@ -539,27 +509,22 @@ class RoomPeriodRepository(
 
     override suspend fun logPeriodDay(date: LocalDate) {
         db.withTransaction {
-            // Find adjacent periods or period that contains the date.
-            // NOTE: We rely on getAllPeriods().first() then filtering in the repo to handle ongoing cycles correctly,
-            // as Room's @Query is limited with nullable/dynamic date ranges.
             val periodBefore = getPeriodForDate(date.minus(1, DateTimeUnit.DAY))
             val periodAfter = getPeriodForDate(date.plus(1, DateTimeUnit.DAY))
-            val periodContaining = getPeriodForDate(date) // Check if the date is already part of a period
+            val periodContaining = getPeriodForDate(date)
 
             when {
                 // Scenario 1: Already logged
                 periodContaining != null -> {
-                    // If it's the ongoing period, ensure the end date is nullified if it was closed prematurely
                     if (periodContaining.endDate != null && periodContaining.endDate!! < date) {
                         updatePeriodEndDate(periodContaining.id, null)
                     }
-                    // Also ensure flow is logged for this day
                     val entry = dailyEntryDao.getEntryForDate(date).firstOrNull()?.toDomain()
                     entry?.let {
                         periodLogDao.insert(PeriodLog(
                             id = uuid4().toString(),
                             entryId = it.id,
-                            flowIntensity = FlowIntensity.MEDIUM, // Default flow intensity for auto-log
+                            flowIntensity = FlowIntensity.MEDIUM,
                             createdAt = Clock.System.now(),
                             updatedAt = Clock.System.now()
                         ).toEntity())
@@ -568,23 +533,21 @@ class RoomPeriodRepository(
 
                 // Scenario 2: Bridges two existing periods (MERGE)
                 periodBefore != null && periodAfter != null -> {
-                    // Update 'periodBefore' to span the new combined range (start of before, end of after)
                     updatePeriodEndDate(periodBefore.id, periodAfter.endDate)
-                    // Delete the 'periodAfter' entity
                     periodDao.deleteByUuid(periodAfter.id)
                 }
 
                 // Scenario 3: Extends an existing period (either forward or backward)
                 periodBefore != null -> {
-                    updatePeriodEndDate(periodBefore.id, date) // Extend the end date
+                    updatePeriodEndDate(periodBefore.id, date)
                 }
                 periodAfter != null -> {
-                    updatePeriodStartDate(periodAfter.id, date) // Extend the start date
+                    updatePeriodStartDate(periodAfter.id, date)
                 }
 
                 // Scenario 4: Day is an island (CREATE)
                 else -> {
-                    createCompletedPeriod(date, date) // Creates a 1-day period
+                    createCompletedPeriod(date, date)
                 }
             }
         }
@@ -593,12 +556,11 @@ class RoomPeriodRepository(
     override suspend fun unLogPeriodDay(date: LocalDate) {
         db.withTransaction {
             val periodToModify = getPeriodForDate(date)
-            periodToModify ?: return@withTransaction // Nothing to unmark
+            periodToModify ?: return@withTransaction
 
             when {
                 // Scenario 1: Single-day period (DELETE)
                 periodToModify.startDate == periodToModify.endDate || periodToModify.startDate == date && periodToModify.endDate == null -> {
-                    // Safest to always use deletePeriod which clears associated PeriodLogs
                     deletePeriod(periodToModify.id)
                 }
 
@@ -614,10 +576,8 @@ class RoomPeriodRepository(
 
                 // Scenario 4: Unmarking a Middle Day (SPLIT)
                 else -> {
-                    // Update existing period to end at X-1
                     updatePeriodEndDate(periodToModify.id, date.minus(1, DateTimeUnit.DAY))
 
-                    // Create a new period from X+1 to Z (end of old period)
                     periodDao.insert(Period(
                         id = uuid4().toString(),
                         startDate = date.plus(1, DateTimeUnit.DAY),
@@ -627,7 +587,6 @@ class RoomPeriodRepository(
                     ).toEntity())
                 }
             }
-            // Delete the flow log for this specific day, as it is no longer a period day
             val entryForDate = dailyEntryDao.getEntryForDate(date).firstOrNull()
             entryForDate?.let { periodLogDao.deleteLogForEntry(it.id) }
         }
