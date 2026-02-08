@@ -25,7 +25,7 @@ interface PeriodRepository {
     suspend fun getPeriodById(periodId: String): Period
 
     /** Starts a new period on the given start date. */
-    suspend fun startNewPeriod(startDate: LocalDate) : Period
+    suspend fun startNewPeriod(startDate: LocalDate): Period
 
     /** Updates the end date of an existing period. Can be null to make it ongoing. */
     suspend fun updatePeriodEndDate(periodId: String, endDate: LocalDate?): Period?
@@ -36,13 +36,13 @@ interface PeriodRepository {
     /** Returns the currently active (non-ended) period, if any. */
     suspend fun getCurrentlyOngoingPeriod(): Period?
 
-    /** Fetches all daily logs for a given month. */
+    /** Returns the full daily log for a specific date, or null if none exists. */
     suspend fun getFullLogForDate(date: LocalDate): FullDailyLog?
 
     /** Store all data for a day. */
     suspend fun saveFullLog(log: FullDailyLog)
 
-    /** Returns all data for a day. */
+    /** Fetches all full daily logs for a given month. */
     suspend fun getLogsForMonth(yearMonth: YearMonth): List<FullDailyLog>
 
     /** Creates a new, already-completed period in the database. */

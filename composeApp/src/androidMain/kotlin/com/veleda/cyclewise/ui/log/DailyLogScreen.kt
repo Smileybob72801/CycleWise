@@ -52,8 +52,10 @@ fun DailyLogScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.saveCompleteEvent.collect {
-            onSaveComplete() // Call the navigation lambda when the event is received
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                is DailyLogEffect.NavigateBack -> onSaveComplete()
+            }
         }
     }
 

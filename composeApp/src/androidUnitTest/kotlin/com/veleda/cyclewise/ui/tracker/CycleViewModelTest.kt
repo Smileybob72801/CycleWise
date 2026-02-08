@@ -6,6 +6,7 @@ import com.veleda.cyclewise.domain.models.*
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -33,6 +34,7 @@ class CycleViewModelTest {
     private lateinit var mockRepository: PeriodRepository
     private lateinit var mockSymptomProvider: SymptomLibraryProvider
     private lateinit var mockMedicationProvider: MedicationLibraryProvider
+    private lateinit var mockAutoCloseUseCase: AutoCloseOngoingPeriodUseCase
     private lateinit var viewModel: TrackerViewModel
 
     @Before
@@ -42,6 +44,7 @@ class CycleViewModelTest {
         mockRepository = mockk(relaxed = true)
         mockSymptomProvider = mockk(relaxed = true)
         mockMedicationProvider = mockk(relaxed = true)
+        mockAutoCloseUseCase = mockk(relaxed = true)
 
         // Mock initial data flows
         every { mockRepository.observeDayDetails() } returns flowOf(emptyMap())
@@ -49,7 +52,7 @@ class CycleViewModelTest {
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
 
-        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
+        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase)
     }
 
     @After
@@ -59,15 +62,13 @@ class CycleViewModelTest {
 
     private val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
     private val pastDate = today.minus(5, DateTimeUnit.DAY)
-    private val futureDate = today.plus(5, DateTimeUnit.DAY)
 
     @Test
-    fun onEvent_DateTapped_WHEN_dateIsInExistingCycle_THEN_showsLogSheet() = runTest {
-        val testPeriod = mockk<Period>()
+    fun onEvent_DayTapped_WHEN_logExists_THEN_showsLogSheet() = runTest {
         val fakeLog = mockk<FullDailyLog>()
         coEvery { mockRepository.getFullLogForDate(pastDate) } returns fakeLog
 
-        viewModel.onEvent(TrackerEvent.DateTapped(pastDate, testPeriod))
+        viewModel.onEvent(TrackerEvent.DayTapped(pastDate))
 
         viewModel.uiState.test {
             assertEquals(fakeLog, awaitItem().logForSheet, "Log for sheet should be set")
@@ -75,118 +76,58 @@ class CycleViewModelTest {
     }
 
     @Test
-    fun onEvent_DateLongPressed_WHEN_dateIsFuture_THEN_doesNothing() = runTest {
-        val initialState = viewModel.uiState.value
+    fun onEvent_DayTapped_WHEN_noLogExists_THEN_emitsNavigateEffect() = runTest {
+        coEvery { mockRepository.getFullLogForDate(pastDate) } returns null
 
-        viewModel.onEvent(TrackerEvent.DateLongPressed(futureDate))
-
-        assertEquals(initialState, viewModel.uiState.value, "State should not change for future date")
-    }
-
-    @Test
-    fun onEvent_DateLongPressed_WHEN_cycleIsOngoing_THEN_doesNothing() = runTest {
-        val ongoingPeriod = Period("ongoing-id", today.minus(2, DateTimeUnit.DAY), null, Clock.System.now(), Clock.System.now())
-        every { mockRepository.getAllPeriods() } returns flowOf(listOf(ongoingPeriod))
-        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
-        advanceUntilIdle() // Ensure the new state is collected
-        val initialState = viewModel.uiState.value
-
-        assertNotNull(initialState.ongoingPeriod, "Precondition failed: ongoingPeriod should be set")
-
-        viewModel.onEvent(TrackerEvent.DateLongPressed(pastDate))
-
-        val finalState = viewModel.uiState.value
-        assertEquals(initialState.selectionStartDate, finalState.selectionStartDate, "Selection should not start if a cycle is ongoing")
-        assertEquals(initialState, finalState)
-    }
-
-    @Test
-    fun onEvent_DateLongPressed_WHEN_firstTapOnValidDate_THEN_setsSelectionStartDate() = runTest {
-        viewModel.onEvent(TrackerEvent.DateLongPressed(pastDate))
-
-        viewModel.uiState.test {
-            assertEquals(pastDate, awaitItem().selectionStartDate)
+        viewModel.effect.test {
+            viewModel.onEvent(TrackerEvent.DayTapped(pastDate))
+            val effect = awaitItem()
+            assertIs<TrackerEffect.NavigateToDailyLog>(effect)
+            assertEquals(pastDate, effect.date)
         }
     }
 
     @Test
-    fun onEvent_SaveSelectionClicked_WHEN_rangeIsInPastAndAvailable_THEN_createsCompletedCycle() = runTest {
-        val startDate = today.minus(10, DateTimeUnit.DAY)
-        val endDate = today.minus(5, DateTimeUnit.DAY)
-        coEvery { mockRepository.isDateRangeAvailable(startDate, endDate) } returns true
-
-        viewModel.onEvent(TrackerEvent.DateLongPressed(startDate))
-        viewModel.onEvent(TrackerEvent.DateLongPressed(endDate))
-
-        viewModel.onEvent(TrackerEvent.SaveSelectionClicked)
-        advanceUntilIdle()
-
-        coVerify(exactly = 1) { mockRepository.createCompletedPeriod(startDate, endDate) }
-        viewModel.uiState.test {
-            assertNull(awaitItem().selectionStartDate, "Selection should be cleared after save")
-        }
-    }
-
-    @Test
-    fun onEvent_SaveSelectionClicked_WHEN_startDateIsToday_THEN_startsNewOngoingCycle() = runTest {
-        coEvery { mockRepository.isDateRangeAvailable(today, today) } returns true
-        viewModel.onEvent(TrackerEvent.DateLongPressed(today))
-
-        viewModel.onEvent(TrackerEvent.SaveSelectionClicked)
-        advanceUntilIdle()
-
-        coVerify(exactly = 1) { mockRepository.startNewPeriod(today) }
-    }
-
-    @Test
-    fun onEvent_SaveSelectionClicked_WHEN_rangeOverlaps_THEN_doesNotCreateCycle() = runTest {
-        val startDate = today.minus(10, DateTimeUnit.DAY)
-        val endDate = today.minus(5, DateTimeUnit.DAY)
-        coEvery { mockRepository.isDateRangeAvailable(startDate, endDate) } returns false
-
-        viewModel.onEvent(TrackerEvent.DateLongPressed(startDate))
-        viewModel.onEvent(TrackerEvent.DateLongPressed(endDate))
-
-        viewModel.onEvent(TrackerEvent.SaveSelectionClicked)
-        advanceUntilIdle()
-
-        coVerify(exactly = 0) { mockRepository.createCompletedPeriod(any(), any()) }
-        coVerify(exactly = 0) { mockRepository.startNewPeriod(any()) }
-    }
-
-    @Test
-    fun onEvent_EndCycleClicked_WHEN_ongoingCycleExists_THEN_callsRepositoryEndCycle() = runTest {
-        val fakeOngoingPeriod = Period("ongoing-id", today.minus(5, DateTimeUnit.DAY), null, Clock.System.now(), Clock.System.now())
-        every { mockRepository.getAllPeriods() } returns flowOf(listOf(fakeOngoingPeriod))
-        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider)
-        advanceUntilIdle()
-
-        viewModel.onEvent(TrackerEvent.EndPeriodClicked)
-        advanceUntilIdle()
-
-        coVerify(exactly = 1) { mockRepository.endPeriod(fakeOngoingPeriod.id, today) }
-    }
-
-    @Test
-    fun onEvent_DeletePeriodClicked_THEN_callsRepositoryDeleteAndClearsSheet() = runTest {
-        // ARRANGE
+    fun onEvent_DeletePeriodConfirmed_THEN_callsRepositoryDeleteAndClearsState() = runTest {
         val periodId = "period-to-delete-id"
         val fakePeriod = Period(periodId, pastDate, today, Clock.System.now(), Clock.System.now())
         val fakeLog = FullDailyLog(DailyEntry("log-id", pastDate, 5, createdAt = Clock.System.now(), updatedAt = Clock.System.now()))
 
         // Simulate the sheet being open for the log that is part of this period
+        every { mockRepository.getAllPeriods() } returns flowOf(listOf(fakePeriod))
+        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase)
+        advanceUntilIdle()
+
         coEvery { mockRepository.getFullLogForDate(pastDate) } returns fakeLog
-
-        viewModel.onEvent(TrackerEvent.DateTapped(pastDate, fakePeriod))
+        viewModel.onEvent(TrackerEvent.DayTapped(pastDate))
         advanceUntilIdle()
 
-        // ACT
-        viewModel.onEvent(TrackerEvent.DeletePeriodClicked(periodId))
+        // Request deletion (shows confirmation dialog, clears sheet)
+        viewModel.onEvent(TrackerEvent.DeletePeriodRequested(periodId))
         advanceUntilIdle()
 
-        // ASSERT
+        assertTrue(viewModel.uiState.value.showDeleteConfirmation)
+        assertNull(viewModel.uiState.value.logForSheet)
+
+        // Confirm deletion
+        viewModel.onEvent(TrackerEvent.DeletePeriodConfirmed(periodId))
+        advanceUntilIdle()
+
         coVerify(exactly = 1) { mockRepository.deletePeriod(periodId) }
-        assertNull(viewModel.uiState.value.logForSheet, "Log sheet should be cleared after deletion")
-        assertNull(viewModel.uiState.value.periodIdForSheet, "Period ID should be cleared after deletion")
+        assertFalse(viewModel.uiState.value.showDeleteConfirmation)
+        assertNull(viewModel.uiState.value.periodIdToDelete)
+    }
+
+    @Test
+    fun onEvent_DeletePeriodDismissed_THEN_clearsConfirmationState() = runTest {
+        val periodId = "period-to-dismiss-id"
+
+        viewModel.onEvent(TrackerEvent.DeletePeriodRequested(periodId))
+        assertTrue(viewModel.uiState.value.showDeleteConfirmation)
+
+        viewModel.onEvent(TrackerEvent.DeletePeriodDismissed)
+
+        assertFalse(viewModel.uiState.value.showDeleteConfirmation)
+        assertNull(viewModel.uiState.value.periodIdToDelete)
     }
 }

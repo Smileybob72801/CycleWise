@@ -34,14 +34,12 @@ import org.koin.core.qualifier.Qualifier
 val SESSION_SCOPE: Qualifier = named("UnlockedSessionScope")
 
 val appModule = module {
-    // Persistent salt for Argon2
     single { SaltStorage(androidContext()) }
 
     single { AppSettings(androidContext()) }
 
     single { SessionBus() }
 
-    // KDF: Argon2 passphrase service
     single<PassphraseService> { PassphraseServiceAndroid(get()) }
 
     factory {
@@ -57,10 +55,8 @@ val appModule = module {
         )
     }
 
-    // PassphraseViewModel here, outside of any scope
     viewModel { PassphraseViewModel(appSettings = get()) }
 
-    // Session-scoped SQLCipher DB and related services
     scope(SESSION_SCOPE) {
         // DB Provider
         scoped { (passphrase: String) ->
@@ -114,6 +110,7 @@ val appModule = module {
             DailyLogViewModel(
                 entryDate = date,
                 periodRepository = get(),
+                getOrCreateDailyLog = get(),
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get(),
                 isPeriodDay = isPeriodDay
