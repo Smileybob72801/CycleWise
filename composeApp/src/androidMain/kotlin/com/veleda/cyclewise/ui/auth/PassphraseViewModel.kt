@@ -49,7 +49,8 @@ class PassphraseViewModel(
                             qualifier = SESSION_SCOPE
                         )
 
-                    sessionScope.get<PeriodDatabase> { parametersOf(passphrase) }
+                    val db = sessionScope.get<PeriodDatabase> { parametersOf(passphrase) }
+                    db.openHelper.writableDatabase
 
                     if (needsPrepopulation) {
                         val repository = sessionScope.get<PeriodRepository>()
