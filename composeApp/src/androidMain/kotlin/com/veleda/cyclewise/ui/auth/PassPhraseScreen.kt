@@ -23,17 +23,14 @@ fun PassphraseScreen(
     // Local state for the text field; it doesn't need to live in the ViewModel.
     var passphrase by remember { mutableStateOf("") }
 
-    // This effect listens for the one-time unlock success event to navigate.
     LaunchedEffect(Unit) {
-        viewModel.unlockSuccess.collect {
-            onPassphraseEntered()
-        }
-    }
-
-    // This effect shows a Toast message whenever an error occurs.
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                is PassphraseEffect.NavigateToTracker -> onPassphraseEntered()
+                is PassphraseEffect.ShowError -> {
+                    Toast.makeText(context, effect.message, Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
@@ -57,7 +54,6 @@ fun PassphraseScreen(
                 label = { Text("Passphrase") },
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
-                isError = uiState.error != null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("passphrase-input")

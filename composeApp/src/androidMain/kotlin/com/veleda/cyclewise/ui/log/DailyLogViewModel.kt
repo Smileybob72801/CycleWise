@@ -49,8 +49,8 @@ class DailyLogViewModel(
     private val _uiState = MutableStateFlow(DailyLogUiState(isPeriodDay = isPeriodDay))
     val uiState = _uiState.asStateFlow()
 
-    private val _saveCompleteEvent = MutableSharedFlow<Unit>(replay = 0)
-    val saveCompleteEvent: SharedFlow<Unit> = _saveCompleteEvent
+    private val _effect = MutableSharedFlow<DailyLogEffect>(replay = 0)
+    val effect: SharedFlow<DailyLogEffect> = _effect
 
     init {
         // 1. Initial data load dispatches a single, comprehensive event when complete.
@@ -225,13 +225,16 @@ class DailyLogViewModel(
             }
             is DailyLogEvent.SaveLog -> {
                 viewModelScope.launch {
-                    if (isLogEmpty(log)) {
-                        // If log is empty, skip saving and just dismiss the screen
-                        _saveCompleteEvent.emit(Unit)
+                    val currentLog = _uiState.value.log ?: run {
+                        _effect.emit(DailyLogEffect.NavigateBack)
                         return@launch
                     }
-                    periodRepository.saveFullLog(log)
-                    _saveCompleteEvent.emit(Unit)
+                    if (isLogEmpty(currentLog)) {
+                        _effect.emit(DailyLogEffect.NavigateBack)
+                        return@launch
+                    }
+                    periodRepository.saveFullLog(currentLog)
+                    _effect.emit(DailyLogEffect.NavigateBack)
                 }
                 currentState
             }

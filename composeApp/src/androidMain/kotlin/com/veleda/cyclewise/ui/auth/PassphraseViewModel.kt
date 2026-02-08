@@ -14,8 +14,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.parameter.parametersOf
 
 data class PassphraseUiState(
-    val isUnlocking: Boolean = false,
-    val error: String? = null
+    val isUnlocking: Boolean = false
 )
 
 class PassphraseViewModel(
@@ -25,8 +24,8 @@ class PassphraseViewModel(
     private val _uiState = MutableStateFlow(PassphraseUiState())
     val uiState: StateFlow<PassphraseUiState> = _uiState.asStateFlow()
 
-    private val _unlockSuccess = MutableSharedFlow<Unit>(replay = 0)
-    val unlockSuccess: SharedFlow<Unit> = _unlockSuccess.asSharedFlow()
+    private val _effect = MutableSharedFlow<PassphraseEffect>(replay = 0)
+    val effect: SharedFlow<PassphraseEffect> = _effect.asSharedFlow()
 
     fun onEvent(event: PassphraseEvent) {
         when (event) {
@@ -38,7 +37,7 @@ class PassphraseViewModel(
         if (_uiState.value.isUnlocking) return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isUnlocking = true, error = null) }
+            _uiState.update { it.copy(isUnlocking = true) }
             try {
                 val needsPrepopulation = !appSettings.isPrepopulated.first()
 
@@ -59,12 +58,12 @@ class PassphraseViewModel(
                     }
                 }
 
-                _unlockSuccess.emit(Unit)
+                _effect.emit(PassphraseEffect.NavigateToTracker)
 
             } catch (e: Exception) {
                 android.util.Log.e("PassphraseUnlock", "Unlock failed with exception", e)
                 getKoin().getScopeOrNull("session")?.close()
-                _uiState.update { it.copy(error = "Failed to unlock. Wrong passphrase?") }
+                _effect.emit(PassphraseEffect.ShowError("Failed to unlock. Wrong passphrase?"))
             } finally {
                 _uiState.update { it.copy(isUnlocking = false) }
             }

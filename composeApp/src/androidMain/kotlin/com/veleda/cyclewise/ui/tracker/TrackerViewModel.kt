@@ -2,9 +2,7 @@ package com.veleda.cyclewise.ui.tracker
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.benasher44.uuid.uuid4
 import com.veleda.cyclewise.domain.models.Period
-import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
@@ -17,7 +15,6 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.daysUntil
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
 
@@ -27,10 +24,11 @@ data class TrackerUiState(
     val periodIdForSheet: String? = null,
     val symptomLibrary: List<Symptom> = emptyList(),
     val medicationLibrary: List<Medication> = emptyList(),
-    val dayDetails: Map<LocalDate, CalendarDayInfo> = emptyMap()
+    val dayDetails: Map<LocalDate, CalendarDayInfo> = emptyMap(),
+    val showDeleteConfirmation: Boolean = false,
+    val periodIdToDelete: String? = null
 ) {
     val ongoingPeriod: Period? = periods.find { it.endDate == null }
-    val isSelectingRange: Boolean = false // Always false now that range selection is removed
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -42,6 +40,9 @@ class TrackerViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TrackerUiState())
     val uiState: StateFlow<TrackerUiState> = _uiState.asStateFlow()
+
+    private val _effect = MutableSharedFlow<TrackerEffect>(replay = 0)
+    val effect: SharedFlow<TrackerEffect> = _effect.asSharedFlow()
 
     init {
         viewModelScope.launch {
@@ -85,32 +86,34 @@ class TrackerViewModel(
         }
     }
 
-    // Public helper for the UI to check existence of a log (used by onSingleTap)
-    suspend fun getFullLogForDate(date: LocalDate): FullDailyLog? {
-        return periodRepository.getFullLogForDate(date)
-    }
-
-    // Public method to manually show the log sheet (used by onSingleTap after log is fetched)
-    fun showLogSheet(date: LocalDate, periodForDate: Period?) {
-        viewModelScope.launch {
-            // We expect the calling UI to ensure a log exists here.
-            // If it doesn't, fetching a log will return null, and this function will return.
-            val log = periodRepository.getFullLogForDate(date) ?: return@launch
-
-            // If the log is shown for a non-period day, periodIdForSheet will be null,
-            // which correctly disables the Delete Period button in the sheet.
-            val periodId = periodForDate?.id
-
-            _uiState.update { it.copy(logForSheet = log, periodIdForSheet = periodId) }
-        }
-    }
-
     private fun reduce(currentState: TrackerUiState, event: TrackerEvent): TrackerUiState {
         return when (event) {
             is TrackerEvent.ScreenEntered -> {
-                // CRITICAL: Check for period closure immediately upon screen entry.
                 viewModelScope.launch {
                     autoClosePeriodUseCase()
+                }
+                currentState
+            }
+            is TrackerEvent.DayTapped -> {
+                val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+                val date = event.date
+                viewModelScope.launch {
+                    val periodForDate = _uiState.value.periods.find {
+                        date in (it.startDate..(it.endDate ?: today))
+                    }
+                    val isPeriodDay = periodForDate != null
+                    val existingLog = periodRepository.getFullLogForDate(date)
+
+                    if (existingLog != null) {
+                        _uiState.update {
+                            it.copy(
+                                logForSheet = existingLog,
+                                periodIdForSheet = periodForDate?.id
+                            )
+                        }
+                    } else {
+                        _effect.emit(TrackerEffect.NavigateToDailyLog(date, isPeriodDay))
+                    }
                 }
                 currentState
             }
@@ -119,10 +122,8 @@ class TrackerViewModel(
                     val periodForDate = currentState.periods.find { event.date in (it.startDate..(it.endDate ?: Clock.System.todayIn(TimeZone.currentSystemDefault()))) }
 
                     if (periodForDate != null) {
-                        // Unmark / Split Period
                         periodRepository.unLogPeriodDay(event.date)
                     } else {
-                        // Mark / Merge Period
                         periodRepository.logPeriodDay(event.date)
                     }
                 }
@@ -131,14 +132,41 @@ class TrackerViewModel(
             is TrackerEvent.DismissLogSheet -> {
                 currentState.copy(logForSheet = null, periodIdForSheet = null)
             }
-            is TrackerEvent.DeletePeriodClicked -> {
+            is TrackerEvent.EditLogClicked -> {
+                val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+                val date = event.date
+                val periodForDate = currentState.periods.find {
+                    date in (it.startDate..(it.endDate ?: today))
+                }
+                val isPeriodDay = periodForDate != null
+                viewModelScope.launch {
+                    _effect.emit(TrackerEffect.NavigateToDailyLog(date, isPeriodDay))
+                }
+                currentState.copy(logForSheet = null, periodIdForSheet = null)
+            }
+            is TrackerEvent.DeletePeriodRequested -> {
+                currentState.copy(
+                    showDeleteConfirmation = true,
+                    periodIdToDelete = event.periodId,
+                    logForSheet = null,
+                    periodIdForSheet = null
+                )
+            }
+            is TrackerEvent.DeletePeriodConfirmed -> {
                 viewModelScope.launch {
                     periodRepository.deletePeriod(event.periodId)
                 }
-                // Clear the sheet, as the underlying log/period is now gone
-                currentState.copy(logForSheet = null, periodIdForSheet = null)
+                currentState.copy(
+                    showDeleteConfirmation = false,
+                    periodIdToDelete = null
+                )
             }
-            else -> currentState
+            is TrackerEvent.DeletePeriodDismissed -> {
+                currentState.copy(
+                    showDeleteConfirmation = false,
+                    periodIdToDelete = null
+                )
+            }
         }
     }
 }

@@ -20,3 +20,10 @@ sealed interface DailyLogEvent {
     data class MedicationCreatedAndAdded(val name: String) : DailyLogEvent
     object SaveLog : DailyLogEvent
 }
+
+/**
+ * One-time side effects emitted by [DailyLogViewModel].
+ */
+sealed interface DailyLogEffect {
+    object NavigateBack : DailyLogEffect
+}
