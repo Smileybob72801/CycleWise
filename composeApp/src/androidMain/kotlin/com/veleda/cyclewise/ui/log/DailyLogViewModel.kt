@@ -3,7 +3,6 @@ package com.veleda.cyclewise.ui.log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.benasher44.uuid.uuid4
-import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
@@ -13,6 +12,7 @@ import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -21,9 +21,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.daysUntil
-import kotlinx.datetime.todayIn
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -41,6 +38,7 @@ data class DailyLogUiState(
 class DailyLogViewModel(
     private val entryDate: LocalDate,
     private val periodRepository: PeriodRepository,
+    private val getOrCreateDailyLog: GetOrCreateDailyLogUseCase,
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private val medicationLibraryProvider: MedicationLibraryProvider,
     private val isPeriodDay: Boolean
@@ -58,8 +56,7 @@ class DailyLogViewModel(
             _uiState.update { it.copy(isLoading = true) }
             val initialSymptoms = symptomLibraryProvider.symptoms.first()
             val initialMedications = medicationLibraryProvider.medications.first()
-            val result = periodRepository.getFullLogForDate(entryDate)
-                ?: createNewBlankLog()
+            val result = getOrCreateDailyLog(entryDate)
 
             onEvent(DailyLogEvent.LogLoaded(result, initialSymptoms, initialMedications))
         }
@@ -255,37 +252,5 @@ class DailyLogViewModel(
                 entry.libidoLevel == null &&
                 entry.customTags.isEmpty() &&
                 entry.note.isNullOrBlank()
-    }
-
-    private suspend fun createNewBlankLog(): FullDailyLog {
-        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-
-        // 1: Find the *last completed* period to calculate the cycle day accurately.
-        // We look for the Period whose start date is closest to, but before, the entryDate.
-        // The repository returns periods newest-first.
-        val periods = periodRepository.getAllPeriods().first()
-        val logicalParentPeriod = periods
-            .filter { it.startDate <= entryDate }
-            .maxByOrNull { it.startDate } // Find the chronologically latest period whose start is before or on today.
-
-        // 2: Calculate dayInCycle or default
-        val dayInCycleValue = if (logicalParentPeriod != null) {
-            // Day 1 of cycle is the start of the logical parent period.
-            logicalParentPeriod.startDate.daysUntil(entryDate) + 1
-        } else {
-            // No historical cycle found. Use 1 as a sentinel value for the very first log.
-            1
-        }
-
-        val newBlankEntry = DailyEntry(
-            id = uuid4().toString(),
-            entryDate = entryDate,
-            dayInCycle = dayInCycleValue, // Now guaranteed to be an Int
-            createdAt = Clock.System.now(),
-            updatedAt = Clock.System.now()
-        )
-
-        // PeriodLog is initialized as null.
-        return FullDailyLog(entry = newBlankEntry, periodLog = null)
     }
 }

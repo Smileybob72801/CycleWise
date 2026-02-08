@@ -110,6 +110,7 @@ val appModule = module {
             DailyLogViewModel(
                 entryDate = date,
                 periodRepository = get(),
+                getOrCreateDailyLog = get(),
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get(),
                 isPeriodDay = isPeriodDay
