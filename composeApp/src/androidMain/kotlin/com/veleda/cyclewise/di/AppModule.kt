@@ -1,7 +1,9 @@
 package com.veleda.cyclewise.di
 
+import com.veleda.cyclewise.androidData.local.draft.LockedWaterDraft
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.services.SaltStorage
+import com.veleda.cyclewise.ui.auth.WaterTrackerViewModel
 import com.veleda.cyclewise.ui.tracker.TrackerViewModel
 import org.koin.core.module.dsl.*
 import org.koin.dsl.module
@@ -55,7 +57,11 @@ val appModule = module {
         )
     }
 
-    viewModel { PassphraseViewModel(appSettings = get()) }
+    single { LockedWaterDraft(androidContext()) }
+
+    viewModel { WaterTrackerViewModel(lockedWaterDraft = get()) }
+
+    viewModel { PassphraseViewModel(appSettings = get(), lockedWaterDraft = get()) }
 
     scope(SESSION_SCOPE) {
         // DB Provider
@@ -72,6 +78,7 @@ val appModule = module {
         scoped { get<PeriodDatabase>().medicationLogDao() }
         scoped { get<PeriodDatabase>().symptomLogDao() }
         scoped { get<PeriodDatabase>().periodLogDao() }
+        scoped { get<PeriodDatabase>().waterIntakeDao() }
 
         // Repository Provider
         scoped<PeriodRepository> {
@@ -84,6 +91,7 @@ val appModule = module {
                 medicationLogDao = get(),
                 symptomLogDao = get(),
                 periodLogDao = get(),
+                waterIntakeDao = get(),
             )
         }
 

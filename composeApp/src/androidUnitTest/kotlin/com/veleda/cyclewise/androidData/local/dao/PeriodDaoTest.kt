@@ -48,7 +48,8 @@ class PeriodDaoTest : KoinTest {
         single { get<PeriodDatabase>().symptomLogDao() }
         single { get<PeriodDatabase>().medicationDao() }
         single { get<PeriodDatabase>().medicationLogDao() }
-        // (Add any other DAOs or test dependencies here)
+        single { get<PeriodDatabase>().periodLogDao() }
+        single { get<PeriodDatabase>().waterIntakeDao() }
     }
 
     // --- Test Data ---
