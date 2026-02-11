@@ -1,22 +1,19 @@
 package com.veleda.cyclewise.androidData.local.entities
 
 import com.veleda.cyclewise.domain.models.*
-import kotlin.time.Clock
+import com.veleda.cyclewise.testutil.TestData
 import kotlinx.datetime.LocalDate
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/**
- * Unit tests for all mapping functions, updated for PeriodLog refactor (v8).
- */
 class MappersTest {
 
-    private val testNow = Clock.System.now()
+    private val testNow = TestData.INSTANT
     private val testDate = LocalDate(2025, 8, 18)
 
-    // --- Tests for Period mappers (Unchanged) ---
+    // --- Tests for Period mappers ---
 
     @Test
     fun toDomain_WHEN_calledOnCycleEntity_THEN_mapsAllFieldsCorrectly() {
@@ -57,7 +54,7 @@ class MappersTest {
         assertEquals("cycle-uuid-1", cycleEntity.uuid)
     }
 
-    // --- Tests for DailyEntry mappers (Updated for refactor) ---
+    // --- Tests for DailyEntry mappers ---
 
     @Test
     fun toDomain_WHEN_calledOnDailyEntryEntity_THEN_mapsAllFieldsCorrectly() {
@@ -68,8 +65,8 @@ class MappersTest {
             dayInCycle = 5,
             moodScore = 4,
             energyLevel = 3,
-            libidoLevel = "HIGH", // String in entity
-            customTags = """["tag1","tag2"]""", // JSON String in entity
+            libidoLevel = "HIGH",
+            customTags = """["tag1","tag2"]""",
             note = "Test note",
             cyclePhase = "OVULATION",
             createdAt = testNow,
@@ -95,8 +92,8 @@ class MappersTest {
             dayInCycle = 5,
             moodScore = 4,
             energyLevel = 3,
-            libidoLevel = LibidoLevel.HIGH, // Enum in domain
-            customTags = listOf("tag1", "tag2"), // List in domain
+            libidoLevel = LibidoLevel.HIGH,
+            customTags = listOf("tag1", "tag2"),
             note = "Test note",
             cyclePhase = "OVULATION",
             createdAt = testNow,
@@ -108,13 +105,78 @@ class MappersTest {
 
         // ASSERT
         assertEquals("entry-uuid-1", dailyEntryEntity.id)
-        // flowIntensity and spotting fields MUST NOT exist here
         assertEquals("HIGH", dailyEntryEntity.libidoLevel, "Enum should be converted to String")
         assertEquals("""["tag1","tag2"]""", dailyEntryEntity.customTags, "List should be converted to JSON String")
         assertEquals(4, dailyEntryEntity.moodScore)
     }
 
-    // --- Tests for PeriodLog mappers (NEW) ---
+    @Test
+    fun toDomain_WHEN_dailyEntryHasNullOptionals_THEN_mapsNullsCorrectly() {
+        // ARRANGE
+        val entity = DailyEntryEntity(
+            id = "entry-null-test",
+            entryDate = testDate,
+            dayInCycle = 1,
+            moodScore = null,
+            energyLevel = null,
+            libidoLevel = null,
+            customTags = "[]",
+            note = null,
+            cyclePhase = null,
+            createdAt = testNow,
+            updatedAt = testNow
+        )
+
+        // ACT
+        val domain = entity.toDomain()
+
+        // ASSERT
+        assertNull(domain.moodScore)
+        assertNull(domain.energyLevel)
+        assertNull(domain.libidoLevel)
+        assertNull(domain.note)
+        assertNull(domain.cyclePhase)
+    }
+
+    @Test
+    fun toDomain_WHEN_dailyEntryHasEmptyCustomTags_THEN_mapsToEmptyList() {
+        // ARRANGE
+        val entity = DailyEntryEntity(
+            id = "entry-empty-tags",
+            entryDate = testDate,
+            dayInCycle = 1,
+            customTags = "[]",
+            createdAt = testNow,
+            updatedAt = testNow
+        )
+
+        // ACT
+        val domain = entity.toDomain()
+
+        // ASSERT
+        assertTrue(domain.customTags.isEmpty())
+    }
+
+    @Test
+    fun toEntity_WHEN_dailyEntryHasEmptyTagsList_THEN_mapsToEmptyJsonArray() {
+        // ARRANGE
+        val domain = DailyEntry(
+            id = "entry-empty-tags",
+            entryDate = testDate,
+            dayInCycle = 1,
+            customTags = emptyList(),
+            createdAt = testNow,
+            updatedAt = testNow
+        )
+
+        // ACT
+        val entity = domain.toEntity()
+
+        // ASSERT
+        assertEquals("[]", entity.customTags)
+    }
+
+    // --- Tests for PeriodLog mappers ---
 
     @Test
     fun periodLogToDomain_WHEN_calledOnPeriodLogEntity_THEN_mapsAllFieldsCorrectly() {
@@ -156,39 +218,59 @@ class MappersTest {
         assertEquals(FlowIntensity.LIGHT, periodLogEntity.flowIntensity)
     }
 
-    // --- Tests for Medication mappers (Unchanged) ---
+    // --- Tests for Medication mappers ---
 
     @Test
     fun toDomain_WHEN_calledOnMedicationEntity_THEN_mapsAllFieldsCorrectly() {
+        // ARRANGE
         val entity = MedicationEntity(id = "med-uuid", name = "Ibuprofen", createdAt = testNow)
+
+        // ACT
         val domain = entity.toDomain()
+
+        // ASSERT
         assertEquals(entity.id, domain.id)
     }
 
-    // --- Tests for MedicationLog mappers (Unchanged) ---
+    // --- Tests for MedicationLog mappers ---
 
     @Test
     fun toDomain_WHEN_calledOnMedicationLogEntity_THEN_mapsAllFieldsCorrectly() {
+        // ARRANGE
         val entity = MedicationLogEntity(id = "log-uuid", entryId = "entry-uuid", medicationId = "med-uuid", createdAt = testNow)
+
+        // ACT
         val domain = entity.toDomain()
+
+        // ASSERT
         assertEquals(entity.id, domain.id)
     }
 
-    // --- Tests for Symptom mappers (Unchanged) ---
+    // --- Tests for Symptom mappers ---
 
     @Test
     fun toDomain_WHEN_calledOnSymptomEntity_THEN_mapsAllFieldsCorrectly() {
+        // ARRANGE
         val entity = SymptomEntity(id = "symptom-uuid", name = "Cramps", category = SymptomCategory.PAIN, createdAt = testNow)
+
+        // ACT
         val domain = entity.toDomain()
+
+        // ASSERT
         assertEquals(entity.id, domain.id)
     }
 
-    // --- Tests for SymptomLog mappers (Unchanged) ---
+    // --- Tests for SymptomLog mappers ---
 
     @Test
     fun toDomain_WHEN_calledOnSymptomLogEntity_THEN_mapsAllFieldsCorrectly() {
+        // ARRANGE
         val entity = SymptomLogEntity(id = "log-uuid", entryId = "entry-uuid", symptomId = "symptom-uuid", severity = 4, createdAt = testNow)
+
+        // ACT
         val domain = entity.toDomain()
+
+        // ASSERT
         assertEquals(entity.id, domain.id)
     }
 }

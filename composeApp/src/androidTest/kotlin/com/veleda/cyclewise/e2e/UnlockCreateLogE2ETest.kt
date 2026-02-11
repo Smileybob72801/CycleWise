@@ -1,7 +1,6 @@
 package com.veleda.cyclewise.e2e
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
@@ -10,14 +9,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
-//import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.printToLog
-import androidx.compose.ui.test.printToString
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.veleda.cyclewise.MainActivity
@@ -31,6 +26,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
+/**
+ * Smoke-path E2E test suite.
+ *
+ * Uses real date/time intentionally — the test needs to tap today's date on the calendar.
+ * Requires a connected test device or emulator to run.
+ */
 @RunWith(AndroidJUnit4::class)
 class UnlockCreateLogE2ETest {
 
@@ -45,10 +46,8 @@ class UnlockCreateLogE2ETest {
 
     @Before
     fun setUp() {
-        // Get the target app's context to access its storage.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
 
-        // 1. Wipe Room Databases (and their journal/write-ahead-log files)
         val testDbName = "e2e_cyclewise.db"
         val prodDbName = "cyclewise.db"
         listOf(
@@ -56,11 +55,9 @@ class UnlockCreateLogE2ETest {
             prodDbName, "$prodDbName-shm", "$prodDbName-wal"
         ).forEach { appContext.getDatabasePath(it).delete() }
 
-        // 2. Clear all SharedPreferences
         appContext.getSharedPreferences("cyclewise_salt_prefs", Context.MODE_PRIVATE)
             .edit().clear().apply()
 
-        // 3. Clear all Jetpack DataStore files
         val dataStoreDir = File(appContext.filesDir, "datastore")
         if (dataStoreDir.exists()) {
             dataStoreDir.deleteRecursively()
@@ -100,18 +97,9 @@ class UnlockCreateLogE2ETest {
             }
         )
 
-        // Print the default MERGED tree
-        compose.onRoot().printToLog("MergedTree")
-
-        // Print the UNMERGED tree to see all nodes
-        compose.onRoot(useUnmergedTree = true).printToLog("UnmergedTree")
-
-        Log.d("E2E_DEBUG", compose.onRoot().printToString())
-        Log.d("E2E_DEBUG", compose.onRoot(useUnmergedTree = true).printToString())
-
         compose.onNodeWithTag("create-symptom-textbox", useUnmergedTree = true).performImeAction()
 
-        // 5) VERIFY THE FINAL RESULT: Wait for the new chip to appear and assert it's selected.
+        // 5) Verify the new chip appears and is selected
         val chipTag = "chip-${symptomName.uppercase()}"
         waitForExists(chipTag, useUnmerged = true, timeoutMillis = longWait)
         compose.onNodeWithTag(chipTag, useUnmergedTree = true).assertIsSelected()

@@ -1,18 +1,15 @@
 package com.veleda.cyclewise.androidData.local.dao
 
-import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
+import com.veleda.cyclewise.KoinTestRule
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.androidData.local.entities.WaterIntakeEntity
+import com.veleda.cyclewise.testutil.TestData
+import com.veleda.cyclewise.testutil.testDatabaseModule
 import kotlinx.coroutines.test.runTest
-import kotlin.time.Clock
 import org.junit.After
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.koin.core.context.startKoin
-import org.koin.core.context.stopKoin
-import org.koin.dsl.module
 import org.koin.test.KoinTest
 import org.koin.test.inject
 import org.robolectric.RobolectricTestRunner
@@ -23,56 +20,29 @@ import kotlin.test.assertNull
 @RunWith(RobolectricTestRunner::class)
 class WaterIntakeDaoTest : KoinTest {
 
-    // --- SETUP ---
+    @get:Rule
+    val koinRule = KoinTestRule(listOf(testDatabaseModule))
+
     private val dao: WaterIntakeDao by inject()
     private val db: PeriodDatabase by inject()
-
-    private val testModule = module {
-        single {
-            Room.inMemoryDatabaseBuilder(
-                ApplicationProvider.getApplicationContext(),
-                PeriodDatabase::class.java
-            )
-                .allowMainThreadQueries()
-                .build()
-        }
-        single { get<PeriodDatabase>().periodDao() }
-        single { get<PeriodDatabase>().dailyEntryDao() }
-        single { get<PeriodDatabase>().symptomDao() }
-        single { get<PeriodDatabase>().symptomLogDao() }
-        single { get<PeriodDatabase>().medicationDao() }
-        single { get<PeriodDatabase>().medicationLogDao() }
-        single { get<PeriodDatabase>().periodLogDao() }
-        single { get<PeriodDatabase>().waterIntakeDao() }
-    }
-
-    @Before
-    fun setUp() {
-        startKoin {
-            modules(testModule)
-        }
-    }
 
     @After
     fun tearDown() {
         db.close()
-        stopKoin()
     }
 
     // --- Test Data ---
-    private val now = Clock.System.now()
-
     private val intake1 = WaterIntakeEntity(
         date = "2025-01-10",
         cups = 5,
-        createdAt = now,
-        updatedAt = now
+        createdAt = TestData.INSTANT,
+        updatedAt = TestData.INSTANT
     )
     private val intake2 = WaterIntakeEntity(
         date = "2025-01-11",
         cups = 3,
-        createdAt = now,
-        updatedAt = now
+        createdAt = TestData.INSTANT,
+        updatedAt = TestData.INSTANT
     )
 
     // --- Tests for upsert() ---
@@ -94,7 +64,7 @@ class WaterIntakeDaoTest : KoinTest {
         dao.upsert(intake1)
 
         // ACT
-        val updated = intake1.copy(cups = 8, updatedAt = Clock.System.now())
+        val updated = intake1.copy(cups = 8, updatedAt = TestData.INSTANT)
         dao.upsert(updated)
 
         // ASSERT

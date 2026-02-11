@@ -1,19 +1,16 @@
 package com.veleda.cyclewise.androidData.local.dao
 
-import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
+import com.veleda.cyclewise.KoinTestRule
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.androidData.local.entities.MedicationEntity
+import com.veleda.cyclewise.testutil.TestData
+import com.veleda.cyclewise.testutil.testDatabaseModule
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import kotlin.time.Clock
 import org.junit.After
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.koin.core.context.startKoin
-import org.koin.core.context.stopKoin
-import org.koin.dsl.module
 import org.koin.test.KoinTest
 import org.koin.test.inject
 import org.robolectric.RobolectricTestRunner
@@ -25,53 +22,27 @@ import kotlin.test.assertTrue
 @RunWith(RobolectricTestRunner::class)
 class MedicationDaoTest : KoinTest {
 
-    // --- SETUP ---
+    @get:Rule
+    val koinRule = KoinTestRule(listOf(testDatabaseModule))
+
     private val dao: MedicationDao by inject()
     private val db: PeriodDatabase by inject()
-
-    private val testModule = module {
-        single {
-            Room.inMemoryDatabaseBuilder(
-                ApplicationProvider.getApplicationContext(),
-                PeriodDatabase::class.java
-            )
-                .allowMainThreadQueries()
-                .build()
-        }
-        // Provide all DAOs
-        single { get<PeriodDatabase>().periodDao() }
-        single { get<PeriodDatabase>().dailyEntryDao() }
-        single { get<PeriodDatabase>().symptomDao() }
-        single { get<PeriodDatabase>().symptomLogDao() }
-        single { get<PeriodDatabase>().medicationDao() }
-        single { get<PeriodDatabase>().medicationLogDao() }
-        single { get<PeriodDatabase>().periodLogDao() }
-        single { get<PeriodDatabase>().waterIntakeDao() }
-    }
-
-    @Before
-    fun setUp() {
-        startKoin {
-            modules(testModule)
-        }
-    }
 
     @After
     fun tearDown() {
         db.close()
-        stopKoin()
     }
 
     // --- Test Data ---
-    private val medIbuprofen = MedicationEntity("uuid-1", "Ibuprofen", Clock.System.now())
-    private val medAspirin = MedicationEntity("uuid-2", "Aspirin", Clock.System.now())
-    private val medTylenol = MedicationEntity("uuid-3", "Tylenol", Clock.System.now())
+    private val medIbuprofen = MedicationEntity("uuid-1", "Ibuprofen", TestData.INSTANT)
+    private val medAspirin = MedicationEntity("uuid-2", "Aspirin", TestData.INSTANT)
+    private val medTylenol = MedicationEntity("uuid-3", "Tylenol", TestData.INSTANT)
 
     // --- Tests for getAllMedications() ---
 
     @Test
     fun getAllMedications_WHEN_dataExists_THEN_returnsAllMedicationsSortedByNameAsc() = runTest {
-        // ARRANGE: Insert in a non-alphabetical order
+        // ARRANGE
         dao.insert(medIbuprofen)
         dao.insert(medAspirin)
         dao.insert(medTylenol)
@@ -81,7 +52,6 @@ class MedicationDaoTest : KoinTest {
 
         // ASSERT
         assertEquals(3, retrievedList.size)
-        // Verify the ASC order from the "ORDER BY name ASC" query
         assertEquals("Aspirin", retrievedList[0].name)
         assertEquals("Ibuprofen", retrievedList[1].name)
         assertEquals("Tylenol", retrievedList[2].name)
@@ -89,7 +59,10 @@ class MedicationDaoTest : KoinTest {
 
     @Test
     fun getAllMedications_WHEN_databaseIsEmpty_THEN_returnsEmptyList() = runTest {
+        // ACT
         val retrievedList = dao.getAllMedications().first()
+
+        // ASSERT
         assertTrue(retrievedList.isEmpty())
     }
 
@@ -140,23 +113,17 @@ class MedicationDaoTest : KoinTest {
 
     @Test
     fun insert_WHEN_medicationWithNameExists_THEN_onConflictIgnoreDoesNothing() = runTest {
-        // This tests the UNIQUE constraint on the `name` column combined with OnConflictStrategy.IGNORE
         // ARRANGE
-        val originalMedication = MedicationEntity("uuid-1", "Aspirin", Clock.System.now())
+        val originalMedication = MedicationEntity("uuid-1", "Aspirin", TestData.INSTANT)
         dao.insert(originalMedication)
-
-        // Create a new medication with a different ID but the SAME name.
-        val conflictingMedication = MedicationEntity("uuid-new", "Aspirin", Clock.System.now())
+        val conflictingMedication = MedicationEntity("uuid-new", "Aspirin", TestData.INSTANT)
 
         // ACT
-        // Attempt to insert the conflicting medication. Due to the UNIQUE constraint and
-        // OnConflictStrategy.IGNORE, this should be a silent no-op.
         dao.insert(conflictingMedication)
 
         // ASSERT
         val retrievedList = dao.getAllMedications().first()
         assertEquals(1, retrievedList.size, "Database should still contain only one entry")
-        // Verify that the original entry's ID was preserved
         assertEquals("uuid-1", retrievedList.first().id, "The original ID should be preserved")
     }
 }

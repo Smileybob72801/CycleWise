@@ -7,6 +7,7 @@ import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
+import com.veleda.cyclewise.testutil.TestData
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -21,7 +22,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.*
-import kotlin.time.Clock
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CycleViewModelTest {
@@ -46,7 +46,6 @@ class CycleViewModelTest {
         mockMedicationProvider = mockk(relaxed = true)
         mockAutoCloseUseCase = mockk(relaxed = true)
 
-        // Mock initial data flows
         every { mockRepository.observeDayDetails() } returns flowOf(emptyMap())
         every { mockRepository.getAllPeriods() } returns flowOf(emptyList())
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
@@ -60,16 +59,19 @@ class CycleViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-    private val pastDate = today.minus(5, DateTimeUnit.DAY)
+    private val today = TestData.DATE
+    private val pastDate = TestData.DATE.minus(5, DateTimeUnit.DAY)
 
     @Test
     fun onEvent_DayTapped_WHEN_logExists_THEN_showsLogSheet() = runTest {
+        // ARRANGE
         val fakeLog = mockk<FullDailyLog>()
         coEvery { mockRepository.getFullLogForDate(pastDate) } returns fakeLog
 
+        // ACT
         viewModel.onEvent(TrackerEvent.DayTapped(pastDate))
 
+        // ASSERT
         viewModel.uiState.test {
             assertEquals(fakeLog, awaitItem().logForSheet, "Log for sheet should be set")
         }
@@ -77,8 +79,10 @@ class CycleViewModelTest {
 
     @Test
     fun onEvent_DayTapped_WHEN_noLogExists_THEN_emitsNavigateEffect() = runTest {
+        // ARRANGE
         coEvery { mockRepository.getFullLogForDate(pastDate) } returns null
 
+        // ACT & ASSERT
         viewModel.effect.test {
             viewModel.onEvent(TrackerEvent.DayTapped(pastDate))
             val effect = awaitItem()
@@ -89,11 +93,11 @@ class CycleViewModelTest {
 
     @Test
     fun onEvent_DeletePeriodConfirmed_THEN_callsRepositoryDeleteAndClearsState() = runTest {
+        // ARRANGE
         val periodId = "period-to-delete-id"
-        val fakePeriod = Period(periodId, pastDate, today, Clock.System.now(), Clock.System.now())
-        val fakeLog = FullDailyLog(DailyEntry("log-id", pastDate, 5, createdAt = Clock.System.now(), updatedAt = Clock.System.now()))
+        val fakePeriod = Period(periodId, pastDate, today, TestData.INSTANT, TestData.INSTANT)
+        val fakeLog = FullDailyLog(DailyEntry("log-id", pastDate, 5, createdAt = TestData.INSTANT, updatedAt = TestData.INSTANT))
 
-        // Simulate the sheet being open for the log that is part of this period
         every { mockRepository.getAllPeriods() } returns flowOf(listOf(fakePeriod))
         viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase)
         advanceUntilIdle()
@@ -102,17 +106,17 @@ class CycleViewModelTest {
         viewModel.onEvent(TrackerEvent.DayTapped(pastDate))
         advanceUntilIdle()
 
-        // Request deletion (shows confirmation dialog, clears sheet)
         viewModel.onEvent(TrackerEvent.DeletePeriodRequested(periodId))
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.showDeleteConfirmation)
         assertNull(viewModel.uiState.value.logForSheet)
 
-        // Confirm deletion
+        // ACT
         viewModel.onEvent(TrackerEvent.DeletePeriodConfirmed(periodId))
         advanceUntilIdle()
 
+        // ASSERT
         coVerify(exactly = 1) { mockRepository.deletePeriod(periodId) }
         assertFalse(viewModel.uiState.value.showDeleteConfirmation)
         assertNull(viewModel.uiState.value.periodIdToDelete)
@@ -120,13 +124,15 @@ class CycleViewModelTest {
 
     @Test
     fun onEvent_DeletePeriodDismissed_THEN_clearsConfirmationState() = runTest {
+        // ARRANGE
         val periodId = "period-to-dismiss-id"
-
         viewModel.onEvent(TrackerEvent.DeletePeriodRequested(periodId))
         assertTrue(viewModel.uiState.value.showDeleteConfirmation)
 
+        // ACT
         viewModel.onEvent(TrackerEvent.DeletePeriodDismissed)
 
+        // ASSERT
         assertFalse(viewModel.uiState.value.showDeleteConfirmation)
         assertNull(viewModel.uiState.value.periodIdToDelete)
     }

@@ -2,13 +2,13 @@ package com.veleda.cyclewise.domain.usecases
 
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
-import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.testutil.TestData
+import com.veleda.cyclewise.testutil.buildPeriod
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import kotlin.time.Clock
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.daysUntil
 import org.junit.Before
@@ -24,34 +24,31 @@ class GetOrCreateDailyLogUseCaseTest {
     private lateinit var useCase: GetOrCreateDailyLogUseCase
 
     // --- Test Data Setup ---
-    // A stable, predictable set of periods for all tests. Oldest first.
     @OptIn(ExperimentalTime::class)
     private val testPeriods = listOf(
-        Period("period-1", LocalDate(2025, 1, 1), LocalDate(2025, 1, 5), Clock.System.now(), Clock.System.now()),
-        Period("period-2", LocalDate(2025, 1, 29), LocalDate(2025, 2, 2), Clock.System.now(), Clock.System.now()), // 28-day cycle
-        Period("period-3", LocalDate(2025, 2, 28), LocalDate(2025, 3, 4), Clock.System.now(), Clock.System.now())  // 30-day cycle
+        buildPeriod(id = "period-1", startDate = LocalDate(2025, 1, 1), endDate = LocalDate(2025, 1, 5)),
+        buildPeriod(id = "period-2", startDate = LocalDate(2025, 1, 29), endDate = LocalDate(2025, 2, 2)),
+        buildPeriod(id = "period-3", startDate = LocalDate(2025, 2, 28), endDate = LocalDate(2025, 3, 4))
     )
 
     @Before
     fun setUp() {
         mockRepository = mockk()
         useCase = GetOrCreateDailyLogUseCase(mockRepository)
-
-        // Mock the repository to return our stable list of periods by default for all tests.
-        coEvery { mockRepository.getAllPeriods() } returns flowOf(testPeriods.reversed()) // Repository returns newest first
+        coEvery { mockRepository.getAllPeriods() } returns flowOf(testPeriods.reversed())
     }
 
     @OptIn(ExperimentalTime::class)
     @Test
-    fun invoke_whenLogAlreadyExists_returnsTheExistingLog() = runTest {
+    fun invoke_WHEN_logExists_THEN_returnsExistingLog() = runTest {
         // ARRANGE
         val testDate = LocalDate(2025, 1, 15)
         val existingEntry = DailyEntry(
             id = "existing-id",
             entryDate = testDate,
             dayInCycle = 15,
-            createdAt = Clock.System.now(),
-            updatedAt = Clock.System.now()
+            createdAt = TestData.INSTANT,
+            updatedAt = TestData.INSTANT
         )
         val existingLog = FullDailyLog(entry = existingEntry)
         coEvery { mockRepository.getFullLogForDate(testDate) } returns existingLog
@@ -65,13 +62,10 @@ class GetOrCreateDailyLogUseCaseTest {
     }
 
     @Test
-    fun invoke_whenNoLogExists_createsNewLogLinkedToCorrectParentPeriod() = runTest {
+    fun invoke_WHEN_noLogExists_THEN_linksToCorrectParentPeriod() = runTest {
         // ARRANGE
-        // This date falls into the cycle that started on Jan 29.
         val testDate = LocalDate(2025, 2, 10)
         coEvery { mockRepository.getFullLogForDate(testDate) } returns null
-
-        // The parent period should be period-2, which started on 2025-01-29.
         val parentPeriod = testPeriods[1]
         val expectedDayInCycle = parentPeriod.startDate.daysUntil(testDate) + 1
 
@@ -81,16 +75,13 @@ class GetOrCreateDailyLogUseCaseTest {
         // ASSERT
         assertNotNull(result)
         assertEquals(testDate, result.entry.entryDate)
-        // This is the most crucial assertion: it proves the use case correctly identified
-        // the parent period to calculate the day of the cycle.
         assertEquals(expectedDayInCycle, result.entry.dayInCycle, "Day in cycle should be calculated from the correct parent period")
-        assertEquals(13, expectedDayInCycle) // Explicitly check the math for this test case
+        assertEquals(13, expectedDayInCycle)
     }
 
     @Test
-    fun invoke_whenDateIsStartOfAPeriod_createsNewLogWithDayInCycleOne() = runTest {
+    fun invoke_WHEN_dateIsStartOfPeriod_THEN_dayInCycleIsOne() = runTest {
         // ARRANGE
-        // This date is the exact start of the second period.
         val testDate = LocalDate(2025, 1, 29)
         coEvery { mockRepository.getFullLogForDate(testDate) } returns null
 
@@ -103,9 +94,8 @@ class GetOrCreateDailyLogUseCaseTest {
     }
 
     @Test
-    fun invoke_whenDateIsBeforeFirstEverPeriod_returnsNull() = runTest {
+    fun invoke_WHEN_dateBeforeFirstPeriod_THEN_returnsNull() = runTest {
         // ARRANGE
-        // A date that occurs before any logged periods in the repository.
         val testDate = LocalDate(2024, 12, 31)
         coEvery { mockRepository.getFullLogForDate(testDate) } returns null
 
@@ -117,11 +107,11 @@ class GetOrCreateDailyLogUseCaseTest {
     }
 
     @Test
-    fun invoke_whenNoPeriodsExistAtAll_returnsNull() = runTest {
+    fun invoke_WHEN_noPeriodsExist_THEN_returnsNull() = runTest {
         // ARRANGE
         val testDate = LocalDate(2025, 1, 15)
         coEvery { mockRepository.getFullLogForDate(testDate) } returns null
-        coEvery { mockRepository.getAllPeriods() } returns flowOf(emptyList()) // Override default setup
+        coEvery { mockRepository.getAllPeriods() } returns flowOf(emptyList())
 
         // ACT
         val result = useCase(testDate)
