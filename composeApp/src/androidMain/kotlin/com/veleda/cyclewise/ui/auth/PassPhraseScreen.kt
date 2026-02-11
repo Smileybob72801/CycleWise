@@ -46,6 +46,15 @@ fun PassphraseScreen(
             Spacer(Modifier.height(16.dp))
             Text("Unlocking...")
         } else {
+            val waterViewModel: WaterTrackerViewModel = koinViewModel()
+            val waterState by waterViewModel.uiState.collectAsState()
+            WaterTrackerCounter(
+                cups = waterState.todayCups,
+                onIncrement = waterViewModel::onIncrement,
+                onDecrement = waterViewModel::onDecrement,
+                yesterdayMessage = waterState.yesterdayMessage
+            )
+            Spacer(Modifier.height(32.dp))
             Text("Enter your passphrase", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(16.dp))
             OutlinedTextField(

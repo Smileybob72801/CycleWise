@@ -8,6 +8,8 @@ import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.PeriodLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.domain.models.WaterIntake
+import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.Json
 
 /** Convert Room entity → shared domain model */
@@ -88,3 +90,9 @@ fun SymptomLog.toEntity(): SymptomLogEntity = SymptomLogEntity(id, entryId, symp
 fun PeriodLogEntity.toDomain(): PeriodLog = PeriodLog(id, entryId, flowIntensity, createdAt, updatedAt)
 @OptIn(ExperimentalTime::class)
 fun PeriodLog.toEntity(): PeriodLogEntity = PeriodLogEntity(id, entryId, flowIntensity, createdAt, updatedAt)
+
+// --- Water Intake Mappers ---
+@OptIn(ExperimentalTime::class)
+fun WaterIntakeEntity.toDomain(): WaterIntake = WaterIntake(LocalDate.parse(date), cups, createdAt, updatedAt)
+@OptIn(ExperimentalTime::class)
+fun WaterIntake.toEntity(): WaterIntakeEntity = WaterIntakeEntity(date.toString(), cups, createdAt, updatedAt)

@@ -48,6 +48,8 @@ class MedicationLogDaoTest : KoinTest {
         single { get<PeriodDatabase>().symptomLogDao() }
         single { get<PeriodDatabase>().medicationDao() }
         single { get<PeriodDatabase>().medicationLogDao() }
+        single { get<PeriodDatabase>().periodLogDao() }
+        single { get<PeriodDatabase>().waterIntakeDao() }
     }
 
     @Before

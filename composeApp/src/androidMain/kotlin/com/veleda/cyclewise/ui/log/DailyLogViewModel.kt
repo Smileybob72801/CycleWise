@@ -9,6 +9,7 @@ import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.PeriodLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.domain.models.WaterIntake
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
@@ -32,7 +33,8 @@ data class DailyLogUiState(
     val error: String? = null,
     val symptomLibrary: List<Symptom> = emptyList(),
     val medicationLibrary: List<Medication> = emptyList(),
-    val isPeriodDay: Boolean = false
+    val isPeriodDay: Boolean = false,
+    val waterCups: Int = 0
 )
 
 class DailyLogViewModel(
@@ -57,8 +59,10 @@ class DailyLogViewModel(
             val initialSymptoms = symptomLibraryProvider.symptoms.first()
             val initialMedications = medicationLibraryProvider.medications.first()
             val result = getOrCreateDailyLog(entryDate)
+            val waterIntake = periodRepository.getWaterIntakeForDates(listOf(entryDate)).firstOrNull()
 
             onEvent(DailyLogEvent.LogLoaded(result, initialSymptoms, initialMedications))
+            _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0) }
         }
 
         // 2. Subsequent library changes also dispatch events instead of mutating state directly.
@@ -234,6 +238,35 @@ class DailyLogViewModel(
                     _effect.emit(DailyLogEffect.NavigateBack)
                 }
                 currentState
+            }
+            is DailyLogEvent.WaterIncrement -> {
+                val newCups = currentState.waterCups + 1
+                viewModelScope.launch {
+                    periodRepository.upsertWaterIntake(
+                        WaterIntake(
+                            date = entryDate,
+                            cups = newCups,
+                            createdAt = Clock.System.now(),
+                            updatedAt = Clock.System.now()
+                        )
+                    )
+                }
+                currentState.copy(waterCups = newCups)
+            }
+            is DailyLogEvent.WaterDecrement -> {
+                if (currentState.waterCups <= 0) return currentState
+                val newCups = currentState.waterCups - 1
+                viewModelScope.launch {
+                    periodRepository.upsertWaterIntake(
+                        WaterIntake(
+                            date = entryDate,
+                            cups = newCups,
+                            createdAt = Clock.System.now(),
+                            updatedAt = Clock.System.now()
+                        )
+                    )
+                }
+                currentState.copy(waterCups = newCups)
             }
             is DailyLogEvent.LogLoaded, is DailyLogEvent.LibraryUpdated, is DailyLogEvent.SymptomNameChanged -> currentState
         }

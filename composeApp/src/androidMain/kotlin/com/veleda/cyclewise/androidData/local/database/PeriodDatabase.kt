@@ -12,6 +12,7 @@ import com.veleda.cyclewise.androidData.local.dao.MedicationLogDao
 import com.veleda.cyclewise.androidData.local.dao.PeriodLogDao
 import com.veleda.cyclewise.androidData.local.dao.SymptomDao
 import com.veleda.cyclewise.androidData.local.dao.SymptomLogDao
+import com.veleda.cyclewise.androidData.local.dao.WaterIntakeDao
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_1_2
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_2_3
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_3_4
@@ -19,6 +20,7 @@ import com.veleda.cyclewise.androidData.local.database.migrations.Migration_4_5
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_5_6
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_6_7
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_7_8
+import com.veleda.cyclewise.androidData.local.database.migrations.Migration_8_9
 import com.veleda.cyclewise.androidData.local.entities.PeriodEntity
 import com.veleda.cyclewise.androidData.local.entities.Converters
 import com.veleda.cyclewise.androidData.local.entities.DailyEntryEntity
@@ -27,6 +29,7 @@ import com.veleda.cyclewise.androidData.local.entities.MedicationLogEntity
 import com.veleda.cyclewise.androidData.local.entities.SymptomEntity
 import com.veleda.cyclewise.androidData.local.entities.SymptomLogEntity
 import com.veleda.cyclewise.androidData.local.entities.PeriodLogEntity
+import com.veleda.cyclewise.androidData.local.entities.WaterIntakeEntity
 import net.sqlcipher.database.SupportFactory
 
 @Database(
@@ -37,9 +40,10 @@ import net.sqlcipher.database.SupportFactory
         MedicationEntity::class,
         MedicationLogEntity::class,
         SymptomLogEntity::class,
-        PeriodLogEntity::class
+        PeriodLogEntity::class,
+        WaterIntakeEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -51,6 +55,7 @@ abstract class PeriodDatabase : RoomDatabase() {
     abstract fun medicationLogDao(): MedicationLogDao
     abstract fun symptomLogDao(): SymptomLogDao
     abstract fun periodLogDao(): PeriodLogDao
+    abstract fun waterIntakeDao(): WaterIntakeDao
 
     companion object {
         fun create(
@@ -72,7 +77,8 @@ abstract class PeriodDatabase : RoomDatabase() {
                     Migration_4_5,
                     Migration_5_6,
                     Migration_6_7,
-                    Migration_7_8
+                    Migration_7_8,
+                    Migration_8_9
                 )
                 .build()
         }

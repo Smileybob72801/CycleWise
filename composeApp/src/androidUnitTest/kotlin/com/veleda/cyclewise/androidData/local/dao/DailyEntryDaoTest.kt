@@ -44,6 +44,7 @@ class DailyEntryDaoTest : KoinTest {
         single { get<PeriodDatabase>().medicationDao() }
         single { get<PeriodDatabase>().medicationLogDao() }
         single { get<PeriodDatabase>().periodLogDao() }
+        single { get<PeriodDatabase>().waterIntakeDao() }
     }
 
     @Before

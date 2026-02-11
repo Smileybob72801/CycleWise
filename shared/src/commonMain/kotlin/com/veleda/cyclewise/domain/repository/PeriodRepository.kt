@@ -8,6 +8,7 @@ import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomCategory
 import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.domain.models.WaterIntake
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.YearMonth
@@ -102,4 +103,10 @@ interface PeriodRepository {
 
     /** Unmarks a specific date as a period day, splitting the existing period or deleting a 1-day period. */
     suspend fun unLogPeriodDay(date: LocalDate)
+
+    /** Inserts or replaces a water intake record for a given date. */
+    suspend fun upsertWaterIntake(intake: WaterIntake)
+
+    /** Returns water intake records for the specified dates. */
+    suspend fun getWaterIntakeForDates(dates: List<LocalDate>): List<WaterIntake>
 }

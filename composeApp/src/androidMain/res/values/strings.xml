@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">PeriodTracker</string>
+    <string name="water_tracker_title">Water Today</string>
+    <string name="water_cups_count">%d cups</string>
+    <string name="water_yesterday_message">You logged %d cups yesterday. Log in to save.</string>
+    <string name="water_section_title">Water</string>
 </resources>

@@ -9,6 +9,7 @@ import com.veleda.cyclewise.androidData.local.dao.MedicationLogDao
 import com.veleda.cyclewise.androidData.local.dao.PeriodLogDao
 import com.veleda.cyclewise.androidData.local.dao.SymptomDao
 import com.veleda.cyclewise.androidData.local.dao.SymptomLogDao
+import com.veleda.cyclewise.androidData.local.dao.WaterIntakeDao
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.androidData.local.entities.toDomain
 import com.veleda.cyclewise.androidData.local.entities.toEntity
@@ -17,6 +18,7 @@ import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.domain.models.WaterIntake
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
@@ -57,6 +59,7 @@ class RoomPeriodRepository(
     private val medicationLogDao: MedicationLogDao,
     private val symptomLogDao: SymptomLogDao,
     private val periodLogDao: PeriodLogDao,
+    private val waterIntakeDao: WaterIntakeDao,
 ) : PeriodRepository {
     override fun getAllPeriods(): Flow<List<Period>> {
         return periodDao.getAllPeriods().map { entityList ->
@@ -590,5 +593,13 @@ class RoomPeriodRepository(
             val entryForDate = dailyEntryDao.getEntryForDate(date).firstOrNull()
             entryForDate?.let { periodLogDao.deleteLogForEntry(it.id) }
         }
+    }
+
+    override suspend fun upsertWaterIntake(intake: WaterIntake) {
+        waterIntakeDao.upsert(intake.toEntity())
+    }
+
+    override suspend fun getWaterIntakeForDates(dates: List<LocalDate>): List<WaterIntake> {
+        return waterIntakeDao.getForDates(dates.map { it.toString() }).map { it.toDomain() }
     }
 }
