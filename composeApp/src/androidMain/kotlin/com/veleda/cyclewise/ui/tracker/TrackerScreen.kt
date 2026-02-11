@@ -88,6 +88,7 @@ fun TrackerScreen(navController: NavController) {
                 log = uiState.logForSheet!!,
                 periodId = uiState.periodIdForSheet,
                 symptomLibrary = uiState.symptomLibrary,
+                waterCups = uiState.waterCupsForSheet,
                 onEditClick = { date -> viewModel.onEvent(TrackerEvent.EditLogClicked(date)) },
                 onDeleteClick = { periodId -> viewModel.onEvent(TrackerEvent.DeletePeriodRequested(periodId)) }
             )
@@ -193,6 +194,7 @@ private fun LogSummarySheetContent(
     log: FullDailyLog,
     periodId: String?,
     symptomLibrary: List<Symptom>,
+    waterCups: Int?,
     onEditClick: (LocalDate) -> Unit,
     onDeleteClick: (String) -> Unit
 ) {
@@ -237,6 +239,10 @@ private fun LogSummarySheetContent(
 
         log.entry.moodScore?.let {
             InfoRow(icon = Icons.Outlined.Star, title = "Mood", value = "$it / 5")
+        }
+
+        waterCups?.let {
+            if (it > 0) InfoRow(icon = Icons.Default.Build, title = "Water", value = "$it cups")
         }
 
         if (log.symptomLogs.isNotEmpty()) {

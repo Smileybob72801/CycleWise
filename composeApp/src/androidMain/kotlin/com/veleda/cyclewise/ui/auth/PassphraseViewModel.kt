@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 import org.koin.core.component.KoinComponent
 import org.koin.core.parameter.parametersOf
 import kotlin.time.Clock
@@ -82,7 +84,9 @@ class PassphraseViewModel(
 
     @OptIn(ExperimentalTime::class)
     private suspend fun syncWaterDrafts(sessionScope: org.koin.core.scope.Scope) {
-        val drafts = lockedWaterDraft.readAll()
+        val allDrafts = lockedWaterDraft.readAll()
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+        val drafts = allDrafts.filterKeys { it != today }
         if (drafts.isEmpty()) return
 
         val repository = sessionScope.get<PeriodRepository>()

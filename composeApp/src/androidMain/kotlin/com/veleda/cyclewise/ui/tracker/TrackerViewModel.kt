@@ -26,7 +26,8 @@ data class TrackerUiState(
     val medicationLibrary: List<Medication> = emptyList(),
     val dayDetails: Map<LocalDate, CalendarDayInfo> = emptyMap(),
     val showDeleteConfirmation: Boolean = false,
-    val periodIdToDelete: String? = null
+    val periodIdToDelete: String? = null,
+    val waterCupsForSheet: Int? = null
 ) {
     val ongoingPeriod: Period? = periods.find { it.endDate == null }
 }
@@ -105,10 +106,12 @@ class TrackerViewModel(
                     val existingLog = periodRepository.getFullLogForDate(date)
 
                     if (existingLog != null) {
+                        val waterIntake = periodRepository.getWaterIntakeForDates(listOf(date)).firstOrNull()
                         _uiState.update {
                             it.copy(
                                 logForSheet = existingLog,
-                                periodIdForSheet = periodForDate?.id
+                                periodIdForSheet = periodForDate?.id,
+                                waterCupsForSheet = waterIntake?.cups
                             )
                         }
                     } else {
@@ -130,7 +133,7 @@ class TrackerViewModel(
                 currentState
             }
             is TrackerEvent.DismissLogSheet -> {
-                currentState.copy(logForSheet = null, periodIdForSheet = null)
+                currentState.copy(logForSheet = null, periodIdForSheet = null, waterCupsForSheet = null)
             }
             is TrackerEvent.EditLogClicked -> {
                 val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
@@ -142,7 +145,7 @@ class TrackerViewModel(
                 viewModelScope.launch {
                     _effect.emit(TrackerEffect.NavigateToDailyLog(date, isPeriodDay))
                 }
-                currentState.copy(logForSheet = null, periodIdForSheet = null)
+                currentState.copy(logForSheet = null, periodIdForSheet = null, waterCupsForSheet = null)
             }
             is TrackerEvent.DeletePeriodRequested -> {
                 currentState.copy(

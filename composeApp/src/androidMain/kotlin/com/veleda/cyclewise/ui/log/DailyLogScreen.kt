@@ -28,7 +28,10 @@ import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.ui.auth.WaterTrackerCounter
 import com.veleda.cyclewise.ui.utils.toLocalizedDateString
+import androidx.compose.ui.res.stringResource
+import com.veleda.cyclewise.R
 import kotlinx.datetime.LocalDate
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
@@ -110,6 +113,15 @@ fun DailyLogScreen(
                     MoodSelector(
                         selectedMood = log.entry.moodScore,
                         onSelectionChanged = { viewModel.onEvent(DailyLogEvent.MoodScoreChanged(it)) }
+                    )
+
+                    SectionTitle(stringResource(R.string.water_section_title))
+                    WaterTrackerCounter(
+                        cups = uiState.waterCups,
+                        onIncrement = { viewModel.onEvent(DailyLogEvent.WaterIncrement) },
+                        onDecrement = { viewModel.onEvent(DailyLogEvent.WaterDecrement) },
+                        yesterdayMessage = null,
+                        modifier = Modifier.fillMaxWidth()
                     )
 
                     SectionTitle("Symptoms")

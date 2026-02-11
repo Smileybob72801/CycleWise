@@ -21,13 +21,15 @@ class WaterSyncTest {
 
     private val today = LocalDate(2025, 6, 15)
     private val yesterday = LocalDate(2025, 6, 14)
+    private val twoDaysAgo = LocalDate(2025, 6, 13)
 
     /**
      * Simulates the sync logic from PassphraseViewModel.syncWaterDrafts
      * to test the merge strategy in isolation.
      */
     private suspend fun syncWaterDrafts() {
-        val drafts = lockedWaterDraft.readAll()
+        val allDrafts = lockedWaterDraft.readAll()
+        val drafts = allDrafts.filterKeys { it != today }
         if (drafts.isEmpty()) return
 
         val existing = repository.getWaterIntakeForDates(drafts.keys.toList())
@@ -65,7 +67,7 @@ class WaterSyncTest {
     @Test
     fun sync_WHEN_dbEmpty_THEN_insertsAllDrafts() = runTest {
         // ARRANGE
-        coEvery { lockedWaterDraft.readAll() } returns mapOf(today to 5)
+        coEvery { lockedWaterDraft.readAll() } returns mapOf(yesterday to 5)
         coEvery { repository.getWaterIntakeForDates(any()) } returns emptyList()
 
         // ACT
@@ -74,18 +76,18 @@ class WaterSyncTest {
         // ASSERT
         val slot = slot<WaterIntake>()
         coVerify { repository.upsertWaterIntake(capture(slot)) }
-        assertEquals(today, slot.captured.date)
+        assertEquals(yesterday, slot.captured.date)
         assertEquals(5, slot.captured.cups)
-        coVerify { lockedWaterDraft.clearDates(setOf(today)) }
+        coVerify { lockedWaterDraft.clearDates(setOf(yesterday)) }
     }
 
     @Test
     fun sync_WHEN_draftHigherThanDb_THEN_writesToDb() = runTest {
         // ARRANGE
         val now = Clock.System.now()
-        coEvery { lockedWaterDraft.readAll() } returns mapOf(today to 8)
+        coEvery { lockedWaterDraft.readAll() } returns mapOf(yesterday to 8)
         coEvery { repository.getWaterIntakeForDates(any()) } returns listOf(
-            WaterIntake(today, 5, now, now)
+            WaterIntake(yesterday, 5, now, now)
         )
 
         // ACT
@@ -101,9 +103,9 @@ class WaterSyncTest {
     fun sync_WHEN_dbHigherOrEqual_THEN_skipsWrite() = runTest {
         // ARRANGE
         val now = Clock.System.now()
-        coEvery { lockedWaterDraft.readAll() } returns mapOf(today to 3)
+        coEvery { lockedWaterDraft.readAll() } returns mapOf(yesterday to 3)
         coEvery { repository.getWaterIntakeForDates(any()) } returns listOf(
-            WaterIntake(today, 5, now, now)
+            WaterIntake(yesterday, 5, now, now)
         )
 
         // ACT
@@ -112,7 +114,7 @@ class WaterSyncTest {
         // ASSERT
         coVerify(exactly = 0) { repository.upsertWaterIntake(any()) }
         // Still clears the date since it was "processed" (db already has higher)
-        coVerify { lockedWaterDraft.clearDates(setOf(today)) }
+        coVerify { lockedWaterDraft.clearDates(setOf(yesterday)) }
     }
 
     @Test
@@ -133,7 +135,7 @@ class WaterSyncTest {
     fun sync_WHEN_partialFailure_THEN_clearsOnlySuccessful() = runTest {
         // ARRANGE
         val now = Clock.System.now()
-        coEvery { lockedWaterDraft.readAll() } returns mapOf(today to 5, yesterday to 3)
+        coEvery { lockedWaterDraft.readAll() } returns mapOf(yesterday to 5, twoDaysAgo to 3)
         coEvery { repository.getWaterIntakeForDates(any()) } returns emptyList()
         // First call succeeds, second throws
         var callCount = 0
@@ -153,15 +155,33 @@ class WaterSyncTest {
     }
 
     @Test
-    fun sync_WHEN_multipleDates_THEN_clearsAllSyncedDates() = runTest {
-        // ARRANGE
+    fun sync_WHEN_multipleDates_THEN_clearsOnlyPastDates() = runTest {
+        // ARRANGE — drafts for today + yesterday; only yesterday should sync
         coEvery { lockedWaterDraft.readAll() } returns mapOf(today to 5, yesterday to 3)
         coEvery { repository.getWaterIntakeForDates(any()) } returns emptyList()
 
         // ACT
         syncWaterDrafts()
 
-        // ASSERT
-        coVerify { lockedWaterDraft.clearDates(setOf(today, yesterday)) }
+        // ASSERT — today excluded from sync: only yesterday written and cleared
+        val slot = slot<WaterIntake>()
+        coVerify(exactly = 1) { repository.upsertWaterIntake(capture(slot)) }
+        assertEquals(yesterday, slot.captured.date)
+        assertEquals(3, slot.captured.cups)
+        coVerify { lockedWaterDraft.clearDates(setOf(yesterday)) }
+    }
+
+    @Test
+    fun sync_WHEN_onlyTodayDraft_THEN_noOp() = runTest {
+        // ARRANGE — only today's draft present; should be skipped entirely
+        coEvery { lockedWaterDraft.readAll() } returns mapOf(today to 4)
+
+        // ACT
+        syncWaterDrafts()
+
+        // ASSERT — no DB access, no clears
+        coVerify(exactly = 0) { repository.getWaterIntakeForDates(any()) }
+        coVerify(exactly = 0) { repository.upsertWaterIntake(any()) }
+        coVerify(exactly = 0) { lockedWaterDraft.clearDates(any()) }
     }
 }

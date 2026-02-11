@@ -19,6 +19,8 @@ sealed interface DailyLogEvent {
     data class MedicationToggled(val medication: Medication) : DailyLogEvent
     data class MedicationCreatedAndAdded(val name: String) : DailyLogEvent
     object SaveLog : DailyLogEvent
+    object WaterIncrement : DailyLogEvent
+    object WaterDecrement : DailyLogEvent
 }
 
 /**
