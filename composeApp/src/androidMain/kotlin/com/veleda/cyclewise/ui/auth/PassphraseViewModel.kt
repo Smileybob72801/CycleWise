@@ -6,20 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.androidData.local.draft.LockedWaterDraft
 import com.veleda.cyclewise.di.SESSION_SCOPE
-import com.veleda.cyclewise.domain.models.WaterIntake
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.todayIn
 import org.koin.core.component.KoinComponent
 import org.koin.core.parameter.parametersOf
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 data class PassphraseUiState(
     val isUnlocking: Boolean = false
@@ -82,42 +76,9 @@ class PassphraseViewModel(
         }
     }
 
-    @OptIn(ExperimentalTime::class)
     private suspend fun syncWaterDrafts(sessionScope: org.koin.core.scope.Scope) {
-        val allDrafts = lockedWaterDraft.readAll()
-        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-        val drafts = allDrafts.filterKeys { it != today }
-        if (drafts.isEmpty()) return
-
         val repository = sessionScope.get<PeriodRepository>()
-        val existing = repository.getWaterIntakeForDates(drafts.keys.toList())
-            .associateBy { it.date }
-        val now = Clock.System.now()
-        val syncedDates = mutableSetOf<LocalDate>()
-
-        for ((date, draftCups) in drafts) {
-            try {
-                val dbEntry = existing[date]
-                val dbCups = dbEntry?.cups ?: 0
-
-                if (draftCups > dbCups) {
-                    repository.upsertWaterIntake(
-                        WaterIntake(
-                            date = date,
-                            cups = draftCups,
-                            createdAt = dbEntry?.createdAt ?: now,
-                            updatedAt = now
-                        )
-                    )
-                }
-                syncedDates += date
-            } catch (e: Exception) {
-                Log.e("WaterSync", "Failed to sync water for $date", e)
-            }
-        }
-
-        if (syncedDates.isNotEmpty()) {
-            lockedWaterDraft.clearDates(syncedDates)
-        }
+        val syncer = WaterDraftSyncer(lockedWaterDraft, repository)
+        syncer.sync()
     }
 }

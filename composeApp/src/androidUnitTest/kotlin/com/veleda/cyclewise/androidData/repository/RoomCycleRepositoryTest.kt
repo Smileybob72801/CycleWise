@@ -1,24 +1,21 @@
 package com.veleda.cyclewise.androidData.repository
 
-import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
 import com.benasher44.uuid.uuid4
+import com.veleda.cyclewise.KoinTestRule
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.domain.models.*
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.testutil.TestData
+import com.veleda.cyclewise.testutil.testDatabaseModule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.*
-import kotlin.time.Clock
-import kotlin.time.Instant
 import org.junit.After
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.koin.core.context.startKoin
-import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import org.koin.test.KoinTest
 import org.koin.test.inject
@@ -30,30 +27,8 @@ import kotlin.test.*
 @Config(sdk = [33], manifest = Config.NONE)
 class RoomCycleRepositoryTest : KoinTest {
 
-    // --- SETUP ---
-    private val repository: PeriodRepository by inject()
-    private val db: PeriodDatabase by inject()
-
-    private val testModule = module {
-        // Provide an in-memory database for the test environment
-        single {
-            Room.inMemoryDatabaseBuilder(
-                ApplicationProvider.getApplicationContext(),
-                PeriodDatabase::class.java
-            )
-            .allowMainThreadQueries()
-            .build()
-        }
-        // Provide all DAOs from the database
-        single { get<PeriodDatabase>().periodDao() }
-        single { get<PeriodDatabase>().dailyEntryDao() }
-        single { get<PeriodDatabase>().symptomDao() }
-        single { get<PeriodDatabase>().symptomLogDao() }
-        single { get<PeriodDatabase>().medicationDao() }
-        single { get<PeriodDatabase>().medicationLogDao() }
-        single { get<PeriodDatabase>().periodLogDao() }
-
-        // Provide the real repository implementation
+    private val repositoryModule = module {
+        includes(testDatabaseModule)
         single<PeriodRepository> {
             RoomPeriodRepository(
                 db = get(),
@@ -63,27 +38,26 @@ class RoomCycleRepositoryTest : KoinTest {
                 symptomLogDao = get(),
                 medicationDao = get(),
                 medicationLogDao = get(),
-                periodLogDao = get()
+                periodLogDao = get(),
+                waterIntakeDao = get()
             )
         }
     }
 
-    @Before
-    fun setUp() {
-        startKoin {
-            modules(testModule)
-        }
-    }
+    @get:Rule
+    val koinRule = KoinTestRule(listOf(repositoryModule))
+
+    private val repository: PeriodRepository by inject()
+    private val db: PeriodDatabase by inject()
 
     @After
     fun tearDown() {
         db.close()
-        stopKoin()
     }
 
     // --- Test Data Helpers ---
     private val testDate = LocalDate(2025, 8, 15)
-    private val testNow = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds())
+    private val testNow = TestData.INSTANT
 
     private fun createBaseDailyEntry(id: String, date: LocalDate) = DailyEntry(
         id = id,
@@ -105,20 +79,15 @@ class RoomCycleRepositoryTest : KoinTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun saveFullLog_and_getFullLogForDate_savesAndRetrievesAllDataCorrectly() = runTest {
-        // --- ARRANGE ---
-        // 1. Pre-populate libraries and parent period (required for dayInCycle calc but not data storage logic)
+    fun saveFullLog_WHEN_fullLogSaved_THEN_retrievesAllDataCorrectly() = runTest {
+        // ARRANGE
         repository.startNewPeriod(testDate.minus(5, DateTimeUnit.DAY))
-
         val symptom1 = repository.createOrGetSymptomInLibrary("Cramps", SymptomCategory.PAIN)
         val medication1 = repository.createOrGetMedicationInLibrary("Ibuprofen")
-
         val baseEntry = createBaseDailyEntry("entry-1", testDate)
-
-        // 2. Create the complex log object to save.
         val originalLog = FullDailyLog(
             entry = baseEntry,
-            periodLog = createHeavyPeriodLog("entry-1"), // <-- NEW: Include PeriodLog
+            periodLog = createHeavyPeriodLog("entry-1"),
             symptomLogs = listOf(
                 SymptomLog("slog-1", "entry-1", symptom1.id, 4, testNow)
             ),
@@ -127,22 +96,22 @@ class RoomCycleRepositoryTest : KoinTest {
             )
         )
 
-        // --- ACT ---
+        // ACT
         repository.saveFullLog(originalLog)
         val retrievedLog = repository.getFullLogForDate(testDate)
 
-        // --- ASSERT ---
+        // ASSERT
         assertNotNull(retrievedLog)
         assertEquals(originalLog.entry.id, retrievedLog.entry.id)
-        assertNotNull(retrievedLog.periodLog, "PeriodLog should be retrieved.") // <-- NEW ASSERT
-        assertEquals(FlowIntensity.HEAVY, retrievedLog.periodLog!!.flowIntensity) // <-- NEW ASSERTION
+        assertNotNull(retrievedLog.periodLog, "PeriodLog should be retrieved.")
+        assertEquals(FlowIntensity.HEAVY, retrievedLog.periodLog!!.flowIntensity)
         assertEquals(originalLog.symptomLogs.toSet(), retrievedLog.symptomLogs.toSet())
         assertEquals(originalLog.medicationLogs.toSet(), retrievedLog.medicationLogs.toSet())
     }
 
     @Test
     fun saveFullLog_WHEN_FlowIsCleared_THEN_PeriodLogIsDeleted() = runTest {
-        // ARRANGE: Save an initial log with flow data.
+        // ARRANGE
         repository.startNewPeriod(testDate.minus(5, DateTimeUnit.DAY))
         val initialLog = FullDailyLog(
             entry = createBaseDailyEntry("entry-1", testDate),
@@ -151,7 +120,7 @@ class RoomCycleRepositoryTest : KoinTest {
         repository.saveFullLog(initialLog)
         assertNotNull(repository.getFullLogForDate(testDate)?.periodLog, "Precondition: PeriodLog should exist")
 
-        // ACT: Save the log again, explicitly setting PeriodLog to null (i.e., clearing flow/period data).
+        // ACT
         val clearedLog = initialLog.copy(periodLog = null)
         repository.saveFullLog(clearedLog)
 
@@ -161,11 +130,9 @@ class RoomCycleRepositoryTest : KoinTest {
         assertNull(retrievedLog.periodLog, "PeriodLog should be null after clearing flow data.")
     }
 
-    // --- Tests for Period/Cycle Logic (Unchanged but using new models) ---
-
     @Test
     fun saveFullLog_WHEN_calledAgainForSameDay_THEN_updatesDataCorrectly() = runTest {
-        // ARRANGE: Save an initial log
+        // ARRANGE
         repository.startNewPeriod(testDate.minus(5, DateTimeUnit.DAY))
         val symptom1 = repository.createOrGetSymptomInLibrary("Cramps", SymptomCategory.PAIN)
         val symptom2 = repository.createOrGetSymptomInLibrary("Headache", SymptomCategory.PAIN)
@@ -175,8 +142,6 @@ class RoomCycleRepositoryTest : KoinTest {
             symptomLogs = listOf(SymptomLog("slog-1", "entry-1", symptom1.id, 3, testNow))
         )
         repository.saveFullLog(initialLog)
-
-        // Create an updated version of the log (new symptom, cleared flow data).
         val updatedLog = initialLog.copy(
             periodLog = null,
             symptomLogs = listOf(SymptomLog("slog-2", "entry-1", symptom2.id, 5, testNow))
@@ -193,25 +158,27 @@ class RoomCycleRepositoryTest : KoinTest {
         assertEquals(symptom2.id, retrievedLog.symptomLogs.first().symptomId, "The symptom list should have been replaced.")
     }
 
-    // --- Tests for Reactive Flows (getAllPeriods, etc.) ---
+    // --- Tests for Reactive Flows ---
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun getAllPeriods_WHEN_databaseChanges_THEN_flowEmitsUpdatedList() = runTest {
         repository.getAllPeriods().test {
-            // 1. Initial emission is empty
+            // ASSERT - initial emission is empty
             assertEquals(0, awaitItem().size, "Initially, list should be empty")
 
-            // 2. Insert a cycle (ASYNCHRONOUS operation)
+            // ACT - insert a cycle
             val cycle1 = repository.startNewPeriod(LocalDate(2025, 1, 1))
-
             advanceUntilIdle()
+
+            // ASSERT
             assertEquals(1, awaitItem().size, "After insert, list should have one cycle")
 
-            // 3. Update the cycle (ASYNCHRONOUS operation)
+            // ACT - update the cycle
             repository.updatePeriodEndDate(cycle1.id, LocalDate(2025, 1, 5))
-
             advanceUntilIdle()
+
+            // ASSERT
             val updatedList = awaitItem()
             assertEquals(1, updatedList.size)
             assertEquals(LocalDate(2025, 1, 5), updatedList.first().endDate)
@@ -219,35 +186,25 @@ class RoomCycleRepositoryTest : KoinTest {
     }
 
     // --- Tests for Library Get-Or-Create Logic ---
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun createOrGetSymptomInLibrary_WHEN_symptomExists_THEN_returnsExistingAndDoesNotChangeCategory() = runTest {
-        // --- ARRANGE ---
+        // ARRANGE
         val symptom1 = repository.createOrGetSymptomInLibrary("Headache", SymptomCategory.PAIN)
 
-        // --- ACT ---
+        // ACT
         val symptom2 = repository.createOrGetSymptomInLibrary("Headache", SymptomCategory.MOOD)
 
-        // --- ASSERT ---
+        // ASSERT
         assertEquals(symptom1.id, symptom2.id, "Should return the existing symptom, not create a new one")
-
-        // This is crucial: allow the background invalidation from Room to complete
-        // and the Flow to emit its new value.
         advanceUntilIdle()
 
-        // Use Turbine to safely test the Flow emission.
         repository.getSymptomLibrary().test {
-            // awaitItem() suspends until it receives the first list from the Flow.
             val libraryList = awaitItem()
-
-            // Find the specific item we care about to make the test robust.
             val headacheInDb = libraryList.firstOrNull { it.id == symptom1.id }
-
-            // Assert that the item exists and its original category was preserved.
             assertNotNull(headacheInDb)
             assertEquals(SymptomCategory.PAIN, headacheInDb.category, "The category of the original symptom should not have been changed")
-
-            // We are done with this flow, cancel the collector and ignore any other events.
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -272,14 +229,13 @@ class RoomCycleRepositoryTest : KoinTest {
     @Test
     fun getAllSymptomLogs_WHEN_logsExist_THEN_returnsAllLogsFromAllCycles() = runTest {
         // ARRANGE
-        // Create two separate periods and entries
-        val cycle1 = repository.startNewPeriod(LocalDate(2025, 1, 1))
-        val cycle2 = repository.createCompletedPeriod(LocalDate(2025, 2, 1), LocalDate(2025, 2, 28))
+        repository.startNewPeriod(LocalDate(2025, 1, 1))
+        repository.createCompletedPeriod(LocalDate(2025, 2, 1), LocalDate(2025, 2, 28))
         val symptom1 = repository.createOrGetSymptomInLibrary("Headache", SymptomCategory.PAIN)
 
-        val log1 = FullDailyLog(DailyEntry("entry-1", LocalDate(2025, 1, 5), 5, createdAt = Clock.System.now(), updatedAt = Clock.System.now()), symptomLogs = listOf(SymptomLog("slog-1", "entry-1", symptom1.id, 3, Clock.System.now())))
-        val log2 = FullDailyLog(DailyEntry("entry-2", LocalDate(2025, 2, 5), 5, createdAt = Clock.System.now(), updatedAt = Clock.System.now()), symptomLogs = listOf(SymptomLog("slog-2", "entry-2", symptom1.id, 4, Clock.System.now())))
-        val log3WithNoSymptoms = FullDailyLog(DailyEntry("entry-3", LocalDate(2025, 2, 6), 6, createdAt = Clock.System.now(), updatedAt = Clock.System.now()))
+        val log1 = FullDailyLog(DailyEntry("entry-1", LocalDate(2025, 1, 5), 5, createdAt = testNow, updatedAt = testNow), symptomLogs = listOf(SymptomLog("slog-1", "entry-1", symptom1.id, 3, testNow)))
+        val log2 = FullDailyLog(DailyEntry("entry-2", LocalDate(2025, 2, 5), 5, createdAt = testNow, updatedAt = testNow), symptomLogs = listOf(SymptomLog("slog-2", "entry-2", symptom1.id, 4, testNow)))
+        val log3WithNoSymptoms = FullDailyLog(DailyEntry("entry-3", LocalDate(2025, 2, 6), 6, createdAt = testNow, updatedAt = testNow))
 
         repository.saveFullLog(log1)
         repository.saveFullLog(log2)
@@ -297,10 +253,10 @@ class RoomCycleRepositoryTest : KoinTest {
     @Test
     fun getAllMedicationLogs_WHEN_logsExist_THEN_returnsAllLogs() = runTest {
         // ARRANGE
-        val cycle1 = repository.startNewPeriod(LocalDate(2025, 1, 1))
+        repository.startNewPeriod(LocalDate(2025, 1, 1))
         val med1 = repository.createOrGetMedicationInLibrary("Ibuprofen")
 
-        val log1 = FullDailyLog(DailyEntry("entry-1", LocalDate(2025, 1, 5), 5, createdAt = Clock.System.now(), updatedAt = Clock.System.now()), medicationLogs = listOf(MedicationLog("mlog-1", "entry-1", med1.id, Clock.System.now())))
+        val log1 = FullDailyLog(DailyEntry("entry-1", LocalDate(2025, 1, 5), 5, createdAt = testNow, updatedAt = testNow), medicationLogs = listOf(MedicationLog("mlog-1", "entry-1", med1.id, testNow)))
         repository.saveFullLog(log1)
 
         // ACT

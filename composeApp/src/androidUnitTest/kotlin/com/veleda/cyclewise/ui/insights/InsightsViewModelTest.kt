@@ -50,7 +50,7 @@ class InsightsViewModelTest {
     }
 
     @Test
-    fun `init WHEN data is loaded successfully THEN uiState is updated with insights`() = runTest {
+    fun init_WHEN_dataLoaded_THEN_uiStateHasInsights() = runTest {
         // ARRANGE
         val fakeInsights = listOf(CycleLengthAverage(28.5))
         coEvery { mockAppSettings.topSymptomsCount } returns flowOf(3)
@@ -59,24 +59,20 @@ class InsightsViewModelTest {
         coEvery { mockRepository.getSymptomLibrary() } returns flowOf(emptyList())
         coEvery { mockInsightEngine.generateInsights(any(), any(), any(), any()) } returns fakeInsights
 
-        // ACT - Create the ViewModel *after* mocks are set up.
+        // ACT
         viewModel = InsightsViewModel(mockRepository, mockInsightEngine, mockAppSettings)
 
         // ASSERT
         viewModel.uiState.test {
-            // Because of the UnconfinedTestDispatcher, the init block has already finished.
-            // We are only observing the final state.
             val finalState = awaitItem()
             assertFalse(finalState.isLoading, "Final state should not be loading")
             assertEquals(fakeInsights, finalState.insights)
-
-            // We expect no more emissions.
             expectNoEvents()
         }
     }
 
     @Test
-    fun `init WHEN engine returns no insights THEN uiState is updated with empty list`() = runTest {
+    fun init_WHEN_noInsights_THEN_uiStateHasEmptyList() = runTest {
         // ARRANGE
         coEvery { mockAppSettings.topSymptomsCount } returns flowOf(3)
         coEvery { mockRepository.getAllPeriods() } returns flowOf(emptyList())
