@@ -18,6 +18,16 @@ data class WaterTrackerUiState(
     val yesterdayMessage: String? = null
 )
 
+/**
+ * Pre-authentication water intake tracker for the lock screen.
+ *
+ * Reads and writes to [LockedWaterDraft] (plaintext DataStore) since the encrypted
+ * database is not yet available. On init, ensures the day has rolled over (resets
+ * today's count and prunes old entries), then continuously collects draft changes.
+ *
+ * Exposes today's cup count and an optional "yesterday" message prompting the user
+ * to log in so drafts can be synced to the encrypted database.
+ */
 class WaterTrackerViewModel(
     private val lockedWaterDraft: LockedWaterDraft
 ) : ViewModel() {

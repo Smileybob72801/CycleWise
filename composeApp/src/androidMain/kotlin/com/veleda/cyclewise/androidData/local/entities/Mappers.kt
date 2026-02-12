@@ -1,3 +1,13 @@
+/**
+ * Bidirectional mappers between Room entities and shared domain models.
+ *
+ * Each entity type has a `toDomain()` extension (entity -> domain) and a `toEntity()`
+ * extension (domain -> entity). For [PeriodEntity], the internal auto-generated [PeriodEntity.id]
+ * is set to 0 on `toEntity()` so Room auto-generates it on insert.
+ *
+ * [DailyEntryEntity.customTags] is JSON-serialized/deserialized via kotlinx.serialization.
+ * [WaterIntakeEntity.date] is converted between ISO-8601 string and [LocalDate].
+ */
 package com.veleda.cyclewise.androidData.local.entities
 
 import com.veleda.cyclewise.domain.models.Period
@@ -27,7 +37,7 @@ fun PeriodEntity.toDomain(): Period =
 @OptIn(ExperimentalTime::class)
 fun Period.toEntity(): PeriodEntity =
     PeriodEntity(
-        id        = 0,           //  Room will auto-generate
+        id        = 0,
         uuid      = id,
         startDate = startDate,
         endDate   = endDate,

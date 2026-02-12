@@ -8,6 +8,27 @@ import kotlin.math.abs
 
 private enum class MoodType { LOW, HIGH }
 
+/**
+ * Detects recurring mood-to-cycle-phase correlations across recent cycles.
+ *
+ * Uses the same day-normalization algorithm as [SymptomPhasePatternGenerator]:
+ * days 1-16 are follicular-phase offsets; days > 16 become negative luteal-phase offsets.
+ *
+ * ## Mood Thresholds
+ * - **LOW:** moodScore <= 2
+ * - **HIGH:** moodScore >= 4
+ * - Scores of 3 are excluded (neutral).
+ *
+ * ## Significance Criteria
+ * Same as symptom patterns: >= 3 occurrences AND >= 60% recurrence across analyzed cycles.
+ *
+ * ## Block Detection
+ * Significant days are grouped by proximity (gap <= 2 days). A block must contain
+ * at least 3 individually significant days to produce an insight.
+ *
+ * ## Minimum Data
+ * Requires at least 4 completed periods (3 full cycles).
+ */
 class MoodPhasePatternGenerator : InsightGenerator {
 
     override fun generate(data: InsightData): List<Insight> {
@@ -15,7 +36,6 @@ class MoodPhasePatternGenerator : InsightGenerator {
         if (chronologicalCycles.size < 4) return emptyList()
 
         val cyclePairs = chronologicalCycles.zipWithNext()
-        //val logsByCycleId = data.allLogs.groupBy { it.entry.periodId }
 
         val patternTally = mutableMapOf<Pair<MoodType, Int>, Int>()
 
@@ -74,12 +94,17 @@ class MoodPhasePatternGenerator : InsightGenerator {
     }
 
     /**
-     * Finds all dynamically-sized, non-overlapping, dense clusters of significant days.
+     * Groups significant days into dense, non-overlapping clusters by proximity.
+     *
+     * Days within a gap of <= 2 are merged into the same block. A block is retained
+     * only if it contains at least 3 individually significant days.
+     *
+     * @param significantDays sorted list of normalized day offsets that passed significance filtering.
+     * @return non-overlapping blocks, each containing >= 3 consecutive-ish significant days.
      */
     private fun findAllSignificantBlocks(significantDays: List<Int>): List<List<Int>> {
         if (significantDays.isEmpty()) return emptyList()
 
-        // 1. Group all significant days into blocks based on proximity (gap of <= 2 days).
         val potentialBlocks = mutableListOf<List<Int>>()
         var currentBlock = mutableListOf<Int>()
         for (day in significantDays) {
@@ -92,10 +117,13 @@ class MoodPhasePatternGenerator : InsightGenerator {
         }
         if (currentBlock.isNotEmpty()) potentialBlocks.add(currentBlock)
 
-        // A block is significant if it contains at least 3 individually significant days.
         return potentialBlocks.filter { it.size >= 3 }
     }
 
+    /**
+     * Formats a human-readable phase description for a mood pattern group.
+     * Same phase boundary logic as [SymptomPhasePatternGenerator.formatRelativePhase].
+     */
     private fun formatRelativePhase(group: List<Int>, periods: List<Period>): String {
         if (group.isEmpty()) return ""
 

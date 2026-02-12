@@ -6,6 +6,13 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.veleda.cyclewise.androidData.local.entities.WaterIntakeEntity
 
+/**
+ * Room DAO for the `water_intake` table.
+ *
+ * Uses the ISO-8601 date string as the primary key (one row per day, upsert semantics).
+ * Date parameters are passed as pre-formatted strings (not [LocalDate]) because
+ * the PK column is TEXT.
+ */
 @Dao
 interface WaterIntakeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)

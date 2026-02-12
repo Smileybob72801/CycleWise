@@ -5,6 +5,12 @@ import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
 
+/**
+ * All events that can be dispatched to [DailyLogViewModel.onEvent].
+ *
+ * Includes data-loading events (dispatched internally by the ViewModel's init block),
+ * user-interaction events (from the UI), and the save/water actions.
+ */
 sealed interface DailyLogEvent {
     data class LogLoaded(val log: FullDailyLog?, val initialSymptoms: List<Symptom>, val initialMedications: List<Medication>) : DailyLogEvent
     data class LibraryUpdated(val symptoms: List<Symptom>, val medications: List<Medication>) : DailyLogEvent

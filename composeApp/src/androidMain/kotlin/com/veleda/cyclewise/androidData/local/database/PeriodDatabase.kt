@@ -32,6 +32,17 @@ import com.veleda.cyclewise.androidData.local.entities.PeriodLogEntity
 import com.veleda.cyclewise.androidData.local.entities.WaterIntakeEntity
 import net.sqlcipher.database.SupportFactory
 
+/**
+ * SQLCipher-encrypted Room database for all user health data.
+ *
+ * Opened via [create] with a passphrase-derived key. The caller (session scope) is
+ * responsible for zeroizing the passphrase [ByteArray] after the database is opened.
+ *
+ * **Security:** All data at rest is AES-256-GCM encrypted via SQLCipher.
+ * The database file (`cyclewise.db`) is unreadable without the correct passphrase.
+ *
+ * **Schema version:** 9. All migrations are registered in [create] and tested individually.
+ */
 @Database(
     entities = [
         PeriodEntity::class,
@@ -58,6 +69,15 @@ abstract class PeriodDatabase : RoomDatabase() {
     abstract fun waterIntakeDao(): WaterIntakeDao
 
     companion object {
+        /**
+         * Creates (or opens) the encrypted database.
+         *
+         * @param context    application context for the Room builder.
+         * @param passphrase 32-byte AES key derived from the user's passphrase.
+         *                   **Caller must zeroize this array after this method returns.**
+         * @param dbName     database file name (default: "cyclewise.db").
+         * @return the opened [PeriodDatabase] instance.
+         */
         fun create(
             context: Context,
             passphrase: ByteArray,

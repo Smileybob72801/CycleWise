@@ -14,99 +14,210 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.YearMonth
 
 /**
- * Shared interface for accessing and modifying period data.
- * Platform-specific implementations will handle persistence.
+ * Central contract for all period, daily log, library, and water intake data access.
+ *
+ * Platform-specific implementations (e.g., [RoomPeriodRepository]) handle persistence.
+ * All [Flow]-returning methods emit cold streams — subscribers receive the current snapshot
+ * on subscription and subsequent updates whenever the underlying data changes.
+ * All `suspend` methods are safe to call from any dispatcher (Room handles IO internally).
  */
 interface PeriodRepository {
 
-    /** Returns all known periods, sorted by start date descending. */
+    // ── Period CRUD ──────────────────────────────────────────────────────
+
+    /**
+     * Returns all known periods as a reactive stream, sorted by start date **descending**
+     * (most recent first).
+     */
     fun getAllPeriods(): Flow<List<Period>>
 
-    /** Returns a single period given its primary Id. */
+    /**
+     * Returns a single period by its UUID.
+     *
+     * @throws NoSuchElementException if no period with [periodId] exists.
+     */
     suspend fun getPeriodById(periodId: String): Period
 
-    /** Starts a new period on the given start date. */
+    /**
+     * Creates and persists a new ongoing period (endDate = null) starting on [startDate].
+     *
+     * @return the newly created [Period].
+     */
     suspend fun startNewPeriod(startDate: LocalDate): Period
 
-    /** Updates the end date of an existing period. Can be null to make it ongoing. */
+    /**
+     * Updates the end date of the period identified by [periodId].
+     *
+     * Pass null for [endDate] to reopen the period as ongoing.
+     *
+     * @return the updated [Period], or null if no period with [periodId] exists.
+     */
     suspend fun updatePeriodEndDate(periodId: String, endDate: LocalDate?): Period?
 
-    /** Marks an existing period as ended on the given date. */
+    /**
+     * Marks the period identified by [periodId] as ended on [endDate].
+     *
+     * @return the updated [Period], or null if no period with [periodId] exists.
+     */
     suspend fun endPeriod(periodId: String, endDate: LocalDate): Period?
 
-    /** Returns the currently active (non-ended) period, if any. */
+    /**
+     * Returns the currently ongoing period (endDate == null), or null if none exists.
+     * At most one ongoing period should exist at any time.
+     */
     suspend fun getCurrentlyOngoingPeriod(): Period?
 
-    /** Returns the full daily log for a specific date, or null if none exists. */
-    suspend fun getFullLogForDate(date: LocalDate): FullDailyLog?
-
-    /** Store all data for a day. */
-    suspend fun saveFullLog(log: FullDailyLog)
-
-    /** Fetches all full daily logs for a given month. */
-    suspend fun getLogsForMonth(yearMonth: YearMonth): List<FullDailyLog>
-
-    /** Creates a new, already-completed period in the database. */
+    /**
+     * Creates a new already-completed period with both start and end dates set.
+     *
+     * @return the newly created [Period].
+     */
     suspend fun createCompletedPeriod(startDate: LocalDate, endDate: LocalDate): Period
 
-    /** Checks if a given date range overlaps with any existing periods. */
+    /**
+     * Checks whether [startDate]..[endDate] overlaps with any existing period.
+     *
+     * @return true if the range is free of overlap.
+     */
     suspend fun isDateRangeAvailable(startDate: LocalDate, endDate: LocalDate): Boolean
 
-    /** Returns a reactive Flow of all unique medications in the user's library. */
-    fun getMedicationLibrary(): Flow<List<Medication>>
+    /**
+     * Permanently deletes the period identified by [id] and its associated period logs.
+     * Daily entries and their symptom/medication logs are preserved.
+     */
+    suspend fun deletePeriod(id: String)
+
+    // ── Period Day Marking (State Machine) ───────────────────────────────
 
     /**
-     * Creates a new unique medication in the library if it doesn't already exist by name,
-     * then returns the Medication object (either the new one or the existing one).
+     * Marks [date] as a period day, merging or extending adjacent periods as needed.
+     *
+     * Runs inside a database transaction. Handles four scenarios:
+     * 1. **Already inside a period** — ensures a [PeriodLog] exists for the date.
+     * 2. **Bridges two periods** — merges the day-before and day-after periods into one.
+     * 3. **Extends a period** — adjusts the neighboring period's start or end date.
+     * 4. **Island day** — creates a new single-day completed period.
      */
-    suspend fun createOrGetMedicationInLibrary(name: String): Medication
-
-    /** Returns a reactive Flow of all unique symptoms in the user's library. */
-    fun getSymptomLibrary(): Flow<List<Symptom>>
+    suspend fun logPeriodDay(date: LocalDate)
 
     /**
-     * Creates a new unique symptom in the library if it doesn't already exist by name,
-     * then returns the Symptom object (either the new one or the existing one).
+     * Unmarks [date] as a period day, splitting or shrinking the containing period.
+     *
+     * Runs inside a database transaction. Handles four scenarios:
+     * 1. **Single-day period** — deletes the entire period.
+     * 2. **Start date** — advances the period's start date by one day.
+     * 3. **End date** — retracts the period's end date by one day.
+     * 4. **Middle day** — splits the period into two around the removed date.
+     *
+     * Also deletes any [PeriodLog] for the date.
      */
-    suspend fun createOrGetSymptomInLibrary(name: String, category: SymptomCategory = SymptomCategory.OTHER): Symptom
+    suspend fun unLogPeriodDay(date: LocalDate)
 
-    /** Pre-populates the symptom library with a default set of symptoms. */
-    suspend fun prepopulateSymptomLibrary()
+    // ── Daily Log Access ─────────────────────────────────────────────────
 
-    /** Returns a reactive Flow of ALL daily logs that have been created. */
+    /**
+     * Returns the full daily log for [date], or null if no entry exists for that date.
+     */
+    suspend fun getFullLogForDate(date: LocalDate): FullDailyLog?
+
+    /**
+     * Persists all data for a single day in a transaction.
+     *
+     * Uses delete-then-insert semantics for period logs, symptom logs, and medication logs:
+     * existing child records for the day are removed before the new set is inserted.
+     */
+    suspend fun saveFullLog(log: FullDailyLog)
+
+    /**
+     * Returns all full daily logs whose entry dates fall within [yearMonth].
+     */
+    suspend fun getLogsForMonth(yearMonth: YearMonth): List<FullDailyLog>
+
+    /**
+     * Returns a reactive stream of all daily logs across all dates.
+     * Each emission is a complete snapshot including period logs, symptom logs, and medication logs.
+     */
     fun getAllLogs(): Flow<List<FullDailyLog>>
 
-    /** Emits the set of all LocalDates that are part of any saved menstrual period. */
+    // ── Calendar Observation ─────────────────────────────────────────────
+
+    /**
+     * Emits the set of all [LocalDate]s that fall within any saved period's date range.
+     * Ongoing periods extend through today.
+     */
     fun observeAllPeriodDays(): Flow<Set<LocalDate>>
 
     /**
-     * Observes all underlying data sources (Periods, logs, etc.) and emits a consolidated
-     * map of details for each relevant day, using a UI-agnostic domain model.
-     * This is the single source of truth for the calendar UI.
+     * Emits a consolidated map of [DayDetails] for every day with recorded data.
+     *
+     * Combines period date ranges, symptom logs, and medication logs into a single
+     * map keyed by date. This is the **single source of truth** for the calendar UI.
      */
     fun observeDayDetails(): Flow<Map<LocalDate, DayDetails>>
 
-    /** Fetches a one-shot list of all symptom logs. */
+    // ── Symptom Library ──────────────────────────────────────────────────
+
+    /**
+     * Returns a reactive stream of all symptoms in the library, sorted by name ascending.
+     */
+    fun getSymptomLibrary(): Flow<List<Symptom>>
+
+    /**
+     * Returns the existing symptom with [name], or creates a new one if none exists.
+     *
+     * Name matching is case-sensitive. The [category] parameter is only used when
+     * creating a new symptom.
+     *
+     * @return the existing or newly created [Symptom].
+     */
+    suspend fun createOrGetSymptomInLibrary(name: String, category: SymptomCategory = SymptomCategory.OTHER): Symptom
+
+    /**
+     * Seeds the symptom library with a default set of common symptoms (20 entries).
+     * Uses INSERT IGNORE semantics so existing symptoms are not duplicated.
+     */
+    suspend fun prepopulateSymptomLibrary()
+
+    /** Returns a one-shot list of all [SymptomLog] entries across all dates. */
     suspend fun getAllSymptomLogs(): List<SymptomLog>
 
-    /** Fetches a one-shot list of all medication logs. */
+    // ── Medication Library ───────────────────────────────────────────────
+
+    /**
+     * Returns a reactive stream of all medications in the library, sorted by name ascending.
+     */
+    fun getMedicationLibrary(): Flow<List<Medication>>
+
+    /**
+     * Returns the existing medication with [name], or creates a new one if none exists.
+     *
+     * @return the existing or newly created [Medication].
+     */
+    suspend fun createOrGetMedicationInLibrary(name: String): Medication
+
+    /** Returns a one-shot list of all [MedicationLog] entries across all dates. */
     suspend fun getAllMedicationLogs(): List<MedicationLog>
 
-    /** [DEBUG ONLY] Clears and seeds the database with test data. */
-    suspend fun seedDatabaseForDebug()
+    // ── Water Intake ─────────────────────────────────────────────────────
 
-    /** Permanently deletes a period. */
-    suspend fun deletePeriod(id: String)
-
-    /** Marks a specific date as a period day, merging or extending adjacent periods if necessary. */
-    suspend fun logPeriodDay(date: LocalDate)
-
-    /** Unmarks a specific date as a period day, splitting the existing period or deleting a 1-day period. */
-    suspend fun unLogPeriodDay(date: LocalDate)
-
-    /** Inserts or replaces a water intake record for a given date. */
+    /**
+     * Inserts or replaces the water intake record for [intake]'s date (upsert semantics).
+     */
     suspend fun upsertWaterIntake(intake: WaterIntake)
 
-    /** Returns water intake records for the specified dates. */
+    /**
+     * Returns water intake records for the specified [dates].
+     * Dates with no record are omitted from the result.
+     */
     suspend fun getWaterIntakeForDates(dates: List<LocalDate>): List<WaterIntake>
+
+    // ── Debug ────────────────────────────────────────────────────────────
+
+    /**
+     * **[DEBUG ONLY]** Deletes all user data and seeds the database with several months
+     * of generated cycles, daily logs, symptoms, and medications.
+     *
+     * **Destructive:** all existing data is permanently lost.
+     */
+    suspend fun seedDatabaseForDebug()
 }

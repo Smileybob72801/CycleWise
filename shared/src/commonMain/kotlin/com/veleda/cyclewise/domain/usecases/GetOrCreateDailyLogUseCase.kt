@@ -12,7 +12,14 @@ import kotlin.time.ExperimentalTime
 
 /**
  * Retrieves an existing [FullDailyLog] for the given date, or creates a new blank one
- * if a parent period exists. Returns null when no period context is available.
+ * if a parent period exists.
+ *
+ * Parent period lookup: finds the first period (sorted by start date descending) whose
+ * start date is on or before [date]. The [DailyEntry.dayInCycle] is calculated as
+ * `parentPeriod.startDate.daysUntil(date) + 1` (1-based).
+ *
+ * @return the existing or newly created [FullDailyLog], or null if no parent period
+ *         contains or precedes [date].
  */
 @OptIn(ExperimentalTime::class)
 class GetOrCreateDailyLogUseCase(

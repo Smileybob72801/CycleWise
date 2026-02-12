@@ -5,6 +5,12 @@ import com.veleda.cyclewise.androidData.local.entities.DailyEntryEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDate
 
+/**
+ * Room DAO for the `daily_entries` table.
+ *
+ * Each row represents a single day's health entry. Uses REPLACE conflict strategy
+ * on insert, so re-inserting for the same ID overwrites the existing row.
+ */
 @Dao
 interface DailyEntryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)

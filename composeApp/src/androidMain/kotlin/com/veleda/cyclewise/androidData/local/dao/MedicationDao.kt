@@ -8,6 +8,12 @@ import com.veleda.cyclewise.androidData.local.entities.MedicationEntity
 import com.veleda.cyclewise.androidData.local.entities.MedicationLogEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Room DAO for the `medication_library` table.
+ *
+ * Manages the user's unique medication types. Names are unique (IGNORE on conflict).
+ * Results from [getAllMedications] are sorted by name ascending.
+ */
 @Dao
 interface MedicationDao {
     @Query("SELECT * FROM medication_library ORDER BY name ASC")

@@ -33,8 +33,26 @@ import com.veleda.cyclewise.ui.insights.InsightsViewModel
 import kotlinx.datetime.LocalDate
 import org.koin.core.qualifier.Qualifier
 
+/**
+ * Koin qualifier for the session-scoped DI lifetime.
+ *
+ * The session scope is created after a successful passphrase unlock and destroyed on
+ * logout or autolock. It contains the encrypted database, all DAOs, the repository,
+ * use cases, library providers, and session-bound ViewModels.
+ */
 val SESSION_SCOPE: Qualifier = named("UnlockedSessionScope")
 
+/**
+ * Root Koin module defining two DI lifetimes:
+ *
+ * **Singleton scope** (lives for the app process):
+ * [SaltStorage], [AppSettings], [SessionBus], [PassphraseService], [LockedWaterDraft],
+ * [InsightEngine], [WaterTrackerViewModel], [PassphraseViewModel].
+ *
+ * **Session scope** ([SESSION_SCOPE], created on unlock, destroyed on logout/autolock):
+ * [PeriodDatabase], all DAOs, [PeriodRepository], use cases, library providers,
+ * [TrackerViewModel], [DailyLogViewModel], [InsightsViewModel].
+ */
 val appModule = module {
     single { SaltStorage(androidContext()) }
 

@@ -8,11 +8,17 @@ import kotlinx.datetime.LocalDate
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
+/**
+ * Room entity for the `daily_entries` table.
+ *
+ * Maps to the domain [DailyEntry] model. The [libidoLevel] is stored as the enum name
+ * string (nullable). The [customTags] field is a JSON-serialized string array.
+ * Timestamps ([createdAt], [updatedAt]) are stored as epoch milliseconds.
+ */
 @OptIn(ExperimentalTime::class)
 @Entity(
     tableName = "daily_entries"
 )
-
 data class DailyEntryEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "entry_date", index = true) val entryDate: LocalDate,

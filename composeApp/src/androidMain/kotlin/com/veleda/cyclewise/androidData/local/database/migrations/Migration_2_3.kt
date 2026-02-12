@@ -3,6 +3,7 @@ package com.veleda.cyclewise.androidData.local.database.migrations
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+/** v2 -> v3: Creates the initial `symptoms` and `medication_logs` tables with entry_id FKs. */
 object Migration_2_3 : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
         // Create the 'symptoms' table

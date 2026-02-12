@@ -4,6 +4,12 @@ import androidx.room.*
 import com.veleda.cyclewise.androidData.local.entities.SymptomLogEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Room DAO for the `symptom_logs` table.
+ *
+ * Each row records a symptom occurrence for a single day. Linked to `daily_entries`
+ * via `entry_id` (CASCADE delete) and to `symptom_library` via `symptom_id` (RESTRICT delete).
+ */
 @Dao
 interface SymptomLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)

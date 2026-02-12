@@ -21,6 +21,15 @@ data class InsightsUiState(
     val insights: List<Insight> = emptyList()
 )
 
+/**
+ * Generates and formats cycle insights on init.
+ *
+ * Fetches all periods, logs, and the symptom library in one shot, runs the [InsightEngine],
+ * and applies platform-specific localized date formatting to [NextPeriodPrediction] and
+ * [SymptomPhasePattern] insights before emitting the final list to [uiState].
+ *
+ * Session-scoped (destroyed on logout/autolock).
+ */
 class InsightsViewModel(
     private val periodRepository: PeriodRepository,
     private val insightEngine: InsightEngine,

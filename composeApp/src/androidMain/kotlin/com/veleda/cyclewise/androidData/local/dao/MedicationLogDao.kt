@@ -7,6 +7,12 @@ import androidx.room.Query
 import com.veleda.cyclewise.androidData.local.entities.MedicationLogEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Room DAO for the `medication_logs` table.
+ *
+ * Each row records that a medication was taken on a single day. Linked to `daily_entries`
+ * via `entry_id` (CASCADE delete) and to `medication_library` via `medication_id` (RESTRICT delete).
+ */
 @Dao
 interface MedicationLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)

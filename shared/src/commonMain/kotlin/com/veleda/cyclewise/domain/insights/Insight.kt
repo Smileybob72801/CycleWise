@@ -10,14 +10,21 @@ import kotlin.math.roundToInt
 import kotlin.time.ExperimentalTime
 
 /**
- * A sealed interface representing a single piece of generated insight
- * derived from the user's health data.
+ * A single piece of generated insight derived from the user's health data.
+ *
+ * All insight types implement this sealed interface. Insights are deduplicated by [id]
+ * and sorted by [priority] descending before being displayed.
+ *
+ * @property id          Unique identifier for deduplication (e.g., "CYCLE_LENGTH_AVERAGE").
+ * @property title       Short heading shown to the user.
+ * @property description Full explanatory text, possibly with localized dates and numbers.
+ * @property priority    Sort key — higher values appear first. Range: 90 (lowest) to 110 (highest).
  */
 sealed interface Insight {
     val id: String
     val title: String
     val description: String
-    val priority: Int // Used for sorting; higher numbers are more important.
+    val priority: Int
 }
 
 /**

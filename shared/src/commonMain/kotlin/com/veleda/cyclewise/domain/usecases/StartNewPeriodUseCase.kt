@@ -8,14 +8,19 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
- * Starts a new menstrual period at the given [startDate].
- * Fails if there's already an ongoing period.
+ * Starts a new menstrual period beginning on [startDate].
+ *
+ * **Precondition:** No ongoing period exists (endDate == null).
+ * **Postcondition:** A new [Period] with null endDate is persisted.
+ *
+ * This operation is **not idempotent** — calling it twice while no ongoing period
+ * exists would create two distinct periods (though the second call would fail
+ * because the first would still be ongoing).
  */
 class StartNewPeriodUseCase (private val repository: PeriodRepository)
 {
     /**
-     * Attempts to start a new period.
-     * @return the new period, or null if a period is already ongoing
+     * @return the newly created [Period], or null if an ongoing period already exists.
      */
     @OptIn(ExperimentalTime::class)
     suspend operator fun invoke(startDate: LocalDate): Period? {

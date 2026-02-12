@@ -8,9 +8,27 @@ import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Symptom
 import kotlinx.datetime.daysUntil
 
+/**
+ * Orchestrates insight generation by running registered [InsightGenerator]s in dependency order.
+ *
+ * Execution proceeds in two phases:
+ * 1. [NextPeriodPredictionGenerator] runs first (other generators may depend on its output).
+ * 2. All remaining generators run with the prediction result available in [InsightData.generatedInsights].
+ *
+ * Results are deduplicated by [Insight.id] and sorted by [Insight.priority] descending.
+ */
 class InsightEngine(
     private val generators: List<InsightGenerator>,
 ) {
+    /**
+     * Generates all insights from the user's data.
+     *
+     * @param allPeriods      all periods, sorted by start date descending.
+     * @param allLogs         all daily logs across all dates.
+     * @param symptomLibrary  the user's full symptom library (for ID-to-name lookups).
+     * @param topSymptomsCount how many top symptoms to include in [TopSymptomsInsight].
+     * @return deduplicated insights sorted by priority descending.
+     */
     fun generateInsights(
         allPeriods: List<Period>,
         allLogs: List<FullDailyLog>,
@@ -19,7 +37,6 @@ class InsightEngine(
     ): List<Insight> {
         val insights = mutableListOf<Insight>()
 
-        // 1. Prepare the initial data.
         val baseData = InsightData(
             allPeriods = allPeriods,
             allLogs = allLogs,
@@ -28,23 +45,25 @@ class InsightEngine(
             topSymptomsCount = topSymptomsCount
         )
 
-        // 2. Run generators that have no dependencies first (like prediction).
-        // This is a simple way to handle dependency order for now.
         val predictionGenerator = generators.find { it is NextPeriodPredictionGenerator }
         predictionGenerator?.let { insights.addAll(it.generate(baseData)) }
 
-        // 3. Prepare data for the next set of generators, now including the prediction.
         val dataWithPrediction = baseData.copy(generatedInsights = insights)
-
-        // 4. Run all other generators.
         generators.filterNot { it is NextPeriodPredictionGenerator }.forEach { generator ->
             insights.addAll(generator.generate(dataWithPrediction))
         }
 
-        // 5. Sort the final list by priority.
         return insights.distinctBy { it.id }.sortedByDescending { it.priority }
     }
 
+    /**
+     * Calculates the average cycle length from completed periods.
+     *
+     * Cycle length is defined as the number of days between consecutive period start dates
+     * (start-to-start). Requires at least 2 completed periods to produce a result.
+     *
+     * @return the average cycle length in days, or null if fewer than 2 completed periods exist.
+     */
     private fun calculateAverageCycleLength(allPeriods: List<Period>): Double? {
         val chronologicalCycles = allPeriods.filter { it.endDate != null }.reversed()
         if (chronologicalCycles.size < 2) return null

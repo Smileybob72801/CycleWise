@@ -8,6 +8,12 @@ import androidx.room.Update
 import com.veleda.cyclewise.androidData.local.entities.PeriodLogEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Room DAO for the `period_logs` table.
+ *
+ * Each row records the flow intensity for a single day, linked to a [DailyEntryEntity]
+ * via `entry_id` FK (CASCADE delete). At most one period log exists per daily entry.
+ */
 @Dao
 interface PeriodLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
