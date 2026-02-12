@@ -19,6 +19,21 @@ data class PassphraseUiState(
     val isUnlocking: Boolean = false
 )
 
+/**
+ * Handles passphrase unlock and session scope lifecycle.
+ *
+ * On [PassphraseEvent.UnlockClicked]:
+ * 1. Derives the encryption key via [PassphraseService] (on [Dispatchers.IO]).
+ * 2. Creates or reuses the Koin session scope and opens the encrypted database.
+ * 3. Prepopulates the symptom library on first unlock.
+ * 4. Syncs water drafts from [LockedWaterDraft] into the database.
+ * 5. Emits [PassphraseEffect.NavigateToTracker] on success.
+ *
+ * **Re-entrancy guard:** Ignores unlock requests while [PassphraseUiState.isUnlocking] is true.
+ * **Error handling:** On failure, the session scope is closed and [PassphraseEffect.ShowError] is emitted.
+ *
+ * Singleton-scoped (survives screen rotation).
+ */
 class PassphraseViewModel(
     private val appSettings: AppSettings,
     private val lockedWaterDraft: LockedWaterDraft

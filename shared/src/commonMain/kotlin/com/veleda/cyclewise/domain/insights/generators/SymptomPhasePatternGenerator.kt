@@ -13,33 +13,59 @@ import kotlin.math.abs
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
+/**
+ * Detects recurring symptom-to-cycle-phase correlations across recent cycles.
+ *
+ * ## Algorithm Overview
+ *
+ * 1. **Cycle pairing:** Consecutive completed periods are paired to define cycles.
+ *    Each cycle spans from one period's start to the next period's start.
+ *
+ * 2. **Day normalization:** Each symptom occurrence's `dayInCycle` is normalized to a
+ *    phase-relative offset. Days 1-16 are kept as-is (follicular phase). Days > 16 are
+ *    converted to negative offsets from the next period start (`day - cycleLength - 1`),
+ *    making luteal-phase patterns comparable across variable-length cycles.
+ *
+ * 3. **Pattern tallying:** Symptom occurrences are tallied per `(symptomId, normalizedDay)`
+ *    across the last 8 cycles (via `takeLast(8)`).
+ *
+ * 4. **Significance filtering:** A pattern is significant if it occurs in >= 3 cycles
+ *    AND in >= 60% of analyzed cycles.
+ *
+ * 5. **Grouping:** Significant days for each symptom are grouped into consecutive-day
+ *    clusters. Each cluster produces one [SymptomPhasePattern] insight.
+ *
+ * 6. **Prediction:** If a [NextPeriodPrediction] is available, the generator estimates
+ *    when the symptom will next recur and assigns a probability label.
+ *
+ * ## Priority
+ * - Patterns during the period itself receive [HIGH_PRIORITY] (108).
+ * - Patterns outside the period receive [NORMAL_PRIORITY] (98).
+ *
+ * ## Minimum Data
+ * Requires at least 4 completed periods (3 full cycles).
+ */
 class SymptomPhasePatternGenerator : InsightGenerator {
 
     companion object {
-        private const val HIGH_PRIORITY = 108 // For patterns during the period
-        private const val NORMAL_PRIORITY = 98  // For patterns outside the period
+        private const val HIGH_PRIORITY = 108
+        private const val NORMAL_PRIORITY = 98
     }
 
     @OptIn(ExperimentalTime::class)
     override fun generate(data: InsightData): List<Insight> {
-        // Get all completed, logged periods, sorted from oldest to most recent.
         val chronologicalPeriods = data.allPeriods.filter { it.endDate != null }.reversed()
 
         if (chronologicalPeriods.size < 4) return emptyList()
 
-
-        // This `cyclePairs` list is crucial. Each pair, like `(Period 1, Period 2)`, represents a single, complete menstrual cycle.
-        // The length of this cycle is the time from the start of Period 1 to the start of Period 2.
         val cyclePairs = chronologicalPeriods.zipWithNext()
 
         val patternTally = mutableMapOf<Pair<String, Int>, Int>()
 
-
-        // Iterate through each cycle (defined by the start of two consecutive periods).
+        // Analyze the most recent 8 cycles.
         for ((currentPeriod, nextPeriod) in cyclePairs.takeLast(8)) {
             val actualCycleLength = currentPeriod.startDate.daysUntil(nextPeriod.startDate)
 
-            // Find all logs that fall within the date range of this specific cycle.
             val logsForCycle = data.allLogs.filter {
                 it.entry.entryDate >= currentPeriod.startDate && it.entry.entryDate < nextPeriod.startDate
             }
@@ -48,7 +74,6 @@ class SymptomPhasePatternGenerator : InsightGenerator {
             for (log in logsForCycle) {
                 for (symptomLog in log.symptomLogs) {
                     val day = log.entry.dayInCycle
-                    // The normalization logic remains correct as dayInCycle is still calculated.
                     val normalizedDay = if (day <= 16) day else day - actualCycleLength - 1
                     val key = Pair(symptomLog.symptomId, normalizedDay)
                     patternTally[key] = (patternTally[key] ?: 0) + 1
@@ -65,7 +90,6 @@ class SymptomPhasePatternGenerator : InsightGenerator {
         val patternsBySymptom = significantPatterns.entries.groupBy({ it.key.first }, { it.key.second })
         val resultingInsights = mutableListOf<SymptomPhasePattern>()
 
-        // Calculate the user's average period length to help identify period-related symptoms.
         val avgPeriodLength = data.allPeriods
             .mapNotNull { it.endDate?.let { endDate -> it.startDate.daysUntil(endDate) + 1 } }
             .average()
@@ -124,6 +148,12 @@ class SymptomPhasePatternGenerator : InsightGenerator {
         return resultingInsights
     }
 
+    /**
+     * Groups a sorted list of normalized day offsets into runs of consecutive integers.
+     *
+     * For example, `[1, 2, 3, 7, 8]` becomes `[[1, 2, 3], [7, 8]]`.
+     * Each group represents a contiguous symptom cluster within a cycle phase.
+     */
     private fun groupConsecutiveDays(days: List<Int>): List<List<Int>> {
         if (days.isEmpty()) return emptyList()
         val groups = mutableListOf<MutableList<Int>>()
@@ -135,6 +165,12 @@ class SymptomPhasePatternGenerator : InsightGenerator {
         return groups
     }
 
+    /**
+     * Formats a human-readable phase description for a group of normalized days.
+     *
+     * Period symptoms (all days within average period length) get "on day X of your period".
+     * Non-period symptoms are delegated to [formatRelativePhase] for "X days before/after" phrasing.
+     */
     private fun formatPhaseDescription(group: List<Int>, isPeriodSymptom: Boolean, periods: List<Period>): String {
         if (group.isEmpty()) return ""
 
@@ -149,6 +185,15 @@ class SymptomPhasePatternGenerator : InsightGenerator {
         }
     }
 
+    /**
+     * Formats a relative phase description for non-period symptom groups.
+     *
+     * Uses the representative day (group average) to determine the phase:
+     * - **Luteal phase** (representativeDay > 16 or < 0): "X days before your period"
+     * - **Follicular phase** (representativeDay <= 16): "X days after your period"
+     *
+     * The day-16 boundary approximates the follicular/luteal split in a typical cycle.
+     */
     private fun formatRelativePhase(group: List<Int>, periods: List<Period>): String {
         if (group.isEmpty()) return ""
         val representativeDay = group.average().toInt()

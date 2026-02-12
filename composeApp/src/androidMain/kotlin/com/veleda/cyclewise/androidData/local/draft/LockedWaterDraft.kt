@@ -32,6 +32,18 @@ data class WaterDraftEntry(
     val cups: Int
 )
 
+/**
+ * DataStore-backed draft storage for water intake tracked before authentication.
+ *
+ * Allows the user to log water cups on the lock screen without unlocking the encrypted
+ * database. Drafts are stored as a JSON-serialized [WaterDraftPayload] in plaintext
+ * DataStore preferences. On successful unlock, [WaterDraftSyncer] transfers qualifying
+ * drafts into the encrypted database.
+ *
+ * **Auto-prune:** [setCups] removes entries older than 29 days.
+ * **Day rollover:** [ensureRolledOver] detects day changes and resets today's entry.
+ * **Max cups:** Clamped to [MAX_DRAFT_CUPS] (99).
+ */
 class LockedWaterDraft(private val context: Context) {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -88,7 +100,6 @@ class LockedWaterDraft(private val context: Context) {
             val raw = prefs[PAYLOAD_KEY]
 
             if (raw == null) {
-                // First install: create and persist default payload
                 val default = WaterDraftPayload(
                     version = 1,
                     lastActiveDate = today.toString(),
@@ -102,7 +113,6 @@ class LockedWaterDraft(private val context: Context) {
             val lastActive = runCatching { LocalDate.parse(payload.lastActiveDate) }.getOrNull()
 
             if (lastActive == null) {
-                // Corrupted/blank lastActiveDate: reset gracefully
                 val reset = WaterDraftPayload(
                     version = 1,
                     lastActiveDate = today.toString(),
@@ -113,17 +123,14 @@ class LockedWaterDraft(private val context: Context) {
             }
 
             if (lastActive == today) {
-                // Already rolled over today: no-op
                 return@edit
             }
 
-            // Day changed: prune old entries and update lastActiveDate
             val cutoff = today.minus(29, DateTimeUnit.DAY)
             val prunedEntries = payload.entries.mapNotNull { entry ->
                 val d = runCatching { LocalDate.parse(entry.date) }.getOrNull() ?: return@mapNotNull null
                 if (d < cutoff) null else entry
             }
-            // Ensure today's entry is absent (missing = 0, no explicit zeros)
             val withoutToday = prunedEntries.filter { it.date != today.toString() }
 
             val updated = payload.copy(

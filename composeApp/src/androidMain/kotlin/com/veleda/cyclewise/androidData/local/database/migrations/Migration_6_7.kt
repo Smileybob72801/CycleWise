@@ -3,6 +3,12 @@ package com.veleda.cyclewise.androidData.local.database.migrations
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+/**
+ * v6 -> v7: Removes the `cycle_id` FK column from `daily_entries`.
+ *
+ * Uses the SQLite table-rebuild pattern (create new -> copy data -> drop old -> rename)
+ * because SQLite does not support DROP COLUMN or DROP FOREIGN KEY directly.
+ */
 object Migration_6_7 : Migration(6, 7) {
     override fun migrate(db: SupportSQLiteDatabase) {
         // SQLite doesn't directly support dropping columns or foreign keys easily.

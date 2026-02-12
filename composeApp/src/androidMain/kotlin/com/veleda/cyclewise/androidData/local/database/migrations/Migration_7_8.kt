@@ -6,6 +6,15 @@ import com.benasher44.uuid.uuid4
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
+/**
+ * v7 -> v8: Extracts flow data into a separate `period_logs` table.
+ *
+ * Steps:
+ * 1. Creates `period_logs` with `entry_id` FK (CASCADE) to `daily_entries`.
+ * 2. Creates a new `daily_entries` table without `flow_intensity` and `spotting` columns.
+ * 3. Migrates non-null `flow_intensity` rows into `period_logs`.
+ * 4. Copies remaining columns to the new table, drops the old, and renames.
+ */
 @OptIn(ExperimentalTime::class)
 object Migration_7_8 : Migration(7, 8) {
     override fun migrate(db: SupportSQLiteDatabase) {

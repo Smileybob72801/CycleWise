@@ -6,6 +6,19 @@ import kotlinx.datetime.daysUntil
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+/**
+ * Detects whether cycle length is trending longer, shorter, or remaining stable.
+ *
+ * Splits the user's cycle duration history into an older half and a recent half,
+ * compares their averages, and reports the trend.
+ *
+ * ## Minimum Data
+ * Requires at least 6 completed periods (5 inter-cycle durations).
+ *
+ * ## Threshold
+ * A difference of > 1 day between halves is considered a meaningful trend.
+ * Differences <= 1 day are reported as "remained consistent".
+ */
 class CycleLengthTrendGenerator : InsightGenerator {
     override fun generate(data: InsightData): List<Insight> {
         val completedCycles = data.allPeriods.filter { it.endDate != null }.reversed()

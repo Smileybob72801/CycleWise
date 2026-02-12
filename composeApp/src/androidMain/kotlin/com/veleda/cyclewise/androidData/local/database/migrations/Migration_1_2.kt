@@ -3,6 +3,7 @@ package com.veleda.cyclewise.androidData.local.database.migrations
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+/** v1 -> v2: Creates the `daily_entries` table with cycle_id FK, flow/spotting columns, and date index. */
 object Migration_1_2 : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(

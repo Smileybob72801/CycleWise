@@ -21,12 +21,17 @@ class SaltStorage(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    /**
+     * Returns the persisted 16-byte salt, generating and saving one on first call.
+     *
+     * Uses [SecureRandom] for generation and Base64 for SharedPreferences storage.
+     * The salt is not secret — it only ensures that identical passphrases on different
+     * devices produce different derived keys.
+     */
     fun getOrCreateSalt(): ByteArray {
-        // 1) Return existing if present
         prefs.getString(SALT_KEY, null)?.let { base64 ->
             return Base64.decode(base64, Base64.DEFAULT)
         }
-        // 2) Otherwise generate, save, and return
         val salt = ByteArray(SALT_SIZE).also { SecureRandom().nextBytes(it) }
         val encoded = Base64.encodeToString(salt, Base64.NO_WRAP)
 

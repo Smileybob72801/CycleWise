@@ -7,6 +7,12 @@ import androidx.room.Query
 import com.veleda.cyclewise.androidData.local.entities.SymptomEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Room DAO for the `symptom_library` table.
+ *
+ * Manages the user's unique symptom types. Names are unique (IGNORE on conflict).
+ * Results from [getAllSymptoms] are sorted by name ascending.
+ */
 @Dao
 interface SymptomDao {
     @Query("SELECT * FROM symptom_library ORDER BY name ASC")

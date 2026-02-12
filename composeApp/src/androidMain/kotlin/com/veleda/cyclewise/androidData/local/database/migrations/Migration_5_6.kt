@@ -4,6 +4,14 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.benasher44.uuid.uuid4
 
+/**
+ * v5 -> v6: Introduces the normalized symptom library.
+ *
+ * Creates `symptom_library` (unique name index) and `symptom_logs` (with FKs to
+ * `daily_entries` CASCADE and `symptom_library` RESTRICT). Migrates existing data from
+ * the old `symptoms` table: extracts unique symptom types into the library, maps old log
+ * entries to the new FK-based schema, then drops the old table.
+ */
 object Migration_5_6 : Migration(5, 6) {
     override fun migrate(db: SupportSQLiteDatabase) {
         // Step 1: Create the new symptom_library table

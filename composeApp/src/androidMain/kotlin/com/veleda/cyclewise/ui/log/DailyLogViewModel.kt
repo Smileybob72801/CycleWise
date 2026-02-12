@@ -26,7 +26,17 @@ import kotlin.time.Clock
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 
-// Represents the state of the UI, holding the FullDailyLog
+/**
+ * UI state for the daily log editing screen.
+ *
+ * @property isLoading          True during the initial data fetch.
+ * @property log                The [FullDailyLog] being edited, or null if load failed.
+ * @property error              Error message to display (e.g., no parent period found).
+ * @property symptomLibrary     Current symptom library for the toggle list.
+ * @property medicationLibrary  Current medication library for the toggle list.
+ * @property isPeriodDay        Whether the date being edited falls within a period.
+ * @property waterCups          Water intake count for this date.
+ */
 data class DailyLogUiState(
     val isLoading: Boolean = true,
     val log: FullDailyLog? = null,
@@ -37,6 +47,22 @@ data class DailyLogUiState(
     val waterCups: Int = 0
 )
 
+/**
+ * Daily log entry editor ViewModel.
+ *
+ * Uses a pure-reducer MVI pattern: [onEvent] dispatches to [reduce], which returns
+ * updated state without side effects. Async operations (save, library creation) are
+ * launched via `viewModelScope` inside the relevant event branch.
+ *
+ * **Two-phase init:**
+ * 1. Fetches the initial log, symptom library, medication library, and water intake.
+ * 2. Subscribes to library changes for live updates during editing.
+ *
+ * **Empty log detection:** [isLogEmpty] determines if a log contains no user-entered
+ * data; empty logs are not persisted on save.
+ *
+ * Session-scoped (destroyed on logout/autolock).
+ */
 class DailyLogViewModel(
     private val entryDate: LocalDate,
     private val periodRepository: PeriodRepository,

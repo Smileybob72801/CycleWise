@@ -4,6 +4,12 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.benasher44.uuid.uuid4
 
+/**
+ * v4 -> v5: Introduces the normalized medication library.
+ *
+ * Creates `medication_library` (unique name index) and new `medication_logs` (with FKs
+ * to `daily_entries` CASCADE and `medication_library` RESTRICT). Drops the old `medications` table.
+ */
 object Migration_4_5 : Migration(4, 5) {
     override fun migrate(db: SupportSQLiteDatabase) {
         // Step 1: Create the new medication_library table

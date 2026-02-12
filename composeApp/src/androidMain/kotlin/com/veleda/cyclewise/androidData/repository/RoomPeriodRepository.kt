@@ -48,7 +48,16 @@ import com.veleda.cyclewise.androidData.local.entities.PeriodEntity
 
 /**
  * Room-backed implementation of [PeriodRepository].
- * All data access is routed through SQLCipher-encrypted DAOs within a session scope.
+ *
+ * All data access is routed through SQLCipher-encrypted DAOs. This class lives inside
+ * the session scope — it is created after passphrase unlock and destroyed on logout/autolock.
+ *
+ * Key behaviors:
+ * - [saveFullLog] uses delete-then-insert within a Room transaction for child records.
+ * - [logPeriodDay] implements a 4-scenario state machine (see [PeriodRepository] KDoc).
+ * - [unLogPeriodDay] implements a 4-scenario deletion/split state machine.
+ * - [observeDayDetails] combines period ranges and log data into the calendar's source of truth.
+ * - [seedDatabaseForDebug] is destructive and generates 6 months of test data.
  */
 class RoomPeriodRepository(
     private val db: PeriodDatabase,
@@ -379,8 +388,8 @@ class RoomPeriodRepository(
     }
 
     /**
-     * [DEBUG ONLY] Clears all user data and seeds the database with a fresh,
-     * realistic dataset of 6 completed periods ending yesterday.
+     * **[DEBUG ONLY]** Clears all user data and seeds the database with 6 completed
+     * periods spanning several months, each with daily entries, symptoms, and medications.
      */
     override suspend fun seedDatabaseForDebug() {
         prepopulateSymptomLibrary()

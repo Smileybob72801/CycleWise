@@ -1,9 +1,15 @@
 package com.veleda.cyclewise.domain.models
 
 /**
- * A UI-agnostic domain model that encapsulates the key data points
- * for a single day, derived from underlying cycles and logs.
- * This is the "truth" that the repository provides to the presentation layer.
+ * UI-agnostic summary of a single calendar day's status, derived from periods and logs.
+ *
+ * Emitted by [PeriodRepository.observeDayDetails] as the single source of truth
+ * for the calendar UI. Each flag indicates whether the corresponding data type
+ * has been recorded for this day.
+ *
+ * @property isPeriodDay         True if this date falls within any saved period's date range.
+ * @property hasLoggedSymptoms   True if at least one [SymptomLog] exists for this date.
+ * @property hasLoggedMedications True if at least one [MedicationLog] exists for this date.
  */
 data class DayDetails(
     val isPeriodDay: Boolean = false,

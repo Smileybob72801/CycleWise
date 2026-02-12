@@ -32,6 +32,20 @@ data class TrackerUiState(
     val ongoingPeriod: Period? = periods.find { it.endDate == null }
 }
 
+/**
+ * Calendar/tracker screen ViewModel managing period and log state.
+ *
+ * Uses a MVI-inspired pattern: [onEvent] dispatches to [reduce] (a pure function that
+ * returns updated state). Side effects (navigation, repository writes) are launched
+ * inside `reduce` via `viewModelScope`.
+ *
+ * **Init:** Collects 4 reactive flows — day details, periods, symptom library, and
+ * medication library — each updating the corresponding [TrackerUiState] field.
+ *
+ * **Effects:** One-shot navigation events are emitted via [_effect] ([SharedFlow] with replay = 0).
+ *
+ * Session-scoped (destroyed on logout/autolock).
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TrackerViewModel(
     private val periodRepository: PeriodRepository,

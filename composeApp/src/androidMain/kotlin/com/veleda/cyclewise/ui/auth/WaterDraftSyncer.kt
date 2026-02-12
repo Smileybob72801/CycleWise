@@ -9,6 +9,15 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
 
+/**
+ * Syncs water intake drafts from [LockedWaterDraft] into the encrypted database after unlock.
+ *
+ * **Sync rules:**
+ * - Today's draft is skipped (the user may still be editing it).
+ * - A draft is written to the DB only if its cup count exceeds the existing DB value for that date.
+ * - Successfully synced dates are cleared from the draft store.
+ * - Individual date failures are logged but do not abort the remaining sync.
+ */
 class WaterDraftSyncer(
     private val lockedWaterDraft: LockedWaterDraft,
     private val repository: PeriodRepository

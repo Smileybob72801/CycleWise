@@ -9,7 +9,12 @@ import kotlinx.datetime.LocalDate
 import kotlin.time.ExperimentalTime
 
 /**
- * Room type converters for kotlinx-datetime types.
+ * Room type converters for non-primitive column types.
+ *
+ * Serialization formats:
+ * - [LocalDate] <-> ISO-8601 string (e.g., "2025-01-15")
+ * - [Instant] <-> epoch milliseconds ([Long])
+ * - [FlowIntensity], [LibidoLevel], [SymptomCategory] <-> enum name string (e.g., "HEAVY")
  */
 object Converters {
     @TypeConverter
@@ -27,18 +32,10 @@ object Converters {
     fun toInstant(value: Long): Instant = Instant.fromEpochMilliseconds(value)
 
     @TypeConverter
-    fun fromFlowIntensity(value: FlowIntensity?): String? {
-        // Converts the enum to its String name for storing in the database.
-        // E.g., FlowIntensity.HEAVY -> "HEAVY"
-        return value?.name
-    }
+    fun fromFlowIntensity(value: FlowIntensity?): String? = value?.name
 
     @TypeConverter
-    fun toFlowIntensity(value: String?): FlowIntensity? {
-        // Converts a String from the database back into the corresponding enum.
-        // E.g., "HEAVY" -> FlowIntensity.HEAVY
-        return value?.let { FlowIntensity.valueOf(it) }
-    }
+    fun toFlowIntensity(value: String?): FlowIntensity? = value?.let { FlowIntensity.valueOf(it) }
 
     @TypeConverter
     fun fromLibidoLevel(value: LibidoLevel?): String? {

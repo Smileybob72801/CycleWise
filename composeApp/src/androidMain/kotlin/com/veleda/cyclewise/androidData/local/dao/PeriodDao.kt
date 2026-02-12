@@ -6,10 +6,17 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDate
 import kotlin.time.ExperimentalTime
 
+/**
+ * Room DAO for the `periods` table.
+ *
+ * Provides CRUD operations and reactive queries for [PeriodEntity].
+ * Periods are identified by an auto-generated internal [PeriodEntity.id] (PK)
+ * and an exposed [PeriodEntity.uuid] (UNIQUE TEXT).
+ */
 @OptIn(ExperimentalTime::class)
 @Dao
 interface PeriodDao {
-    /** All periods, newest first (by start_date). */
+    /** All periods, sorted by start_date descending (most recent first). */
     @Query("SELECT * FROM periods ORDER BY start_date DESC")
     fun getAllPeriods(): Flow<List<PeriodEntity>>
 
