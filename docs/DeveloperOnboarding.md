@@ -22,7 +22,6 @@ content from these companion documents:
 | [`docs/GIT_COMMIT_GUIDELINES.md`](GIT_COMMIT_GUIDELINES.md) | Conventional Commits format, DCO sign-off |
 | [`docs/CODE_STYLE.md`](CODE_STYLE.md) | Kotlin & Compose naming, formatting, test structure |
 | [`docs/SECURITY_MODEL.md`](SECURITY_MODEL.md) | Threat model, no-recovery policy, network posture |
-| [`CLAUDE.md`](../CLAUDE.md) | Quick project overview for AI-assisted development |
 
 ---
 
@@ -43,6 +42,9 @@ content from these companion documents:
   - [2.4 TrackerScreen and TrackerViewModel](#24-trackerscreen-and-trackerviewmodel)
   - [2.5 Use Cases to Repository to DAO](#25-use-cases-to-repository-to-dao)
   - [2.6 Platform vs Shared Separation](#26-platform-vs-shared-separation)
+  - [2.7 DailyLogScreen and DailyLogViewModel](#27-dailylogscreen-and-dailylogviewmodel)
+  - [2.8 InsightsScreen and InsightsViewModel](#28-insightsscreen-and-insightsviewmodel)
+  - [2.9 LockedWaterDraft — Pre-Authentication Water Tracking](#29-lockedwaterdraft--pre-authentication-water-tracking)
 - [Phase 3 — Code Organization and Design Principles](#phase-3--code-organization-and-design-principles)
   - [3.1 Why Interfaces Live in Shared Module](#31-why-interfaces-live-in-shared-module)
   - [3.2 Why Platform Implementations Live in composeApp](#32-why-platform-implementations-live-in-composeapp)
@@ -138,6 +140,10 @@ class IOSPlatform: Platform {
 actual fun getPlatform(): Platform = IOSPlatform()
 ```
 
+> **Note:** The iOS actual is currently missing `actual val num: Int`. This means the
+> iOS target will not compile until this is added. The Android actual provides
+> `actual val num: Int = 3`. This is a known gap in the iOS placeholder.
+
 The compiler enforces that every `expect` declaration has a matching `actual` for each
 target. If you add a new platform target but forget an `actual`, the build fails.
 
@@ -195,7 +201,6 @@ PeriodTracker/
 ├── settings.gradle.kts              # Module declarations
 ├── gradle/
 │   └── libs.versions.toml           # Version catalog
-├── CLAUDE.md                        # AI-assisted dev overview
 ├── docs/                            # All documentation
 │   ├── DeveloperOnboarding.md       # This file
 │   ├── ARCHITECTURE.md
@@ -398,7 +403,7 @@ process dies:
 | `SessionBus` | SharedFlow event bus for logout/lock signals |
 | `PassphraseService` | Argon2id key derivation interface (bound to `PassphraseServiceAndroid`) |
 | `LockedWaterDraft` | Persists water intake edits while the DB is locked |
-| `InsightEngine` | Orchestrates insight generators (`factory` — new instance each call) |
+| `InsightEngine` | Orchestrates insight generators (registered as `factory`, not `single` — a fresh instance is created each call, so no stale state accumulates) |
 | `PassphraseViewModel` | Manages unlock flow (survives screen rotation) |
 | `WaterTrackerViewModel` | Manages water tracker on lock screen |
 
@@ -580,9 +585,11 @@ flow pattern built on top of MVVM components.
   The UI calls `viewModel.onEvent(TrackerEvent.DayTapped(date))`.
 - **Effects** (`TrackerEffect`) — One-shot side effects (navigation, toasts) that
   should be consumed exactly once. Exposed as `SharedFlow` with `replay = 0`.
-- **Reducer** (`reduce()`) — A pure function that takes current state + event and
-  returns new state. Side effects are launched inside the reducer via
-  `viewModelScope.launch`.
+- **Reducer** (`reduce()`) — Takes current state + event and returns new state.
+  In `TrackerViewModel`, the reducer also launches side effects (repository calls,
+  navigation) inside `viewModelScope.launch` — making it a _hybrid_ reducer rather
+  than a pure function. `DailyLogViewModel` keeps most of its reducer branches pure,
+  but still launches async work for save, library creation, and water persistence.
 
 ### Concrete Example: TrackerViewModel
 
@@ -632,15 +639,20 @@ fun onEvent(event: TrackerEvent) {
 ### The Contract
 
 `PeriodRepository` (`shared/.../domain/repository/PeriodRepository.kt`) is the single
-data access contract for the entire app. It defines ~22 methods grouped into:
+data access contract for the entire app. It defines 27 methods grouped into:
 
-- **Period CRUD** — `getAllPeriods()`, `startNewPeriod()`, `endPeriod()`, `deletePeriod()`, etc.
-- **Period day marking** — `logPeriodDay()`, `unLogPeriodDay()` (4-scenario state machines)
-- **Daily log access** — `getFullLogForDate()`, `saveFullLog()`, `getAllLogs()`
-- **Calendar observation** — `observeAllPeriodDays()`, `observeDayDetails()`
-- **Symptom/medication library** — `getSymptomLibrary()`, `getMedicationLibrary()`, `prepopulateSymptomLibrary()`
-- **Water intake** — `upsertWaterIntake()`, `getWaterIntakeForDates()`
-- **Debug** — `seedDatabaseForDebug()`
+- **Period CRUD** (9 methods) — `getAllPeriods()`, `getPeriodById()`, `startNewPeriod()`,
+  `updatePeriodEndDate()`, `endPeriod()`, `getCurrentlyOngoingPeriod()`,
+  `createCompletedPeriod()`, `isDateRangeAvailable()`, `deletePeriod()`
+- **Period day marking** (2 methods) — `logPeriodDay()`, `unLogPeriodDay()` (4-scenario state machines)
+- **Daily log access** (4 methods) — `getFullLogForDate()`, `saveFullLog()`, `getLogsForMonth()`, `getAllLogs()`
+- **Calendar observation** (2 methods) — `observeAllPeriodDays()`, `observeDayDetails()`
+- **Symptom library** (4 methods) — `getSymptomLibrary()`, `createOrGetSymptomInLibrary()`,
+  `prepopulateSymptomLibrary()`, `getAllSymptomLogs()`
+- **Medication library** (3 methods) — `getMedicationLibrary()`, `createOrGetMedicationInLibrary()`,
+  `getAllMedicationLogs()`
+- **Water intake** (2 methods) — `upsertWaterIntake()`, `getWaterIntakeForDates()`
+- **Debug** (1 method) — `seedDatabaseForDebug()`
 
 ### Flow vs Suspend
 
@@ -700,14 +712,34 @@ Use cases never import Room annotations. The `shared/` module never imports
 RhythmWise is a **single-activity** Compose application. The launch sequence:
 
 1. **`CycleWiseApp.onCreate()`** (`CycleWiseApp.kt:40-60`) —
-   - Starts Koin with `appModule`
-   - Initializes autolock SharedPreferences
-   - Begins collecting `autolockMinutes` from `AppSettings` into a volatile cache
+   - Starts Koin with `appModule` (and `allowOverride(false)` to catch DI errors early)
+   - Initializes autolock SharedPreferences (`"autolock_prefs"`)
+   - Begins collecting `autolockMinutes` from `AppSettings` into a `@Volatile` cache
    - Registers itself as a `ProcessLifecycleOwner` observer for autolock
 
-2. **`MainActivity.setContent { CycleWiseAppUI() }`** —
-   - `CycleWiseAppUI` sets up the Compose `NavHost` with 5 routes
+2. **`MainActivity`** (`MainActivity.kt`) — Intentionally minimal:
+   - Calls `enableEdgeToEdge()` for fullscreen content behind system bars
+   - Registers a global uncaught exception handler for crash logging
+   - Calls `setContent { CycleWiseAppUI() }` — all Compose UI starts here
+
+3. **`CycleWiseAppUI`** (`ui/CycleWiseAppUI.kt`) — The root composable:
+   - Sets up the Compose `NavHost` with 5 routes
    - Start destination: `NavRoute.Passphrase`
+   - **Bottom navigation is hidden on PassphraseScreen** — only shown after unlock:
+     ```kotlin
+     if (currentRoute != NavRoute.Passphrase.route) {
+         BottomNavBar(navController)
+     }
+     ```
+   - Handles `WindowInsets.systemBars` padding so content doesn't overlap system UI
+   - On successful unlock, navigates to Tracker and pops Passphrase from the backstack:
+     ```kotlin
+     PassphraseScreen {
+         navController.navigate(NavRoute.Tracker.route) {
+             popUpTo(NavRoute.Passphrase.route) { inclusive = true }
+         }
+     }
+     ```
 
 ### Navigation Routes
 
@@ -723,10 +755,38 @@ sealed class NavRoute(val route: String, val label: String) {
         fun createRoute(date: LocalDate, isPeriodDay: Boolean = false) =
             "log/$date?isPeriodDay=$isPeriodDay"
     }
+
+    companion object {
+        val all = listOf(Tracker, Insights, Settings)  // Bottom nav items (excludes Passphrase)
+    }
 }
 ```
 
 Bottom navigation shows three tabs: **Tracker**, **Insights**, **Settings**.
+
+### DailyLog Navigation Parameters
+
+The `DailyLog` route takes two parameters parsed from the URL:
+
+```kotlin
+composable(
+    route = NavRoute.DailyLog.route,
+    arguments = listOf(
+        navArgument("date") { type = NavType.StringType },          // ISO-8601 date
+        navArgument("isPeriodDay") { type = NavType.BoolType; defaultValue = false }
+    )
+) { backStackEntry ->
+    val dateString = backStackEntry.arguments?.getString("date")
+    val isPeriodDay = backStackEntry.arguments?.getBoolean("isPeriodDay") ?: false
+    DailyLogScreen(
+        date = LocalDate.parse(dateString),
+        onSaveComplete = { navController.popBackStack() },
+        isPeriodDay = isPeriodDay
+    )
+}
+```
+
+`TrackerViewModel` constructs this route via `NavRoute.DailyLog.createRoute(date, isPeriodDay)`.
 
 ---
 
@@ -808,7 +868,13 @@ Inserts 20 default symptoms (Cramps, Headache, Bloating, etc.) on first unlock.
     syncWaterDrafts(sessionScope)                                 // line 79
 ```
 Any water intake logged on the lock screen (via `LockedWaterDraft`) is persisted
-into the database.
+into the database. `WaterDraftSyncer` (`ui/auth/WaterDraftSyncer.kt`) applies these
+rules:
+- **Today's draft is skipped** — the user may still be editing it
+- **Higher-wins merge** — a draft is written to the DB only if its cup count exceeds
+  the existing DB value for that date
+- **Synced dates are cleared** from the draft store
+- **Individual failures are logged** but don't abort the remaining sync
 
 **10. Navigate to Tracker**
 ```kotlin
@@ -927,9 +993,28 @@ private fun shouldLockNow(minutes: Int, lastBgAtElapsed: Long): Boolean {
 
 ### Manual Lock
 
-From `SettingsScreen`, the user can tap "Lock Now":
-1. `getKoin().getScopeOrNull("session")?.close()` — destroys all session-scoped objects
-2. Navigate with `popUpTo(0)` — clears the entire backstack back to Passphrase
+From `SettingsScreen` (`ui/settings/SettingsScreen.kt`), the user can tap "Lock Now":
+
+```kotlin
+// SettingsScreen.kt:32
+val session = getKoin().getScopeOrNull("session")
+
+// SettingsScreen.kt:64-71
+Button(
+    enabled = session != null,
+    onClick = {
+        session?.close()                                    // Destroy all session-scoped objects
+        navController.navigate(NavRoute.Passphrase.route) {
+            popUpTo(0) { inclusive = true }                  // Clear entire backstack
+        }
+    }
+) { Text("Lock Now") }
+```
+
+Both steps are required: `scope.close()` destroys the database and all session-scoped
+objects (security), while `navController.navigate` with `popUpTo(0)` brings the user
+back to the passphrase screen (UX). If you only close the scope without navigating,
+the user would see a broken screen with no backing ViewModel.
 
 ### SessionBus
 
@@ -951,9 +1036,14 @@ class SessionBus {
 }
 ```
 
-The `CycleWiseAppUI` composable collects `sessionBus.logout` and navigates to the
-passphrase screen when a logout signal arrives. This means any component that needs
-to trigger a lock only needs to call `sessionBus.emitLogout()`.
+Currently, `SessionBus.emitLogout()` is called by `CycleWiseApp` during autolock
+(after closing the session scope). The bus provides infrastructure for any UI
+component to observe logout signals by collecting `sessionBus.logout`. In the current
+codebase, the primary lock mechanism is scope closure: when the session scope closes,
+all session-scoped ViewModels are destroyed. For manual lock, `SettingsScreen`
+closes the scope _and_ navigates to Passphrase directly. For autolock,
+`CycleWiseApp` closes the scope and emits to `SessionBus`, allowing future screens
+to react if needed.
 
 ---
 
@@ -1010,7 +1100,11 @@ is destroyed when the session scope closes (logout/autolock).
 When the user interacts with the tracker:
 
 - **`ScreenEntered`** — Calls `autoClosePeriodUseCase()` to close any stale ongoing
-  period. Fired as a `LaunchedEffect` when the screen appears.
+  period. Fired as a `LaunchedEffect` when the screen appears. The auto-close logic
+  (`AutoCloseOngoingPeriodUseCase`): finds the last logged day within the ongoing
+  period, checks if `lastLoggedDay + 1 day <= today`, and if so, closes the period
+  with `endDate = lastLoggedDay`. This handles the case where the user forgot to
+  manually end a period.
 - **`DayTapped(date)`** — If a log exists for that date, shows a bottom sheet summary.
   If not, navigates to `DailyLogScreen` to create one.
 - **`PeriodMarkDay(date)`** — Long-press toggle. If the date is inside a period,
@@ -1072,6 +1166,38 @@ Result:      ├── Mar 10 ──── Mar 15 ──┤  (end date extended)
 Existing:    ├── Mar 10 ── Mar 12 ──┤              ├── Mar 20 ── Mar 25 ──┤
 Mark:                                    Mar 15
 Result:      ├── Mar 10 ── Mar 12 ──┤  ├Mar 15┤   ├── Mar 20 ── Mar 25 ──┤
+```
+
+### The `unLogPeriodDay()` State Machine
+
+The inverse operation also handles 4 scenarios:
+
+**Scenario 1: Single-day period → Delete entirely**
+```
+Existing:    ├Mar 15┤
+Unmark:       Mar 15
+Result:      (period deleted)
+```
+
+**Scenario 2: Start date → Advance start by one day**
+```
+Existing:    ├── Mar 15 ──── Mar 18 ──┤
+Unmark:           Mar 15
+Result:          ├── Mar 16 ── Mar 18 ──┤
+```
+
+**Scenario 3: End date → Retract end by one day**
+```
+Existing:    ├── Mar 15 ──── Mar 18 ──┤
+Unmark:                        Mar 18
+Result:      ├── Mar 15 ── Mar 17 ──┤
+```
+
+**Scenario 4: Middle day → Split into two periods**
+```
+Existing:    ├── Mar 13 ──────── Mar 18 ──┤
+Unmark:                    Mar 15
+Result:      ├── Mar 13 ── Mar 14 ──┤  ├── Mar 16 ── Mar 18 ──┤
 ```
 
 ### Transaction Wrapping
@@ -1140,6 +1266,163 @@ operation rolls back.
 - The reverse dependency (`shared/` importing `composeApp/`) is **never allowed**.
 - All platform-specific code crosses the boundary through interfaces defined in
   `shared/` (`PeriodRepository`, `PassphraseService`).
+
+---
+
+## 2.7 DailyLogScreen and DailyLogViewModel
+
+`DailyLogViewModel` (`ui/log/DailyLogViewModel.kt`) is the most event-rich ViewModel
+in the codebase, handling 14 distinct event types for editing a single day's log.
+
+### Two-Phase Initialization
+
+```kotlin
+init {
+    // Phase 1: Load initial data, then dispatch a single comprehensive event
+    viewModelScope.launch {
+        val initialSymptoms = symptomLibraryProvider.symptoms.first()
+        val initialMedications = medicationLibraryProvider.medications.first()
+        val result = getOrCreateDailyLog(entryDate)
+        val waterIntake = periodRepository.getWaterIntakeForDates(listOf(entryDate)).firstOrNull()
+
+        onEvent(DailyLogEvent.LogLoaded(result, initialSymptoms, initialMedications))
+        _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0) }
+    }
+
+    // Phase 2: Subscribe to library changes as events (not direct state mutations)
+    symptomLibraryProvider.symptoms
+        .onEach { symptoms -> onEvent(DailyLogEvent.LibraryUpdated(symptoms, ...)) }
+        .launchIn(viewModelScope)
+}
+```
+
+This pattern ensures all state changes flow through the reducer, even for
+initialization. Library updates arrive as events, making the data flow auditable.
+
+### The Hybrid Reducer
+
+Most `DailyLogEvent` branches return updated state synchronously (mood changes, tag
+additions, symptom toggles). A few launch async work:
+
+| Event | Pure state return? | Async side effect? |
+|-------|-------------------|-------------------|
+| `FlowIntensityChanged` | Yes | No |
+| `MoodScoreChanged` | Yes | No |
+| `SymptomToggled` | Yes | No |
+| `CreateAndAddSymptom` | Returns `currentState` | Yes — creates symptom in library, then updates state |
+| `SaveLog` | Returns `currentState` | Yes — persists to repository, emits `NavigateBack` |
+| `WaterIncrement` | Yes (optimistic) | Yes — upserts water intake to DB |
+
+### Empty Log Detection
+
+When the user taps Save, the ViewModel checks if the log contains any user-entered
+data. If it's empty (no mood, no symptoms, no medications, no notes, no tags), it
+skips the save and just navigates back:
+
+```kotlin
+private fun isLogEmpty(log: FullDailyLog): Boolean {
+    val entry = log.entry
+    return log.periodLog == null &&
+            log.symptomLogs.isEmpty() &&
+            log.medicationLogs.isEmpty() &&
+            entry.moodScore == null &&
+            entry.energyLevel == null &&
+            entry.libidoLevel == null &&
+            entry.customTags.isEmpty() &&
+            entry.note.isNullOrBlank()
+}
+```
+
+---
+
+## 2.8 InsightsScreen and InsightsViewModel
+
+`InsightsViewModel` (`ui/insights/InsightsViewModel.kt`) is simpler than the other
+ViewModels — it generates insights once on initialization, with no ongoing events.
+
+### Generation Pipeline
+
+```kotlin
+init { generateInsights() }
+
+private fun generateInsights() {
+    viewModelScope.launch {
+        // 1. Fetch all data in one shot (Flow.first() for each)
+        val allCycles = periodRepository.getAllPeriods().first()
+        val allLogs = periodRepository.getAllLogs().first()
+        val symptomLibrary = periodRepository.getSymptomLibrary().first()
+        val topSymptomsCount = appSettings.topSymptomsCount.first()
+
+        // 2. Run the InsightEngine
+        val rawInsights = insightEngine.generateInsights(
+            allPeriods = allCycles, allLogs = allLogs,
+            symptomLibrary = symptomLibrary, topSymptomsCount = topSymptomsCount
+        )
+
+        // 3. Apply platform-specific date formatting
+        val formattedInsights = rawInsights.map { insight ->
+            when (insight) {
+                is NextPeriodPrediction ->
+                    insight.copy(formattedDateString = insight.predictedDate.toLocalizedDateString())
+                is SymptomPhasePattern ->
+                    insight.predictedDate?.toLocalizedDateString()?.let {
+                        insight.copy(formattedPredictedDateString = it)
+                    } ?: insight
+                else -> insight
+            }
+        }
+
+        _uiState.update { it.copy(isLoading = false, insights = formattedInsights) }
+    }
+}
+```
+
+### Why Post-Process Formatting?
+
+Insight generators in `shared/` are pure Kotlin — they have no access to Android's
+`DateFormat` or locale APIs. The `InsightsViewModel` applies platform-specific
+formatting (via `toLocalizedDateString()`) _after_ generation. This keeps generators
+portable to iOS without modification.
+
+---
+
+## 2.9 LockedWaterDraft — Pre-Authentication Water Tracking
+
+A unique pattern in RhythmWise: the user can log water intake _before_ unlocking the
+encrypted database.
+
+### The Problem
+
+The encrypted database is inaccessible until the user enters the passphrase. But water
+tracking benefits from quick, frictionless logging throughout the day — requiring
+unlock each time defeats the purpose.
+
+### The Solution
+
+`LockedWaterDraft` (`androidData/local/draft/LockedWaterDraft.kt`) stores water
+intake in a **plaintext** DataStore (no encryption). This is acceptable because water
+intake is low-sensitivity data.
+
+```
+Lock Screen                                     After Unlock
+┌──────────────┐                                ┌──────────────────┐
+│ User taps +  │                                │ WaterDraftSyncer │
+│ water cup    │                                │ reads all drafts │
+│      │       │                                │      │           │
+│      ▼       │                                │      ▼           │
+│ LockedWater  │     passphrase entered         │ Skips today      │
+│ Draft (plain │ ──────────────────────────►    │ Merges others    │
+│ DataStore)   │                                │ (higher wins)    │
+│              │                                │ Clears synced    │
+└──────────────┘                                └──────────────────┘
+```
+
+Key details:
+- **Storage format:** JSON-serialized `WaterDraftPayload` with a version field for
+  future migrations
+- **Auto-prune:** Entries older than 29 days are dropped on any write
+- **Max cups:** Clamped to 99 (`MAX_DRAFT_CUPS`)
+- **Day rollover:** `ensureRolledOver(today)` detects day changes and resets
 
 ---
 
@@ -1473,6 +1756,51 @@ Key architectural details:
   - Registers all 8 migrations (lines 93-101)
   - Returns the built database
 
+### 6. `androidData/local/entities/Converters.kt` — Room Type Converters
+
+**File:** `composeApp/src/androidMain/kotlin/com/veleda/cyclewise/androidData/local/entities/Converters.kt` (59 lines)
+
+Room requires type converters for non-primitive column types. These define how domain
+types are serialized into SQLite columns:
+
+| Kotlin Type | SQLite Type | Conversion |
+|-------------|-------------|------------|
+| `LocalDate` | TEXT | ISO-8601 string (e.g., `"2025-03-15"`) via `toString()` / `parse()` |
+| `Instant` | INTEGER | Epoch milliseconds via `toEpochMilliseconds()` / `fromEpochMilliseconds()` |
+| `FlowIntensity?` | TEXT (nullable) | Enum `name` string (e.g., `"HEAVY"`) via `valueOf()` |
+| `LibidoLevel?` | TEXT (nullable) | Enum `name` string via `valueOf()` |
+| `SymptomCategory?` | TEXT (nullable) | Enum `name` string via `valueOf()` |
+
+Important: Nullable enums return `null` if the stored string is `null`. If an enum
+value is ever renamed, a migration is required (existing data would break `valueOf()`).
+
+> **Note:** The project uses `kotlin.time.Instant`, not `kotlinx.datetime.Instant`.
+
+### 7. `androidData/local/entities/Mappers.kt` — Entity-Domain Conversion
+
+**File:** `composeApp/src/androidMain/kotlin/com/veleda/cyclewise/androidData/local/entities/Mappers.kt` (108 lines)
+
+Bidirectional extension functions convert between Room entities and domain models:
+
+```kotlin
+// Entity → Domain: uuid becomes the domain "id"
+fun PeriodEntity.toDomain(): Period =
+    Period(id = uuid, startDate = startDate, endDate = endDate, ...)
+
+// Domain → Entity: id set to 0 so Room auto-generates the internal PK
+fun Period.toEntity(): PeriodEntity =
+    PeriodEntity(id = 0, uuid = id, startDate = startDate, ...)
+```
+
+**Key patterns:**
+- **Dual ID system:** `PeriodEntity` has an internal auto-increment `id` (for fast
+  Room joins) and a `uuid` field (exposed to the domain layer). When converting
+  domain → entity, `id` is set to 0 so Room auto-generates it on insert.
+- **JSON serialization:** `DailyEntry.customTags` (a `List<String>`) is serialized
+  via `Json.encodeToString()` for storage and `Json.decodeFromString()` on retrieval.
+- **Date string conversion:** `WaterIntakeEntity.date` is stored as ISO-8601 string,
+  converted to/from `LocalDate` in the mapper.
+
 ---
 
 # Phase 4 — Developer Workflows
@@ -1549,13 +1877,51 @@ fun `auto-close sets end date when period is stale`() {
 ### Instrumented Tests
 
 The project uses a `CustomTestRunner` (configured in `composeApp/build.gradle.kts:95`)
-for instrumented tests. These tests run on a device/emulator with Robolectric for
-unit-level Android tests.
+for instrumented tests. The custom runner:
+- Replaces the default `Application` with `TestCycleWiseApp`
+- Stops any prior Koin state (`stopKoin()`)
+- Restarts Koin with `allowOverride(true)` and a `testOverridesModule` that can
+  replace production singletons (e.g., mock `PassphraseService`, in-memory database)
+
+Unit tests that need Android resources (themes, strings) use **Robolectric**:
+```kotlin
+// composeApp/build.gradle.kts:126-129
+testOptions {
+    unitTests {
+        isIncludeAndroidResources = true  // Required for Robolectric
+    }
+}
+```
+
+### CI Pipeline
+
+GitHub Actions runs on every push/PR to `main` or `develop`
+(`.github/workflows/test.yml`):
+
+1. **Setup:** Ubuntu, Temurin JDK 17, Gradle
+2. **Shared module tests:** `./gradlew :shared:testDebugUnitTest`
+3. **composeApp tests:** `./gradlew :composeApp:testDebugUnitTest`
+4. **Artifacts:** Test reports uploaded regardless of pass/fail
+
+CI runs only unit tests (not instrumented/emulator tests). Test reports are available
+as downloadable artifacts.
 
 ### Manual Testing
 
 For manual testing, use the debug seeder (Settings → "Seed Debug Data") to quickly
-populate the database with realistic data.
+populate the database with realistic data. The seeder button only appears in debug
+builds (`BuildConfig.DEBUG`) and requires an active session (DB unlocked). It fetches
+`DebugSeederUseCase` from the session scope:
+
+```kotlin
+// SettingsScreen.kt:114-121
+session?.let {
+    val seeder: DebugSeederUseCase = it.get()
+    scope.launch {
+        seeder()  // Deletes all data, then seeds 6 months of cycles
+    }
+}
+```
 
 ---
 
@@ -1817,7 +2183,7 @@ object KeyHolder {
 
 The key must only exist within the session scope's lifetime.
 
-### 7. Using kotlinx.datetime.Clock
+### 7. Using kotlinx.datetime.Clock or kotlinx.datetime.Instant
 
 ```kotlin
 // WRONG — deprecated in this project
@@ -1828,6 +2194,10 @@ val now = Clock.System.now()
 import kotlin.time.Clock
 val now = Clock.System.now()
 ```
+
+The same applies to `Instant` — use `kotlin.time.Instant`, not
+`kotlinx.datetime.Instant`. The type converters in `Converters.kt` import from
+`kotlin.time.Instant`.
 
 ### 8. Forgetting to register in session scope
 
@@ -1998,16 +2368,52 @@ generators in dependency order:
 Results are deduplicated by `Insight.id` and sorted by `priority` descending
 (highest priority = shown first).
 
+### InsightData — The Generator Input
+
+Every generator receives an immutable `InsightData` snapshot:
+
+```kotlin
+data class InsightData(
+    val allPeriods: List<Period>,                    // Sorted by start date descending
+    val allLogs: List<FullDailyLog>,
+    val symptomLibrary: List<Symptom>,               // For ID → name resolution
+    val averageCycleLength: Double?,                 // null if < 2 completed periods
+    val generatedInsights: List<Insight> = emptyList(),  // From earlier pipeline phases
+    val topSymptomsCount: Int                        // User-configurable (default: 3)
+)
+```
+
+The `averageCycleLength` is pre-calculated by `InsightEngine` from completed periods
+(start-to-start intervals). It requires at least 2 completed periods to produce a
+value. Generators that need it check for `null` and return an empty list if
+insufficient data exists.
+
+### InsightGenerator Contract
+
+```kotlin
+interface InsightGenerator {
+    fun generate(data: InsightData): List<Insight>
+}
+```
+
+Generators must be **pure** — no side effects, no mutations to `data`. Each is
+responsible for its own minimum-data guards (returning an empty list when there's
+insufficient data).
+
 ### Current Generators
 
 | Generator | Priority | What It Produces |
 |-----------|----------|-----------------|
-| `NextPeriodPredictionGenerator` | 110 | Predicted start date of next period |
-| `MoodPhasePatternGenerator` | 106 | Mood patterns across cycle phases |
+| `NextPeriodPredictionGenerator` | 110 | Predicted start date of next period (highest priority — shown first) |
+| `MoodPhasePatternGenerator` | 106 | Mood patterns across cycle phases with self-care advice |
 | `CycleLengthAverageGenerator` | 100 | Average cycle length in days |
-| `CycleLengthTrendGenerator` | 95 | Whether cycles are getting longer/shorter |
-| `SymptomPhasePatternGenerator` | Variable | Symptom patterns by cycle phase |
-| `SymptomRecurrenceGenerator` | 90 | Most frequently logged symptoms |
+| `CycleLengthTrendGenerator` | 95 | Whether cycles are getting longer/shorter/stable (3-month trend) |
+| `SymptomPhasePatternGenerator` | Variable | Symptom + phase correlations with recurrence rates |
+| `SymptomRecurrenceGenerator` | 90 | Most frequently logged symptoms (lowest priority) |
+
+Priority determines display order (110 first, 90 last). The current range is 90-110.
+When adding a new generator, choose a priority that reflects its relative importance
+to the user.
 
 ### Adding a New Generator
 
@@ -2019,6 +2425,10 @@ Results are deduplicated by `Insight.id` and sorted by `priority` descending
 
 The `InsightEngine` is registered as a `factory` in Koin (not singleton), meaning a
 fresh instance is created each time insights are generated. This keeps it stateless.
+
+If your generator depends on the prediction date, access it via
+`data.generatedInsights.filterIsInstance<NextPeriodPrediction>().firstOrNull()`.
+This works because the prediction generator always runs in Phase 1.
 
 ---
 
