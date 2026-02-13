@@ -20,4 +20,8 @@
     <string name="period_consistency_stringy">Stringy</string>
     <string name="period_consistency_clots_small">Small Clots</string>
     <string name="period_consistency_clots_large">Large Clots</string>
+    <string name="log_summary_display_title">Log Summary Display</string>
+    <string name="show_mood_label">Show Mood</string>
+    <string name="show_energy_label">Show Energy</string>
+    <string name="show_libido_label">Show Libido</string>
 </resources>

@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore by preferencesDataStore("app_settings")
 private val AUTOLOCK_MIN = intPreferencesKey("autolock_min")
 private val TOP_SYMPTOMS_COUNT = intPreferencesKey("top_symptoms_count")
+private val SHOW_MOOD_IN_SUMMARY = booleanPreferencesKey("show_mood_in_summary")
+private val SHOW_ENERGY_IN_SUMMARY = booleanPreferencesKey("show_energy_in_summary")
+private val SHOW_LIBIDO_IN_SUMMARY = booleanPreferencesKey("show_libido_in_summary")
 
 /**
  * DataStore-backed wrapper for user-configurable app preferences.
@@ -18,9 +21,12 @@ private val TOP_SYMPTOMS_COUNT = intPreferencesKey("top_symptoms_count")
  * All properties are exposed as cold [Flow]s that emit the current value on subscription.
  * Singleton-scoped (lives for the app process).
  *
- * @property autolockMinutes   Inactivity timeout before auto-lock, in minutes (default: 10).
- * @property topSymptomsCount  Number of top symptoms shown in the recurrence insight (default: 3).
- * @property isPrepopulated    Whether the default symptom library has been seeded on first unlock.
+ * @property autolockMinutes       Inactivity timeout before auto-lock, in minutes (default: 10).
+ * @property topSymptomsCount      Number of top symptoms shown in the recurrence insight (default: 3).
+ * @property isPrepopulated        Whether the default symptom library has been seeded on first unlock.
+ * @property showMoodInSummary     Whether mood score is displayed in the log summary bottom sheet (default: true).
+ * @property showEnergyInSummary   Whether energy level is displayed in the log summary bottom sheet (default: true).
+ * @property showLibidoInSummary   Whether libido score is displayed in the log summary bottom sheet (default: true).
  */
 class AppSettings(private val context: Context) {
     val autolockMinutes = context.dataStore.data.map { prefs -> prefs[AUTOLOCK_MIN] ?: 10 }
@@ -46,5 +52,32 @@ class AppSettings(private val context: Context) {
         context.dataStore.edit { settings ->
             settings[IS_PREPOPULATED] = value
         }
+    }
+
+    /** Whether mood score is displayed in the log summary bottom sheet. */
+    val showMoodInSummary: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[SHOW_MOOD_IN_SUMMARY] ?: true }
+
+    /** Persists the user's preference for showing mood in the log summary sheet. */
+    suspend fun setShowMoodInSummary(show: Boolean) {
+        context.dataStore.edit { it[SHOW_MOOD_IN_SUMMARY] = show }
+    }
+
+    /** Whether energy level is displayed in the log summary bottom sheet. */
+    val showEnergyInSummary: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[SHOW_ENERGY_IN_SUMMARY] ?: true }
+
+    /** Persists the user's preference for showing energy in the log summary sheet. */
+    suspend fun setShowEnergyInSummary(show: Boolean) {
+        context.dataStore.edit { it[SHOW_ENERGY_IN_SUMMARY] = show }
+    }
+
+    /** Whether libido score is displayed in the log summary bottom sheet. */
+    val showLibidoInSummary: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[SHOW_LIBIDO_IN_SUMMARY] ?: true }
+
+    /** Persists the user's preference for showing libido in the log summary sheet. */
+    suspend fun setShowLibidoInSummary(show: Boolean) {
+        context.dataStore.edit { it[SHOW_LIBIDO_IN_SUMMARY] = show }
     }
 }

@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.domain.models.FlowIntensity
@@ -241,7 +242,15 @@ private fun MoodSelector(
         (1..5).forEach { score ->
             IconButton(onClick = { onSelectionChanged(score) }) {
                 val icon = if (score <= (selectedMood ?: 0)) Icons.Filled.Star else Icons.Outlined.StarOutlined
-                Icon(icon, contentDescription = "Mood score $score", modifier = Modifier.size(40.dp))
+                Icon(
+                    icon,
+                    contentDescription = "Mood score $score",
+                    modifier = Modifier.size(40.dp),
+                    tint = if (score <= (selectedMood ?: 0))
+                        Color(0xFFFFD700)
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -267,7 +276,15 @@ private fun ScoreSelector(
         (1..5).forEach { score ->
             IconButton(onClick = { onSelectionChanged(score) }) {
                 val icon = if (score <= (selectedScore ?: 0)) Icons.Filled.Star else Icons.Outlined.StarOutlined
-                Icon(icon, contentDescription = "$contentDescriptionPrefix score $score", modifier = Modifier.size(40.dp))
+                Icon(
+                    icon,
+                    contentDescription = "$contentDescriptionPrefix score $score",
+                    modifier = Modifier.size(40.dp),
+                    tint = if (score <= (selectedScore ?: 0))
+                        Color(0xFFFFD700)
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

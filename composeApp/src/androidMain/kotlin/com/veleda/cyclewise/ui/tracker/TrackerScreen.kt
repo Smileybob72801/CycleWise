@@ -32,6 +32,7 @@ import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.utils.toLocalizedDateString
 import com.veleda.cyclewise.ui.utils.toLocalizedMonthYearString
@@ -54,6 +55,11 @@ fun TrackerScreen(navController: NavController) {
     val uiState by viewModel.uiState.collectAsState()
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val appSettings: AppSettings = getKoin().get()
+    val showMood by appSettings.showMoodInSummary.collectAsState(initial = true)
+    val showEnergy by appSettings.showEnergyInSummary.collectAsState(initial = true)
+    val showLibido by appSettings.showLibidoInSummary.collectAsState(initial = true)
 
     // Trigger auto-close logic when the screen is first composed/entered.
     LaunchedEffect(Unit) {
@@ -89,6 +95,9 @@ fun TrackerScreen(navController: NavController) {
                 periodId = uiState.periodIdForSheet,
                 symptomLibrary = uiState.symptomLibrary,
                 waterCups = uiState.waterCupsForSheet,
+                showMood = showMood,
+                showEnergy = showEnergy,
+                showLibido = showLibido,
                 onEditClick = { date -> viewModel.onEvent(TrackerEvent.EditLogClicked(date)) },
                 onDeleteClick = { periodId -> viewModel.onEvent(TrackerEvent.DeletePeriodRequested(periodId)) }
             )
@@ -189,12 +198,28 @@ fun TrackerScreen(navController: NavController) {
     }
 }
 
+/**
+ * Bottom-sheet content summarising a single day's log.
+ *
+ * @param log         The full daily log to display.
+ * @param periodId    Associated period ID, or null if the day is not a period day.
+ * @param symptomLibrary  Library of all symptoms for name resolution.
+ * @param waterCups   Number of water cups logged, or null.
+ * @param showMood    Whether to display the mood score row (controlled by user setting).
+ * @param showEnergy  Whether to display the energy level row (controlled by user setting).
+ * @param showLibido  Whether to display the libido score row (controlled by user setting).
+ * @param onEditClick Callback when the user taps the edit button.
+ * @param onDeleteClick Callback when the user taps the delete button.
+ */
 @Composable
 private fun LogSummarySheetContent(
     log: FullDailyLog,
     periodId: String?,
     symptomLibrary: List<Symptom>,
     waterCups: Int?,
+    showMood: Boolean,
+    showEnergy: Boolean,
+    showLibido: Boolean,
     onEditClick: (LocalDate) -> Unit,
     onDeleteClick: (String) -> Unit
 ) {
@@ -237,8 +262,22 @@ private fun LogSummarySheetContent(
             InfoRow(icon = Icons.Default.Build, title = "Flow", value = it.name)
         }
 
-        log.entry.moodScore?.let {
-            InfoRow(icon = Icons.Outlined.Star, title = "Mood", value = "$it / 5")
+        if (showMood) {
+            log.entry.moodScore?.let {
+                InfoRow(icon = Icons.Outlined.Star, title = "Mood", value = "$it / 5")
+            }
+        }
+
+        if (showEnergy) {
+            log.entry.energyLevel?.let {
+                InfoRow(icon = Icons.Outlined.Star, title = "Energy", value = "$it / 5")
+            }
+        }
+
+        if (showLibido) {
+            log.entry.libidoScore?.let {
+                InfoRow(icon = Icons.Outlined.Star, title = "Libido", value = "$it / 5")
+            }
         }
 
         waterCups?.let {

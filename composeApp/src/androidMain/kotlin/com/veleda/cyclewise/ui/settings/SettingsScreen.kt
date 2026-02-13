@@ -12,7 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.compose.ui.res.stringResource
 import com.veleda.cyclewise.BuildConfig
+import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
 import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.settings.AppSettings
@@ -96,6 +98,52 @@ fun SettingsScreen(navController: NavController) {
                     valueRange = 1f..5f,
                     steps = 3
                 )
+            }
+
+            // --- Log Summary Display Section ---
+            HorizontalDivider()
+            Column {
+                Text(
+                    stringResource(R.string.log_summary_display_title),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(Modifier.height(8.dp))
+
+                val showMood by appSettings.showMoodInSummary.collectAsState(initial = true)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Checkbox(
+                        checked = showMood,
+                        onCheckedChange = { scope.launch { appSettings.setShowMoodInSummary(it) } }
+                    )
+                    Text(stringResource(R.string.show_mood_label))
+                }
+
+                val showEnergy by appSettings.showEnergyInSummary.collectAsState(initial = true)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Checkbox(
+                        checked = showEnergy,
+                        onCheckedChange = { scope.launch { appSettings.setShowEnergyInSummary(it) } }
+                    )
+                    Text(stringResource(R.string.show_energy_label))
+                }
+
+                val showLibido by appSettings.showLibidoInSummary.collectAsState(initial = true)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Checkbox(
+                        checked = showLibido,
+                        onCheckedChange = { scope.launch { appSettings.setShowLibidoInSummary(it) } }
+                    )
+                    Text(stringResource(R.string.show_libido_label))
+                }
             }
 
             // --- Developer Options Section ---
