@@ -65,7 +65,7 @@ class MappersTest {
             dayInCycle = 5,
             moodScore = 4,
             energyLevel = 3,
-            libidoLevel = "HIGH",
+            libidoScore = 4,
             customTags = """["tag1","tag2"]""",
             note = "Test note",
             cyclePhase = "OVULATION",
@@ -78,7 +78,7 @@ class MappersTest {
 
         // ASSERT
         assertEquals("entry-uuid-1", dailyEntryDomain.id)
-        assertEquals(LibidoLevel.HIGH, dailyEntryDomain.libidoLevel, "String should be converted to Enum")
+        assertEquals(4, dailyEntryDomain.libidoScore, "Integer should map directly")
         assertEquals(listOf("tag1", "tag2"), dailyEntryDomain.customTags, "JSON String should be converted to List")
         assertEquals(4, dailyEntryDomain.moodScore)
     }
@@ -92,7 +92,7 @@ class MappersTest {
             dayInCycle = 5,
             moodScore = 4,
             energyLevel = 3,
-            libidoLevel = LibidoLevel.HIGH,
+            libidoScore = 4,
             customTags = listOf("tag1", "tag2"),
             note = "Test note",
             cyclePhase = "OVULATION",
@@ -105,7 +105,7 @@ class MappersTest {
 
         // ASSERT
         assertEquals("entry-uuid-1", dailyEntryEntity.id)
-        assertEquals("HIGH", dailyEntryEntity.libidoLevel, "Enum should be converted to String")
+        assertEquals(4, dailyEntryEntity.libidoScore, "Integer should map directly")
         assertEquals("""["tag1","tag2"]""", dailyEntryEntity.customTags, "List should be converted to JSON String")
         assertEquals(4, dailyEntryEntity.moodScore)
     }
@@ -119,7 +119,7 @@ class MappersTest {
             dayInCycle = 1,
             moodScore = null,
             energyLevel = null,
-            libidoLevel = null,
+            libidoScore = null,
             customTags = "[]",
             note = null,
             cyclePhase = null,
@@ -133,7 +133,7 @@ class MappersTest {
         // ASSERT
         assertNull(domain.moodScore)
         assertNull(domain.energyLevel)
-        assertNull(domain.libidoLevel)
+        assertNull(domain.libidoScore)
         assertNull(domain.note)
         assertNull(domain.cyclePhase)
     }
@@ -185,6 +185,8 @@ class MappersTest {
             id = "plog-uuid",
             entryId = "entry-uuid",
             flowIntensity = FlowIntensity.HEAVY,
+            periodColor = PeriodColor.DARK_RED,
+            periodConsistency = PeriodConsistency.CLOTS_SMALL,
             createdAt = testNow,
             updatedAt = testNow
         )
@@ -196,6 +198,8 @@ class MappersTest {
         assertEquals("plog-uuid", periodLogDomain.id)
         assertEquals("entry-uuid", periodLogDomain.entryId)
         assertEquals(FlowIntensity.HEAVY, periodLogDomain.flowIntensity)
+        assertEquals(PeriodColor.DARK_RED, periodLogDomain.periodColor)
+        assertEquals(PeriodConsistency.CLOTS_SMALL, periodLogDomain.periodConsistency)
     }
 
     @Test
@@ -205,6 +209,8 @@ class MappersTest {
             id = "plog-uuid",
             entryId = "entry-uuid",
             flowIntensity = FlowIntensity.LIGHT,
+            periodColor = PeriodColor.PINK,
+            periodConsistency = PeriodConsistency.THIN,
             createdAt = testNow,
             updatedAt = testNow
         )
@@ -216,6 +222,29 @@ class MappersTest {
         assertEquals("plog-uuid", periodLogEntity.id)
         assertEquals("entry-uuid", periodLogEntity.entryId)
         assertEquals(FlowIntensity.LIGHT, periodLogEntity.flowIntensity)
+        assertEquals(PeriodColor.PINK, periodLogEntity.periodColor)
+        assertEquals(PeriodConsistency.THIN, periodLogEntity.periodConsistency)
+    }
+
+    @Test
+    fun periodLogToDomain_WHEN_colorAndConsistencyAreNull_THEN_mapsNullsCorrectly() {
+        // ARRANGE
+        val periodLogEntity = PeriodLogEntity(
+            id = "plog-null-test",
+            entryId = "entry-uuid",
+            flowIntensity = FlowIntensity.MEDIUM,
+            periodColor = null,
+            periodConsistency = null,
+            createdAt = testNow,
+            updatedAt = testNow
+        )
+
+        // ACT
+        val periodLogDomain = periodLogEntity.toDomain()
+
+        // ASSERT
+        assertNull(periodLogDomain.periodColor)
+        assertNull(periodLogDomain.periodConsistency)
     }
 
     // --- Tests for Medication mappers ---

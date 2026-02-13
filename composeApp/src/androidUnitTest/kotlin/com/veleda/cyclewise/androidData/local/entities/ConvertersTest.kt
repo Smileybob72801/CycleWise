@@ -1,7 +1,8 @@
 package com.veleda.cyclewise.androidData.local.entities
 
 import com.veleda.cyclewise.domain.models.FlowIntensity
-import com.veleda.cyclewise.domain.models.LibidoLevel
+import com.veleda.cyclewise.domain.models.PeriodColor
+import com.veleda.cyclewise.domain.models.PeriodConsistency
 import com.veleda.cyclewise.domain.models.SymptomCategory
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
@@ -90,35 +91,84 @@ class ConvertersTest {
         }
     }
 
-    // --- Tests for LibidoLevel Converters ---
+    // --- Tests for PeriodColor Converters ---
 
     @Test
-    fun fromLibidoLevel_WHEN_validEnum_THEN_returnsString() {
+    fun fromPeriodColor_WHEN_validEnum_THEN_returnsString() {
         // ACT & ASSERT
-        assertEquals("HIGH", Converters.fromLibidoLevel(LibidoLevel.HIGH))
-        assertEquals("MEDIUM", Converters.fromLibidoLevel(LibidoLevel.MEDIUM))
-        assertEquals("LOW", Converters.fromLibidoLevel(LibidoLevel.LOW))
+        assertEquals("PINK", Converters.fromPeriodColor(PeriodColor.PINK))
+        assertEquals("BRIGHT_RED", Converters.fromPeriodColor(PeriodColor.BRIGHT_RED))
+        assertEquals("DARK_RED", Converters.fromPeriodColor(PeriodColor.DARK_RED))
+        assertEquals("BROWN", Converters.fromPeriodColor(PeriodColor.BROWN))
+        assertEquals("BLACK_OR_VERY_DARK", Converters.fromPeriodColor(PeriodColor.BLACK_OR_VERY_DARK))
+        assertEquals("UNUSUAL_COLOR", Converters.fromPeriodColor(PeriodColor.UNUSUAL_COLOR))
     }
 
     @Test
-    fun toLibidoLevel_WHEN_validString_THEN_returnsEnum() {
+    fun fromPeriodColor_WHEN_null_THEN_returnsNull() {
         // ACT & ASSERT
-        assertEquals(LibidoLevel.HIGH, Converters.toLibidoLevel("HIGH"))
-        assertEquals(LibidoLevel.MEDIUM, Converters.toLibidoLevel("MEDIUM"))
-        assertEquals(LibidoLevel.LOW, Converters.toLibidoLevel("LOW"))
+        assertNull(Converters.fromPeriodColor(null))
     }
 
     @Test
-    fun toLibidoLevel_WHEN_null_THEN_returnsNull() {
+    fun toPeriodColor_WHEN_validString_THEN_returnsEnum() {
         // ACT & ASSERT
-        assertNull(Converters.toLibidoLevel(null))
+        assertEquals(PeriodColor.PINK, Converters.toPeriodColor("PINK"))
+        assertEquals(PeriodColor.DARK_RED, Converters.toPeriodColor("DARK_RED"))
+        assertEquals(PeriodColor.BLACK_OR_VERY_DARK, Converters.toPeriodColor("BLACK_OR_VERY_DARK"))
     }
 
     @Test
-    fun toLibidoLevel_WHEN_invalidString_THEN_throwsException() {
+    fun toPeriodColor_WHEN_null_THEN_returnsNull() {
+        // ACT & ASSERT
+        assertNull(Converters.toPeriodColor(null))
+    }
+
+    @Test
+    fun toPeriodColor_WHEN_invalidString_THEN_throwsException() {
         // ACT & ASSERT
         assertFailsWith<IllegalArgumentException> {
-            Converters.toLibidoLevel("INVALID_VALUE")
+            Converters.toPeriodColor("INVALID_VALUE")
+        }
+    }
+
+    // --- Tests for PeriodConsistency Converters ---
+
+    @Test
+    fun fromPeriodConsistency_WHEN_validEnum_THEN_returnsString() {
+        // ACT & ASSERT
+        assertEquals("THIN", Converters.fromPeriodConsistency(PeriodConsistency.THIN))
+        assertEquals("MODERATE", Converters.fromPeriodConsistency(PeriodConsistency.MODERATE))
+        assertEquals("THICK", Converters.fromPeriodConsistency(PeriodConsistency.THICK))
+        assertEquals("STRINGY", Converters.fromPeriodConsistency(PeriodConsistency.STRINGY))
+        assertEquals("CLOTS_SMALL", Converters.fromPeriodConsistency(PeriodConsistency.CLOTS_SMALL))
+        assertEquals("CLOTS_LARGE", Converters.fromPeriodConsistency(PeriodConsistency.CLOTS_LARGE))
+    }
+
+    @Test
+    fun fromPeriodConsistency_WHEN_null_THEN_returnsNull() {
+        // ACT & ASSERT
+        assertNull(Converters.fromPeriodConsistency(null))
+    }
+
+    @Test
+    fun toPeriodConsistency_WHEN_validString_THEN_returnsEnum() {
+        // ACT & ASSERT
+        assertEquals(PeriodConsistency.THIN, Converters.toPeriodConsistency("THIN"))
+        assertEquals(PeriodConsistency.CLOTS_LARGE, Converters.toPeriodConsistency("CLOTS_LARGE"))
+    }
+
+    @Test
+    fun toPeriodConsistency_WHEN_null_THEN_returnsNull() {
+        // ACT & ASSERT
+        assertNull(Converters.toPeriodConsistency(null))
+    }
+
+    @Test
+    fun toPeriodConsistency_WHEN_invalidString_THEN_throwsException() {
+        // ACT & ASSERT
+        assertFailsWith<IllegalArgumentException> {
+            Converters.toPeriodConsistency("INVALID_VALUE")
         }
     }
 

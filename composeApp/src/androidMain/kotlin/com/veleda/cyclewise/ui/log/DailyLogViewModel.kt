@@ -158,6 +158,24 @@ class DailyLogViewModel(
                 val updatedEntry = log.entry.copy(moodScore = event.score)
                 currentState.copy(log = log.copy(entry = updatedEntry))
             }
+            is DailyLogEvent.EnergyLevelChanged -> {
+                val updatedEntry = log.entry.copy(energyLevel = event.level)
+                currentState.copy(log = log.copy(entry = updatedEntry))
+            }
+            is DailyLogEvent.LibidoScoreChanged -> {
+                val updatedEntry = log.entry.copy(libidoScore = event.score)
+                currentState.copy(log = log.copy(entry = updatedEntry))
+            }
+            is DailyLogEvent.PeriodColorChanged -> {
+                val updatedPeriodLog = log.periodLog?.copy(periodColor = event.color)
+                    ?: return currentState
+                currentState.copy(log = log.copy(periodLog = updatedPeriodLog))
+            }
+            is DailyLogEvent.PeriodConsistencyChanged -> {
+                val updatedPeriodLog = log.periodLog?.copy(periodConsistency = event.consistency)
+                    ?: return currentState
+                currentState.copy(log = log.copy(periodLog = updatedPeriodLog))
+            }
             is DailyLogEvent.NoteChanged -> {
                 val updatedEntry = log.entry.copy(note = event.text)
                 currentState.copy(log = log.copy(entry = updatedEntry))
@@ -308,7 +326,7 @@ class DailyLogViewModel(
                 log.medicationLogs.isEmpty() &&
                 entry.moodScore == null &&
                 entry.energyLevel == null &&
-                entry.libidoLevel == null &&
+                entry.libidoScore == null &&
                 entry.customTags.isEmpty() &&
                 entry.note.isNullOrBlank()
     }

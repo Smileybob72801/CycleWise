@@ -164,7 +164,7 @@ Contains platform-agnostic domain logic. Zero Android dependencies in `commonMai
 
 | Package | Contents |
 |---------|----------|
-| `domain/models/` | `Period`, `DailyEntry`, `FullDailyLog`, `Symptom`, `Medication`, `PeriodLog`, `SymptomLog`, `MedicationLog`, `WaterIntake`, `DayDetails`, enums (`FlowIntensity`, `LibidoLevel`, `SymptomCategory`) |
+| `domain/models/` | `Period`, `DailyEntry`, `FullDailyLog`, `Symptom`, `Medication`, `PeriodLog`, `SymptomLog`, `MedicationLog`, `WaterIntake`, `DayDetails`, enums (`FlowIntensity`, `PeriodColor`, `PeriodConsistency`, `SymptomCategory`) |
 | `domain/repository/` | `PeriodRepository` interface — the single data access contract |
 | `domain/usecases/` | `StartNewPeriodUseCase`, `EndPeriodUseCase`, `GetOrCreateDailyLogUseCase`, `AutoCloseOngoingPeriodUseCase`, `DebugSeederUseCase` |
 | `domain/insights/` | `InsightEngine`, `Insight` sealed interface, `InsightGenerator` interface |
@@ -232,7 +232,7 @@ PeriodTracker/
 │       │       │   ├── MedicationLog.kt
 │       │       │   ├── WaterIntake.kt
 │       │       │   ├── DayDetails.kt
-│       │       │   └── Enums.kt                  # FlowIntensity, LibidoLevel, SymptomCategory
+│       │       │   └── Enums.kt                  # FlowIntensity, PeriodColor, PeriodConsistency, SymptomCategory
 │       │       ├── repository/
 │       │       │   └── PeriodRepository.kt       # The single data access contract
 │       │       ├── usecases/
@@ -1768,7 +1768,8 @@ types are serialized into SQLite columns:
 | `LocalDate` | TEXT | ISO-8601 string (e.g., `"2025-03-15"`) via `toString()` / `parse()` |
 | `Instant` | INTEGER | Epoch milliseconds via `toEpochMilliseconds()` / `fromEpochMilliseconds()` |
 | `FlowIntensity?` | TEXT (nullable) | Enum `name` string (e.g., `"HEAVY"`) via `valueOf()` |
-| `LibidoLevel?` | TEXT (nullable) | Enum `name` string via `valueOf()` |
+| `PeriodColor?` | TEXT (nullable) | Enum `name` string via `valueOf()` |
+| `PeriodConsistency?` | TEXT (nullable) | Enum `name` string via `valueOf()` |
 | `SymptomCategory?` | TEXT (nullable) | Enum `name` string via `valueOf()` |
 
 Important: Nullable enums return `null` if the stored string is `null`. If an enum

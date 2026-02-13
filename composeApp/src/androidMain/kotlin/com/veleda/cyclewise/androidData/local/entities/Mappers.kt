@@ -54,7 +54,7 @@ fun DailyEntryEntity.toDomain(): DailyEntry =
         dayInCycle = dayInCycle,
         moodScore = moodScore,
         energyLevel = energyLevel,
-        libidoLevel = Converters.toLibidoLevel(libidoLevel),
+        libidoScore = libidoScore,
         customTags = Json.decodeFromString(customTags),
         note = note,
         cyclePhase = cyclePhase,
@@ -71,7 +71,7 @@ fun DailyEntry.toEntity(): DailyEntryEntity =
         dayInCycle = dayInCycle,
         moodScore = moodScore,
         energyLevel = energyLevel,
-        libidoLevel = Converters.fromLibidoLevel(libidoLevel),
+        libidoScore = libidoScore,
         customTags = Json.encodeToString(customTags),
         note = note,
         cyclePhase = cyclePhase,
@@ -97,9 +97,9 @@ fun SymptomLog.toEntity(): SymptomLogEntity = SymptomLogEntity(id, entryId, symp
 
 // --- Period Log Mappers ---
 @OptIn(ExperimentalTime::class)
-fun PeriodLogEntity.toDomain(): PeriodLog = PeriodLog(id, entryId, flowIntensity, createdAt, updatedAt)
+fun PeriodLogEntity.toDomain(): PeriodLog = PeriodLog(id, entryId, flowIntensity, periodColor, periodConsistency, createdAt, updatedAt)
 @OptIn(ExperimentalTime::class)
-fun PeriodLog.toEntity(): PeriodLogEntity = PeriodLogEntity(id, entryId, flowIntensity, createdAt, updatedAt)
+fun PeriodLog.toEntity(): PeriodLogEntity = PeriodLogEntity(id, entryId, flowIntensity, periodColor, periodConsistency, createdAt, updatedAt)
 
 // --- Water Intake Mappers ---
 @OptIn(ExperimentalTime::class)

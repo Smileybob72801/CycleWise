@@ -11,8 +11,8 @@ import kotlin.time.Instant
 /**
  * Room entity for the `daily_entries` table.
  *
- * Maps to the domain [DailyEntry] model. The [libidoLevel] is stored as the enum name
- * string (nullable). The [customTags] field is a JSON-serialized string array.
+ * Maps to the domain [DailyEntry] model. The [libidoScore] is a nullable 1-5 integer.
+ * The [customTags] field is a JSON-serialized string array.
  * Timestamps ([createdAt], [updatedAt]) are stored as epoch milliseconds.
  */
 @OptIn(ExperimentalTime::class)
@@ -25,7 +25,7 @@ data class DailyEntryEntity(
     @ColumnInfo(name = "day_in_cycle") val dayInCycle: Int,
     @ColumnInfo(name = "mood_score") val moodScore: Int? = null,
     @ColumnInfo(name = "energy_level") val energyLevel: Int? = null,
-    @ColumnInfo(name = "libido_level") val libidoLevel: String? = null,
+    @ColumnInfo(name = "libido_score") val libidoScore: Int? = null,
     @ColumnInfo(name = "custom_tags") val customTags: String,
     @ColumnInfo(name = "note") val note: String? = null,
     @ColumnInfo(name = "cycle_phase") val cyclePhase: String? = null,

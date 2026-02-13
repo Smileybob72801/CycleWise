@@ -3,6 +3,8 @@ package com.veleda.cyclewise.ui.log
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.PeriodColor
+import com.veleda.cyclewise.domain.models.PeriodConsistency
 import com.veleda.cyclewise.domain.models.Symptom
 
 /**
@@ -16,6 +18,10 @@ sealed interface DailyLogEvent {
     data class LibraryUpdated(val symptoms: List<Symptom>, val medications: List<Medication>) : DailyLogEvent
     data class FlowIntensityChanged(val intensity: FlowIntensity?) : DailyLogEvent
     data class MoodScoreChanged(val score: Int) : DailyLogEvent
+    data class EnergyLevelChanged(val level: Int) : DailyLogEvent
+    data class LibidoScoreChanged(val score: Int) : DailyLogEvent
+    data class PeriodColorChanged(val color: PeriodColor?) : DailyLogEvent
+    data class PeriodConsistencyChanged(val consistency: PeriodConsistency?) : DailyLogEvent
     data class NoteChanged(val text: String) : DailyLogEvent
     data class TagAdded(val tag: String) : DailyLogEvent
     data class TagRemoved(val tag: String) : DailyLogEvent

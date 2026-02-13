@@ -27,22 +27,24 @@ fun buildDailyEntry(
     dayInCycle: Int = 1,
     moodScore: Int? = null,
     energyLevel: Int? = null,
-    libidoLevel: LibidoLevel? = null,
+    libidoScore: Int? = null,
     customTags: List<String> = emptyList(),
     note: String? = null,
     cyclePhase: String? = null,
     createdAt: Instant = TestData.INSTANT,
     updatedAt: Instant = TestData.INSTANT
-) = DailyEntry(id, entryDate, dayInCycle, moodScore, energyLevel, libidoLevel, customTags, note, cyclePhase, createdAt, updatedAt)
+) = DailyEntry(id, entryDate, dayInCycle, moodScore, energyLevel, libidoScore, customTags, note, cyclePhase, createdAt, updatedAt)
 
 @OptIn(ExperimentalTime::class)
 fun buildPeriodLog(
     id: String = uuid4().toString(),
     entryId: String = "entry-1",
     flowIntensity: FlowIntensity = FlowIntensity.MEDIUM,
+    periodColor: PeriodColor? = null,
+    periodConsistency: PeriodConsistency? = null,
     createdAt: Instant = TestData.INSTANT,
     updatedAt: Instant = TestData.INSTANT
-) = PeriodLog(id, entryId, flowIntensity, createdAt, updatedAt)
+) = PeriodLog(id, entryId, flowIntensity, periodColor, periodConsistency, createdAt, updatedAt)
 
 @OptIn(ExperimentalTime::class)
 fun buildSymptom(
