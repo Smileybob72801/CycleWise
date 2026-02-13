@@ -2,7 +2,8 @@ package com.veleda.cyclewise.androidData.local.entities
 
 import androidx.room.TypeConverter
 import com.veleda.cyclewise.domain.models.FlowIntensity
-import com.veleda.cyclewise.domain.models.LibidoLevel
+import com.veleda.cyclewise.domain.models.PeriodColor
+import com.veleda.cyclewise.domain.models.PeriodConsistency
 import com.veleda.cyclewise.domain.models.SymptomCategory
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
@@ -14,7 +15,7 @@ import kotlin.time.ExperimentalTime
  * Serialization formats:
  * - [LocalDate] <-> ISO-8601 string (e.g., "2025-01-15")
  * - [Instant] <-> epoch milliseconds ([Long])
- * - [FlowIntensity], [LibidoLevel], [SymptomCategory] <-> enum name string (e.g., "HEAVY")
+ * - [FlowIntensity], [PeriodColor], [PeriodConsistency], [SymptomCategory] <-> enum name string (e.g., "HEAVY")
  */
 object Converters {
     @TypeConverter
@@ -38,14 +39,16 @@ object Converters {
     fun toFlowIntensity(value: String?): FlowIntensity? = value?.let { FlowIntensity.valueOf(it) }
 
     @TypeConverter
-    fun fromLibidoLevel(value: LibidoLevel?): String? {
-        return value?.name
-    }
+    fun fromPeriodColor(value: PeriodColor?): String? = value?.name
 
     @TypeConverter
-    fun toLibidoLevel(value: String?): LibidoLevel? {
-        return value?.let { LibidoLevel.valueOf(it) }
-    }
+    fun toPeriodColor(value: String?): PeriodColor? = value?.let { PeriodColor.valueOf(it) }
+
+    @TypeConverter
+    fun fromPeriodConsistency(value: PeriodConsistency?): String? = value?.name
+
+    @TypeConverter
+    fun toPeriodConsistency(value: String?): PeriodConsistency? = value?.let { PeriodConsistency.valueOf(it) }
 
     @TypeConverter
     fun fromSymptomCategory(value: SymptomCategory?): String? {

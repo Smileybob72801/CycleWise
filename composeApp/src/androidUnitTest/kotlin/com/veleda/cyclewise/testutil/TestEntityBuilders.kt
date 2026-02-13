@@ -3,6 +3,8 @@ package com.veleda.cyclewise.testutil
 import com.benasher44.uuid.uuid4
 import com.veleda.cyclewise.androidData.local.entities.*
 import com.veleda.cyclewise.domain.models.FlowIntensity
+import com.veleda.cyclewise.domain.models.PeriodColor
+import com.veleda.cyclewise.domain.models.PeriodConsistency
 import com.veleda.cyclewise.domain.models.SymptomCategory
 import kotlinx.datetime.LocalDate
 import kotlin.time.Instant
@@ -18,13 +20,13 @@ fun buildDailyEntryEntity(
     dayInCycle: Int = 1,
     moodScore: Int? = null,
     energyLevel: Int? = null,
-    libidoLevel: String? = null,
+    libidoScore: Int? = null,
     customTags: String = "[]",
     note: String? = null,
     cyclePhase: String? = null,
     createdAt: Instant = TestData.INSTANT,
     updatedAt: Instant = TestData.INSTANT
-) = DailyEntryEntity(id, entryDate, dayInCycle, moodScore, energyLevel, libidoLevel, customTags, note, cyclePhase, createdAt, updatedAt)
+) = DailyEntryEntity(id, entryDate, dayInCycle, moodScore, energyLevel, libidoScore, customTags, note, cyclePhase, createdAt, updatedAt)
 
 fun buildPeriodEntity(
     id: Int = 0,
@@ -74,6 +76,8 @@ fun buildPeriodLogEntity(
     id: String = "plog-${uuid4()}",
     entryId: String = "entry-1",
     flowIntensity: FlowIntensity = FlowIntensity.MEDIUM,
+    periodColor: PeriodColor? = null,
+    periodConsistency: PeriodConsistency? = null,
     createdAt: Instant = TestData.INSTANT,
     updatedAt: Instant = TestData.INSTANT
-) = PeriodLogEntity(id, entryId, flowIntensity, createdAt, updatedAt)
+) = PeriodLogEntity(id, entryId, flowIntensity, periodColor, periodConsistency, createdAt, updatedAt)

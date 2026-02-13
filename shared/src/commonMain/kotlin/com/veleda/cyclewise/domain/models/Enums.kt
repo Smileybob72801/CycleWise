@@ -14,13 +14,41 @@ enum class FlowIntensity {
 }
 
 /**
- * Categorical libido self-assessment for a single day.
- * Stored in [DailyEntry.libidoLevel] and persisted as the enum name string.
+ * Observed color of menstrual flow for a single day.
+ * Stored in [PeriodLog.periodColor] and persisted as the enum name string.
  */
-enum class LibidoLevel {
-    LOW,
-    MEDIUM,
-    HIGH
+enum class PeriodColor {
+    /** Light, diluted flow often seen at the start or end of a period. */
+    PINK,
+    /** Fresh, well-oxygenated flow typical of mid-period days. */
+    BRIGHT_RED,
+    /** Older blood that has had time to oxidize; common on heavier days. */
+    DARK_RED,
+    /** Significantly oxidized blood, often seen at the tail end of a period. */
+    BROWN,
+    /** Very old or heavily oxidized blood; may warrant attention if persistent. */
+    BLACK_OR_VERY_DARK,
+    /** Any color outside normal range (e.g., orange or grey tint). */
+    UNUSUAL_COLOR
+}
+
+/**
+ * Observed consistency/texture of menstrual flow for a single day.
+ * Stored in [PeriodLog.periodConsistency] and persisted as the enum name string.
+ */
+enum class PeriodConsistency {
+    /** Watery, low-viscosity flow. */
+    THIN,
+    /** Typical viscosity — neither watery nor thick. */
+    MODERATE,
+    /** Notably viscous or dense flow. */
+    THICK,
+    /** Stringy or mucus-like texture. */
+    STRINGY,
+    /** Contains small clots (< 1 cm / dime-sized). */
+    CLOTS_SMALL,
+    /** Contains large clots (>= 1 cm / quarter-sized or larger). */
+    CLOTS_LARGE
 }
 
 /**

@@ -4,4 +4,20 @@
     <string name="water_cups_count">%d cups</string>
     <string name="water_yesterday_message">You logged %d cups yesterday. Log in to save.</string>
     <string name="water_section_title">Water</string>
+    <string name="energy_section_title">Energy</string>
+    <string name="libido_section_title">Libido</string>
+    <string name="period_color_section_title">Period Color</string>
+    <string name="period_consistency_section_title">Period Consistency</string>
+    <string name="period_color_pink">Pink</string>
+    <string name="period_color_bright_red">Bright Red</string>
+    <string name="period_color_dark_red">Dark Red</string>
+    <string name="period_color_brown">Brown</string>
+    <string name="period_color_black">Black/Very Dark</string>
+    <string name="period_color_unusual">Unusual Color</string>
+    <string name="period_consistency_thin">Thin</string>
+    <string name="period_consistency_moderate">Moderate</string>
+    <string name="period_consistency_thick">Thick</string>
+    <string name="period_consistency_stringy">Stringy</string>
+    <string name="period_consistency_clots_small">Small Clots</string>
+    <string name="period_consistency_clots_large">Large Clots</string>
 </resources>

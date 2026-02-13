@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
+import com.veleda.cyclewise.domain.models.PeriodColor
+import com.veleda.cyclewise.domain.models.PeriodConsistency
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.ui.auth.WaterTrackerCounter
@@ -107,12 +109,38 @@ fun DailyLogScreen(
                             selectedIntensity = log.periodLog?.flowIntensity,
                             onSelectionChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) }
                         )
+
+                        SectionTitle(stringResource(R.string.period_color_section_title))
+                        PeriodColorSelector(
+                            selectedColor = log.periodLog?.periodColor,
+                            onSelectionChanged = { viewModel.onEvent(DailyLogEvent.PeriodColorChanged(it)) }
+                        )
+
+                        SectionTitle(stringResource(R.string.period_consistency_section_title))
+                        PeriodConsistencySelector(
+                            selectedConsistency = log.periodLog?.periodConsistency,
+                            onSelectionChanged = { viewModel.onEvent(DailyLogEvent.PeriodConsistencyChanged(it)) }
+                        )
                     }
 
                     SectionTitle("Mood")
                     MoodSelector(
                         selectedMood = log.entry.moodScore,
                         onSelectionChanged = { viewModel.onEvent(DailyLogEvent.MoodScoreChanged(it)) }
+                    )
+
+                    SectionTitle(stringResource(R.string.energy_section_title))
+                    ScoreSelector(
+                        selectedScore = log.entry.energyLevel,
+                        onSelectionChanged = { viewModel.onEvent(DailyLogEvent.EnergyLevelChanged(it)) },
+                        contentDescriptionPrefix = "Energy"
+                    )
+
+                    SectionTitle(stringResource(R.string.libido_section_title))
+                    ScoreSelector(
+                        selectedScore = log.entry.libidoScore,
+                        onSelectionChanged = { viewModel.onEvent(DailyLogEvent.LibidoScoreChanged(it)) },
+                        contentDescriptionPrefix = "Libido"
                     )
 
                     SectionTitle(stringResource(R.string.water_section_title))
@@ -215,6 +243,108 @@ private fun MoodSelector(
                 val icon = if (score <= (selectedMood ?: 0)) Icons.Filled.Star else Icons.Outlined.StarOutlined
                 Icon(icon, contentDescription = "Mood score $score", modifier = Modifier.size(40.dp))
             }
+        }
+    }
+}
+
+/**
+ * Reusable 1-5 star rating selector for numeric wellness scores (energy, libido).
+ *
+ * @param selectedScore Currently selected score (1-5), or null if unset.
+ * @param onSelectionChanged Callback invoked when the user taps a score.
+ * @param contentDescriptionPrefix Prefix for accessibility labels (e.g., "Energy").
+ */
+@Composable
+private fun ScoreSelector(
+    selectedScore: Int?,
+    onSelectionChanged: (Int) -> Unit,
+    contentDescriptionPrefix: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceAround
+    ) {
+        (1..5).forEach { score ->
+            IconButton(onClick = { onSelectionChanged(score) }) {
+                val icon = if (score <= (selectedScore ?: 0)) Icons.Filled.Star else Icons.Outlined.StarOutlined
+                Icon(icon, contentDescription = "$contentDescriptionPrefix score $score", modifier = Modifier.size(40.dp))
+            }
+        }
+    }
+}
+
+/**
+ * Selector for [PeriodColor] using wrapping filter chips.
+ * Tapping an already-selected chip deselects it (sends null).
+ *
+ * @param selectedColor Currently selected color, or null.
+ * @param onSelectionChanged Callback with the new selection (or null on deselect).
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun PeriodColorSelector(
+    selectedColor: PeriodColor?,
+    onSelectionChanged: (PeriodColor?) -> Unit
+) {
+    val labels = mapOf(
+        PeriodColor.PINK to stringResource(R.string.period_color_pink),
+        PeriodColor.BRIGHT_RED to stringResource(R.string.period_color_bright_red),
+        PeriodColor.DARK_RED to stringResource(R.string.period_color_dark_red),
+        PeriodColor.BROWN to stringResource(R.string.period_color_brown),
+        PeriodColor.BLACK_OR_VERY_DARK to stringResource(R.string.period_color_black),
+        PeriodColor.UNUSUAL_COLOR to stringResource(R.string.period_color_unusual)
+    )
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        for ((color, label) in labels) {
+            FilterChip(
+                selected = selectedColor == color,
+                onClick = {
+                    val newSelection = if (selectedColor == color) null else color
+                    onSelectionChanged(newSelection)
+                },
+                label = { Text(label) }
+            )
+        }
+    }
+}
+
+/**
+ * Selector for [PeriodConsistency] using wrapping filter chips.
+ * Tapping an already-selected chip deselects it (sends null).
+ *
+ * @param selectedConsistency Currently selected consistency, or null.
+ * @param onSelectionChanged Callback with the new selection (or null on deselect).
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun PeriodConsistencySelector(
+    selectedConsistency: PeriodConsistency?,
+    onSelectionChanged: (PeriodConsistency?) -> Unit
+) {
+    val labels = mapOf(
+        PeriodConsistency.THIN to stringResource(R.string.period_consistency_thin),
+        PeriodConsistency.MODERATE to stringResource(R.string.period_consistency_moderate),
+        PeriodConsistency.THICK to stringResource(R.string.period_consistency_thick),
+        PeriodConsistency.STRINGY to stringResource(R.string.period_consistency_stringy),
+        PeriodConsistency.CLOTS_SMALL to stringResource(R.string.period_consistency_clots_small),
+        PeriodConsistency.CLOTS_LARGE to stringResource(R.string.period_consistency_clots_large)
+    )
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        for ((consistency, label) in labels) {
+            FilterChip(
+                selected = selectedConsistency == consistency,
+                onClick = {
+                    val newSelection = if (selectedConsistency == consistency) null else consistency
+                    onSelectionChanged(newSelection)
+                },
+                label = { Text(label) }
+            )
         }
     }
 }
