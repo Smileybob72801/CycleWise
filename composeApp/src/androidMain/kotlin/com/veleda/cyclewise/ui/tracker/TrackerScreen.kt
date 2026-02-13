@@ -31,6 +31,7 @@ import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.nav.NavRoute
@@ -94,6 +95,7 @@ fun TrackerScreen(navController: NavController) {
                 log = uiState.logForSheet!!,
                 periodId = uiState.periodIdForSheet,
                 symptomLibrary = uiState.symptomLibrary,
+                medicationLibrary = uiState.medicationLibrary,
                 waterCups = uiState.waterCupsForSheet,
                 showMood = showMood,
                 showEnergy = showEnergy,
@@ -204,6 +206,7 @@ fun TrackerScreen(navController: NavController) {
  * @param log         The full daily log to display.
  * @param periodId    Associated period ID, or null if the day is not a period day.
  * @param symptomLibrary  Library of all symptoms for name resolution.
+ * @param medicationLibrary  Library of all medications for name resolution.
  * @param waterCups   Number of water cups logged, or null.
  * @param showMood    Whether to display the mood score row (controlled by user setting).
  * @param showEnergy  Whether to display the energy level row (controlled by user setting).
@@ -216,6 +219,7 @@ private fun LogSummarySheetContent(
     log: FullDailyLog,
     periodId: String?,
     symptomLibrary: List<Symptom>,
+    medicationLibrary: List<Medication>,
     waterCups: Int?,
     showMood: Boolean,
     showEnergy: Boolean,
@@ -293,6 +297,21 @@ private fun LogSummarySheetContent(
                         SuggestionChip(
                             onClick = {},
                             label = { Text(symptomInfo.name) }
+                        )
+                    }
+                }
+            }
+        }
+
+        if (log.medicationLogs.isNotEmpty()) {
+            Text("Medications", style = MaterialTheme.typography.titleMedium)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(log.medicationLogs) { medicationLog ->
+                    val medicationInfo = medicationLibrary.find { it.id == medicationLog.medicationId }
+                    if (medicationInfo != null) {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text(medicationInfo.name) }
                         )
                     }
                 }
