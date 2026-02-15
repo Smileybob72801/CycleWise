@@ -222,6 +222,7 @@ fun TrackerScreen(navController: NavController) {
                         isPhaseStart = displayPhase != null && displayPhase != prevDisplayPhase,
                         isPhaseEnd = displayPhase != null && displayPhase != nextDisplayPhase,
                         phaseColors = phaseColors,
+                        displayPhase = displayPhase,
                         onTap = handleTap,
                         onLongPress = handleLongPress
                     )
@@ -404,12 +405,13 @@ private fun Day(
     isPhaseStart: Boolean = true,
     isPhaseEnd: Boolean = true,
     phaseColors: Map<CyclePhase, Color> = emptyMap(),
+    displayPhase: CyclePhase? = null,
     onTap: (() -> Unit)?,
     onLongPress: (() -> Unit)?
 ) {
     val date = day.date.toKotlinLocalDate()
     val inRange = isInExistingRange || isInSelectionRange
-    val hasDisplayPhase = dayInfo?.cyclePhase != null && dayInfo.isPeriodDay != true
+    val hasDisplayPhase = displayPhase != null
 
     val periodShape = when {
         isStartDate && isEndDate -> CircleShape
@@ -453,8 +455,7 @@ private fun Day(
                     dayInfo?.isPeriodDay == true ->
                         phaseColors[CyclePhase.MENSTRUATION] ?: CyclePhaseColors.Menstruation
                     hasDisplayPhase -> {
-                        val phase = dayInfo!!.cyclePhase!!
-                        (phaseColors[phase] ?: phase.phaseBackgroundColor()).copy(alpha = 0.3f)
+                        (phaseColors[displayPhase!!] ?: displayPhase.phaseBackgroundColor()).copy(alpha = 0.3f)
                     }
                     else -> Color.Transparent
                 },
