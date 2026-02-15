@@ -364,6 +364,22 @@ class RoomPeriodRepository(
                     cyclePhase = phase
                 )
             }
+
+            // Pass 3: fill phase for unlogged, non-period days in tracked cycles
+            if (cycles.isNotEmpty()) {
+                val earliest = cycles.minOf { it.startDate }
+                var fillDate = earliest
+                while (fillDate <= today) {
+                    if (fillDate !in detailsMap) {
+                        val phase = CyclePhaseCalculator.calculatePhase(fillDate, cycles, avgCycleLength)
+                        if (phase != null) {
+                            detailsMap[fillDate] = DayDetails(cyclePhase = phase)
+                        }
+                    }
+                    fillDate = fillDate.plus(1, DateTimeUnit.DAY)
+                }
+            }
+
             detailsMap
         }
     }

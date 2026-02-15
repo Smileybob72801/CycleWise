@@ -309,6 +309,25 @@ class CyclePhaseCalculatorTest {
         assertEquals(CyclePhase.FOLLICULAR, result)
     }
 
+    @Test
+    fun calculatePhase_WHEN_unloggedDaysNearEndOfCompletedCycle_THEN_returnsLuteal() {
+        // ARRANGE — 28-day cycle: period Mar 1-5, next period Mar 29.
+        // Days 25-28 (Mar 25-28) are late luteal. Even with no log entries
+        // for these days, the calculator should return LUTEAL.
+        // This documents that the gap bug is in the repository layer
+        // (not calling the calculator), not in the calculator itself.
+        val periods = listOf(
+            buildPeriod(startDate = LocalDate(2025, 3, 1), endDate = LocalDate(2025, 3, 5)),
+            buildPeriod(startDate = LocalDate(2025, 3, 29), endDate = LocalDate(2025, 4, 2))
+        )
+
+        // ACT & ASSERT — days 25-28 should all be LUTEAL
+        assertEquals(CyclePhase.LUTEAL, CyclePhaseCalculator.calculatePhase(LocalDate(2025, 3, 25), periods, 28.0))
+        assertEquals(CyclePhase.LUTEAL, CyclePhaseCalculator.calculatePhase(LocalDate(2025, 3, 26), periods, 28.0))
+        assertEquals(CyclePhase.LUTEAL, CyclePhaseCalculator.calculatePhase(LocalDate(2025, 3, 27), periods, 28.0))
+        assertEquals(CyclePhase.LUTEAL, CyclePhaseCalculator.calculatePhase(LocalDate(2025, 3, 28), periods, 28.0))
+    }
+
     // ==================== averageCycleLength tests ====================
 
     @Test
