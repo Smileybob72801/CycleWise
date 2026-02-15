@@ -149,6 +149,14 @@ fun SettingsScreen(navController: NavController) {
                 }
             }
 
+            // --- Phase Visibility Section ---
+            HorizontalDivider()
+            PhaseVisibilitySettings(appSettings)
+
+            // --- Phase Colors Section ---
+            HorizontalDivider()
+            PhaseColorSettings(appSettings)
+
             // --- Developer Options Section ---
             if (BuildConfig.DEBUG) {
                 HorizontalDivider()

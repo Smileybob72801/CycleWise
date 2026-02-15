@@ -30,6 +30,7 @@ import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
+import com.veleda.cyclewise.domain.models.CyclePhase
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
@@ -40,8 +41,11 @@ import com.veleda.cyclewise.ui.utils.toLocalizedMonthYearString
 import kotlinx.datetime.toKotlinLocalDate
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import org.koin.compose.getKoin
 import org.koin.compose.koinInject
@@ -61,6 +65,33 @@ fun TrackerScreen(navController: NavController) {
     val showMood by appSettings.showMoodInSummary.collectAsState(initial = true)
     val showEnergy by appSettings.showEnergyInSummary.collectAsState(initial = true)
     val showLibido by appSettings.showLibidoInSummary.collectAsState(initial = true)
+
+    val showFollicular by appSettings.showFollicularPhase.collectAsState(initial = true)
+    val showOvulation by appSettings.showOvulationPhase.collectAsState(initial = true)
+    val showLuteal by appSettings.showLutealPhase.collectAsState(initial = true)
+
+    val menstruationHex by appSettings.menstruationColor.collectAsState(initial = CyclePhaseColors.DEFAULT_MENSTRUATION_HEX)
+    val follicularHex by appSettings.follicularColor.collectAsState(initial = CyclePhaseColors.DEFAULT_FOLLICULAR_HEX)
+    val ovulationHex by appSettings.ovulationColor.collectAsState(initial = CyclePhaseColors.DEFAULT_OVULATION_HEX)
+    val lutealHex by appSettings.lutealColor.collectAsState(initial = CyclePhaseColors.DEFAULT_LUTEAL_HEX)
+
+    val phaseColors: Map<CyclePhase, Color> = remember(menstruationHex, follicularHex, ovulationHex, lutealHex) {
+        mapOf(
+            CyclePhase.MENSTRUATION to (parseHexColor(menstruationHex) ?: CyclePhaseColors.Menstruation),
+            CyclePhase.FOLLICULAR to (parseHexColor(follicularHex) ?: CyclePhaseColors.Follicular),
+            CyclePhase.OVULATION to (parseHexColor(ovulationHex) ?: CyclePhaseColors.Ovulation),
+            CyclePhase.LUTEAL to (parseHexColor(lutealHex) ?: CyclePhaseColors.Luteal)
+        )
+    }
+
+    val phaseVisible: Map<CyclePhase, Boolean> = remember(showFollicular, showOvulation, showLuteal) {
+        mapOf(
+            CyclePhase.MENSTRUATION to true,
+            CyclePhase.FOLLICULAR to showFollicular,
+            CyclePhase.OVULATION to showOvulation,
+            CyclePhase.LUTEAL to showLuteal
+        )
+    }
 
     // Trigger auto-close logic when the screen is first composed/entered.
     LaunchedEffect(Unit) {
@@ -91,9 +122,13 @@ fun TrackerScreen(navController: NavController) {
             onDismissRequest = { viewModel.onEvent(TrackerEvent.DismissLogSheet) },
             sheetState = sheetState
         ) {
+            val sheetPhase = uiState.logForSheet?.let { log ->
+                uiState.dayDetails[log.entry.entryDate]?.cyclePhase
+            }
             LogSummarySheetContent(
                 log = uiState.logForSheet!!,
                 periodId = uiState.periodIdForSheet,
+                cyclePhase = sheetPhase,
                 symptomLibrary = uiState.symptomLibrary,
                 medicationLibrary = uiState.medicationLibrary,
                 waterCups = uiState.waterCupsForSheet,
@@ -144,6 +179,7 @@ fun TrackerScreen(navController: NavController) {
                 val days = JavaDayOfWeek.entries
                 days.subList(it.value - 1, days.size) + days.subList(0, it.value - 1)
             })
+            PhaseLegend(phaseColors = phaseColors, phaseVisible = phaseVisible)
             HorizontalCalendar(
                 state = calendarState,
                 modifier = Modifier
@@ -153,6 +189,17 @@ fun TrackerScreen(navController: NavController) {
                     val date = day.date.toKotlinLocalDate()
                     val cycleForDate = uiState.periods.find { date in (it.startDate..(it.endDate ?: today)) }
                     val dayInfo = uiState.dayDetails[date]
+
+                    // Effective display phase (null for period days — they keep their own color).
+                    // Also null when the user has toggled the phase off in settings.
+                    val rawPhase = if (dayInfo?.isPeriodDay == true) null else dayInfo?.cyclePhase
+                    val displayPhase = rawPhase?.takeIf { phaseVisible[it] != false }
+                    val prevInfo = uiState.dayDetails[date.minus(1, DateTimeUnit.DAY)]
+                    val nextInfo = uiState.dayDetails[date.plus(1, DateTimeUnit.DAY)]
+                    val prevRaw = if (prevInfo?.isPeriodDay == true) null else prevInfo?.cyclePhase
+                    val nextRaw = if (nextInfo?.isPeriodDay == true) null else nextInfo?.cyclePhase
+                    val prevDisplayPhase = prevRaw?.takeIf { phaseVisible[it] != false }
+                    val nextDisplayPhase = nextRaw?.takeIf { phaseVisible[it] != false }
 
                     val dayIsNotTappable = day.position != DayPosition.MonthDate
 
@@ -172,6 +219,10 @@ fun TrackerScreen(navController: NavController) {
                         isEndDate = cycleForDate?.endDate == date,
                         isInExistingRange = cycleForDate != null,
                         isInSelectionRange = false,
+                        isPhaseStart = displayPhase != null && displayPhase != prevDisplayPhase,
+                        isPhaseEnd = displayPhase != null && displayPhase != nextDisplayPhase,
+                        phaseColors = phaseColors,
+                        displayPhase = displayPhase,
                         onTap = handleTap,
                         onLongPress = handleLongPress
                     )
@@ -205,6 +256,7 @@ fun TrackerScreen(navController: NavController) {
  *
  * @param log         The full daily log to display.
  * @param periodId    Associated period ID, or null if the day is not a period day.
+ * @param cyclePhase  Computed cycle phase for this date, or null if not determinable.
  * @param symptomLibrary  Library of all symptoms for name resolution.
  * @param medicationLibrary  Library of all medications for name resolution.
  * @param waterCups   Number of water cups logged, or null.
@@ -218,6 +270,7 @@ fun TrackerScreen(navController: NavController) {
 private fun LogSummarySheetContent(
     log: FullDailyLog,
     periodId: String?,
+    cyclePhase: CyclePhase? = null,
     symptomLibrary: List<Symptom>,
     medicationLibrary: List<Medication>,
     waterCups: Int?,
@@ -261,6 +314,14 @@ private fun LogSummarySheetContent(
         }
 
         HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+
+        cyclePhase?.let { phase ->
+            InfoRow(
+                icon = Icons.Outlined.Star,
+                title = "Phase",
+                value = phase.displayLabel()
+            )
+        }
 
         log.periodLog?.flowIntensity?.let {
             InfoRow(icon = Icons.Default.Build, title = "Flow", value = it.name)
@@ -341,12 +402,18 @@ private fun Day(
     isEndDate: Boolean,
     isInExistingRange: Boolean,
     isInSelectionRange: Boolean,
+    isPhaseStart: Boolean = true,
+    isPhaseEnd: Boolean = true,
+    phaseColors: Map<CyclePhase, Color> = emptyMap(),
+    displayPhase: CyclePhase? = null,
     onTap: (() -> Unit)?,
     onLongPress: (() -> Unit)?
 ) {
     val date = day.date.toKotlinLocalDate()
     val inRange = isInExistingRange || isInSelectionRange
-    val shape = when {
+    val hasDisplayPhase = displayPhase != null
+
+    val periodShape = when {
         isStartDate && isEndDate -> CircleShape
         isStartDate -> RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50)
         isEndDate -> RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50)
@@ -354,10 +421,29 @@ private fun Day(
         else -> CircleShape
     }
 
+    val phaseShape = when {
+        isPhaseStart && isPhaseEnd -> RoundedCornerShape(50)
+        isPhaseStart -> RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50)
+        isPhaseEnd -> RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50)
+        else -> RoundedCornerShape(0)
+    }
+
+    val bgShape = when {
+        dayInfo?.isPeriodDay == true -> periodShape
+        hasDisplayPhase -> phaseShape
+        else -> CircleShape
+    }
+
+    val isPhaseMiddle = hasDisplayPhase && !isPhaseStart && !isPhaseEnd
+
     Box(
         modifier = Modifier
             .aspectRatio(1f)
-            .padding(vertical = if (inRange && !isStartDate && !isEndDate) 0.dp else 4.dp)
+            .padding(vertical = when {
+                inRange && !isStartDate && !isEndDate -> 0.dp
+                isPhaseMiddle -> 0.dp
+                else -> 4.dp
+            })
             .testTag("day-$date")
             .border(
                 width = if (isSelected) 2.dp else 0.dp,
@@ -365,8 +451,15 @@ private fun Day(
                 shape = CircleShape
             )
             .background(
-                color = if (dayInfo?.isPeriodDay == true) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                shape = shape
+                color = when {
+                    dayInfo?.isPeriodDay == true ->
+                        phaseColors[CyclePhase.MENSTRUATION] ?: CyclePhaseColors.Menstruation
+                    hasDisplayPhase -> {
+                        (phaseColors[displayPhase!!] ?: displayPhase.phaseBackgroundColor()).copy(alpha = 0.3f)
+                    }
+                    else -> Color.Transparent
+                },
+                shape = bgShape
             )
             .combinedClickable(
                 enabled = day.position == DayPosition.MonthDate,
@@ -425,5 +518,73 @@ private fun DaysOfWeekTitle(daysOfWeek: List<JavaDayOfWeek>) {
                 style = MaterialTheme.typography.bodySmall
             )
         }
+    }
+}
+
+/**
+ * Horizontal legend showing cycle-phase colours with labels.
+ *
+ * Placed between the day-of-week header and the calendar grid so users
+ * can identify what each background tint represents. Only visible phases
+ * (as configured in settings) are shown; Period is always displayed.
+ *
+ * @param phaseColors  Map of each [CyclePhase] to its custom [Color].
+ * @param phaseVisible Map of each [CyclePhase] to its visibility flag.
+ */
+@Composable
+private fun PhaseLegend(
+    phaseColors: Map<CyclePhase, Color> = emptyMap(),
+    phaseVisible: Map<CyclePhase, Boolean> = emptyMap()
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        LegendItem(
+            color = phaseColors[CyclePhase.MENSTRUATION] ?: CyclePhaseColors.Menstruation,
+            label = "Period"
+        )
+        if (phaseVisible[CyclePhase.FOLLICULAR] != false) {
+            LegendItem(
+                color = phaseColors[CyclePhase.FOLLICULAR] ?: CyclePhaseColors.Follicular,
+                label = "Follicular"
+            )
+        }
+        if (phaseVisible[CyclePhase.OVULATION] != false) {
+            LegendItem(
+                color = phaseColors[CyclePhase.OVULATION] ?: CyclePhaseColors.Ovulation,
+                label = "Ovulation"
+            )
+        }
+        if (phaseVisible[CyclePhase.LUTEAL] != false) {
+            LegendItem(
+                color = phaseColors[CyclePhase.LUTEAL] ?: CyclePhaseColors.Luteal,
+                label = "Luteal"
+            )
+        }
+    }
+}
+
+/**
+ * Single legend entry: a small coloured dot followed by a label.
+ *
+ * @param color The fill colour for the dot.
+ * @param label The text displayed next to the dot.
+ */
+@Composable
+private fun LegendItem(color: Color, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Text(text = label, style = MaterialTheme.typography.labelSmall)
     }
 }
