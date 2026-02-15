@@ -17,3 +17,11 @@ captures
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 nul
+
+# Signing keys and credentials
+*.jks
+*.keystore
+*.p12
+*.pem
+*.env
+.env.*

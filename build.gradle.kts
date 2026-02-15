@@ -61,7 +61,6 @@ abstract class ExportProjectAsMarkdown : DefaultTask() {
                 out.appendText("```\n$content\n```\n", StandardCharsets.UTF_8)
             }
         }
-        println("Wrote: ${out.absolutePath}")
     }
 
     private fun languageFor(name: String): String {

@@ -1,6 +1,7 @@
 package com.veleda.cyclewise.di
 
 import com.veleda.cyclewise.androidData.local.draft.LockedWaterDraft
+import android.content.Context
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.services.SaltStorage
 import com.veleda.cyclewise.ui.auth.WaterTrackerViewModel
@@ -41,6 +42,31 @@ import org.koin.core.qualifier.Qualifier
  * use cases, library providers, and session-bound ViewModels.
  */
 val SESSION_SCOPE: Qualifier = named("UnlockedSessionScope")
+
+/**
+ * Creates the encrypted [PeriodDatabase] and zeroizes the derived key immediately afterward.
+ *
+ * Uses `try/finally` to guarantee the key [ByteArray] is filled with zeros even if
+ * [PeriodDatabase.create] throws, fulfilling the security contract documented at
+ * [PeriodDatabase.create].
+ *
+ * @param context          application context for Room.
+ * @param passphraseService service that derives the 32-byte AES key.
+ * @param passphrase       the user-entered secret.
+ * @return the opened [PeriodDatabase].
+ */
+internal fun createDatabaseAndZeroizeKey(
+    context: Context,
+    passphraseService: PassphraseService,
+    passphrase: String
+): PeriodDatabase {
+    val key = passphraseService.deriveKey(passphrase)
+    return try {
+        PeriodDatabase.create(context, key)
+    } finally {
+        key.fill(0)
+    }
+}
 
 /**
  * Root Koin module defining two DI lifetimes:
@@ -84,8 +110,7 @@ val appModule = module {
     scope(SESSION_SCOPE) {
         // DB Provider
         scoped { (passphrase: String) ->
-            val key = get<PassphraseService>().deriveKey(passphrase)
-            PeriodDatabase.create(androidContext(), key)
+            createDatabaseAndZeroizeKey(androidContext(), get(), passphrase)
         }
 
         // DAO Providers

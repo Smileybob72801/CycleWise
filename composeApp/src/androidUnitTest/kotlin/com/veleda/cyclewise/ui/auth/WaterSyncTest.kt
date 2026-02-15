@@ -29,6 +29,7 @@ class WaterSyncTest {
     @Before
     fun setUp() {
         mockkStatic(Log::class)
+        every { Log.e(any(), any()) } returns 0
         every { Log.e(any(), any(), any()) } returns 0
     }
 

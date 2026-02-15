@@ -82,7 +82,7 @@ class PassphraseViewModel(
                 _effect.emit(PassphraseEffect.NavigateToTracker)
 
             } catch (e: Exception) {
-                Log.e("PassphraseUnlock", "Unlock failed with exception", e)
+                Log.e("PassphraseUnlock", "Unlock failed: ${e.message}")
                 getKoin().getScopeOrNull("session")?.close()
                 _effect.emit(PassphraseEffect.ShowError("Failed to unlock. Wrong passphrase?"))
             } finally {

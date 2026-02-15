@@ -48,7 +48,7 @@ class WaterDraftSyncer(
                 }
                 syncedDates += date
             } catch (e: Exception) {
-                Log.e("WaterSync", "Failed to sync water for $date", e)
+                Log.e("WaterSync", "Failed to sync water for $date: ${e.message}")
             }
         }
 
