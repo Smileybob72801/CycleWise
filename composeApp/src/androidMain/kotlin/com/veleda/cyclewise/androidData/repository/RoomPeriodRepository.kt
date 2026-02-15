@@ -35,6 +35,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.*
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import com.veleda.cyclewise.domain.CyclePhaseCalculator
+import com.veleda.cyclewise.domain.models.CyclePhase
 import com.veleda.cyclewise.domain.models.DayDetails
 import com.veleda.cyclewise.domain.models.PeriodLog
 import kotlinx.datetime.DateTimeUnit
@@ -335,13 +337,17 @@ class RoomPeriodRepository(
         ) { cycles, allLogs ->
             val detailsMap = mutableMapOf<LocalDate, DayDetails>()
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+            val avgCycleLength = CyclePhaseCalculator.averageCycleLength(cycles)
 
             for (cycle in cycles) {
                 val endDate = cycle.endDate ?: today
                 var currentDate = cycle.startDate
 
                 while (currentDate <= endDate) {
-                    detailsMap[currentDate] = DayDetails(isPeriodDay = true)
+                    detailsMap[currentDate] = DayDetails(
+                        isPeriodDay = true,
+                        cyclePhase = CyclePhase.MENSTRUATION
+                    )
                     currentDate = currentDate.plus(1, DateTimeUnit.DAY)
                 }
             }
@@ -349,10 +355,13 @@ class RoomPeriodRepository(
             for (log in allLogs) {
                 val date = log.entry.entryDate
                 val existingInfo = detailsMap[date] ?: DayDetails()
+                val phase = existingInfo.cyclePhase
+                    ?: CyclePhaseCalculator.calculatePhase(date, cycles, avgCycleLength)
                 detailsMap[date] = existingInfo.copy(
                     isPeriodDay = existingInfo.isPeriodDay || log.periodLog != null,
                     hasLoggedSymptoms = log.symptomLogs.isNotEmpty(),
-                    hasLoggedMedications = log.medicationLogs.isNotEmpty()
+                    hasLoggedMedications = log.medicationLogs.isNotEmpty(),
+                    cyclePhase = phase
                 )
             }
             detailsMap
