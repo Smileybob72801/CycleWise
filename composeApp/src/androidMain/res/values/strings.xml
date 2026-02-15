@@ -24,4 +24,16 @@
     <string name="show_mood_label">Show Mood</string>
     <string name="show_energy_label">Show Energy</string>
     <string name="show_libido_label">Show Libido</string>
+    <string name="phase_visibility_title">Phase Visibility</string>
+    <string name="show_follicular_label">Show Follicular</string>
+    <string name="show_ovulation_label">Show Ovulation</string>
+    <string name="show_luteal_label">Show Luteal</string>
+    <string name="phase_colors_title">Phase Colors</string>
+    <string name="phase_color_period_label">Period</string>
+    <string name="phase_color_follicular_label">Follicular</string>
+    <string name="phase_color_ovulation_label">Ovulation</string>
+    <string name="phase_color_luteal_label">Luteal</string>
+    <string name="phase_color_reset_defaults">Reset to Defaults</string>
+    <string name="phase_color_hex_hint">Hex (e.g. EF9A9A)</string>
+    <string name="phase_color_invalid_hex">Invalid hex code</string>
 </resources>

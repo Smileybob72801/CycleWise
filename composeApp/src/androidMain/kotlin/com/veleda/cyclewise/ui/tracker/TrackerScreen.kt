@@ -66,6 +66,33 @@ fun TrackerScreen(navController: NavController) {
     val showEnergy by appSettings.showEnergyInSummary.collectAsState(initial = true)
     val showLibido by appSettings.showLibidoInSummary.collectAsState(initial = true)
 
+    val showFollicular by appSettings.showFollicularPhase.collectAsState(initial = true)
+    val showOvulation by appSettings.showOvulationPhase.collectAsState(initial = true)
+    val showLuteal by appSettings.showLutealPhase.collectAsState(initial = true)
+
+    val menstruationHex by appSettings.menstruationColor.collectAsState(initial = CyclePhaseColors.DEFAULT_MENSTRUATION_HEX)
+    val follicularHex by appSettings.follicularColor.collectAsState(initial = CyclePhaseColors.DEFAULT_FOLLICULAR_HEX)
+    val ovulationHex by appSettings.ovulationColor.collectAsState(initial = CyclePhaseColors.DEFAULT_OVULATION_HEX)
+    val lutealHex by appSettings.lutealColor.collectAsState(initial = CyclePhaseColors.DEFAULT_LUTEAL_HEX)
+
+    val phaseColors: Map<CyclePhase, Color> = remember(menstruationHex, follicularHex, ovulationHex, lutealHex) {
+        mapOf(
+            CyclePhase.MENSTRUATION to (parseHexColor(menstruationHex) ?: CyclePhaseColors.Menstruation),
+            CyclePhase.FOLLICULAR to (parseHexColor(follicularHex) ?: CyclePhaseColors.Follicular),
+            CyclePhase.OVULATION to (parseHexColor(ovulationHex) ?: CyclePhaseColors.Ovulation),
+            CyclePhase.LUTEAL to (parseHexColor(lutealHex) ?: CyclePhaseColors.Luteal)
+        )
+    }
+
+    val phaseVisible: Map<CyclePhase, Boolean> = remember(showFollicular, showOvulation, showLuteal) {
+        mapOf(
+            CyclePhase.MENSTRUATION to true,
+            CyclePhase.FOLLICULAR to showFollicular,
+            CyclePhase.OVULATION to showOvulation,
+            CyclePhase.LUTEAL to showLuteal
+        )
+    }
+
     // Trigger auto-close logic when the screen is first composed/entered.
     LaunchedEffect(Unit) {
         viewModel.onEvent(TrackerEvent.ScreenEntered)
@@ -152,7 +179,7 @@ fun TrackerScreen(navController: NavController) {
                 val days = JavaDayOfWeek.entries
                 days.subList(it.value - 1, days.size) + days.subList(0, it.value - 1)
             })
-            PhaseLegend()
+            PhaseLegend(phaseColors = phaseColors, phaseVisible = phaseVisible)
             HorizontalCalendar(
                 state = calendarState,
                 modifier = Modifier
@@ -163,12 +190,16 @@ fun TrackerScreen(navController: NavController) {
                     val cycleForDate = uiState.periods.find { date in (it.startDate..(it.endDate ?: today)) }
                     val dayInfo = uiState.dayDetails[date]
 
-                    // Effective display phase (null for period days — they keep primaryContainer).
-                    val displayPhase = if (dayInfo?.isPeriodDay == true) null else dayInfo?.cyclePhase
+                    // Effective display phase (null for period days — they keep their own color).
+                    // Also null when the user has toggled the phase off in settings.
+                    val rawPhase = if (dayInfo?.isPeriodDay == true) null else dayInfo?.cyclePhase
+                    val displayPhase = rawPhase?.takeIf { phaseVisible[it] != false }
                     val prevInfo = uiState.dayDetails[date.minus(1, DateTimeUnit.DAY)]
                     val nextInfo = uiState.dayDetails[date.plus(1, DateTimeUnit.DAY)]
-                    val prevDisplayPhase = if (prevInfo?.isPeriodDay == true) null else prevInfo?.cyclePhase
-                    val nextDisplayPhase = if (nextInfo?.isPeriodDay == true) null else nextInfo?.cyclePhase
+                    val prevRaw = if (prevInfo?.isPeriodDay == true) null else prevInfo?.cyclePhase
+                    val nextRaw = if (nextInfo?.isPeriodDay == true) null else nextInfo?.cyclePhase
+                    val prevDisplayPhase = prevRaw?.takeIf { phaseVisible[it] != false }
+                    val nextDisplayPhase = nextRaw?.takeIf { phaseVisible[it] != false }
 
                     val dayIsNotTappable = day.position != DayPosition.MonthDate
 
@@ -190,6 +221,7 @@ fun TrackerScreen(navController: NavController) {
                         isInSelectionRange = false,
                         isPhaseStart = displayPhase != null && displayPhase != prevDisplayPhase,
                         isPhaseEnd = displayPhase != null && displayPhase != nextDisplayPhase,
+                        phaseColors = phaseColors,
                         onTap = handleTap,
                         onLongPress = handleLongPress
                     )
@@ -371,6 +403,7 @@ private fun Day(
     isInSelectionRange: Boolean,
     isPhaseStart: Boolean = true,
     isPhaseEnd: Boolean = true,
+    phaseColors: Map<CyclePhase, Color> = emptyMap(),
     onTap: (() -> Unit)?,
     onLongPress: (() -> Unit)?
 ) {
@@ -417,8 +450,12 @@ private fun Day(
             )
             .background(
                 color = when {
-                    dayInfo?.isPeriodDay == true -> CyclePhaseColors.Menstruation
-                    hasDisplayPhase -> dayInfo!!.cyclePhase!!.phaseBackgroundColor().copy(alpha = 0.3f)
+                    dayInfo?.isPeriodDay == true ->
+                        phaseColors[CyclePhase.MENSTRUATION] ?: CyclePhaseColors.Menstruation
+                    hasDisplayPhase -> {
+                        val phase = dayInfo!!.cyclePhase!!
+                        (phaseColors[phase] ?: phase.phaseBackgroundColor()).copy(alpha = 0.3f)
+                    }
                     else -> Color.Transparent
                 },
                 shape = bgShape
@@ -484,23 +521,48 @@ private fun DaysOfWeekTitle(daysOfWeek: List<JavaDayOfWeek>) {
 }
 
 /**
- * Horizontal legend showing the four cycle-phase colours with labels.
+ * Horizontal legend showing cycle-phase colours with labels.
  *
  * Placed between the day-of-week header and the calendar grid so users
- * can identify what each background tint represents.
+ * can identify what each background tint represents. Only visible phases
+ * (as configured in settings) are shown; Period is always displayed.
+ *
+ * @param phaseColors  Map of each [CyclePhase] to its custom [Color].
+ * @param phaseVisible Map of each [CyclePhase] to its visibility flag.
  */
 @Composable
-private fun PhaseLegend() {
+private fun PhaseLegend(
+    phaseColors: Map<CyclePhase, Color> = emptyMap(),
+    phaseVisible: Map<CyclePhase, Boolean> = emptyMap()
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        LegendItem(color = CyclePhaseColors.Menstruation, label = "Period")
-        LegendItem(color = CyclePhaseColors.Follicular, label = "Follicular")
-        LegendItem(color = CyclePhaseColors.Ovulation, label = "Ovulation")
-        LegendItem(color = CyclePhaseColors.Luteal, label = "Luteal")
+        LegendItem(
+            color = phaseColors[CyclePhase.MENSTRUATION] ?: CyclePhaseColors.Menstruation,
+            label = "Period"
+        )
+        if (phaseVisible[CyclePhase.FOLLICULAR] != false) {
+            LegendItem(
+                color = phaseColors[CyclePhase.FOLLICULAR] ?: CyclePhaseColors.Follicular,
+                label = "Follicular"
+            )
+        }
+        if (phaseVisible[CyclePhase.OVULATION] != false) {
+            LegendItem(
+                color = phaseColors[CyclePhase.OVULATION] ?: CyclePhaseColors.Ovulation,
+                label = "Ovulation"
+            )
+        }
+        if (phaseVisible[CyclePhase.LUTEAL] != false) {
+            LegendItem(
+                color = phaseColors[CyclePhase.LUTEAL] ?: CyclePhaseColors.Luteal,
+                label = "Luteal"
+            )
+        }
     }
 }
 
