@@ -67,7 +67,8 @@ class TrackerViewModel(
                         CalendarDayInfo(
                             isPeriodDay = domainDetails.isPeriodDay,
                             hasSymptoms = domainDetails.hasLoggedSymptoms,
-                            hasMedications = domainDetails.hasLoggedMedications
+                            hasMedications = domainDetails.hasLoggedMedications,
+                            cyclePhase = domainDetails.cyclePhase
                         )
                     }
                 }
