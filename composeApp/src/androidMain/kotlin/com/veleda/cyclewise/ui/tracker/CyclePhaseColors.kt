@@ -15,6 +15,9 @@ import com.veleda.cyclewise.domain.models.CyclePhase
  * both subtle calendar cell tints and solid legend dots.
  */
 object CyclePhaseColors {
+    /** Light pink-red tint for the Menstruation phase (Material Red 200). */
+    val Menstruation = Color(0xFFEF9A9A)
+
     /** Soft blue-green tint for the Follicular phase (Material Teal 200). */
     val Follicular = Color(0xFF80CBC4)
 
@@ -28,11 +31,11 @@ object CyclePhaseColors {
 /**
  * Returns the background tint color for this cycle phase on the calendar.
  *
- * [CyclePhase.MENSTRUATION] returns [Color.Unspecified] because period days are already
- * styled with [androidx.compose.material3.MaterialTheme]'s `primaryContainer`.
+ * Every phase maps to a fixed [CyclePhaseColors] constant so that calendar tints remain
+ * stable regardless of the device's dynamic Material 3 color scheme.
  */
 fun CyclePhase.phaseBackgroundColor(): Color = when (this) {
-    CyclePhase.MENSTRUATION -> Color.Unspecified
+    CyclePhase.MENSTRUATION -> CyclePhaseColors.Menstruation
     CyclePhase.FOLLICULAR -> CyclePhaseColors.Follicular
     CyclePhase.OVULATION -> CyclePhaseColors.Ovulation
     CyclePhase.LUTEAL -> CyclePhaseColors.Luteal

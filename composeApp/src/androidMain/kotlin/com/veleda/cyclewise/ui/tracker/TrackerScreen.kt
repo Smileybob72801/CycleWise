@@ -417,7 +417,7 @@ private fun Day(
             )
             .background(
                 color = when {
-                    dayInfo?.isPeriodDay == true -> MaterialTheme.colorScheme.primaryContainer
+                    dayInfo?.isPeriodDay == true -> CyclePhaseColors.Menstruation
                     hasDisplayPhase -> dayInfo!!.cyclePhase!!.phaseBackgroundColor().copy(alpha = 0.3f)
                     else -> Color.Transparent
                 },
@@ -497,7 +497,7 @@ private fun PhaseLegend() {
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        LegendItem(color = MaterialTheme.colorScheme.primaryContainer, label = "Period")
+        LegendItem(color = CyclePhaseColors.Menstruation, label = "Period")
         LegendItem(color = CyclePhaseColors.Follicular, label = "Follicular")
         LegendItem(color = CyclePhaseColors.Ovulation, label = "Ovulation")
         LegendItem(color = CyclePhaseColors.Luteal, label = "Luteal")
