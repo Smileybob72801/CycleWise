@@ -23,10 +23,11 @@
 
 ## Session Scope
 - After unlock, a Koin `sessionScope` is created and injected with the derived key.
-- Key lifetime = session lifetime.
+- The derived key is **actively zeroized** (`fill(0)`) immediately after the database
+  is opened, via `try/finally` in `createDatabaseAndZeroizeKey()`.
 - On logout or app background timeout:
-    - Key is zeroized in memory.
     - All repositories and DAOs in the scope are closed.
+    - The session scope is destroyed.
 
 ---
 
@@ -39,11 +40,27 @@
 
 ## Network
 - App has **no network permissions** in production.
+- `android.permission.INTERNET` is explicitly absent from the manifest.
+- A Robolectric unit test (`ManifestPermissionTest`) enforces this invariant.
 - All functionality operates offline.
+
+---
+
+## Screen Protection
+- `FLAG_SECURE` is set on the activity window at launch.
+- Blocks screenshots, screen recording, and recent-apps thumbnails.
+
+---
+
+## Logging Hygiene
+- Catch blocks log **message only** (`e.message`), never full stack traces.
+- The global crash handler in `MainActivity` is the sole exception (unrecoverable crashes).
+- No `println()` in Gradle build scripts.
+- Passphrase, derived key, and internal structure are never logged.
 
 ---
 
 ## Threat Model
 - Protect against device theft (offline attacker).
-- Mitigate shoulder-surfing via timeout lock.
+- Mitigate shoulder-surfing via timeout lock and `FLAG_SECURE`.
 - Assume compromised device ⇒ compromised data; user informed of risks.

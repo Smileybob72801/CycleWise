@@ -531,9 +531,26 @@ fun getOrCreateSalt(): ByteArray {
 
 ### Security Invariant
 
-The passphrase and derived key **never persist to disk**. They exist only in memory
-during the session scope's lifetime. When the session scope is destroyed (logout,
-autolock, or app termination), the key becomes eligible for garbage collection.
+The passphrase and derived key **never persist to disk**. The derived key is
+**actively zeroized** (`fill(0)`) immediately after the database is opened via
+`createDatabaseAndZeroizeKey()` in `AppModule.kt`. A `try/finally` block
+guarantees zeroization even if `PeriodDatabase.create()` throws:
+
+```kotlin
+// di/AppModule.kt
+internal fun createDatabaseAndZeroizeKey(
+    context: Context,
+    passphraseService: PassphraseService,
+    passphrase: String
+): PeriodDatabase {
+    val key = passphraseService.deriveKey(passphrase)
+    return try {
+        PeriodDatabase.create(context, key)
+    } finally {
+        key.fill(0)   // zeroize on both success and failure
+    }
+}
+```
 
 The `PassphraseService` interface documents this contract explicitly:
 
@@ -719,6 +736,8 @@ RhythmWise is a **single-activity** Compose application. The launch sequence:
 
 2. **`MainActivity`** (`MainActivity.kt`) — Intentionally minimal:
    - Calls `enableEdgeToEdge()` for fullscreen content behind system bars
+   - Sets `FLAG_SECURE` on the window — blocks screenshots, screen recording,
+     and recent-apps thumbnails across all screens
    - Registers a global uncaught exception handler for crash logging
    - Calls `setContent { CycleWiseAppUI() }` — all Compose UI starts here
 
@@ -886,7 +905,7 @@ The UI observes this effect and navigates, popping Passphrase from the backstack
 
 ```kotlin
 } catch (e: Exception) {                                          // line 84
-    Log.e("PassphraseUnlock", "Unlock failed with exception", e)
+    Log.e("PassphraseUnlock", "Unlock failed: ${e.message}")
     getKoin().getScopeOrNull("session")?.close()                  // line 86
     _effect.emit(PassphraseEffect.ShowError(
         "Failed to unlock. Wrong passphrase?"                     // line 87
@@ -2076,6 +2095,28 @@ Log.d("Debug", "Key: ${key.toHex()}")
 Log.d("Debug", "Key derivation complete, length=${key.size}")
 ```
 
+### Never Log Stack Traces in Production
+
+Pass only the message, never the full `Throwable`. Stack traces can leak class names,
+file paths, and internal state into logcat where other apps or USB debugging can
+read them.
+
+```kotlin
+// BAD — full stack trace visible in logcat
+Log.e("Tag", "Operation failed", exception)
+exception.printStackTrace()
+
+// GOOD — message only, no internal structure exposed
+Log.e("Tag", "Operation failed: ${exception.message}")
+```
+
+The global crash handler in `MainActivity` is the **only** place that logs a full
+`Throwable` (to capture otherwise-unrecoverable crash context). All other catch
+blocks must use the message-only form.
+
+Gradle build scripts must not use `println()` for diagnostic output — it leaks
+file paths and build internals into CI logs.
+
 ### Never Persist the Passphrase or Key
 
 The passphrase and derived key must only exist in local variables during the unlock
@@ -2094,6 +2135,35 @@ throw IllegalStateException("Failed to open DB with key: ${key.contentToString()
 // GOOD
 throw IllegalStateException("Failed to open encrypted database")
 ```
+
+### No Network Access
+
+The app declares **no INTERNET permission** in the manifest. This is enforced by a
+Robolectric unit test (`ManifestPermissionTest`) that fails if any manifest merge
+reintroduces it. Never add network calls, analytics SDKs, crash reporters, or any
+dependency that requires `android.permission.INTERNET`.
+
+### Screenshot Protection
+
+`MainActivity` sets `FLAG_SECURE` on the window before `setContent`. This blocks
+screenshots, screen recording, and recent-apps thumbnails. Do not remove this flag
+or add any code path that clears it.
+
+### .gitignore — Credential and Key Exclusions
+
+The `.gitignore` excludes signing keys and credentials to prevent accidental commits:
+
+```
+*.jks
+*.keystore
+*.p12
+*.pem
+*.env
+.env.*
+```
+
+If you add a new secret file type (API keys, service accounts, etc.), add a
+corresponding `.gitignore` pattern **before** committing.
 
 ### Debug-Only Features
 
