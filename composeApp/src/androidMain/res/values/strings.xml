@@ -36,4 +36,26 @@
     <string name="phase_color_reset_defaults">Reset to Defaults</string>
     <string name="phase_color_hex_hint">Hex (e.g. EF9A9A)</string>
     <string name="phase_color_invalid_hex">Invalid hex code</string>
+
+    <!-- Reminders -->
+    <string name="reminder_settings_title">Reminders</string>
+    <string name="reminder_period_label">Period Prediction</string>
+    <string name="reminder_period_description">Notify before your predicted next period</string>
+    <string name="reminder_period_days_before_label">Days before: %d</string>
+    <string name="reminder_medication_label">Daily Medication</string>
+    <string name="reminder_medication_description">A daily reminder at your chosen time</string>
+    <string name="reminder_medication_time_label">Reminder time</string>
+    <string name="reminder_hydration_label">Hydration</string>
+    <string name="reminder_hydration_description">Remind to log water during the day</string>
+    <string name="reminder_hydration_goal_label">Daily goal (cups): %d</string>
+    <string name="reminder_hydration_frequency_label">Reminder frequency</string>
+    <string name="reminder_hydration_start_label">Start hour</string>
+    <string name="reminder_hydration_end_label">End hour</string>
+    <string name="reminder_privacy_dialog_title">Privacy Notice</string>
+    <string name="reminder_privacy_dialog_body">Enabling this reminder stores your predicted period date in unencrypted local storage so background checks can run without your passphrase. Notifications may appear on your lock screen. No data leaves your device.</string>
+    <string name="reminder_privacy_dialog_accept">I Understand</string>
+    <string name="reminder_privacy_dialog_cancel">Cancel</string>
+    <string name="reminder_notification_title">RhythmWise</string>
+    <string name="reminder_notification_body">Time to check your app</string>
+    <string name="reminder_permission_rationale">Notification permission is needed to send reminders.</string>
 </resources>

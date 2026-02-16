@@ -8,6 +8,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.veleda.cyclewise.di.appModule
+import com.veleda.cyclewise.reminders.ReminderNotifier
 import com.veleda.cyclewise.settings.AppSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +47,8 @@ class CycleWiseApp :
             modules(appModule)
             allowOverride(false)
         }
+
+        ReminderNotifier.ensureChannel(this)
 
         prefs = getSharedPreferences("autolock_prefs", MODE_PRIVATE)
 

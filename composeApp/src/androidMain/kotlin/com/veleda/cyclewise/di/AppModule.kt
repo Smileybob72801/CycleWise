@@ -30,6 +30,7 @@ import com.veleda.cyclewise.session.SessionBus
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.auth.PassphraseViewModel
+import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.ui.insights.InsightsViewModel
 import kotlinx.datetime.LocalDate
 import org.koin.core.qualifier.Qualifier
@@ -73,7 +74,7 @@ internal fun createDatabaseAndZeroizeKey(
  *
  * **Singleton scope** (lives for the app process):
  * [SaltStorage], [AppSettings], [SessionBus], [PassphraseService], [LockedWaterDraft],
- * [InsightEngine], [WaterTrackerViewModel], [PassphraseViewModel].
+ * [ReminderScheduler], [InsightEngine], [WaterTrackerViewModel], [PassphraseViewModel].
  *
  * **Session scope** ([SESSION_SCOPE], created on unlock, destroyed on logout/autolock):
  * [PeriodDatabase], all DAOs, [PeriodRepository], use cases, library providers,
@@ -102,6 +103,8 @@ val appModule = module {
     }
 
     single { LockedWaterDraft(androidContext()) }
+
+    single { ReminderScheduler(androidContext()) }
 
     viewModel { WaterTrackerViewModel(lockedWaterDraft = get()) }
 
@@ -153,7 +156,8 @@ val appModule = module {
                 periodRepository = get(),
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get(),
-                autoClosePeriodUseCase = get()
+                autoClosePeriodUseCase = get(),
+                appSettings = get()
             )
         }
 
