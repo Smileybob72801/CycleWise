@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +37,8 @@ import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.nav.NavRoute
+import com.veleda.cyclewise.ui.theme.CyclePhasePalette
+import com.veleda.cyclewise.ui.theme.buildCyclePhasePalette
 import com.veleda.cyclewise.ui.utils.toLocalizedDateString
 import com.veleda.cyclewise.ui.utils.toLocalizedMonthYearString
 import kotlinx.datetime.toKotlinLocalDate
@@ -75,13 +78,18 @@ fun TrackerScreen(navController: NavController) {
     val ovulationHex by appSettings.ovulationColor.collectAsState(initial = CyclePhaseColors.DEFAULT_OVULATION_HEX)
     val lutealHex by appSettings.lutealColor.collectAsState(initial = CyclePhaseColors.DEFAULT_LUTEAL_HEX)
 
-    val phaseColors: Map<CyclePhase, Color> = remember(menstruationHex, follicularHex, ovulationHex, lutealHex) {
-        mapOf(
-            CyclePhase.MENSTRUATION to (parseHexColor(menstruationHex) ?: CyclePhaseColors.Menstruation),
-            CyclePhase.FOLLICULAR to (parseHexColor(follicularHex) ?: CyclePhaseColors.Follicular),
-            CyclePhase.OVULATION to (parseHexColor(ovulationHex) ?: CyclePhaseColors.Ovulation),
-            CyclePhase.LUTEAL to (parseHexColor(lutealHex) ?: CyclePhaseColors.Luteal)
-        )
+    val darkTheme = isSystemInDarkTheme()
+    val customColors: Map<CyclePhase, Color>? = remember(menstruationHex, follicularHex, ovulationHex, lutealHex) {
+        val map = buildMap {
+            parseHexColor(menstruationHex)?.let { put(CyclePhase.MENSTRUATION, it) }
+            parseHexColor(follicularHex)?.let { put(CyclePhase.FOLLICULAR, it) }
+            parseHexColor(ovulationHex)?.let { put(CyclePhase.OVULATION, it) }
+            parseHexColor(lutealHex)?.let { put(CyclePhase.LUTEAL, it) }
+        }
+        map.ifEmpty { null }
+    }
+    val palette = remember(darkTheme, customColors) {
+        buildCyclePhasePalette(darkTheme, customColors)
     }
 
     val phaseVisible: Map<CyclePhase, Boolean> = remember(showFollicular, showOvulation, showLuteal) {
@@ -179,7 +187,7 @@ fun TrackerScreen(navController: NavController) {
                 val days = JavaDayOfWeek.entries
                 days.subList(it.value - 1, days.size) + days.subList(0, it.value - 1)
             })
-            PhaseLegend(phaseColors = phaseColors, phaseVisible = phaseVisible)
+            PhaseLegend(palette = palette, phaseVisible = phaseVisible)
             HorizontalCalendar(
                 state = calendarState,
                 modifier = Modifier
@@ -221,7 +229,7 @@ fun TrackerScreen(navController: NavController) {
                         isInSelectionRange = false,
                         isPhaseStart = displayPhase != null && displayPhase != prevDisplayPhase,
                         isPhaseEnd = displayPhase != null && displayPhase != nextDisplayPhase,
-                        phaseColors = phaseColors,
+                        palette = palette,
                         displayPhase = displayPhase,
                         onTap = handleTap,
                         onLongPress = handleLongPress
@@ -404,7 +412,7 @@ private fun Day(
     isInSelectionRange: Boolean,
     isPhaseStart: Boolean = true,
     isPhaseEnd: Boolean = true,
-    phaseColors: Map<CyclePhase, Color> = emptyMap(),
+    palette: CyclePhasePalette,
     displayPhase: CyclePhase? = null,
     onTap: (() -> Unit)?,
     onLongPress: (() -> Unit)?
@@ -453,10 +461,9 @@ private fun Day(
             .background(
                 color = when {
                     dayInfo?.isPeriodDay == true ->
-                        phaseColors[CyclePhase.MENSTRUATION] ?: CyclePhaseColors.Menstruation
-                    hasDisplayPhase -> {
-                        (phaseColors[displayPhase!!] ?: displayPhase.phaseBackgroundColor()).copy(alpha = 0.3f)
-                    }
+                        palette.menstruation.fill
+                    hasDisplayPhase ->
+                        palette.forPhase(displayPhase!!).fillSubtle
                     else -> Color.Transparent
                 },
                 shape = bgShape
@@ -528,12 +535,12 @@ private fun DaysOfWeekTitle(daysOfWeek: List<JavaDayOfWeek>) {
  * can identify what each background tint represents. Only visible phases
  * (as configured in settings) are shown; Period is always displayed.
  *
- * @param phaseColors  Map of each [CyclePhase] to its custom [Color].
+ * @param palette      The current [CyclePhasePalette] providing per-phase dot colors.
  * @param phaseVisible Map of each [CyclePhase] to its visibility flag.
  */
 @Composable
 private fun PhaseLegend(
-    phaseColors: Map<CyclePhase, Color> = emptyMap(),
+    palette: CyclePhasePalette,
     phaseVisible: Map<CyclePhase, Boolean> = emptyMap()
 ) {
     Row(
@@ -543,24 +550,24 @@ private fun PhaseLegend(
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         LegendItem(
-            color = phaseColors[CyclePhase.MENSTRUATION] ?: CyclePhaseColors.Menstruation,
+            color = palette.menstruation.dot,
             label = "Period"
         )
         if (phaseVisible[CyclePhase.FOLLICULAR] != false) {
             LegendItem(
-                color = phaseColors[CyclePhase.FOLLICULAR] ?: CyclePhaseColors.Follicular,
+                color = palette.follicular.dot,
                 label = "Follicular"
             )
         }
         if (phaseVisible[CyclePhase.OVULATION] != false) {
             LegendItem(
-                color = phaseColors[CyclePhase.OVULATION] ?: CyclePhaseColors.Ovulation,
+                color = palette.ovulation.dot,
                 label = "Ovulation"
             )
         }
         if (phaseVisible[CyclePhase.LUTEAL] != false) {
             LegendItem(
-                color = phaseColors[CyclePhase.LUTEAL] ?: CyclePhaseColors.Luteal,
+                color = palette.luteal.dot,
                 label = "Luteal"
             )
         }

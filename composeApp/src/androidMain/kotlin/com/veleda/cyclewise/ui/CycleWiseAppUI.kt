@@ -20,11 +20,13 @@ import androidx.compose.runtime.getValue
 import com.veleda.cyclewise.ui.insights.InsightsScreen
 import com.veleda.cyclewise.ui.log.DailyLogScreen
 import com.veleda.cyclewise.ui.settings.SettingsScreen
+import com.veleda.cyclewise.ui.theme.RhythmWiseTheme
 import kotlinx.datetime.LocalDate
 
 @Composable
 @Preview
 fun CycleWiseAppUI() {
+    RhythmWiseTheme {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -78,5 +80,6 @@ fun CycleWiseAppUI() {
                 }
             }
         }
+    }
     }
 }

@@ -21,9 +21,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.veleda.cyclewise.ui.theme.RhythmWiseColors
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
@@ -247,7 +247,7 @@ private fun MoodSelector(
                     contentDescription = "Mood score $score",
                     modifier = Modifier.size(40.dp),
                     tint = if (score <= (selectedMood ?: 0))
-                        Color(0xFFFFD700)
+                        RhythmWiseColors.StarGold
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -281,7 +281,7 @@ private fun ScoreSelector(
                     contentDescription = "$contentDescriptionPrefix score $score",
                     modifier = Modifier.size(40.dp),
                     tint = if (score <= (selectedScore ?: 0))
-                        Color(0xFFFFD700)
+                        RhythmWiseColors.StarGold
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant
                 )
