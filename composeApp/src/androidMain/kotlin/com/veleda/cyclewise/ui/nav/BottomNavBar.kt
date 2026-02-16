@@ -1,34 +1,47 @@
 package com.veleda.cyclewise.ui.nav
 
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 
+/**
+ * Bottom navigation bar displaying the three primary app tabs.
+ *
+ * Icons are driven by the [NavRoute.selectedIcon] and [NavRoute.unselectedIcon] metadata,
+ * rendering a filled variant when the tab is active and an outlined variant when inactive.
+ * Each item carries a `testTag` of `"bottom-nav-{route}"` for UI-test targeting.
+ *
+ * @param navController The [NavController] used to observe the current destination and
+ *   perform tab navigation with state restoration.
+ */
 @Composable
 fun BottomNavBar(navController: NavController) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
 
     NavigationBar {
-        NavRoute.all.filterNot { it == NavRoute.Passphrase }.forEach { route ->
+        NavRoute.all.forEach { route ->
+            val selected = currentRoute == route.route
+            val icon = if (selected) route.selectedIcon else route.unselectedIcon
+
             NavigationBarItem(
+                modifier = Modifier.testTag("bottom-nav-${route.route}"),
                 icon = {
-                    Icon(
-                        imageVector = when (route) {
-                            NavRoute.Tracker -> Icons.Default.DateRange
-                            NavRoute.Insights -> Icons.Default.Info
-                            NavRoute.Settings -> Icons.Default.Settings
-                            else -> error("Unexpected route in BottomNavBar: ${route.route}")
-                        },
-                        contentDescription = route.label
-                    )
+                    if (icon != null) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = route.label,
+                        )
+                    }
                 },
                 label = { Text(route.label) },
-                selected = currentRoute == route.route,
+                selected = selected,
                 onClick = {
                     if (currentRoute != route.route) {
                         navController.navigate(route.route) {
@@ -37,7 +50,7 @@ fun BottomNavBar(navController: NavController) {
                             restoreState = true
                         }
                     }
-                }
+                },
             )
         }
     }
