@@ -133,6 +133,18 @@
     <!-- Insights -->
     <string name="insights_title">Insights</string>
     <string name="insights_empty">Not enough data to generate insights yet. Keep tracking!</string>
+    <string name="insights_empty_heading">No Insights Yet</string>
+    <string name="insights_empty_body">Start tracking your cycle to see patterns and predictions here.</string>
+    <string name="insights_cycle_length_days_label">days</string>
+    <string name="insights_prediction_in_days">in %d days</string>
+    <string name="insights_prediction_today">Today</string>
+    <string name="insights_prediction_overdue">%d days ago</string>
+    <string name="insights_recurrence_rate">%s of recent cycles</string>
+    <string name="insights_content_description_trend_up">Trend increasing</string>
+    <string name="insights_content_description_trend_down">Trend decreasing</string>
+    <string name="insights_content_description_trend_stable">Trend stable</string>
+    <string name="insights_content_description_prediction_icon">Calendar prediction</string>
+    <string name="insights_content_description_empty_icon">No insights available</string>
 
     <!-- Reminder time labels -->
     <string name="reminder_hour_label">Hour</string>
