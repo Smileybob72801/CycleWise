@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">PeriodTracker</string>
+    <string name="app_name">RhythmWise</string>
     <string name="water_tracker_title">Water Today</string>
     <string name="water_cups_count">%d cups</string>
     <string name="water_yesterday_message">You logged %d cups yesterday. Log in to save.</string>
@@ -58,4 +58,11 @@
     <string name="reminder_notification_title">RhythmWise</string>
     <string name="reminder_notification_body">Time to check your app</string>
     <string name="reminder_permission_rationale">Notification permission is needed to send reminders.</string>
+
+    <!-- About -->
+    <string name="about_title">About</string>
+    <string name="about_description">Privacy-first cycle tracking</string>
+    <string name="about_version_label">Version %s</string>
+    <string name="about_license">Licensed under the Apache License 2.0</string>
+    <string name="about_close">Close</string>
 </resources>

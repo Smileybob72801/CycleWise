@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
@@ -160,6 +161,44 @@ fun SettingsScreen(navController: NavController) {
             // --- Reminders Section ---
             HorizontalDivider()
             ReminderSettings(appSettings, getKoin().get())
+
+            // --- About Section ---
+            HorizontalDivider()
+            var showAboutDialog by remember { mutableStateOf(false) }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    stringResource(R.string.about_title),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { showAboutDialog = true }) {
+                    Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.app_name))
+                }
+            }
+
+            if (showAboutDialog) {
+                AlertDialog(
+                    onDismissRequest = { showAboutDialog = false },
+                    title = { Text(stringResource(R.string.app_name)) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(stringResource(R.string.about_description))
+                            Text(stringResource(R.string.about_version_label, BuildConfig.VERSION_NAME))
+                            Text(stringResource(R.string.about_license))
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showAboutDialog = false }) {
+                            Text(stringResource(R.string.about_close))
+                        }
+                    }
+                )
+            }
 
             // --- Developer Options Section ---
             if (BuildConfig.DEBUG) {

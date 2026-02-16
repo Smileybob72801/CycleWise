@@ -50,6 +50,7 @@ kotlin {
             implementation(libs.compose.calendar)
             implementation(libs.uuid)
             implementation(libs.workmanager.runtime)
+            implementation(libs.splashscreen)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
