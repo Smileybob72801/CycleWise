@@ -30,12 +30,28 @@ import kotlin.test.assertTrue
  */
 class KeyZeroizationTest {
 
+    /** Relaxed mock — [createDatabaseAndZeroizeKey] only passes it through to [PeriodDatabase.create]. */
     private val context: Context = mockk(relaxed = true)
+
+    /** Mock KDF service whose [deriveKey] returns [capturedKey] so tests can inspect it after the call. */
     private val passphraseService: PassphraseService = mockk()
+
+    /** Relaxed mock database returned by the mocked [PeriodDatabase.create] companion call. */
     private val mockDb: PeriodDatabase = mockk(relaxed = true)
 
+    /**
+     * The "derived key" returned by [passphraseService]. Initialized to all-`0xFF` bytes
+     * so tests can distinguish a live key (non-zero) from a zeroized key (all zeros).
+     */
     private lateinit var capturedKey: ByteArray
 
+    /**
+     * Configures the test environment before each test:
+     * - Fills [capturedKey] with `0xFF` to represent a live, non-zero derived key.
+     * - Stubs [passphraseService.deriveKey] to return [capturedKey].
+     * - Mocks [PeriodDatabase.Companion] so [PeriodDatabase.create] can be intercepted
+     *   without hitting Room or SQLCipher.
+     */
     @Before
     fun setUp() {
         capturedKey = ByteArray(32) { 0xFF.toByte() }
@@ -43,6 +59,9 @@ class KeyZeroizationTest {
         mockkObject(PeriodDatabase.Companion)
     }
 
+    /**
+     * Removes the [PeriodDatabase.Companion] mock to avoid leaking state between tests.
+     */
     @After
     fun tearDown() {
         unmockkObject(PeriodDatabase.Companion)

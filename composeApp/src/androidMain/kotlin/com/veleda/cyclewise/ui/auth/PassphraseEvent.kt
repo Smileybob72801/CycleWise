@@ -10,8 +10,27 @@ sealed interface PassphraseEvent {
 
 /**
  * One-time side effects emitted by [PassphraseViewModel].
+ *
+ * These are consumed once by the UI layer and are not replayed on recomposition.
  */
 sealed interface PassphraseEffect {
+    /**
+     * Emitted after a successful passphrase unlock.
+     *
+     * Signals the NavHost to navigate away from the passphrase screen to the
+     * tracker screen. By the time this is emitted, the session scope is active,
+     * the database is open, and all DAOs are available.
+     */
     object NavigateToTracker : PassphraseEffect
+
+    /**
+     * Emitted when unlock fails (wrong passphrase, database corruption, etc.).
+     *
+     * The session scope has already been closed before this effect is emitted,
+     * so no stale database references remain in the DI graph.
+     *
+     * @property message a user-facing error string suitable for display in a
+     *           toast or inline error on the passphrase screen.
+     */
     data class ShowError(val message: String) : PassphraseEffect
 }
