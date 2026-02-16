@@ -216,7 +216,7 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
                 )
                 Spacer(Modifier.width(8.dp))
                 Column {
-                    Text("Hour", style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(R.string.reminder_hour_label), style = MaterialTheme.typography.labelSmall)
                     Slider(
                         value = medicationHour.toFloat(),
                         onValueChange = { newHour ->
@@ -237,7 +237,7 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Column {
-                    Text("Minute", style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(R.string.reminder_minute_label), style = MaterialTheme.typography.labelSmall)
                     Slider(
                         value = medicationMinute.toFloat(),
                         onValueChange = { newMinute ->

@@ -9,7 +9,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.insights.Insight
 import com.veleda.cyclewise.domain.insights.TopSymptomsInsight
 import org.koin.androidx.compose.koinViewModel
@@ -24,7 +26,7 @@ fun InsightsScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Insights") })
+            TopAppBar(title = { Text(stringResource(R.string.insights_title)) })
         }
     ) { padding ->
         Box(
@@ -36,7 +38,7 @@ fun InsightsScreen() {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (uiState.insights.isEmpty()) {
                 Text(
-                    text = "Not enough data to generate insights yet. Keep tracking!",
+                    text = stringResource(R.string.insights_empty),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier
                         .align(Alignment.Center)

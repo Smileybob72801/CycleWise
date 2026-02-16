@@ -59,6 +59,75 @@
     <string name="reminder_notification_body">Time to check your app</string>
     <string name="reminder_permission_rationale">Notification permission is needed to send reminders.</string>
 
+    <!-- Tracker -->
+    <string name="tracker_delete_title">Confirm Deletion</string>
+    <string name="tracker_delete_message">Are you sure you want to permanently delete this period and all its associated flow logs? This action cannot be undone.</string>
+    <string name="tracker_delete_confirm">Delete Period</string>
+    <string name="tracker_cancel">Cancel</string>
+    <string name="tracker_ongoing_period">Ongoing Period: %s</string>
+    <string name="tracker_instructions">Long press a day to start/mark your period. Tap to log details.</string>
+    <string name="tracker_log_for">Log for %s</string>
+    <string name="tracker_edit_log">Edit Log</string>
+    <string name="tracker_delete_period">Delete Period</string>
+    <string name="tracker_phase_label">Phase</string>
+    <string name="tracker_flow_label">Flow</string>
+    <string name="tracker_mood_label">Mood</string>
+    <string name="tracker_energy_label">Energy</string>
+    <string name="tracker_libido_label">Libido</string>
+    <string name="tracker_water_label">Water</string>
+    <string name="tracker_water_cups">%d cups</string>
+    <string name="tracker_symptoms_label">Symptoms</string>
+    <string name="tracker_medications_label">Medications</string>
+
+    <!-- Daily Log -->
+    <string name="daily_log_save">Save Log</string>
+    <string name="daily_log_for">Log for %s</string>
+    <string name="daily_log_flow_title">Flow</string>
+    <string name="daily_log_mood_title">Mood</string>
+    <string name="daily_log_symptoms_title">Symptoms</string>
+    <string name="daily_log_medications_title">Medications</string>
+    <string name="daily_log_custom_tags_title">Custom Tags</string>
+    <string name="daily_log_notes_title">Notes</string>
+    <string name="daily_log_mood_score">Mood score %d</string>
+    <string name="daily_log_score">%1$s score %2$d</string>
+    <string name="daily_log_add_medication">Add new medication…</string>
+    <string name="daily_log_create_medication">Create and Add Medication</string>
+    <string name="daily_log_add_tag">Add a custom tag…</string>
+    <string name="daily_log_add_tag_button">Add Tag</string>
+    <string name="daily_log_remove_tag">Remove %s</string>
+    <string name="daily_log_add_notes">Add any notes…</string>
+    <string name="daily_log_notes_placeholder">How are you feeling? Any observations?</string>
+    <string name="daily_log_add_symptom">Add new symptom…</string>
+    <string name="daily_log_create_symptom">Create and Add Symptom</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_autolock_title">Auto-lock timeout (minutes)</string>
+    <string name="settings_security_title">Security</string>
+    <string name="settings_lock_button">Lock Now</string>
+    <string name="settings_locked_message">Currently locked — unlock to access secured data.</string>
+    <string name="settings_insights_title">Insight Settings</string>
+    <string name="settings_top_symptoms">Top Frequent Symptoms to Display: %d</string>
+    <string name="settings_developer_title">Developer Options</string>
+    <string name="settings_seeding">Seeding database…</string>
+    <string name="settings_seeding_complete">Seeding complete!</string>
+    <string name="settings_seed_button">Seed Database w/ Test Data</string>
+    <string name="settings_developer_locked">Unlock the app to use developer tools.</string>
+
+    <!-- Passphrase -->
+    <string name="passphrase_unlocking">Unlocking…</string>
+    <string name="passphrase_instruction">Enter your passphrase</string>
+    <string name="passphrase_label">Passphrase</string>
+    <string name="passphrase_unlock">Unlock</string>
+
+    <!-- Insights -->
+    <string name="insights_title">Insights</string>
+    <string name="insights_empty">Not enough data to generate insights yet. Keep tracking!</string>
+
+    <!-- Reminder time labels -->
+    <string name="reminder_hour_label">Hour</string>
+    <string name="reminder_minute_label">Minute</string>
+
     <!-- About -->
     <string name="about_title">About</string>
     <string name="about_description">Privacy-first cycle tracking</string>

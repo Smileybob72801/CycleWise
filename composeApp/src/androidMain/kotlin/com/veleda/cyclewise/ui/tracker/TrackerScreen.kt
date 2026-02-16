@@ -23,8 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.veleda.cyclewise.R
 import androidx.navigation.NavController
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
@@ -152,8 +154,8 @@ fun TrackerScreen(navController: NavController) {
     if (uiState.showDeleteConfirmation && uiState.periodIdToDelete != null) {
         AlertDialog(
             onDismissRequest = { viewModel.onEvent(TrackerEvent.DeletePeriodDismissed) },
-            title = { Text("Confirm Deletion") },
-            text = { Text("Are you sure you want to permanently delete this period and all its associated flow logs? This action cannot be undone.") },
+            title = { Text(stringResource(R.string.tracker_delete_title)) },
+            text = { Text(stringResource(R.string.tracker_delete_message)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -161,12 +163,12 @@ fun TrackerScreen(navController: NavController) {
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete Period")
+                    Text(stringResource(R.string.tracker_delete_confirm))
                 }
             },
             dismissButton = {
                 OutlinedButton(onClick = { viewModel.onEvent(TrackerEvent.DeletePeriodDismissed) }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.tracker_cancel))
                 }
             }
         )
@@ -241,7 +243,7 @@ fun TrackerScreen(navController: NavController) {
 
             AnimatedVisibility(visible = uiState.ongoingPeriod != null) {
                 Text(
-                    "Ongoing Period: ${uiState.ongoingPeriod!!.startDate.toLocalizedDateString()}",
+                    stringResource(R.string.tracker_ongoing_period, uiState.ongoingPeriod!!.startDate.toLocalizedDateString()),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(8.dp),
                     color = MaterialTheme.colorScheme.primary
@@ -249,7 +251,7 @@ fun TrackerScreen(navController: NavController) {
             }
             AnimatedVisibility(visible = uiState.ongoingPeriod == null) {
                 Text(
-                    "Long press a day to start/mark your period. Tap to log details.",
+                    stringResource(R.string.tracker_instructions),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(8.dp)
                 )
@@ -300,14 +302,14 @@ private fun LogSummarySheetContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Log for ${log.entry.entryDate.toLocalizedDateString()}",
+                text = stringResource(R.string.tracker_log_for, log.entry.entryDate.toLocalizedDateString()),
                 style = MaterialTheme.typography.titleLarge
             )
             Row { // Group Edit and Delete buttons
                 IconButton(onClick = { onEditClick(log.entry.entryDate) },
                     modifier = Modifier.testTag("edit-log-button")
                 ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit Log")
+                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.tracker_edit_log))
                 }
                 // Show Delete button only if a period is associated with the log day
                 if (periodId != null) {
@@ -315,7 +317,7 @@ private fun LogSummarySheetContent(
                         onClick = { onDeleteClick(periodId) },
                         modifier = Modifier.testTag("delete-period-button")
                     ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete Period")
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.tracker_delete_period))
                     }
                 }
             }
@@ -326,39 +328,44 @@ private fun LogSummarySheetContent(
         cyclePhase?.let { phase ->
             InfoRow(
                 icon = Icons.Outlined.Star,
-                title = "Phase",
-                value = phase.displayLabel()
+                title = stringResource(R.string.tracker_phase_label),
+                value = when (phase) {
+                    CyclePhase.MENSTRUATION -> stringResource(R.string.phase_color_period_label)
+                    CyclePhase.FOLLICULAR -> stringResource(R.string.phase_color_follicular_label)
+                    CyclePhase.OVULATION -> stringResource(R.string.phase_color_ovulation_label)
+                    CyclePhase.LUTEAL -> stringResource(R.string.phase_color_luteal_label)
+                }
             )
         }
 
         log.periodLog?.flowIntensity?.let {
-            InfoRow(icon = Icons.Default.Build, title = "Flow", value = it.name)
+            InfoRow(icon = Icons.Default.Build, title = stringResource(R.string.tracker_flow_label), value = it.name)
         }
 
         if (showMood) {
             log.entry.moodScore?.let {
-                InfoRow(icon = Icons.Outlined.Star, title = "Mood", value = "$it / 5")
+                InfoRow(icon = Icons.Outlined.Star, title = stringResource(R.string.tracker_mood_label), value = "$it / 5")
             }
         }
 
         if (showEnergy) {
             log.entry.energyLevel?.let {
-                InfoRow(icon = Icons.Outlined.Star, title = "Energy", value = "$it / 5")
+                InfoRow(icon = Icons.Outlined.Star, title = stringResource(R.string.tracker_energy_label), value = "$it / 5")
             }
         }
 
         if (showLibido) {
             log.entry.libidoScore?.let {
-                InfoRow(icon = Icons.Outlined.Star, title = "Libido", value = "$it / 5")
+                InfoRow(icon = Icons.Outlined.Star, title = stringResource(R.string.tracker_libido_label), value = "$it / 5")
             }
         }
 
         waterCups?.let {
-            if (it > 0) InfoRow(icon = Icons.Default.Build, title = "Water", value = "$it cups")
+            if (it > 0) InfoRow(icon = Icons.Default.Build, title = stringResource(R.string.tracker_water_label), value = stringResource(R.string.tracker_water_cups, it))
         }
 
         if (log.symptomLogs.isNotEmpty()) {
-            Text("Symptoms", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.tracker_symptoms_label), style = MaterialTheme.typography.titleMedium)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(log.symptomLogs) { symptomLog ->
                     val symptomInfo = symptomLibrary.find { it.id == symptomLog.symptomId }
@@ -373,7 +380,7 @@ private fun LogSummarySheetContent(
         }
 
         if (log.medicationLogs.isNotEmpty()) {
-            Text("Medications", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.tracker_medications_label), style = MaterialTheme.typography.titleMedium)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(log.medicationLogs) { medicationLog ->
                     val medicationInfo = medicationLibrary.find { it.id == medicationLog.medicationId }
@@ -551,24 +558,24 @@ private fun PhaseLegend(
     ) {
         LegendItem(
             color = palette.menstruation.dot,
-            label = "Period"
+            label = stringResource(R.string.phase_color_period_label)
         )
         if (phaseVisible[CyclePhase.FOLLICULAR] != false) {
             LegendItem(
                 color = palette.follicular.dot,
-                label = "Follicular"
+                label = stringResource(R.string.phase_color_follicular_label)
             )
         }
         if (phaseVisible[CyclePhase.OVULATION] != false) {
             LegendItem(
                 color = palette.ovulation.dot,
-                label = "Ovulation"
+                label = stringResource(R.string.phase_color_ovulation_label)
             )
         }
         if (phaseVisible[CyclePhase.LUTEAL] != false) {
             LegendItem(
                 color = palette.luteal.dot,
-                label = "Luteal"
+                label = stringResource(R.string.phase_color_luteal_label)
             )
         }
     }

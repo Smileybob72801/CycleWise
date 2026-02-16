@@ -8,8 +8,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.veleda.cyclewise.R
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -44,7 +46,7 @@ fun PassphraseScreen(
         if (uiState.isUnlocking) {
             CircularProgressIndicator()
             Spacer(Modifier.height(16.dp))
-            Text("Unlocking...")
+            Text(stringResource(R.string.passphrase_unlocking))
         } else {
             val waterViewModel: WaterTrackerViewModel = koinViewModel()
             val waterState by waterViewModel.uiState.collectAsState()
@@ -55,12 +57,12 @@ fun PassphraseScreen(
                 yesterdayMessage = waterState.yesterdayMessage
             )
             Spacer(Modifier.height(32.dp))
-            Text("Enter your passphrase", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.passphrase_instruction), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(16.dp))
             OutlinedTextField(
                 value = passphrase,
                 onValueChange = { passphrase = it },
-                label = { Text("Passphrase") },
+                label = { Text(stringResource(R.string.passphrase_label)) },
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
                 modifier = Modifier
@@ -77,7 +79,7 @@ fun PassphraseScreen(
                     .fillMaxWidth()
                     .testTag("unlock-button")
             ) {
-                Text("Unlock")
+                Text(stringResource(R.string.passphrase_unlock))
             }
         }
     }

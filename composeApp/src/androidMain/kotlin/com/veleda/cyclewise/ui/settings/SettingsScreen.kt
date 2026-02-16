@@ -37,7 +37,7 @@ fun SettingsScreen(navController: NavController) {
     val session = getKoin().getScopeOrNull("session")
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Settings") }) }
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -48,7 +48,7 @@ fun SettingsScreen(navController: NavController) {
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             // --- Auto-lock Section ---
-            Text("Auto-lock timeout (minutes)", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.settings_autolock_title), style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(5, 10, 15, 30).forEach { m ->
                     FilterChip(
@@ -65,7 +65,7 @@ fun SettingsScreen(navController: NavController) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.Start
             ) {
-                Text("Security", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.settings_security_title), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
                 Button(
                     enabled = session != null,
@@ -76,12 +76,12 @@ fun SettingsScreen(navController: NavController) {
                         }
                     }
                 ) {
-                    Text("Lock Now")
+                    Text(stringResource(R.string.settings_lock_button))
                 }
                 if (session == null) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Currently locked — unlock to access secured data.",
+                        stringResource(R.string.settings_locked_message),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -91,9 +91,9 @@ fun SettingsScreen(navController: NavController) {
             // --- Insight Settings Section ---
             HorizontalDivider()
             Column {
-                Text("Insight Settings", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.settings_insights_title), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(16.dp))
-                Text("Top Frequent Symptoms to Display: $topSymptomsCount")
+                Text(stringResource(R.string.settings_top_symptoms, topSymptomsCount))
                 Slider(
                     value = topSymptomsCount.toFloat(),
                     onValueChange = { newValue ->
@@ -207,7 +207,7 @@ fun SettingsScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    Text("Developer Options", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.tertiary)
+                    Text(stringResource(R.string.settings_developer_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.tertiary)
                     Spacer(Modifier.height(8.dp))
 
                     Button(
@@ -216,9 +216,9 @@ fun SettingsScreen(navController: NavController) {
                             session?.let {
                                 val seeder: DebugSeederUseCase = it.get()
                                 scope.launch {
-                                    Toast.makeText(context, "Seeding database...", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.settings_seeding), Toast.LENGTH_SHORT).show()
                                     seeder()
-                                    Toast.makeText(context, "Seeding complete!", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, context.getString(R.string.settings_seeding_complete), Toast.LENGTH_LONG).show()
                                 }
                             }
                         },
@@ -229,11 +229,11 @@ fun SettingsScreen(navController: NavController) {
                     ) {
                         Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Seed Database w/ Test Data") // <-- Ensured correct content
+                        Text(stringResource(R.string.settings_seed_button))
                     }
                     if (session == null) {
                         Text(
-                            "Unlock the app to use developer tools.",
+                            stringResource(R.string.settings_developer_locked),
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
