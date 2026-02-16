@@ -118,6 +118,20 @@
     <string name="settings_seeding_complete">Seeding complete!</string>
     <string name="settings_seed_button">Seed Database w/ Test Data</string>
     <string name="settings_developer_locked">Unlock the app to use developer tools.</string>
+    <string name="settings_section_security">Security</string>
+    <string name="settings_section_display">Display</string>
+    <string name="settings_section_customization">Customization</string>
+    <string name="settings_section_notifications">Notifications</string>
+    <string name="settings_autolock_description">Lock the app after inactivity</string>
+    <string name="settings_autolock_minutes_unit">min</string>
+    <string name="show_mood_description">Display mood score in daily log summary</string>
+    <string name="show_energy_description">Display energy level in daily log summary</string>
+    <string name="show_libido_description">Display libido score in daily log summary</string>
+    <string name="show_follicular_description">Show Follicular phase tint on the calendar</string>
+    <string name="show_ovulation_description">Show Ovulation phase tint on the calendar</string>
+    <string name="show_luteal_description">Show Luteal phase tint on the calendar</string>
+    <string name="phase_color_presets_label">Presets</string>
+    <string name="phase_color_preset_content_description">Select color %s</string>
 
     <!-- Passphrase -->
     <string name="passphrase_unlocking">Unlocking…</string>

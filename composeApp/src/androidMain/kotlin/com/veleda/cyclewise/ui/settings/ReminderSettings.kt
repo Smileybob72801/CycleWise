@@ -32,11 +32,12 @@ import com.veleda.cyclewise.R
 import com.veleda.cyclewise.reminders.ReminderNotifier
 import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.settings.AppSettings
+import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * Standalone composable that renders the three reminder configuration sections:
+ * Composable that renders the three reminder configuration sections:
  * Period Prediction, Daily Medication, and Hydration.
  *
  * Each section has an enable/disable [Switch] plus type-specific settings that
@@ -48,11 +49,18 @@ import kotlin.math.roundToInt
  *
  * @param appSettings       the [AppSettings] instance for reading/writing reminder preferences.
  * @param reminderScheduler the [ReminderScheduler] instance for enqueuing/cancelling work.
+ * @param showTitle         When `true` (default), renders a [titleMedium] header above the sections.
+ *                          Set to `false` when embedded inside a parent card that already provides a title.
  */
 @Composable
-fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderScheduler) {
+fun ReminderSettings(
+    appSettings: AppSettings,
+    reminderScheduler: ReminderScheduler,
+    showTitle: Boolean = true
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val dims = LocalDimensions.current
 
     // --- Notification permission handling ---
     var pendingEnableAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -99,11 +107,13 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
     val hydrationEndHour by appSettings.reminderHydrationEndHour.collectAsState(initial = 20)
 
     Column {
-        Text(
-            stringResource(R.string.reminder_settings_title),
-            style = MaterialTheme.typography.titleMedium
-        )
-        Spacer(Modifier.height(8.dp))
+        if (showTitle) {
+            Text(
+                stringResource(R.string.reminder_settings_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(Modifier.height(dims.sm))
+        }
 
         // ── Period Prediction ───────────────────────────────────────
 
@@ -147,9 +157,9 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
         }
 
         if (periodEnabled) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(dims.sm))
             Text(stringResource(R.string.reminder_period_days_before_label, periodDaysBefore))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(dims.sm)) {
                 listOf(1, 2, 3).forEach { days ->
                     FilterChip(
                         selected = periodDaysBefore == days,
@@ -164,7 +174,7 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(dims.md))
 
         // ── Daily Medication ────────────────────────────────────────
 
@@ -204,17 +214,17 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
         }
 
         if (medicationEnabled) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(dims.sm))
             Text(stringResource(R.string.reminder_medication_time_label))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(dims.sm)
             ) {
                 Text(
                     "%02d:%02d".format(medicationHour, medicationMinute),
                     style = MaterialTheme.typography.titleLarge
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(dims.sm))
                 Column {
                     Text(stringResource(R.string.reminder_hour_label), style = MaterialTheme.typography.labelSmall)
                     Slider(
@@ -234,7 +244,7 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(dims.sm)
             ) {
                 Column {
                     Text(stringResource(R.string.reminder_minute_label), style = MaterialTheme.typography.labelSmall)
@@ -255,7 +265,7 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(dims.md))
 
         // ── Hydration ───────────────────────────────────────────────
 
@@ -295,7 +305,7 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
         }
 
         if (hydrationEnabled) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(dims.sm))
 
             // Goal cups
             Text(stringResource(R.string.reminder_hydration_goal_label, hydrationGoalCups))
@@ -310,9 +320,9 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
             )
 
             // Frequency
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(dims.sm))
             Text(stringResource(R.string.reminder_hydration_frequency_label))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(dims.sm)) {
                 listOf(2, 3, 4).forEach { hours ->
                     FilterChip(
                         selected = hydrationFrequencyHours == hours,
@@ -328,9 +338,9 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
             }
 
             // Active window
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(dims.sm))
             Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(dims.md),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -366,7 +376,7 @@ fun ReminderSettings(appSettings: AppSettings, reminderScheduler: ReminderSchedu
 
         // --- Permission rationale ---
         if (showPermissionRationale) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(dims.sm))
             Text(
                 stringResource(R.string.reminder_permission_rationale),
                 style = MaterialTheme.typography.bodySmall,
