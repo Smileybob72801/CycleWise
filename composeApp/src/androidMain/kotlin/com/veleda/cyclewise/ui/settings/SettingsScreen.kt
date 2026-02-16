@@ -157,6 +157,10 @@ fun SettingsScreen(navController: NavController) {
             HorizontalDivider()
             PhaseColorSettings(appSettings)
 
+            // --- Reminders Section ---
+            HorizontalDivider()
+            ReminderSettings(appSettings, getKoin().get())
+
             // --- Developer Options Section ---
             if (BuildConfig.DEBUG) {
                 HorizontalDivider()

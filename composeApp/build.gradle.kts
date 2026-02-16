@@ -49,6 +49,7 @@ kotlin {
             implementation(libs.androidx.datastore.preferences)
             implementation(libs.compose.calendar)
             implementation(libs.uuid)
+            implementation(libs.workmanager.runtime)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -77,6 +78,7 @@ kotlin {
                 implementation(libs.androidx.test.core)
                 implementation(libs.koin.test)
                 implementation(libs.koin.test.junit4)
+                implementation(libs.workmanager.testing)
             }
         }
     }

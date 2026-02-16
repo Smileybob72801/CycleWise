@@ -10,12 +10,17 @@ import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
+import com.veleda.cyclewise.settings.AppSettings
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.daysUntil
+import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
+import kotlin.math.roundToInt
 import kotlin.time.Clock
 
 data class TrackerUiState(
@@ -51,7 +56,8 @@ class TrackerViewModel(
     private val periodRepository: PeriodRepository,
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private  val medicationLibraryProvider: MedicationLibraryProvider,
-    private val autoClosePeriodUseCase: AutoCloseOngoingPeriodUseCase
+    private val autoClosePeriodUseCase: AutoCloseOngoingPeriodUseCase,
+    private val appSettings: AppSettings
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TrackerUiState())
     val uiState: StateFlow<TrackerUiState> = _uiState.asStateFlow()
@@ -80,6 +86,7 @@ class TrackerViewModel(
         viewModelScope.launch {
             periodRepository.getAllPeriods().collect { periods ->
                 _uiState.update { it.copy(periods = periods) }
+                updatePredictionCache(periods)
             }
         }
 
@@ -186,5 +193,29 @@ class TrackerViewModel(
                 )
             }
         }
+    }
+
+    /**
+     * Caches the predicted next period date in [AppSettings] (plaintext DataStore)
+     * so the [PeriodPredictionWorker][com.veleda.cyclewise.reminders.workers.PeriodPredictionWorker]
+     * can access it without unlocking the encrypted database.
+     *
+     * Uses the same average-cycle-length algorithm as [InsightEngine]: computes the mean
+     * cycle length from completed periods and projects from the latest period's start date.
+     * Requires at least 2 completed periods. Clears the cache when insufficient data exists.
+     */
+    private suspend fun updatePredictionCache(periods: List<Period>) {
+        val completed = periods.filter { it.endDate != null }.sortedBy { it.startDate }
+        if (completed.size < 2) {
+            appSettings.setCachedPredictedPeriodDate("")
+            return
+        }
+        val cycleLengths = completed.zipWithNext { current, next ->
+            current.startDate.daysUntil(next.startDate).toDouble()
+        }
+        val avgDays = cycleLengths.average().roundToInt()
+        val latest = periods.maxBy { it.startDate }
+        val predicted = latest.startDate.plus(avgDays, DateTimeUnit.DAY)
+        appSettings.setCachedPredictedPeriodDate(predicted.toString())
     }
 }

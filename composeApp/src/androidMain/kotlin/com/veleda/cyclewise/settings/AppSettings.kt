@@ -23,6 +23,20 @@ private val FOLLICULAR_COLOR = stringPreferencesKey("follicular_color")
 private val OVULATION_COLOR = stringPreferencesKey("ovulation_color")
 private val LUTEAL_COLOR = stringPreferencesKey("luteal_color")
 
+// --- Reminder preferences ---
+private val REMINDER_PERIOD_ENABLED = booleanPreferencesKey("reminder_period_enabled")
+private val REMINDER_PERIOD_DAYS_BEFORE = intPreferencesKey("reminder_period_days_before")
+private val REMINDER_PERIOD_PRIVACY_ACCEPTED = booleanPreferencesKey("reminder_period_privacy_accepted")
+private val REMINDER_MEDICATION_ENABLED = booleanPreferencesKey("reminder_medication_enabled")
+private val REMINDER_MEDICATION_HOUR = intPreferencesKey("reminder_medication_hour")
+private val REMINDER_MEDICATION_MINUTE = intPreferencesKey("reminder_medication_minute")
+private val REMINDER_HYDRATION_ENABLED = booleanPreferencesKey("reminder_hydration_enabled")
+private val REMINDER_HYDRATION_GOAL_CUPS = intPreferencesKey("reminder_hydration_goal_cups")
+private val REMINDER_HYDRATION_FREQUENCY_HOURS = intPreferencesKey("reminder_hydration_frequency_hours")
+private val REMINDER_HYDRATION_START_HOUR = intPreferencesKey("reminder_hydration_start_hour")
+private val REMINDER_HYDRATION_END_HOUR = intPreferencesKey("reminder_hydration_end_hour")
+private val CACHED_PREDICTED_PERIOD_DATE = stringPreferencesKey("cached_predicted_period_date")
+
 /**
  * DataStore-backed wrapper for user-configurable app preferences.
  *
@@ -42,6 +56,18 @@ private val LUTEAL_COLOR = stringPreferencesKey("luteal_color")
  * @property follicularColor       Custom hex color for Follicular phase (6-char, no '#'; default: "80CBC4").
  * @property ovulationColor        Custom hex color for Ovulation phase (6-char, no '#'; default: "FFCC80").
  * @property lutealColor           Custom hex color for Luteal phase (6-char, no '#'; default: "B39DDB").
+ * @property reminderPeriodEnabled          Whether the period prediction reminder is enabled (default: false).
+ * @property reminderPeriodDaysBefore       Days before predicted period to notify (1–3, default: 2).
+ * @property reminderPeriodPrivacyAccepted  Whether the user acknowledged the privacy notice for period reminders (default: false).
+ * @property reminderMedicationEnabled      Whether the daily medication reminder is enabled (default: false).
+ * @property reminderMedicationHour         Hour of day for medication reminder (0–23, default: 9).
+ * @property reminderMedicationMinute       Minute of hour for medication reminder (0–59, default: 0).
+ * @property reminderHydrationEnabled       Whether the hydration reminder is enabled (default: false).
+ * @property reminderHydrationGoalCups      Daily water goal in cups (default: 8).
+ * @property reminderHydrationFrequencyHours Interval between hydration reminders in hours (2/3/4, default: 3).
+ * @property reminderHydrationStartHour     Active window start hour (0–23, default: 8).
+ * @property reminderHydrationEndHour       Active window end hour (0–23, default: 20).
+ * @property cachedPredictedPeriodDate      ISO date cache for the period prediction worker (e.g. "2026-03-15").
  */
 class AppSettings(private val context: Context) {
     val autolockMinutes = context.dataStore.data.map { prefs -> prefs[AUTOLOCK_MIN] ?: 10 }
@@ -157,5 +183,115 @@ class AppSettings(private val context: Context) {
     /** Persists the user's custom hex color for the Luteal phase. */
     suspend fun setLutealColor(hex: String) {
         context.dataStore.edit { it[LUTEAL_COLOR] = hex }
+    }
+
+    // ── Reminder preferences ──────────────────────────────────────────
+
+    /** Whether the period prediction reminder is enabled. */
+    val reminderPeriodEnabled: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[REMINDER_PERIOD_ENABLED] ?: false }
+
+    /** Persists the user's preference for the period prediction reminder toggle. */
+    suspend fun setReminderPeriodEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[REMINDER_PERIOD_ENABLED] = enabled }
+    }
+
+    /** Days before the predicted period to send the notification (1–3). */
+    val reminderPeriodDaysBefore: Flow<Int> = context.dataStore.data
+        .map { prefs -> prefs[REMINDER_PERIOD_DAYS_BEFORE] ?: 2 }
+
+    /** Persists the number of days before a predicted period to notify. */
+    suspend fun setReminderPeriodDaysBefore(days: Int) {
+        context.dataStore.edit { it[REMINDER_PERIOD_DAYS_BEFORE] = days }
+    }
+
+    /** Whether the user has acknowledged the privacy dialog for period reminders. */
+    val reminderPeriodPrivacyAccepted: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[REMINDER_PERIOD_PRIVACY_ACCEPTED] ?: false }
+
+    /** Persists acknowledgement of the period reminder privacy notice. */
+    suspend fun setReminderPeriodPrivacyAccepted(accepted: Boolean) {
+        context.dataStore.edit { it[REMINDER_PERIOD_PRIVACY_ACCEPTED] = accepted }
+    }
+
+    /** Whether the daily medication reminder is enabled. */
+    val reminderMedicationEnabled: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[REMINDER_MEDICATION_ENABLED] ?: false }
+
+    /** Persists the user's preference for the medication reminder toggle. */
+    suspend fun setReminderMedicationEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[REMINDER_MEDICATION_ENABLED] = enabled }
+    }
+
+    /** Hour of day for the medication reminder (0–23). */
+    val reminderMedicationHour: Flow<Int> = context.dataStore.data
+        .map { prefs -> prefs[REMINDER_MEDICATION_HOUR] ?: 9 }
+
+    /** Persists the medication reminder hour. */
+    suspend fun setReminderMedicationHour(hour: Int) {
+        context.dataStore.edit { it[REMINDER_MEDICATION_HOUR] = hour }
+    }
+
+    /** Minute of hour for the medication reminder (0–59). */
+    val reminderMedicationMinute: Flow<Int> = context.dataStore.data
+        .map { prefs -> prefs[REMINDER_MEDICATION_MINUTE] ?: 0 }
+
+    /** Persists the medication reminder minute. */
+    suspend fun setReminderMedicationMinute(minute: Int) {
+        context.dataStore.edit { it[REMINDER_MEDICATION_MINUTE] = minute }
+    }
+
+    /** Whether the hydration reminder is enabled. */
+    val reminderHydrationEnabled: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[REMINDER_HYDRATION_ENABLED] ?: false }
+
+    /** Persists the user's preference for the hydration reminder toggle. */
+    suspend fun setReminderHydrationEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[REMINDER_HYDRATION_ENABLED] = enabled }
+    }
+
+    /** Daily water goal in cups. */
+    val reminderHydrationGoalCups: Flow<Int> = context.dataStore.data
+        .map { prefs -> prefs[REMINDER_HYDRATION_GOAL_CUPS] ?: 8 }
+
+    /** Persists the daily hydration goal. */
+    suspend fun setReminderHydrationGoalCups(cups: Int) {
+        context.dataStore.edit { it[REMINDER_HYDRATION_GOAL_CUPS] = cups }
+    }
+
+    /** Interval between hydration reminders in hours (2/3/4). */
+    val reminderHydrationFrequencyHours: Flow<Int> = context.dataStore.data
+        .map { prefs -> prefs[REMINDER_HYDRATION_FREQUENCY_HOURS] ?: 3 }
+
+    /** Persists the hydration reminder frequency. */
+    suspend fun setReminderHydrationFrequencyHours(hours: Int) {
+        context.dataStore.edit { it[REMINDER_HYDRATION_FREQUENCY_HOURS] = hours }
+    }
+
+    /** Active window start hour for hydration reminders (0–23). */
+    val reminderHydrationStartHour: Flow<Int> = context.dataStore.data
+        .map { prefs -> prefs[REMINDER_HYDRATION_START_HOUR] ?: 8 }
+
+    /** Persists the hydration reminder active window start hour. */
+    suspend fun setReminderHydrationStartHour(hour: Int) {
+        context.dataStore.edit { it[REMINDER_HYDRATION_START_HOUR] = hour }
+    }
+
+    /** Active window end hour for hydration reminders (0–23). */
+    val reminderHydrationEndHour: Flow<Int> = context.dataStore.data
+        .map { prefs -> prefs[REMINDER_HYDRATION_END_HOUR] ?: 20 }
+
+    /** Persists the hydration reminder active window end hour. */
+    suspend fun setReminderHydrationEndHour(hour: Int) {
+        context.dataStore.edit { it[REMINDER_HYDRATION_END_HOUR] = hour }
+    }
+
+    /** ISO date cache for the period prediction worker (e.g. "2026-03-15"). */
+    val cachedPredictedPeriodDate: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[CACHED_PREDICTED_PERIOD_DATE] ?: "" }
+
+    /** Persists the cached predicted period date for the background worker. */
+    suspend fun setCachedPredictedPeriodDate(date: String) {
+        context.dataStore.edit { it[CACHED_PREDICTED_PERIOD_DATE] = date }
     }
 }

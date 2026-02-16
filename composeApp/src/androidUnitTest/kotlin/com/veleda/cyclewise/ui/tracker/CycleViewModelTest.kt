@@ -7,6 +7,7 @@ import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
+import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.testutil.TestData
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -35,6 +36,7 @@ class CycleViewModelTest {
     private lateinit var mockSymptomProvider: SymptomLibraryProvider
     private lateinit var mockMedicationProvider: MedicationLibraryProvider
     private lateinit var mockAutoCloseUseCase: AutoCloseOngoingPeriodUseCase
+    private lateinit var mockAppSettings: AppSettings
     private lateinit var viewModel: TrackerViewModel
 
     @Before
@@ -45,13 +47,14 @@ class CycleViewModelTest {
         mockSymptomProvider = mockk(relaxed = true)
         mockMedicationProvider = mockk(relaxed = true)
         mockAutoCloseUseCase = mockk(relaxed = true)
+        mockAppSettings = mockk(relaxed = true)
 
         every { mockRepository.observeDayDetails() } returns flowOf(emptyMap())
         every { mockRepository.getAllPeriods() } returns flowOf(emptyList())
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
 
-        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase)
+        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings)
     }
 
     @After
@@ -99,7 +102,7 @@ class CycleViewModelTest {
         val fakeLog = FullDailyLog(DailyEntry("log-id", pastDate, 5, createdAt = TestData.INSTANT, updatedAt = TestData.INSTANT))
 
         every { mockRepository.getAllPeriods() } returns flowOf(listOf(fakePeriod))
-        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase)
+        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings)
         advanceUntilIdle()
 
         coEvery { mockRepository.getFullLogForDate(pastDate) } returns fakeLog
