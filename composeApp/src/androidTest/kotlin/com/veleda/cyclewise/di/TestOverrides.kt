@@ -31,6 +31,9 @@ val testOverridesModule = module {
     single<PassphraseService> { TestPassphraseService() }
 
     // 2. Replace the session-scoped PeriodDatabase provider.
+    //    Mirrors the production createDatabaseAndZeroizeKey() pattern: pass a copy of the
+    //    key to SupportFactory so the original can be zeroed immediately. The ViewModel's
+    //    db.openHelper.writableDatabase call later forces SQLCipher to consume the real key.
     scope(SESSION_SCOPE) {
         scoped<PeriodDatabase> { (passphrase: String) ->
             val context: Context = get()
@@ -39,11 +42,15 @@ val testOverridesModule = module {
             // The key is derived by our deterministic TestPassphraseService above.
             val key = get<PassphraseService>().deriveKey(passphrase)
 
-            PeriodDatabase.create(
-                context = context,
-                passphrase = key,
-                dbName = testDbName
-            )
+            try {
+                PeriodDatabase.create(
+                    context = context,
+                    passphrase = key.copyOf(),
+                    dbName = testDbName
+                )
+            } finally {
+                key.fill(0)
+            }
         }
     }
 }

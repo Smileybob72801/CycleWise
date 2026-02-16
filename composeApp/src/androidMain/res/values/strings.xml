@@ -119,6 +119,11 @@
     <string name="passphrase_instruction">Enter your passphrase</string>
     <string name="passphrase_label">Passphrase</string>
     <string name="passphrase_unlock">Unlock</string>
+    <string name="passphrase_error">Failed to unlock. Wrong passphrase?</string>
+    <string name="passphrase_show">Show passphrase</string>
+    <string name="passphrase_hide">Hide passphrase</string>
+    <string name="passphrase_logo_description">RhythmWise logo</string>
+    <string name="passphrase_water_toggle">Quick log water</string>
 
     <!-- Insights -->
     <string name="insights_title">Insights</string>

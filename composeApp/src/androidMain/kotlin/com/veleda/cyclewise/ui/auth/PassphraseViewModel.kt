@@ -23,11 +23,15 @@ data class PassphraseUiState(
  * Handles passphrase unlock and session scope lifecycle.
  *
  * On [PassphraseEvent.UnlockClicked]:
- * 1. Derives the encryption key via [PassphraseService] (on [Dispatchers.IO]).
- * 2. Creates or reuses the Koin session scope and opens the encrypted database.
- * 3. Prepopulates the symptom library on first unlock.
- * 4. Syncs water drafts from [LockedWaterDraft] into the database.
- * 5. Emits [PassphraseEffect.NavigateToTracker] on success.
+ * 1. Closes any stale session scope to force full passphrase re-validation.
+ * 2. Creates a fresh Koin session scope and resolves the encrypted [PeriodDatabase].
+ *    [createDatabaseAndZeroizeKey] derives the key, passes a copy to SQLCipher's
+ *    `SupportFactory`, and zeroizes the original immediately.
+ * 3. Force-opens the database via [db.openHelper.writableDatabase] so SQLCipher consumes
+ *    the real key. An incorrect passphrase throws here, preventing navigation.
+ * 4. Prepopulates the symptom library on first unlock.
+ * 5. Syncs water drafts from [LockedWaterDraft] into the database.
+ * 6. Emits [PassphraseEffect.NavigateToTracker] on success.
  *
  * **Re-entrancy guard:** Ignores unlock requests while [PassphraseUiState.isUnlocking] is true.
  * **Error handling:** On failure, the session scope is closed and [PassphraseEffect.ShowError] is emitted.
@@ -61,14 +65,20 @@ class PassphraseViewModel(
 
                 withContext(Dispatchers.IO) {
                     val koin = getKoin()
-                    val sessionScope = koin.getScopeOrNull("session")
-                        ?: koin.createScope(
-                            scopeId = "session",
-                            qualifier = SESSION_SCOPE
-                        )
+
+                    // Always close a stale session scope so the PeriodDatabase is
+                    // re-created with the NEW passphrase. Without this, Koin returns
+                    // the cached (already-open) database from the old scope, bypassing
+                    // passphrase validation entirely.
+                    koin.getScopeOrNull("session")?.close()
+
+                    val sessionScope = koin.createScope(
+                        scopeId = "session",
+                        qualifier = SESSION_SCOPE
+                    )
 
                     val db = sessionScope.get<PeriodDatabase> { parametersOf(passphrase) }
-                    db.openHelper.writableDatabase
+                    db.openHelper.writableDatabase   // Force-open so SQLCipher consumes the real key
 
                     if (needsPrepopulation) {
                         val repository = sessionScope.get<PeriodRepository>()
