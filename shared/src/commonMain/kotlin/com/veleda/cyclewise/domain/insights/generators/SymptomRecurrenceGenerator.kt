@@ -10,12 +10,12 @@ import com.veleda.cyclewise.domain.insights.TopSymptomsInsight
  * where N is configured by [InsightData.topSymptomsCount].
  *
  * ## Minimum Data
- * Requires at least 10 total symptom log entries to produce a result.
+ * Requires at least 3 total symptom log entries to produce a result.
  */
 class SymptomRecurrenceGenerator : InsightGenerator {
     override fun generate(data: InsightData): List<Insight> {
         val allSymptomLogs = data.allLogs.flatMap { it.symptomLogs }
-        if (allSymptomLogs.size < 10) {
+        if (allSymptomLogs.size < 3) {
             return emptyList()
         }
 

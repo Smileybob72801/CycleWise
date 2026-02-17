@@ -20,20 +20,20 @@ private enum class MoodType { LOW, HIGH }
  * - Scores of 3 are excluded (neutral).
  *
  * ## Significance Criteria
- * Same as symptom patterns: >= 3 occurrences AND >= 60% recurrence across analyzed cycles.
+ * Same as symptom patterns: >= 1 occurrence AND >= 60% recurrence across analyzed cycles.
  *
  * ## Block Detection
  * Significant days are grouped by proximity (gap <= 2 days). A block must contain
  * at least 3 individually significant days to produce an insight.
  *
  * ## Minimum Data
- * Requires at least 4 completed periods (3 full cycles).
+ * Requires at least 2 completed periods (1 full cycle).
  */
 class MoodPhasePatternGenerator : InsightGenerator {
 
     override fun generate(data: InsightData): List<Insight> {
         val chronologicalCycles = data.allPeriods.filter { it.endDate != null }.reversed()
-        if (chronologicalCycles.size < 4) return emptyList()
+        if (chronologicalCycles.size < 2) return emptyList()
 
         val cyclePairs = chronologicalCycles.zipWithNext()
 
@@ -64,7 +64,7 @@ class MoodPhasePatternGenerator : InsightGenerator {
         }
 
         val significantDays = patternTally.filter { (_, count) ->
-            count >= 3 && (count.toDouble() / cyclePairs.size) >= 0.60
+            count >= 1 && (count.toDouble() / cyclePairs.size) >= 0.60
         }.map { it.key }
 
         if (significantDays.isEmpty()) return emptyList()

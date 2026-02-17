@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
  * compares their averages, and reports the trend.
  *
  * ## Minimum Data
- * Requires at least 6 completed periods (5 inter-cycle durations).
+ * Requires at least 3 completed periods (2 inter-cycle durations).
  *
  * ## Threshold
  * A difference of > 1 day between halves is considered a meaningful trend.
@@ -22,7 +22,7 @@ import kotlin.math.roundToInt
 class CycleLengthTrendGenerator : InsightGenerator {
     override fun generate(data: InsightData): List<Insight> {
         val completedCycles = data.allPeriods.filter { it.endDate != null }.reversed()
-        if (completedCycles.size < 6) {
+        if (completedCycles.size < 3) {
             return emptyList()
         }
 

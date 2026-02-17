@@ -147,7 +147,7 @@ class InsightEngineTest {
     @Test
     fun generateInsights_WHEN_insufficientLogs_THEN_omitsSymptomInsights() {
         // ARRANGE
-        val fewLogs = logs.take(5)
+        val fewLogs = logs.take(2)
 
         // ACT
         val insights = insightEngine.generateInsights(periods, fewLogs, symptomLib, topSymptomsCount = 2)

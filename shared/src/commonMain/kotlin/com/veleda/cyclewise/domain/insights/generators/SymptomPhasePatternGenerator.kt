@@ -29,7 +29,7 @@ import kotlin.time.ExperimentalTime
  * 3. **Pattern tallying:** Symptom occurrences are tallied per `(symptomId, normalizedDay)`
  *    across the last 8 cycles (via `takeLast(8)`).
  *
- * 4. **Significance filtering:** A pattern is significant if it occurs in >= 3 cycles
+ * 4. **Significance filtering:** A pattern is significant if it occurs in >= 1 cycle
  *    AND in >= 60% of analyzed cycles.
  *
  * 5. **Grouping:** Significant days for each symptom are grouped into consecutive-day
@@ -43,7 +43,7 @@ import kotlin.time.ExperimentalTime
  * - Patterns outside the period receive [NORMAL_PRIORITY] (98).
  *
  * ## Minimum Data
- * Requires at least 4 completed periods (3 full cycles).
+ * Requires at least 2 completed periods (1 full cycle).
  */
 class SymptomPhasePatternGenerator : InsightGenerator {
 
@@ -56,7 +56,7 @@ class SymptomPhasePatternGenerator : InsightGenerator {
     override fun generate(data: InsightData): List<Insight> {
         val chronologicalPeriods = data.allPeriods.filter { it.endDate != null }.reversed()
 
-        if (chronologicalPeriods.size < 4) return emptyList()
+        if (chronologicalPeriods.size < 2) return emptyList()
 
         val cyclePairs = chronologicalPeriods.zipWithNext()
 
@@ -82,7 +82,7 @@ class SymptomPhasePatternGenerator : InsightGenerator {
         }
 
         val significantPatterns = patternTally.filter { (_, count) ->
-            count >= 3 && (count.toDouble() / cyclePairs.size) >= 0.60
+            count >= 1 && (count.toDouble() / cyclePairs.size) >= 0.60
         }
         if (significantPatterns.isEmpty()) return emptyList()
 
