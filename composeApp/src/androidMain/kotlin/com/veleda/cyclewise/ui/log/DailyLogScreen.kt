@@ -21,9 +21,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.veleda.cyclewise.ui.theme.RhythmWiseColors
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
@@ -73,7 +73,7 @@ fun DailyLogScreen(
                 },
                 modifier = Modifier.testTag("save_log_button")
             ) {
-                Icon(Icons.Default.Check, contentDescription = "Save Log")
+                Icon(Icons.Default.Check, contentDescription = stringResource(R.string.daily_log_save))
             }
         }
     ) { padding ->
@@ -99,13 +99,13 @@ fun DailyLogScreen(
                         .verticalScroll(rememberScrollState())
                 ) {
                     Text(
-                        text = "Log for ${log.entry.entryDate.toLocalizedDateString()}",
+                        text = stringResource(R.string.daily_log_for, log.entry.entryDate.toLocalizedDateString()),
                         style = MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
 
                     if (uiState.isPeriodDay) {
-                        SectionTitle("Flow")
+                        SectionTitle(stringResource(R.string.daily_log_flow_title))
                         FlowIntensitySelector(
                             selectedIntensity = log.periodLog?.flowIntensity,
                             onSelectionChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) }
@@ -124,7 +124,7 @@ fun DailyLogScreen(
                         )
                     }
 
-                    SectionTitle("Mood")
+                    SectionTitle(stringResource(R.string.daily_log_mood_title))
                     MoodSelector(
                         selectedMood = log.entry.moodScore,
                         onSelectionChanged = { viewModel.onEvent(DailyLogEvent.MoodScoreChanged(it)) }
@@ -134,14 +134,14 @@ fun DailyLogScreen(
                     ScoreSelector(
                         selectedScore = log.entry.energyLevel,
                         onSelectionChanged = { viewModel.onEvent(DailyLogEvent.EnergyLevelChanged(it)) },
-                        contentDescriptionPrefix = "Energy"
+                        contentDescriptionPrefix = stringResource(R.string.energy_section_title)
                     )
 
                     SectionTitle(stringResource(R.string.libido_section_title))
                     ScoreSelector(
                         selectedScore = log.entry.libidoScore,
                         onSelectionChanged = { viewModel.onEvent(DailyLogEvent.LibidoScoreChanged(it)) },
-                        contentDescriptionPrefix = "Libido"
+                        contentDescriptionPrefix = stringResource(R.string.libido_section_title)
                     )
 
                     SectionTitle(stringResource(R.string.water_section_title))
@@ -153,7 +153,7 @@ fun DailyLogScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    SectionTitle("Symptoms")
+                    SectionTitle(stringResource(R.string.daily_log_symptoms_title))
                     SymptomLogger(
                         loggedSymptoms = log.symptomLogs,
                         symptomLibrary = uiState.symptomLibrary,
@@ -165,7 +165,7 @@ fun DailyLogScreen(
                         }
                     )
 
-                    SectionTitle("Medications")
+                    SectionTitle(stringResource(R.string.daily_log_medications_title))
                     MedicationLogger(
                         loggedMedications = log.medicationLogs,
                         medicationLibrary = uiState.medicationLibrary,
@@ -177,14 +177,14 @@ fun DailyLogScreen(
                         }
                     )
 
-                    SectionTitle("Custom Tags")
+                    SectionTitle(stringResource(R.string.daily_log_custom_tags_title))
                     CustomTagLogger(
                         tags = log.entry.customTags,
                         onAddTag = { viewModel.onEvent(DailyLogEvent.TagAdded(it)) },
                         onRemoveTag = { viewModel.onEvent(DailyLogEvent.TagRemoved(it)) }
                     )
 
-                    SectionTitle("Notes")
+                    SectionTitle(stringResource(R.string.daily_log_notes_title))
                     NoteEditor(
                         note = log.entry.note ?: "",
                         onNoteChanged = { viewModel.onEvent(DailyLogEvent.NoteChanged(it)) }
@@ -244,10 +244,10 @@ private fun MoodSelector(
                 val icon = if (score <= (selectedMood ?: 0)) Icons.Filled.Star else Icons.Outlined.StarOutlined
                 Icon(
                     icon,
-                    contentDescription = "Mood score $score",
+                    contentDescription = stringResource(R.string.daily_log_mood_score, score),
                     modifier = Modifier.size(40.dp),
                     tint = if (score <= (selectedMood ?: 0))
-                        Color(0xFFFFD700)
+                        RhythmWiseColors.StarGold
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -278,10 +278,10 @@ private fun ScoreSelector(
                 val icon = if (score <= (selectedScore ?: 0)) Icons.Filled.Star else Icons.Outlined.StarOutlined
                 Icon(
                     icon,
-                    contentDescription = "$contentDescriptionPrefix score $score",
+                    contentDescription = stringResource(R.string.daily_log_score, contentDescriptionPrefix, score),
                     modifier = Modifier.size(40.dp),
                     tint = if (score <= (selectedScore ?: 0))
-                        Color(0xFFFFD700)
+                        RhythmWiseColors.StarGold
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -396,7 +396,7 @@ private fun MedicationLogger(
         OutlinedTextField(
             value = newMedicationName,
             onValueChange = { newMedicationName = it },
-            label = { Text("Add new medication...") },
+            label = { Text(stringResource(R.string.daily_log_add_medication)) },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = {
@@ -411,7 +411,7 @@ private fun MedicationLogger(
                     },
                     enabled = newMedicationName.isNotBlank()
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Create and Add Medication")
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.daily_log_create_medication))
                 }
             }
         )
@@ -430,7 +430,7 @@ private fun CustomTagLogger(
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },
-            label = { Text("Add a custom tag...") },
+            label = { Text(stringResource(R.string.daily_log_add_tag)) },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = {
@@ -442,7 +442,7 @@ private fun CustomTagLogger(
                     onAddTag(text)
                     text = ""
                 }, enabled = text.isNotBlank()) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Tag")
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.daily_log_add_tag_button))
                 }
             }
         )
@@ -457,7 +457,7 @@ private fun CustomTagLogger(
                     label = { Text(tag) },
                     trailingIcon = {
                         IconButton(onClick = { onRemoveTag(tag) }, modifier = Modifier.size(18.dp)) {
-                            Icon(Icons.Default.Close, contentDescription = "Remove $tag")
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.daily_log_remove_tag, tag))
                         }
                     }
                 )
@@ -474,11 +474,11 @@ private fun NoteEditor(
     OutlinedTextField(
         value = note,
         onValueChange = onNoteChanged,
-        label = { Text("Add any notes...") },
+        label = { Text(stringResource(R.string.daily_log_add_notes)) },
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 120.dp),
-        placeholder = { Text("How are you feeling? Any observations?") }
+        placeholder = { Text(stringResource(R.string.daily_log_notes_placeholder)) }
     )
 }
 
@@ -513,7 +513,7 @@ private fun SymptomLogger(
         OutlinedTextField(
             value = newSymptomName,
             onValueChange = { newSymptomName = it },
-            label = { Text("Add new symptom...") },
+            label = { Text(stringResource(R.string.daily_log_add_symptom)) },
             modifier = Modifier
                 .testTag("create-symptom-textbox")
                 .fillMaxWidth(),
@@ -533,7 +533,7 @@ private fun SymptomLogger(
                     enabled = newSymptomName.isNotBlank(),
                     modifier = Modifier.testTag("create-symptom-button")
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Create and Add Symptom")
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.daily_log_create_symptom))
                 }
             }
         )

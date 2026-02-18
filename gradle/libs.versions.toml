@@ -33,6 +33,7 @@ androidx-arch-core = "2.2.0"
 robolectric = "4.16"
 turbine = "1.2.1"
 workmanager = "2.10.1"
+splashscreen = "1.0.1"
 bouncy = "1.81"
 androidx-test-core = "1.7.0"
 encoding = "2.4.0"
@@ -88,6 +89,7 @@ androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = 
 
 workmanager-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "workmanager" }
 workmanager-testing = { module = "androidx.work:work-testing", version.ref = "workmanager" }
+splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 
 # --- ANDROIDX TEST ---
 androidx-test-core = { module = "androidx.test:core-ktx", version.ref = "androidx-test" } # This should exist

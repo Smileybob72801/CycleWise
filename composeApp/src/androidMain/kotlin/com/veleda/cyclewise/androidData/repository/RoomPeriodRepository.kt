@@ -361,6 +361,7 @@ class RoomPeriodRepository(
                     isPeriodDay = existingInfo.isPeriodDay || log.periodLog != null,
                     hasLoggedSymptoms = log.symptomLogs.isNotEmpty(),
                     hasLoggedMedications = log.medicationLogs.isNotEmpty(),
+                    hasNotes = !log.entry.note.isNullOrBlank(),
                     cyclePhase = phase
                 )
             }

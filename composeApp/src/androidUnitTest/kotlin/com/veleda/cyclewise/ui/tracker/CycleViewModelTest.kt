@@ -126,6 +126,23 @@ class CycleViewModelTest {
     }
 
     @Test
+    fun init_WHEN_dayDetailsHaveNotes_THEN_calendarDayInfoHasNotesTrue() = runTest {
+        // GIVEN — repository emits day details where hasNotes is true
+        val date = TestData.DATE
+        val dayDetails = DayDetails(hasNotes = true)
+        every { mockRepository.observeDayDetails() } returns flowOf(mapOf(date to dayDetails))
+
+        // WHEN — a new ViewModel is created and collects the flow
+        val vm = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings)
+        advanceUntilIdle()
+
+        // THEN — the mapped CalendarDayInfo has hasNotes = true
+        val mapped = vm.uiState.value.dayDetails[date]
+        assertNotNull(mapped)
+        assertTrue(mapped.hasNotes, "CalendarDayInfo.hasNotes should be true when DayDetails.hasNotes is true")
+    }
+
+    @Test
     fun onEvent_DeletePeriodDismissed_THEN_clearsConfirmationState() = runTest {
         // ARRANGE
         val periodId = "period-to-dismiss-id"

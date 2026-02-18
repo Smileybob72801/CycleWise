@@ -91,4 +91,61 @@ class InsightsViewModelTest {
             expectNoEvents()
         }
     }
+
+    @Test
+    fun refresh_WHEN_called_THEN_setsIsRefreshingAndReloads() = runTest {
+        // ARRANGE — init with empty, then refresh returns data
+        val refreshedInsights = listOf(CycleLengthAverage(30.0))
+        coEvery { mockAppSettings.topSymptomsCount } returns flowOf(3)
+        coEvery { mockRepository.getAllPeriods() } returns flowOf(emptyList())
+        coEvery { mockRepository.getAllLogs() } returns flowOf(emptyList())
+        coEvery { mockRepository.getSymptomLibrary() } returns flowOf(emptyList())
+        coEvery {
+            mockInsightEngine.generateInsights(any(), any(), any(), any())
+        } returns emptyList() andThen refreshedInsights
+
+        viewModel = InsightsViewModel(mockRepository, mockInsightEngine, mockAppSettings)
+
+        // ACT
+        viewModel.refresh()
+
+        // ASSERT
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertFalse(state.isRefreshing, "isRefreshing should be false after refresh completes")
+            assertEquals(refreshedInsights, state.insights)
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun refresh_WHEN_called_THEN_doesNotSetIsLoading() = runTest {
+        // ARRANGE — init returns empty, refresh returns new data so StateFlow emits a change
+        val refreshedInsights = listOf(CycleLengthAverage(25.0))
+        coEvery { mockAppSettings.topSymptomsCount } returns flowOf(3)
+        coEvery { mockRepository.getAllPeriods() } returns flowOf(emptyList())
+        coEvery { mockRepository.getAllLogs() } returns flowOf(emptyList())
+        coEvery { mockRepository.getSymptomLibrary() } returns flowOf(emptyList())
+        coEvery {
+            mockInsightEngine.generateInsights(any(), any(), any(), any())
+        } returns emptyList() andThen refreshedInsights
+
+        viewModel = InsightsViewModel(mockRepository, mockInsightEngine, mockAppSettings)
+
+        // ASSERT — after init, isLoading should already be false
+        viewModel.uiState.test {
+            val postInitState = awaitItem()
+            assertFalse(postInitState.isLoading, "isLoading should be false after init")
+
+            // ACT — refresh produces new data, forcing a new emission
+            viewModel.refresh()
+            val postRefreshState = awaitItem()
+
+            // ASSERT — isLoading must stay false during and after refresh
+            assertFalse(postRefreshState.isLoading, "isLoading should stay false during refresh")
+            assertFalse(postRefreshState.isRefreshing, "isRefreshing should be false after refresh completes")
+            assertEquals(refreshedInsights, postRefreshState.insights)
+            expectNoEvents()
+        }
+    }
 }

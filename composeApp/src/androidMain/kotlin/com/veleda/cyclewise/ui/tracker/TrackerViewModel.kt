@@ -74,6 +74,7 @@ class TrackerViewModel(
                             isPeriodDay = domainDetails.isPeriodDay,
                             hasSymptoms = domainDetails.hasLoggedSymptoms,
                             hasMedications = domainDetails.hasLoggedMedications,
+                            hasNotes = domainDetails.hasNotes,
                             cyclePhase = domainDetails.cyclePhase
                         )
                     }

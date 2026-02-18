@@ -47,14 +47,23 @@ val SESSION_SCOPE: Qualifier = named("UnlockedSessionScope")
 /**
  * Creates the encrypted [PeriodDatabase] and zeroizes the derived key immediately afterward.
  *
- * Uses `try/finally` to guarantee the key [ByteArray] is filled with zeros even if
- * [PeriodDatabase.create] throws, fulfilling the security contract documented at
+ * **Why `copyOf()`?** [PeriodDatabase.create] passes the key to SQLCipher's [SupportFactory],
+ * which stores a **reference** (not a copy). `Room.databaseBuilder().build()` returns
+ * *without* opening the database. If we zeroed the original key before the database was
+ * actually opened, [SupportFactory] would read an all-zeros array and every passphrase
+ * would succeed. Passing `key.copyOf()` gives [SupportFactory] its own array so the
+ * original can be zeroed immediately. The copy is zeroed by SQLCipher's built-in
+ * `clearPassphrase` mechanism when [db.openHelper.writableDatabase] is called later.
+ *
+ * Uses `try/finally` to guarantee the original key [ByteArray] is filled with zeros even
+ * if [PeriodDatabase.create] throws, fulfilling the security contract documented at
  * [PeriodDatabase.create].
  *
  * @param context          application context for Room.
  * @param passphraseService service that derives the 32-byte AES key.
  * @param passphrase       the user-entered secret.
- * @return the opened [PeriodDatabase].
+ * @return the [PeriodDatabase]; caller must call [db.openHelper.writableDatabase] to
+ *         force-open with the real key before using DAOs.
  */
 internal fun createDatabaseAndZeroizeKey(
     context: Context,
@@ -63,7 +72,7 @@ internal fun createDatabaseAndZeroizeKey(
 ): PeriodDatabase {
     val key = passphraseService.deriveKey(passphrase)
     return try {
-        PeriodDatabase.create(context, key)
+        PeriodDatabase.create(context, key.copyOf())
     } finally {
         key.fill(0)
     }
@@ -111,12 +120,34 @@ val appModule = module {
     viewModel { PassphraseViewModel(appSettings = get(), lockedWaterDraft = get()) }
 
     scope(SESSION_SCOPE) {
-        // DB Provider
+        /*
+         * --- Encrypted Database Provider ---
+         *
+         * The `passphrase: String` parameter is supplied by the ViewModel via
+         * `parametersOf(passphrase)` when it resolves `PeriodDatabase` from this scope.
+         *
+         * `createDatabaseAndZeroizeKey` derives the 32-byte AES key, passes
+         * `key.copyOf()` to `SupportFactory` (so the factory has its own array),
+         * and zeros the original immediately. See `createDatabaseAndZeroizeKey` KDoc
+         * for the full rationale on `copyOf()`.
+         *
+         * IMPORTANT: The returned database is NOT yet opened — `Room.build()` defers
+         * the file open. The caller (`PassphraseViewModel.unlock()`) MUST call
+         * `db.openHelper.writableDatabase` before using any DAOs, so that SQLCipher
+         * consumes the real key and validates the passphrase.
+         */
         scoped { (passphrase: String) ->
             createDatabaseAndZeroizeKey(androidContext(), get(), passphrase)
         }
 
-        // DAO Providers
+        /*
+         * --- DAO Providers ---
+         *
+         * Each DAO is resolved via `get<PeriodDatabase>()`, which returns the cached
+         * (already-created) instance from the scoped provider above. Because the
+         * database is scoped, all DAOs share the same `PeriodDatabase` instance
+         * within a session and are destroyed together when the session scope closes.
+         */
         scoped { get<PeriodDatabase>().periodDao() }
         scoped { get<PeriodDatabase>().dailyEntryDao() }
         scoped { get<PeriodDatabase>().symptomDao() }

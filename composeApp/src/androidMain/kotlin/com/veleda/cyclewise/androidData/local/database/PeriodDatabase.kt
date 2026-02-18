@@ -60,24 +60,65 @@ import net.sqlcipher.database.SupportFactory
 )
 @TypeConverters(Converters::class)
 abstract class PeriodDatabase : RoomDatabase() {
+    /** Returns the [PeriodDao] for CRUD operations on the `periods` table. */
     abstract fun periodDao(): PeriodDao
+
+    /** Returns the [DailyEntryDao] for CRUD operations on the `daily_entries` table. */
     abstract fun dailyEntryDao(): DailyEntryDao
+
+    /** Returns the [SymptomDao] for CRUD operations on the `symptom_library` table. */
     abstract fun symptomDao(): SymptomDao
+
+    /** Returns the [MedicationDao] for CRUD operations on the `medication_library` table. */
     abstract fun medicationDao(): MedicationDao
+
+    /** Returns the [MedicationLogDao] for CRUD operations on the `medication_logs` table. */
     abstract fun medicationLogDao(): MedicationLogDao
+
+    /** Returns the [SymptomLogDao] for CRUD operations on the `symptom_logs` table. */
     abstract fun symptomLogDao(): SymptomLogDao
+
+    /** Returns the [PeriodLogDao] for CRUD operations on the `period_logs` table. */
     abstract fun periodLogDao(): PeriodLogDao
+
+    /** Returns the [WaterIntakeDao] for CRUD operations on the `water_intake` table. */
     abstract fun waterIntakeDao(): WaterIntakeDao
 
     companion object {
         /**
-         * Creates (or opens) the encrypted database.
+         * Creates (or opens) the encrypted database backed by SQLCipher.
+         *
+         * ## Security: SupportFactory reference semantics
+         *
+         * [SupportFactory] stores the [passphrase] array **by reference**, not by copy.
+         * Meanwhile, `Room.databaseBuilder().build()` returns **without** opening the
+         * underlying SQLCipher file — the actual file open is deferred until the first
+         * DAO query or an explicit call to [openHelper.writableDatabase].
+         *
+         * This creates a dangerous ordering constraint: if the caller zeros the
+         * [passphrase] array between `build()` and the first real database open,
+         * [SupportFactory] will read an all-zeros key and SQLCipher will silently
+         * encrypt with the wrong key (or open an empty database), making **every**
+         * passphrase appear valid.
+         *
+         * To avoid this, callers must do **one** of the following:
+         * 1. Pass `passphrase.copyOf()` so the factory has its own independent array
+         *    (the approach used by [createDatabaseAndZeroizeKey]).
+         * 2. Call `db.openHelper.writableDatabase` **before** zeroing the original
+         *    array, which forces SQLCipher to consume the key immediately.
+         *
+         * Note: [SupportFactory]'s default `clearPassphrase = true` constructor
+         * parameter causes it to zero **its own** array after
+         * `getWritableDatabase()` succeeds, so the copy is cleaned up automatically.
          *
          * @param context    application context for the Room builder.
          * @param passphrase 32-byte AES key derived from the user's passphrase.
          *                   **Caller must zeroize this array after this method returns.**
+         *                   See the security section above for ordering constraints.
          * @param dbName     database file name (default: "cyclewise.db").
-         * @return the opened [PeriodDatabase] instance.
+         * @return the [PeriodDatabase] instance. **Not yet opened** — the caller must
+         *         call `db.openHelper.writableDatabase` to force SQLCipher to consume
+         *         the key before any DAO access.
          */
         fun create(
             context: Context,

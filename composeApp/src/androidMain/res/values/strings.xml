@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">PeriodTracker</string>
+    <string name="app_name">RhythmWise</string>
     <string name="water_tracker_title">Water Today</string>
     <string name="water_cups_count">%d cups</string>
     <string name="water_yesterday_message">You logged %d cups yesterday. Log in to save.</string>
@@ -58,4 +58,116 @@
     <string name="reminder_notification_title">RhythmWise</string>
     <string name="reminder_notification_body">Time to check your app</string>
     <string name="reminder_permission_rationale">Notification permission is needed to send reminders.</string>
+
+    <!-- Tracker -->
+    <string name="tracker_delete_title">Confirm Deletion</string>
+    <string name="tracker_delete_message">Are you sure you want to permanently delete this period and all its associated flow logs? This action cannot be undone.</string>
+    <string name="tracker_delete_confirm">Delete Period</string>
+    <string name="tracker_cancel">Cancel</string>
+    <string name="tracker_ongoing_period">Ongoing Period: %s</string>
+    <string name="tracker_instructions">Long press a day to start/mark your period. Tap to log details.</string>
+    <string name="tracker_log_for">Log for %s</string>
+    <string name="tracker_edit_log">Edit Log</string>
+    <string name="tracker_delete_period">Delete Period</string>
+    <string name="tracker_phase_label">Phase</string>
+    <string name="tracker_flow_label">Flow</string>
+    <string name="tracker_mood_label">Mood</string>
+    <string name="tracker_energy_label">Energy</string>
+    <string name="tracker_libido_label">Libido</string>
+    <string name="tracker_water_label">Water</string>
+    <string name="tracker_water_cups">%d cups</string>
+    <string name="tracker_symptoms_label">Symptoms</string>
+    <string name="tracker_medications_label">Medications</string>
+    <string name="tracker_previous_month">Previous month</string>
+    <string name="tracker_next_month">Next month</string>
+    <string name="tracker_today">Today</string>
+    <string name="tracker_view_full_log">View Full Log</string>
+    <string name="tracker_notes_label">Notes</string>
+
+    <!-- Daily Log -->
+    <string name="daily_log_save">Save Log</string>
+    <string name="daily_log_for">Log for %s</string>
+    <string name="daily_log_flow_title">Flow</string>
+    <string name="daily_log_mood_title">Mood</string>
+    <string name="daily_log_symptoms_title">Symptoms</string>
+    <string name="daily_log_medications_title">Medications</string>
+    <string name="daily_log_custom_tags_title">Custom Tags</string>
+    <string name="daily_log_notes_title">Notes</string>
+    <string name="daily_log_mood_score">Mood score %d</string>
+    <string name="daily_log_score">%1$s score %2$d</string>
+    <string name="daily_log_add_medication">Add new medication…</string>
+    <string name="daily_log_create_medication">Create and Add Medication</string>
+    <string name="daily_log_add_tag">Add a custom tag…</string>
+    <string name="daily_log_add_tag_button">Add Tag</string>
+    <string name="daily_log_remove_tag">Remove %s</string>
+    <string name="daily_log_add_notes">Add any notes…</string>
+    <string name="daily_log_notes_placeholder">How are you feeling? Any observations?</string>
+    <string name="daily_log_add_symptom">Add new symptom…</string>
+    <string name="daily_log_create_symptom">Create and Add Symptom</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_autolock_title">Auto-lock timeout (minutes)</string>
+    <string name="settings_security_title">Security</string>
+    <string name="settings_lock_button">Lock Now</string>
+    <string name="settings_locked_message">Currently locked — unlock to access secured data.</string>
+    <string name="settings_insights_title">Insight Settings</string>
+    <string name="settings_top_symptoms">Top Frequent Symptoms to Display: %d</string>
+    <string name="settings_developer_title">Developer Options</string>
+    <string name="settings_seeding">Seeding database…</string>
+    <string name="settings_seeding_complete">Seeding complete!</string>
+    <string name="settings_seed_button">Seed Database w/ Test Data</string>
+    <string name="settings_developer_locked">Unlock the app to use developer tools.</string>
+    <string name="settings_section_security">Security</string>
+    <string name="settings_section_display">Display</string>
+    <string name="settings_section_customization">Customization</string>
+    <string name="settings_section_notifications">Notifications</string>
+    <string name="settings_autolock_description">Lock the app after inactivity</string>
+    <string name="settings_autolock_minutes_unit">min</string>
+    <string name="show_mood_description">Display mood score in daily log summary</string>
+    <string name="show_energy_description">Display energy level in daily log summary</string>
+    <string name="show_libido_description">Display libido score in daily log summary</string>
+    <string name="show_follicular_description">Show Follicular phase tint on the calendar</string>
+    <string name="show_ovulation_description">Show Ovulation phase tint on the calendar</string>
+    <string name="show_luteal_description">Show Luteal phase tint on the calendar</string>
+    <string name="phase_color_presets_label">Presets</string>
+    <string name="phase_color_preset_content_description">Select color %s</string>
+
+    <!-- Passphrase -->
+    <string name="passphrase_unlocking">Unlocking…</string>
+    <string name="passphrase_instruction">Enter your passphrase</string>
+    <string name="passphrase_label">Passphrase</string>
+    <string name="passphrase_unlock">Unlock</string>
+    <string name="passphrase_error">Failed to unlock. Wrong passphrase?</string>
+    <string name="passphrase_show">Show passphrase</string>
+    <string name="passphrase_hide">Hide passphrase</string>
+    <string name="passphrase_logo_description">RhythmWise logo</string>
+    <string name="passphrase_water_toggle">Quick log water</string>
+
+    <!-- Insights -->
+    <string name="insights_title">Insights</string>
+    <string name="insights_empty">Not enough data to generate insights yet. Keep tracking!</string>
+    <string name="insights_empty_heading">No Insights Yet</string>
+    <string name="insights_empty_body">Start tracking your cycle to see patterns and predictions here.</string>
+    <string name="insights_cycle_length_days_label">days</string>
+    <string name="insights_prediction_in_days">in %d days</string>
+    <string name="insights_prediction_today">Today</string>
+    <string name="insights_prediction_overdue">%d days ago</string>
+    <string name="insights_recurrence_rate">%s of recent cycles</string>
+    <string name="insights_content_description_trend_up">Trend increasing</string>
+    <string name="insights_content_description_trend_down">Trend decreasing</string>
+    <string name="insights_content_description_trend_stable">Trend stable</string>
+    <string name="insights_content_description_prediction_icon">Calendar prediction</string>
+    <string name="insights_content_description_empty_icon">No insights available</string>
+
+    <!-- Reminder time labels -->
+    <string name="reminder_hour_label">Hour</string>
+    <string name="reminder_minute_label">Minute</string>
+
+    <!-- About -->
+    <string name="about_title">About</string>
+    <string name="about_description">Privacy-first cycle tracking</string>
+    <string name="about_version_label">Version %s</string>
+    <string name="about_license">Licensed under the Apache License 2.0</string>
+    <string name="about_close">Close</string>
 </resources>

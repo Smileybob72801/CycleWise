@@ -50,11 +50,13 @@ kotlin {
             implementation(libs.compose.calendar)
             implementation(libs.uuid)
             implementation(libs.workmanager.runtime)
+            implementation(libs.splashscreen)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
+            implementation(compose.materialIconsExtended)
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
@@ -143,6 +145,8 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
 
     androidTestImplementation(libs.androidx.test.core)
 

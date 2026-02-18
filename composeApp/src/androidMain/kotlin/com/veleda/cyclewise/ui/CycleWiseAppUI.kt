@@ -1,80 +1,126 @@
 package com.veleda.cyclewise.ui
 
-import android.util.Log
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.Modifier
-import org.jetbrains.compose.ui.tooling.preview.Preview
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.navigation.compose.rememberNavController
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.navigation.NavType
-import androidx.navigation.compose.*
-import androidx.navigation.navArgument
-import com.veleda.cyclewise.ui.nav.*
-import com.veleda.cyclewise.ui.tracker.TrackerScreen
-import com.veleda.cyclewise.ui.auth.PassphraseScreen
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.veleda.cyclewise.ui.auth.PassphraseScreen
 import com.veleda.cyclewise.ui.insights.InsightsScreen
 import com.veleda.cyclewise.ui.log.DailyLogScreen
+import com.veleda.cyclewise.ui.nav.BottomNavBar
+import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.settings.SettingsScreen
+import com.veleda.cyclewise.ui.theme.RhythmWiseTheme
+import com.veleda.cyclewise.ui.tracker.TrackerScreen
 import kotlinx.datetime.LocalDate
+import org.jetbrains.compose.ui.tooling.preview.Preview
+
+/** Duration (ms) for default bottom-nav tab crossfade transitions. */
+private const val DEFAULT_TRANSITION_DURATION_MS = 300
+
+/** Duration (ms) for the DailyLog detail slide transition. */
+private const val DETAIL_TRANSITION_DURATION_MS = 300
+
+/** Duration (ms) for the passphrase authentication gate fade transition. */
+private const val AUTH_TRANSITION_DURATION_MS = 400
 
 @Composable
 @Preview
 fun CycleWiseAppUI() {
-    val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
+    RhythmWiseTheme {
+        val navController = rememberNavController()
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = navBackStackEntry?.destination?.route
 
-    Scaffold(
-        bottomBar = {
-            if (currentRoute != NavRoute.Passphrase.route) {
-                BottomNavBar(navController) }
+        Scaffold(
+            bottomBar = {
+                if (currentRoute != NavRoute.Passphrase.route) {
+                    BottomNavBar(navController)
+                }
             },
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(WindowInsets.systemBars.asPaddingValues())
-    ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = NavRoute.Passphrase.route,
-            modifier = Modifier.padding(padding)
-        ) {
-            composable(NavRoute.Passphrase.route) {
-                PassphraseScreen {
-                    navController.navigate(NavRoute.Tracker.route) {
-                        popUpTo(NavRoute.Passphrase.route) { inclusive = true }
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.systemBars.asPaddingValues()),
+        ) { padding ->
+            NavHost(
+                navController = navController,
+                startDestination = NavRoute.Passphrase.route,
+                modifier = Modifier.padding(padding),
+                enterTransition = { fadeIn(tween(DEFAULT_TRANSITION_DURATION_MS)) },
+                exitTransition = { fadeOut(tween(DEFAULT_TRANSITION_DURATION_MS)) },
+                popEnterTransition = { fadeIn(tween(DEFAULT_TRANSITION_DURATION_MS)) },
+                popExitTransition = { fadeOut(tween(DEFAULT_TRANSITION_DURATION_MS)) },
+            ) {
+                composable(
+                    route = NavRoute.Passphrase.route,
+                    enterTransition = { fadeIn(tween(AUTH_TRANSITION_DURATION_MS)) },
+                    exitTransition = { fadeOut(tween(AUTH_TRANSITION_DURATION_MS)) },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = { fadeOut(tween(AUTH_TRANSITION_DURATION_MS)) },
+                ) {
+                    PassphraseScreen {
+                        navController.navigate(NavRoute.Tracker.route) {
+                            popUpTo(NavRoute.Passphrase.route) { inclusive = true }
+                        }
                     }
                 }
-            }
-            composable(NavRoute.Tracker.route) {
-                TrackerScreen(navController)
-            }
-            composable(NavRoute.Insights.route) {
-                InsightsScreen()
-            }
-            composable(NavRoute.Settings.route) {
-                SettingsScreen(navController)
-            }
+                composable(NavRoute.Tracker.route) {
+                    TrackerScreen(navController)
+                }
+                composable(NavRoute.Insights.route) {
+                    InsightsScreen()
+                }
+                composable(NavRoute.Settings.route) {
+                    SettingsScreen(navController)
+                }
 
-            composable(
-                route = NavRoute.DailyLog.route,
-                arguments = listOf(
-                    navArgument("date") { type = NavType.StringType },
-                    navArgument("isPeriodDay") { type = NavType.BoolType; defaultValue = false }
-                )
-            ) { backStackEntry ->
-                val dateString = backStackEntry.arguments?.getString("date")
-                val isPeriodDay = backStackEntry.arguments?.getBoolean("isPeriodDay") ?: false
-                if (dateString != null) {
-                    DailyLogScreen(
-                        date = LocalDate.parse(dateString),
-                        onSaveComplete = { navController.popBackStack() },
-                        isPeriodDay = isPeriodDay
-                    )
+                composable(
+                    route = NavRoute.DailyLog.route,
+                    arguments = listOf(
+                        navArgument("date") { type = NavType.StringType },
+                        navArgument("isPeriodDay") { type = NavType.BoolType; defaultValue = false },
+                    ),
+                    enterTransition = {
+                        slideInVertically(
+                            animationSpec = tween(DETAIL_TRANSITION_DURATION_MS),
+                            initialOffsetY = { fullHeight -> fullHeight },
+                        )
+                    },
+                    exitTransition = { fadeOut(tween(DETAIL_TRANSITION_DURATION_MS)) },
+                    popEnterTransition = { fadeIn(tween(DETAIL_TRANSITION_DURATION_MS)) },
+                    popExitTransition = {
+                        slideOutVertically(
+                            animationSpec = tween(DETAIL_TRANSITION_DURATION_MS),
+                            targetOffsetY = { fullHeight -> fullHeight },
+                        )
+                    },
+                ) { backStackEntry ->
+                    val dateString = backStackEntry.arguments?.getString("date")
+                    val isPeriodDay = backStackEntry.arguments?.getBoolean("isPeriodDay") ?: false
+                    if (dateString != null) {
+                        DailyLogScreen(
+                            date = LocalDate.parse(dateString),
+                            onSaveComplete = { navController.popBackStack() },
+                            isPeriodDay = isPeriodDay,
+                        )
+                    }
                 }
             }
         }
