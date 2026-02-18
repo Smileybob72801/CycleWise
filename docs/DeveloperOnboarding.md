@@ -28,6 +28,16 @@ content from these companion documents:
 
 ## Table of Contents
 
+- [Phase 0 — From 0 to 60](#phase-0--from-0-to-60)
+  - [0.1 What Is This Project?](#01-what-is-this-project)
+  - [0.2 Where Is the Source Code?](#02-where-is-the-source-code)
+  - [0.3 How Do I Build and Run It?](#03-how-do-i-build-and-run-it)
+  - [0.4 Can I Just Get an APK?](#04-can-i-just-get-an-apk)
+  - [0.5 What Is KMP and Why Should I Care?](#05-what-is-kmp-and-why-should-i-care)
+  - [0.6 What Frameworks and Libraries Are Used?](#06-what-frameworks-and-libraries-are-used)
+  - [0.7 What Architecture and Design Patterns Are Used?](#07-what-architecture-and-design-patterns-are-used)
+  - [0.8 How Do I Contribute? (Git Flow)](#08-how-do-i-contribute-git-flow)
+  - [0.9 Where Do I Go from Here?](#09-where-do-i-go-from-here)
 - [Phase 1 — Foundation](#phase-1--foundation)
   - [1.1 What is KMP and Why We Use It](#11-what-is-kmp-and-why-we-use-it)
   - [1.2 Module Structure](#12-module-structure)
@@ -72,6 +82,247 @@ content from these companion documents:
   - [5.4 Migration Strategy](#54-migration-strategy)
   - [5.5 DI Scaling](#55-di-scaling)
 - [Appendix: Dependency Layering Diagram](#appendix-dependency-layering-diagram)
+
+---
+
+# Phase 0 — From 0 to 60
+
+This section answers the questions every developer asks within the first five minutes
+of looking at the repository. If you are already familiar with the project, skip ahead
+to [Phase 1](#phase-1--foundation).
+
+## 0.1 What Is This Project?
+
+RhythmWise is a **privacy-first menstrual cycle tracker** built with Kotlin
+Multiplatform (KMP). It tracks periods, symptoms, medications, mood, and water intake,
+then generates cycle-length predictions and pattern insights — all without ever leaving
+the device.
+
+| Detail | Value |
+|--------|-------|
+| Package namespace | `com.veleda.cyclewise` |
+| Encryption | Argon2id key derivation + SQLCipher AES-256-GCM |
+| Network posture | **Zero** — no internet permission, no telemetry, no cloud sync |
+
+Everything is encrypted at rest behind a user-chosen passphrase. There is no recovery
+mechanism by design — if the passphrase is lost, the data is gone. For the full threat
+model, see [`docs/SECURITY_MODEL.md`](SECURITY_MODEL.md).
+
+## 0.2 Where Is the Source Code?
+
+The repository has two Gradle modules:
+
+| Module | Role | Think of it as… |
+|--------|------|-----------------|
+| `shared/` | Platform-agnostic domain logic (models, use cases, insights, repository interface) | The **brains** — pure Kotlin, no Android imports |
+| `composeApp/` | Android application (Compose UI, Room database, DI wiring, encryption service) | The **face** — everything the user sees and touches |
+
+**"Where are the brains?"** — Domain logic lives in:
+
+```
+shared/src/commonMain/kotlin/com/veleda/cyclewise/domain/
+├── models/        # Period, DailyEntry, Symptom, enums
+├── usecases/      # StartNewPeriodUseCase, EndPeriodUseCase, etc.
+├── insights/      # InsightEngine + 6 generators
+├── repository/    # PeriodRepository interface
+├── providers/     # SymptomLibraryProvider, MedicationLibraryProvider
+└── services/      # PassphraseService (abstract)
+```
+
+**"Where does the app start?"**
+
+| File | What it does |
+|------|-------------|
+| `composeApp/.../CycleWiseApp.kt` | Top-level `@Composable` — sets up theme, navigation host, and session-aware scaffold |
+| `composeApp/.../MainActivity.kt` | Android `Activity` entry point — initializes Koin and hosts `CycleWiseApp` |
+| `composeApp/.../ui/nav/NavRoutes.kt` | Defines the 5 navigation routes and the bottom navigation bar |
+
+For the full directory tree, see [1.2 Module Structure](#12-module-structure).
+
+## 0.3 How Do I Build and Run It?
+
+### Prerequisites
+
+- **Android Studio** — latest stable release (Ladybug or newer)
+- **JDK 11+** — bundled with Android Studio, no separate install needed
+- **Android SDK 35** — install via Android Studio's SDK Manager
+
+> Gradle 8.13 and Kotlin 2.2.0 ship via the Gradle wrapper and version catalog —
+> you should **not** need to install them manually.
+
+### Option A — Android Studio (recommended)
+
+1. Clone the repository: `git clone <repo-url>`
+2. Open the project root in Android Studio
+3. Wait for Gradle sync to finish (first sync downloads dependencies)
+4. Select the **composeApp** run configuration
+5. Press **Run** (green play button) with an emulator or connected device
+
+### Option B — Command line
+
+```bash
+# Build the debug APK
+./gradlew clean assembleDebug
+
+# Install on a connected device or running emulator
+./gradlew installDebug
+```
+
+The APK is written to:
+
+```
+composeApp/build/outputs/apk/debug/composeApp-debug.apk
+```
+
+### First launch
+
+The app opens to a **passphrase screen** — create any passphrase you like. There is no
+recovery, so remember it. Once unlocked, open **Settings** and tap **Seed Debug Data**
+to populate the calendar with sample periods and symptoms.
+
+### Running tests
+
+```bash
+./gradlew testDebugUnitTest
+```
+
+For full test documentation, see [`docs/testing/RUNNING_TESTS.md`](testing/RUNNING_TESTS.md).
+For detailed run instructions, see [4.1 How to Run the Project](#41-how-to-run-the-project).
+
+## 0.4 Can I Just Get an APK?
+
+Not yet — the project is in early development and there is no pre-built binary or app
+store listing at this stage. An app store release is planned for the future.
+
+For now, you need to build from source. If you followed
+[0.3](#03-how-do-i-build-and-run-it), you already have an APK sitting in
+`composeApp/build/outputs/apk/debug/`.
+
+## 0.5 What Is KMP and Why Should I Care?
+
+**KMP (Kotlin Multiplatform)** lets you write business logic once in Kotlin and compile
+it for Android, iOS, desktop, and more. The key concept is **source sets**:
+
+| Source set | Compiles for | Can import |
+|------------|-------------|------------|
+| `commonMain` | All targets | Pure Kotlin + `kotlinx` libraries only |
+| `androidMain` | Android | Android SDK, Jetpack, Room |
+| `iosMain` | iOS | UIKit, Foundation, Apple frameworks |
+
+**Day-to-day**, this means:
+
+- Domain code (models, use cases, insights) goes in `shared/src/commonMain/`
+- Android-specific code (Compose UI, Room DAOs, encryption) goes in `composeApp/`
+
+**Why RhythmWise uses it:** The entire domain layer already compiles for iOS. When an
+iOS app is eventually built, all business logic, use cases, and the insight engine are
+ready — only the UI and platform services need to be written.
+
+For the deep dive on KMP, `expect`/`actual` declarations, and source set rules, see
+[1.1 What is KMP and Why We Use It](#11-what-is-kmp-and-why-we-use-it).
+
+## 0.6 What Frameworks and Libraries Are Used?
+
+All versions live in [`gradle/libs.versions.toml`](../gradle/libs.versions.toml) — you
+will never see a hardcoded version string in a `build.gradle.kts` file.
+
+| Library | What it does | Why it is here |
+|---------|-------------|----------------|
+| Jetpack Compose | Declarative UI toolkit | All screens are `@Composable` functions |
+| Room | SQLite ORM with compile-time query verification | Type-safe database access for 8 tables |
+| SQLCipher | Transparent AES-256 encryption for SQLite | Encrypts the entire database at rest |
+| Koin | Lightweight dependency injection | Wires all layers together; supports session scoping |
+| BouncyCastle + Argon2id | Cryptographic key derivation | Derives the database key from the user's passphrase |
+| kotlinx-coroutines | Structured concurrency | All async work (DB queries, Flow streams) |
+| kotlinx-datetime | Multiplatform date/time | Date math for cycle calculations and insights |
+| WorkManager | Background task scheduling | Auto-close stale periods after midnight |
+| MockK | Kotlin-first mocking library | Unit test doubles for repositories and use cases |
+| Turbine | Flow testing library | Asserts emissions from `StateFlow` and `SharedFlow` |
+| Robolectric | Android unit tests without emulator | Tests Room DAOs and Android components on JVM |
+
+For Gradle configuration details, see
+[1.3 Gradle Structure and Version Catalog](#13-gradle-structure-and-version-catalog).
+
+## 0.7 What Architecture and Design Patterns Are Used?
+
+RhythmWise follows **Clean Architecture** with the **MVVM** (Model-View-ViewModel)
+presentation pattern. The dependency flow is a single direction:
+
+```
+Compose Screen → ViewModel → Use Case → Repository → DAO → SQLCipher DB
+```
+
+| Pattern | One-sentence summary |
+|---------|---------------------|
+| Clean Architecture | Business logic in `shared/` has zero knowledge of Android, Room, or Compose |
+| MVVM | Each screen has a ViewModel that exposes a `StateFlow<UiState>` the screen collects |
+| Repository pattern | `PeriodRepository` interface defines all data operations; `RoomPeriodRepository` implements them with Room |
+| Session scope | The database, DAOs, repository, and use cases are created when the user unlocks and destroyed on logout — the key never persists |
+
+> **The single most important concept to understand is the session scope.** It controls
+> the lifetime of the encryption key and every object that depends on it. If you read
+> nothing else before writing code, read
+> [2.3 Session Scope Lifetime](#23-session-scope-lifetime).
+
+For architecture deep dives, see [1.4 Dependency Injection with Koin](#14-dependency-injection-with-koin),
+[1.6 MVVM and MVI Pattern](#16-mvvm-and-mvi-pattern),
+[1.7 Repository Pattern and Clean Layering](#17-repository-pattern-and-clean-layering),
+and [Phase 2 — Architectural Deep Dive](#phase-2--architectural-deep-dive).
+
+## 0.8 How Do I Contribute? (Git Flow)
+
+### Branches
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Stable release branch — always builds, always passes tests |
+| `develop` | Integration branch — features merge here first |
+| `feature/*` | One branch per feature or fix (branched from `develop`) |
+| `docs/*` | Documentation-only changes |
+
+### Commits
+
+All commits use **Conventional Commits 1.0.0** format with a **DCO sign-off**:
+
+```
+feat(tracker): add period-merge logic for adjacent periods
+
+Implement automatic merging when a new period overlaps an existing one.
+The merge preserves daily entries from both periods.
+
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+### PR checklist
+
+Before opening a pull request, verify:
+
+- [ ] Branch is based on `develop` (not `main`)
+- [ ] All tests pass: `./gradlew testDebugUnitTest`
+- [ ] Code follows project style ([`docs/CODE_STYLE.md`](CODE_STYLE.md))
+- [ ] New public members have KDoc comments
+- [ ] Commit messages include DCO sign-off
+
+For full commit rules, see [`docs/GIT_COMMIT_GUIDELINES.md`](GIT_COMMIT_GUIDELINES.md).
+For branching and PR expectations, see [4.5 Commit Conventions](#45-commit-conventions)
+and [4.6 Branching and PR Expectations](#46-branching-and-pr-expectations).
+
+## 0.9 Where Do I Go from Here?
+
+Pick the path that matches what you need:
+
+| I want to… | Start here |
+|------------|-----------|
+| Understand the full architecture | [Phase 1](#phase-1--foundation) then [Phase 2](#phase-2--architectural-deep-dive) |
+| Add a new feature | [3.6 Where to Add New Features](#36-where-to-add-new-features) then [Phase 4](#phase-4--developer-workflows) |
+| Work on the database or encryption | [1.5 SQLCipher and Passphrase-Derived Encryption](#15-sqlcipher-and-passphrase-derived-encryption) then [2.2 PassphraseScreen and Unlock Flow](#22-passphrasescreen-and-unlock-flow) |
+| Write or run tests | [`docs/testing/RUNNING_TESTS.md`](testing/RUNNING_TESTS.md) |
+| Check code style rules | [`docs/CODE_STYLE.md`](CODE_STYLE.md) |
+| Understand the security model | [`docs/SECURITY_MODEL.md`](SECURITY_MODEL.md) |
+
+**If you read nothing else, read [Phase 1](#phase-1--foundation).** It covers KMP,
+module structure, Gradle, Koin, encryption, MVVM, and the repository pattern — the
+seven pillars that everything else in this codebase is built on.
 
 ---
 
