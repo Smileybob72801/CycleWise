@@ -46,19 +46,61 @@ Dependency graph and DI wiring explained in [`ARCHITECTURE.md`](docs/ARCHITECTUR
 
 ## 🚀 Build & Run
 
-### Prerequisites
-- Android Studio Koala (2025) +
-- Kotlin 1.9 +
-- Gradle 8 +
-- JDK 17
+### Quick Option — Download the Latest Release
 
-### Build
+If you just want to install the app, download the latest APK from the
+[Releases](../../releases) page and sideload it onto your Android device.
+
+### Build from Source
+
+#### Prerequisites
+
+- **Android Studio** — latest stable release (Ladybug or newer)
+- **JDK 11+** — bundled with Android Studio, no separate install needed
+- **Android SDK 35** — install via Android Studio's SDK Manager
+
+> Gradle 8.13 and Kotlin 2.2.0 ship via the Gradle wrapper and version catalog —
+> you do **not** need to install them manually.
+
+#### Option A — Android Studio (recommended)
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-org/RhythmWise.git
+   ```
+2. Open the project root in Android Studio
+3. Wait for Gradle sync to finish (the first sync downloads all dependencies)
+4. Select the **composeApp** run configuration from the toolbar
+5. Press **Run** (green play button) with an emulator or connected device
+
+#### Option B — Command line
+
 ```bash
+# Build the debug APK
 ./gradlew clean assembleDebug
+
+# Install on a connected device or running emulator
+./gradlew installDebug
 ```
 
-### Launch
-Open the project in Android Studio and run on an emulator or device.
+The APK is written to:
+```
+composeApp/build/outputs/apk/debug/composeApp-debug.apk
+```
+
+#### First Launch
+
+The app opens to a **passphrase screen** — create any passphrase you like. There is
+no recovery mechanism, so remember it. Once unlocked, open **Settings** and tap
+**Seed Debug Data** to populate the calendar with sample periods and symptoms.
+
+#### Running Tests
+
+```bash
+./gradlew testDebugUnitTest
+```
+
+For full onboarding instructions, see [`docs/DeveloperOnboarding.md`](docs/DeveloperOnboarding.md).
 
 ## 🤝 Contributing
 
