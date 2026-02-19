@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -30,7 +31,10 @@ import com.veleda.cyclewise.ui.settings.SettingsScreen
 import com.veleda.cyclewise.ui.theme.RhythmWiseTheme
 import com.veleda.cyclewise.ui.tracker.TrackerScreen
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import kotlin.time.Clock
 
 /** Duration (ms) for default bottom-nav tab crossfade transitions. */
 private const val DEFAULT_TRANSITION_DURATION_MS = 300
@@ -76,10 +80,14 @@ fun CycleWiseAppUI() {
                     popExitTransition = { fadeOut(tween(AUTH_TRANSITION_DURATION_MS)) },
                 ) {
                     PassphraseScreen {
-                        navController.navigate(NavRoute.Tracker.route) {
+                        navController.navigate(NavRoute.DailyLogHome.route) {
                             popUpTo(NavRoute.Passphrase.route) { inclusive = true }
                         }
                     }
+                }
+                composable(NavRoute.DailyLogHome.route) {
+                    val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
+                    DailyLogScreen(date = today)
                 }
                 composable(NavRoute.Tracker.route) {
                     TrackerScreen(navController)
@@ -95,7 +103,6 @@ fun CycleWiseAppUI() {
                     route = NavRoute.DailyLog.route,
                     arguments = listOf(
                         navArgument("date") { type = NavType.StringType },
-                        navArgument("isPeriodDay") { type = NavType.BoolType; defaultValue = false },
                     ),
                     enterTransition = {
                         slideInVertically(
@@ -113,12 +120,9 @@ fun CycleWiseAppUI() {
                     },
                 ) { backStackEntry ->
                     val dateString = backStackEntry.arguments?.getString("date")
-                    val isPeriodDay = backStackEntry.arguments?.getBoolean("isPeriodDay") ?: false
                     if (dateString != null) {
                         DailyLogScreen(
                             date = LocalDate.parse(dateString),
-                            onSaveComplete = { navController.popBackStack() },
-                            isPeriodDay = isPeriodDay,
                         )
                     }
                 }

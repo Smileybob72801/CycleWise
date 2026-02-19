@@ -180,7 +180,6 @@ val appModule = module {
         scoped { GetOrCreateDailyLogUseCase(get()) }
         scoped { DebugSeederUseCase(get()) }
         scoped { AutoCloseOngoingPeriodUseCase(get()) }
-
         // ViewModel Providers
         viewModel {
             TrackerViewModel(
@@ -192,14 +191,13 @@ val appModule = module {
             )
         }
 
-        viewModel { (date: LocalDate, isPeriodDay: Boolean) ->
+        viewModel { (date: LocalDate) ->
             DailyLogViewModel(
                 entryDate = date,
                 periodRepository = get(),
                 getOrCreateDailyLog = get(),
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get(),
-                isPeriodDay = isPeriodDay
             )
         }
 

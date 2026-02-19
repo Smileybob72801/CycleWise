@@ -125,7 +125,6 @@ class TrackerViewModel(
                     val periodForDate = _uiState.value.periods.find {
                         date in (it.startDate..(it.endDate ?: today))
                     }
-                    val isPeriodDay = periodForDate != null
                     val existingLog = periodRepository.getFullLogForDate(date)
 
                     if (existingLog != null) {
@@ -138,7 +137,7 @@ class TrackerViewModel(
                             )
                         }
                     } else {
-                        _effect.emit(TrackerEffect.NavigateToDailyLog(date, isPeriodDay))
+                        _effect.emit(TrackerEffect.NavigateToDailyLog(date))
                     }
                 }
                 currentState
@@ -159,14 +158,8 @@ class TrackerViewModel(
                 currentState.copy(logForSheet = null, periodIdForSheet = null, waterCupsForSheet = null)
             }
             is TrackerEvent.EditLogClicked -> {
-                val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-                val date = event.date
-                val periodForDate = currentState.periods.find {
-                    date in (it.startDate..(it.endDate ?: today))
-                }
-                val isPeriodDay = periodForDate != null
                 viewModelScope.launch {
-                    _effect.emit(TrackerEffect.NavigateToDailyLog(date, isPeriodDay))
+                    _effect.emit(TrackerEffect.NavigateToDailyLog(event.date))
                 }
                 currentState.copy(logForSheet = null, periodIdForSheet = null, waterCupsForSheet = null)
             }

@@ -86,6 +86,19 @@
 
     <!-- Daily Log -->
     <string name="daily_log_save">Save Log</string>
+    <string name="daily_log_page_wellness">Wellness</string>
+    <string name="daily_log_page_period">Period</string>
+    <string name="daily_log_page_symptoms">Symptoms</string>
+    <string name="daily_log_page_medications">Medications</string>
+    <string name="daily_log_page_notes">Notes &amp; Tags</string>
+    <string name="daily_log_period_toggle">I\'m on my period today</string>
+    <string name="daily_log_period_empty">Toggle above to log period details</string>
+    <string name="daily_log_symptoms_count">%d symptoms logged</string>
+    <string name="daily_log_medications_count">%d medications logged</string>
+    <string name="daily_log_tab_label">Daily Log</string>
+    <string name="daily_log_no_wellness_data">Log your mood, energy, and water intake</string>
+    <string name="daily_log_no_notes_data">Add tags or notes about your day</string>
+    <string name="daily_log_save_success">Log saved</string>
     <string name="daily_log_for">Log for %s</string>
     <string name="daily_log_flow_title">Flow</string>
     <string name="daily_log_mood_title">Mood</string>

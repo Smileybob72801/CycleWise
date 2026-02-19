@@ -35,5 +35,6 @@ sealed interface TrackerEvent {
  * One-time side effects emitted by [TrackerViewModel].
  */
 sealed interface TrackerEffect {
-    data class NavigateToDailyLog(val date: LocalDate, val isPeriodDay: Boolean) : TrackerEffect
+    /** Navigate to the daily log detail screen for the given [date]. */
+    data class NavigateToDailyLog(val date: LocalDate) : TrackerEffect
 }

@@ -1,29 +1,42 @@
 package com.veleda.cyclewise.ui.log
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.LocalHospital
+import androidx.compose.material.icons.outlined.MedicalServices
+import androidx.compose.material.icons.automirrored.outlined.Notes
+import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material.icons.outlined.Star as StarOutlined
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.unit.dp
-import com.veleda.cyclewise.ui.theme.RhythmWiseColors
+import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
@@ -32,167 +45,498 @@ import com.veleda.cyclewise.domain.models.PeriodConsistency
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.ui.auth.WaterTrackerCounter
+import com.veleda.cyclewise.ui.theme.LocalDimensions
+import com.veleda.cyclewise.ui.theme.RhythmWiseColors
 import com.veleda.cyclewise.ui.utils.toLocalizedDateString
-import androidx.compose.ui.res.stringResource
-import com.veleda.cyclewise.R
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 import androidx.compose.ui.platform.testTag
 
+/** Number of pages in the daily log pager. */
+private const val PAGE_COUNT = 5
+
+/** Page indices for the daily log pager. */
+private const val PAGE_WELLNESS = 0
+private const val PAGE_PERIOD = 1
+private const val PAGE_SYMPTOMS = 2
+private const val PAGE_MEDICATIONS = 3
+private const val PAGE_NOTES = 4
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DailyLogScreen(
     date: LocalDate,
-    onSaveComplete: () -> Unit,
-    isPeriodDay: Boolean
 ) {
+    val dims = LocalDimensions.current
     val sessionScope = getKoin().getScope("session")
 
     val viewModel: DailyLogViewModel = koinViewModel(
         scope = sessionScope,
-        parameters = { parametersOf(date, isPeriodDay) }
+        parameters = { parametersOf(date) }
     )
 
     val uiState by viewModel.uiState.collectAsState()
+    val pagerState = rememberPagerState(pageCount = { PAGE_COUNT })
+    val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        viewModel.effect.collect { effect ->
-            when (effect) {
-                is DailyLogEffect.NavigateBack -> onSaveComplete()
+    val pageLabels = listOf(
+        stringResource(R.string.daily_log_page_wellness),
+        stringResource(R.string.daily_log_page_period),
+        stringResource(R.string.daily_log_page_symptoms),
+        stringResource(R.string.daily_log_page_medications),
+        stringResource(R.string.daily_log_page_notes),
+    )
+
+    when {
+        uiState.isLoading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        uiState.error != null -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = uiState.error!!, color = MaterialTheme.colorScheme.error)
+            }
+        }
+        uiState.log != null -> {
+            val log = uiState.log!!
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header
+                Text(
+                    text = stringResource(R.string.daily_log_for, log.entry.entryDate.toLocalizedDateString()),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(horizontal = dims.md, vertical = dims.md)
+                )
+
+                // Page indicator tabs
+                ScrollableTabRow(
+                    selectedTabIndex = pagerState.currentPage,
+                    edgePadding = dims.md,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    pageLabels.forEachIndexed { index, label ->
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = {
+                                coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                            },
+                            text = {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            },
+                        )
+                    }
+                }
+
+                // Pager
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("daily_log_pager"),
+                ) { page ->
+                    when (page) {
+                        PAGE_WELLNESS -> WellnessPage(
+                            moodScore = log.entry.moodScore,
+                            energyLevel = log.entry.energyLevel,
+                            libidoScore = log.entry.libidoScore,
+                            waterCups = uiState.waterCups,
+                            onMoodChanged = { viewModel.onEvent(DailyLogEvent.MoodScoreChanged(it)) },
+                            onEnergyChanged = { viewModel.onEvent(DailyLogEvent.EnergyLevelChanged(it)) },
+                            onLibidoChanged = { viewModel.onEvent(DailyLogEvent.LibidoScoreChanged(it)) },
+                            onWaterIncrement = { viewModel.onEvent(DailyLogEvent.WaterIncrement) },
+                            onWaterDecrement = { viewModel.onEvent(DailyLogEvent.WaterDecrement) },
+                        )
+                        PAGE_PERIOD -> PeriodPage(
+                            isPeriodDay = uiState.isPeriodDay,
+                            flowIntensity = log.periodLog?.flowIntensity,
+                            periodColor = log.periodLog?.periodColor,
+                            periodConsistency = log.periodLog?.periodConsistency,
+                            onPeriodToggled = { viewModel.onEvent(DailyLogEvent.PeriodToggled(it)) },
+                            onFlowChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) },
+                            onColorChanged = { viewModel.onEvent(DailyLogEvent.PeriodColorChanged(it)) },
+                            onConsistencyChanged = { viewModel.onEvent(DailyLogEvent.PeriodConsistencyChanged(it)) },
+                        )
+                        PAGE_SYMPTOMS -> SymptomsPage(
+                            loggedSymptoms = log.symptomLogs,
+                            symptomLibrary = uiState.symptomLibrary,
+                            onToggleSymptom = { viewModel.onEvent(DailyLogEvent.SymptomToggled(it)) },
+                            onCreateAndAddSymptom = { viewModel.onEvent(DailyLogEvent.CreateAndAddSymptom(it)) },
+                        )
+                        PAGE_MEDICATIONS -> MedicationsPage(
+                            loggedMedications = log.medicationLogs,
+                            medicationLibrary = uiState.medicationLibrary,
+                            onToggleMedication = { viewModel.onEvent(DailyLogEvent.MedicationToggled(it)) },
+                            onCreateAndAddMedication = { viewModel.onEvent(DailyLogEvent.MedicationCreatedAndAdded(it)) },
+                        )
+                        PAGE_NOTES -> NotesTagsPage(
+                            tags = log.entry.customTags,
+                            note = log.entry.note ?: "",
+                            onAddTag = { viewModel.onEvent(DailyLogEvent.TagAdded(it)) },
+                            onRemoveTag = { viewModel.onEvent(DailyLogEvent.TagRemoved(it)) },
+                            onNoteChanged = { viewModel.onEvent(DailyLogEvent.NoteChanged(it)) },
+                        )
+                    }
+                }
             }
         }
     }
+}
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    viewModel.onEvent(DailyLogEvent.SaveLog)
-                },
-                modifier = Modifier.testTag("save_log_button")
+// ── Page composables ─────────────────────────────────────────────────
+
+@Composable
+private fun WellnessPage(
+    moodScore: Int?,
+    energyLevel: Int?,
+    libidoScore: Int?,
+    waterCups: Int,
+    onMoodChanged: (Int) -> Unit,
+    onEnergyChanged: (Int) -> Unit,
+    onLibidoChanged: (Int) -> Unit,
+    onWaterIncrement: () -> Unit,
+    onWaterDecrement: () -> Unit,
+) {
+    val dims = LocalDimensions.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = dims.md),
+        verticalArrangement = Arrangement.spacedBy(dims.md),
+    ) {
+        Spacer(Modifier.height(dims.sm))
+
+        SectionCard(
+            title = stringResource(R.string.daily_log_mood_title),
+            icon = Icons.Outlined.SelfImprovement,
+        ) {
+            MoodSelector(
+                selectedMood = moodScore,
+                onSelectionChanged = onMoodChanged,
+            )
+        }
+
+        SectionCard(
+            title = stringResource(R.string.energy_section_title),
+            icon = Icons.Outlined.Bedtime,
+        ) {
+            ScoreSelector(
+                selectedScore = energyLevel,
+                onSelectionChanged = onEnergyChanged,
+                contentDescriptionPrefix = stringResource(R.string.energy_section_title),
+            )
+        }
+
+        SectionCard(
+            title = stringResource(R.string.libido_section_title),
+            icon = Icons.Outlined.Bedtime,
+        ) {
+            ScoreSelector(
+                selectedScore = libidoScore,
+                onSelectionChanged = onLibidoChanged,
+                contentDescriptionPrefix = stringResource(R.string.libido_section_title),
+            )
+        }
+
+        SectionCard(
+            title = stringResource(R.string.water_section_title),
+            icon = Icons.Outlined.WaterDrop,
+        ) {
+            WaterTrackerCounter(
+                cups = waterCups,
+                onIncrement = onWaterIncrement,
+                onDecrement = onWaterDecrement,
+                yesterdayMessage = null,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        // Bottom spacer for comfortable scrolling past bottom nav
+        Spacer(Modifier.height(dims.xl))
+    }
+}
+
+@Composable
+private fun PeriodPage(
+    isPeriodDay: Boolean,
+    flowIntensity: FlowIntensity?,
+    periodColor: PeriodColor?,
+    periodConsistency: PeriodConsistency?,
+    onPeriodToggled: (Boolean) -> Unit,
+    onFlowChanged: (FlowIntensity?) -> Unit,
+    onColorChanged: (PeriodColor?) -> Unit,
+    onConsistencyChanged: (PeriodConsistency?) -> Unit,
+) {
+    val dims = LocalDimensions.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = dims.md),
+        verticalArrangement = Arrangement.spacedBy(dims.md),
+    ) {
+        Spacer(Modifier.height(dims.sm))
+
+        // Period toggle
+        Card(
+            shape = MaterialTheme.shapes.medium,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(dims.md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Icon(Icons.Default.Check, contentDescription = stringResource(R.string.daily_log_save))
+                Text(
+                    text = stringResource(R.string.daily_log_period_toggle),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Switch(
+                    checked = isPeriodDay,
+                    onCheckedChange = onPeriodToggled,
+                    modifier = Modifier.testTag("period_toggle"),
+                )
             }
         }
-    ) { padding ->
-        when {
-            uiState.isLoading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
-            uiState.error != null -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(text = uiState.error!!, color = MaterialTheme.colorScheme.error)
-                }
-            }
 
-            uiState.log != null -> {
-                val log = uiState.log!!
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(horizontal = 16.dp)
-                        .verticalScroll(rememberScrollState())
+        AnimatedVisibility(
+            visible = isPeriodDay,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(dims.md)) {
+                SectionCard(
+                    title = stringResource(R.string.daily_log_flow_title),
+                    icon = Icons.Outlined.WaterDrop,
                 ) {
-                    Text(
-                        text = stringResource(R.string.daily_log_for, log.entry.entryDate.toLocalizedDateString()),
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.padding(vertical = 16.dp)
+                    FlowIntensitySelector(
+                        selectedIntensity = flowIntensity,
+                        onSelectionChanged = onFlowChanged,
                     )
+                }
 
-                    if (uiState.isPeriodDay) {
-                        SectionTitle(stringResource(R.string.daily_log_flow_title))
-                        FlowIntensitySelector(
-                            selectedIntensity = log.periodLog?.flowIntensity,
-                            onSelectionChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) }
-                        )
-
-                        SectionTitle(stringResource(R.string.period_color_section_title))
-                        PeriodColorSelector(
-                            selectedColor = log.periodLog?.periodColor,
-                            onSelectionChanged = { viewModel.onEvent(DailyLogEvent.PeriodColorChanged(it)) }
-                        )
-
-                        SectionTitle(stringResource(R.string.period_consistency_section_title))
-                        PeriodConsistencySelector(
-                            selectedConsistency = log.periodLog?.periodConsistency,
-                            onSelectionChanged = { viewModel.onEvent(DailyLogEvent.PeriodConsistencyChanged(it)) }
-                        )
-                    }
-
-                    SectionTitle(stringResource(R.string.daily_log_mood_title))
-                    MoodSelector(
-                        selectedMood = log.entry.moodScore,
-                        onSelectionChanged = { viewModel.onEvent(DailyLogEvent.MoodScoreChanged(it)) }
+                SectionCard(
+                    title = stringResource(R.string.period_color_section_title),
+                    icon = Icons.Outlined.WaterDrop,
+                ) {
+                    PeriodColorSelector(
+                        selectedColor = periodColor,
+                        onSelectionChanged = onColorChanged,
                     )
+                }
 
-                    SectionTitle(stringResource(R.string.energy_section_title))
-                    ScoreSelector(
-                        selectedScore = log.entry.energyLevel,
-                        onSelectionChanged = { viewModel.onEvent(DailyLogEvent.EnergyLevelChanged(it)) },
-                        contentDescriptionPrefix = stringResource(R.string.energy_section_title)
+                SectionCard(
+                    title = stringResource(R.string.period_consistency_section_title),
+                    icon = Icons.Outlined.WaterDrop,
+                ) {
+                    PeriodConsistencySelector(
+                        selectedConsistency = periodConsistency,
+                        onSelectionChanged = onConsistencyChanged,
                     )
-
-                    SectionTitle(stringResource(R.string.libido_section_title))
-                    ScoreSelector(
-                        selectedScore = log.entry.libidoScore,
-                        onSelectionChanged = { viewModel.onEvent(DailyLogEvent.LibidoScoreChanged(it)) },
-                        contentDescriptionPrefix = stringResource(R.string.libido_section_title)
-                    )
-
-                    SectionTitle(stringResource(R.string.water_section_title))
-                    WaterTrackerCounter(
-                        cups = uiState.waterCups,
-                        onIncrement = { viewModel.onEvent(DailyLogEvent.WaterIncrement) },
-                        onDecrement = { viewModel.onEvent(DailyLogEvent.WaterDecrement) },
-                        yesterdayMessage = null,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    SectionTitle(stringResource(R.string.daily_log_symptoms_title))
-                    SymptomLogger(
-                        loggedSymptoms = log.symptomLogs,
-                        symptomLibrary = uiState.symptomLibrary,
-                        onToggleSymptom = { symptom ->
-                            viewModel.onEvent(DailyLogEvent.SymptomToggled(symptom))
-                        },
-                        onCreateAndAddSymptom = { name ->
-                            viewModel.onEvent(DailyLogEvent.CreateAndAddSymptom(name))
-                        }
-                    )
-
-                    SectionTitle(stringResource(R.string.daily_log_medications_title))
-                    MedicationLogger(
-                        loggedMedications = log.medicationLogs,
-                        medicationLibrary = uiState.medicationLibrary,
-                        onToggleMedication = { medication ->
-                            viewModel.onEvent(DailyLogEvent.MedicationToggled(medication))
-                        },
-                        onCreateAndAddMedication = { name ->
-                            viewModel.onEvent(DailyLogEvent.MedicationCreatedAndAdded(name))
-                        }
-                    )
-
-                    SectionTitle(stringResource(R.string.daily_log_custom_tags_title))
-                    CustomTagLogger(
-                        tags = log.entry.customTags,
-                        onAddTag = { viewModel.onEvent(DailyLogEvent.TagAdded(it)) },
-                        onRemoveTag = { viewModel.onEvent(DailyLogEvent.TagRemoved(it)) }
-                    )
-
-                    SectionTitle(stringResource(R.string.daily_log_notes_title))
-                    NoteEditor(
-                        note = log.entry.note ?: "",
-                        onNoteChanged = { viewModel.onEvent(DailyLogEvent.NoteChanged(it)) }
-                    )
-
-                    Spacer(Modifier.height(80.dp)) // Spacer for the FAB
                 }
             }
+        }
+
+        AnimatedVisibility(
+            visible = !isPeriodDay,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = dims.xl),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = stringResource(R.string.daily_log_period_empty),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(dims.xl))
+    }
+}
+
+@Composable
+private fun SymptomsPage(
+    loggedSymptoms: List<SymptomLog>,
+    symptomLibrary: List<Symptom>,
+    onToggleSymptom: (Symptom) -> Unit,
+    onCreateAndAddSymptom: (String) -> Unit,
+) {
+    val dims = LocalDimensions.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = dims.md),
+        verticalArrangement = Arrangement.spacedBy(dims.md),
+    ) {
+        Spacer(Modifier.height(dims.sm))
+
+        if (loggedSymptoms.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.daily_log_symptoms_count, loggedSymptoms.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        SectionCard(
+            title = stringResource(R.string.daily_log_symptoms_title),
+            icon = Icons.Outlined.LocalHospital,
+        ) {
+            SymptomLogger(
+                loggedSymptoms = loggedSymptoms,
+                symptomLibrary = symptomLibrary,
+                onToggleSymptom = onToggleSymptom,
+                onCreateAndAddSymptom = onCreateAndAddSymptom,
+            )
+        }
+
+        Spacer(Modifier.height(dims.xl))
+    }
+}
+
+@Composable
+private fun MedicationsPage(
+    loggedMedications: List<MedicationLog>,
+    medicationLibrary: List<Medication>,
+    onToggleMedication: (Medication) -> Unit,
+    onCreateAndAddMedication: (String) -> Unit,
+) {
+    val dims = LocalDimensions.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = dims.md),
+        verticalArrangement = Arrangement.spacedBy(dims.md),
+    ) {
+        Spacer(Modifier.height(dims.sm))
+
+        if (loggedMedications.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.daily_log_medications_count, loggedMedications.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        SectionCard(
+            title = stringResource(R.string.daily_log_medications_title),
+            icon = Icons.Outlined.MedicalServices,
+        ) {
+            MedicationLogger(
+                loggedMedications = loggedMedications,
+                medicationLibrary = medicationLibrary,
+                onToggleMedication = onToggleMedication,
+                onCreateAndAddMedication = onCreateAndAddMedication,
+            )
+        }
+
+        Spacer(Modifier.height(dims.xl))
+    }
+}
+
+@Composable
+private fun NotesTagsPage(
+    tags: List<String>,
+    note: String,
+    onAddTag: (String) -> Unit,
+    onRemoveTag: (String) -> Unit,
+    onNoteChanged: (String) -> Unit,
+) {
+    val dims = LocalDimensions.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = dims.md),
+        verticalArrangement = Arrangement.spacedBy(dims.md),
+    ) {
+        Spacer(Modifier.height(dims.sm))
+
+        SectionCard(
+            title = stringResource(R.string.daily_log_custom_tags_title),
+            icon = Icons.AutoMirrored.Outlined.Notes,
+        ) {
+            CustomTagLogger(
+                tags = tags,
+                onAddTag = onAddTag,
+                onRemoveTag = onRemoveTag,
+            )
+        }
+
+        SectionCard(
+            title = stringResource(R.string.daily_log_notes_title),
+            icon = Icons.AutoMirrored.Outlined.Notes,
+        ) {
+            NoteEditor(
+                note = note,
+                onNoteChanged = onNoteChanged,
+            )
+        }
+
+        Spacer(Modifier.height(dims.xl))
+    }
+}
+
+// ── Shared components ────────────────────────────────────────────────
+
+/**
+ * Reusable card wrapper for daily log sections.
+ *
+ * Provides consistent visual treatment: surfaceVariant background, medium rounded
+ * shape, a leading icon and title row, followed by the section [content].
+ *
+ * @param title   Section heading text.
+ * @param icon    Leading icon displayed beside the title.
+ * @param content Slot for the section's interactive content.
+ */
+@Composable
+private fun SectionCard(
+    title: String,
+    icon: ImageVector,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val dims = LocalDimensions.current
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(dims.md)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(dims.sm),
+                modifier = Modifier.padding(bottom = dims.sm),
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+            content()
         }
     }
 }
@@ -202,7 +546,7 @@ private fun SectionTitle(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
+        modifier = Modifier.padding(top = LocalDimensions.current.lg, bottom = LocalDimensions.current.sm)
     )
 }
 
@@ -215,7 +559,7 @@ private fun FlowIntensitySelector(
     val options = FlowIntensity.entries
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(LocalDimensions.current.sm)
     ) {
         for (intensity in options) {
             FilterChip(
@@ -245,7 +589,7 @@ private fun MoodSelector(
                 Icon(
                     icon,
                     contentDescription = stringResource(R.string.daily_log_mood_score, score),
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(LocalDimensions.current.xl),
                     tint = if (score <= (selectedMood ?: 0))
                         RhythmWiseColors.StarGold
                     else
@@ -279,7 +623,7 @@ private fun ScoreSelector(
                 Icon(
                     icon,
                     contentDescription = stringResource(R.string.daily_log_score, contentDescriptionPrefix, score),
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(LocalDimensions.current.xl),
                     tint = if (score <= (selectedScore ?: 0))
                         RhythmWiseColors.StarGold
                     else
@@ -313,7 +657,7 @@ private fun PeriodColorSelector(
     )
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(LocalDimensions.current.sm)
     ) {
         for ((color, label) in labels) {
             FilterChip(
@@ -351,7 +695,7 @@ private fun PeriodConsistencySelector(
     )
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(LocalDimensions.current.sm)
     ) {
         for ((consistency, label) in labels) {
             FilterChip(
@@ -376,11 +720,11 @@ private fun MedicationLogger(
 ) {
     var newMedicationName by remember { mutableStateOf("") }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(LocalDimensions.current.md)) {
         if (medicationLibrary.isNotEmpty()) {
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(LocalDimensions.current.sm),
             ) {
                 medicationLibrary.forEach { medication ->
                     val isSelected = loggedMedications.any { it.medicationId == medication.id }
@@ -426,7 +770,7 @@ private fun CustomTagLogger(
     onRemoveTag: (String) -> Unit
 ) {
     var text by remember { mutableStateOf("") }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(LocalDimensions.current.sm)) {
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },
@@ -448,7 +792,7 @@ private fun CustomTagLogger(
         )
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(LocalDimensions.current.sm),
         ) {
             tags.forEach { tag ->
                 InputChip(
@@ -456,7 +800,7 @@ private fun CustomTagLogger(
                     onClick = { /* Not used */ },
                     label = { Text(tag) },
                     trailingIcon = {
-                        IconButton(onClick = { onRemoveTag(tag) }, modifier = Modifier.size(18.dp)) {
+                        IconButton(onClick = { onRemoveTag(tag) }, modifier = Modifier.size(LocalDimensions.current.lg)) {
                             Icon(Icons.Default.Close, contentDescription = stringResource(R.string.daily_log_remove_tag, tag))
                         }
                     }
@@ -477,7 +821,7 @@ private fun NoteEditor(
         label = { Text(stringResource(R.string.daily_log_add_notes)) },
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 120.dp),
+            .heightIn(min = LocalDimensions.current.xl * 4),
         placeholder = { Text(stringResource(R.string.daily_log_notes_placeholder)) }
     )
 }
@@ -492,11 +836,11 @@ private fun SymptomLogger(
 ) {
     var newSymptomName by remember { mutableStateOf("") }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(LocalDimensions.current.md)) {
         if (symptomLibrary.isNotEmpty()) {
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(LocalDimensions.current.sm),
             ) {
                 symptomLibrary.forEach { symptom ->
                     val isSelected = loggedSymptoms.any { it.symptomId == symptom.id }

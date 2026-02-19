@@ -14,9 +14,9 @@ import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -48,18 +48,26 @@ data class DailyLogUiState(
 )
 
 /**
- * Daily log entry editor ViewModel.
+ * Daily log entry editor ViewModel with auto-save and period toggle support.
  *
  * Uses a pure-reducer MVI pattern: [onEvent] dispatches to [reduce], which returns
- * updated state without side effects. Async operations (save, library creation) are
- * launched via `viewModelScope` inside the relevant event branch.
+ * updated state without side effects. Async operations (auto-save, library creation,
+ * period toggle) are launched via `viewModelScope` inside the relevant event branch.
+ *
+ * **Auto-save:** Every user interaction persists immediately via [autoSave]. The
+ * [NoteChanged] event is debounced by [NOTE_DEBOUNCE_MS] to avoid excessive writes
+ * during typing.
+ *
+ * **Period toggle:** The ViewModel self-determines [DailyLogUiState.isPeriodDay] by
+ * querying the repository during init. The [DailyLogEvent.PeriodToggled] event calls
+ * [PeriodRepository.logPeriodDay] or [PeriodRepository.unLogPeriodDay] — the same
+ * repository methods used by the Tracker's long-press mark/unmark, ensuring consistent
+ * period-splitting and merging behavior across both screens.
  *
  * **Two-phase init:**
- * 1. Fetches the initial log, symptom library, medication library, and water intake.
+ * 1. Fetches the initial log, symptom library, medication library, water intake, and
+ *    determines isPeriodDay from existing periods.
  * 2. Subscribes to library changes for live updates during editing.
- *
- * **Empty log detection:** [isLogEmpty] determines if a log contains no user-entered
- * data; empty logs are not persisted on save.
  *
  * Session-scoped (destroyed on logout/autolock).
  */
@@ -69,14 +77,13 @@ class DailyLogViewModel(
     private val getOrCreateDailyLog: GetOrCreateDailyLogUseCase,
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private val medicationLibraryProvider: MedicationLibraryProvider,
-    private val isPeriodDay: Boolean
 ) : ViewModel()
 {
-    private val _uiState = MutableStateFlow(DailyLogUiState(isPeriodDay = isPeriodDay))
+    private val _uiState = MutableStateFlow(DailyLogUiState())
     val uiState = _uiState.asStateFlow()
 
-    private val _effect = MutableSharedFlow<DailyLogEffect>(replay = 0)
-    val effect: SharedFlow<DailyLogEffect> = _effect
+    /** Active debounce job for [DailyLogEvent.NoteChanged] auto-save. */
+    private var noteDebounceJob: Job? = null
 
     init {
         // 1. Initial data load dispatches a single, comprehensive event when complete.
@@ -87,8 +94,15 @@ class DailyLogViewModel(
             val result = getOrCreateDailyLog(entryDate)
             val waterIntake = periodRepository.getWaterIntakeForDates(listOf(entryDate)).firstOrNull()
 
+            // Self-determine isPeriodDay from existing periods
+            val periods = periodRepository.getAllPeriods().first()
+            val isPeriodDay = periods.any { period ->
+                val end = period.endDate
+                entryDate >= period.startDate && (end == null || entryDate <= end)
+            }
+
             onEvent(DailyLogEvent.LogLoaded(result, initialSymptoms, initialMedications))
-            _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0) }
+            _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0, isPeriodDay = isPeriodDay) }
         }
 
         // 2. Subsequent library changes also dispatch events instead of mutating state directly.
@@ -103,10 +117,34 @@ class DailyLogViewModel(
 
     /**
      * The single, public entry point for all UI actions.
+     *
+     * State is updated synchronously via [reduce], then auto-save is triggered
+     * asynchronously for user-interaction events that modify log data.
      */
     fun onEvent(event: DailyLogEvent) {
         _uiState.update { currentState ->
             reduce(currentState, event)
+        }
+
+        // Auto-save after state update for data-changing user events.
+        // Water events have their own persistence. Notes use debounced save.
+        when (event) {
+            is DailyLogEvent.MoodScoreChanged,
+            is DailyLogEvent.EnergyLevelChanged,
+            is DailyLogEvent.LibidoScoreChanged,
+            is DailyLogEvent.FlowIntensityChanged,
+            is DailyLogEvent.PeriodColorChanged,
+            is DailyLogEvent.PeriodConsistencyChanged,
+            is DailyLogEvent.SymptomToggled,
+            is DailyLogEvent.MedicationToggled,
+            is DailyLogEvent.TagAdded,
+            is DailyLogEvent.TagRemoved -> autoSave()
+            is DailyLogEvent.NoteChanged -> debouncedAutoSave()
+            is DailyLogEvent.CreateAndAddSymptom,
+            is DailyLogEvent.MedicationCreatedAndAdded -> {
+                // Auto-save handled inside their viewModelScope.launch blocks
+            }
+            else -> { /* No auto-save for load/library/water/period-toggle events */ }
         }
     }
 
@@ -124,7 +162,6 @@ class DailyLogViewModel(
                     log = event.log,
                     symptomLibrary = event.initialSymptoms,
                     medicationLibrary = event.initialMedications,
-                    isPeriodDay = isPeriodDay,
                     error = if (event.log == null) "Could not find a parent cycle for this date." else null
                 )
                 is DailyLogEvent.LibraryUpdated -> currentState.copy(
@@ -137,7 +174,6 @@ class DailyLogViewModel(
         return when (event) {
             is DailyLogEvent.FlowIntensityChanged -> {
                 val newPeriodLog = if (event.intensity != null) {
-                    // Create/Update the PeriodLog
                     val existingLog = log.periodLog
                     val now = Clock.System.now()
                     existingLog?.copy(flowIntensity = event.intensity, updatedAt = now)
@@ -149,7 +185,6 @@ class DailyLogViewModel(
                             updatedAt = now
                         )
                 } else {
-                    // Remove PeriodLog
                     null
                 }
                 currentState.copy(log = log.copy(periodLog = newPeriodLog))
@@ -228,6 +263,7 @@ class DailyLogViewModel(
                             symptomLibrary = updatedLibrary
                         )
                     }
+                    autoSave()
                 }
                 currentState
             }
@@ -265,21 +301,18 @@ class DailyLogViewModel(
                             medicationLibrary = updatedLibrary
                         )
                     }
+                    autoSave()
                 }
                 currentState
             }
-            is DailyLogEvent.SaveLog -> {
+            is DailyLogEvent.PeriodToggled -> {
                 viewModelScope.launch {
-                    val currentLog = _uiState.value.log ?: run {
-                        _effect.emit(DailyLogEffect.NavigateBack)
-                        return@launch
+                    if (event.isOnPeriod) {
+                        periodRepository.logPeriodDay(entryDate)
+                    } else {
+                        periodRepository.unLogPeriodDay(entryDate)
                     }
-                    if (isLogEmpty(currentLog)) {
-                        _effect.emit(DailyLogEffect.NavigateBack)
-                        return@launch
-                    }
-                    periodRepository.saveFullLog(currentLog)
-                    _effect.emit(DailyLogEffect.NavigateBack)
+                    _uiState.update { it.copy(isPeriodDay = event.isOnPeriod) }
                 }
                 currentState
             }
@@ -317,9 +350,38 @@ class DailyLogViewModel(
     }
 
     /**
+     * Persists the current log state to the repository if the log contains any user data.
+     *
+     * Called after every state-changing user interaction (except water, which has its own
+     * persistence path, and notes, which use [debouncedAutoSave]).
+     */
+    private fun autoSave() {
+        viewModelScope.launch {
+            val currentLog = _uiState.value.log ?: return@launch
+            if (!isLogEmpty(currentLog)) {
+                periodRepository.saveFullLog(currentLog)
+            }
+        }
+    }
+
+    /**
+     * Debounced variant of [autoSave] for [DailyLogEvent.NoteChanged].
+     *
+     * Cancels any pending save and schedules a new one after [NOTE_DEBOUNCE_MS].
+     * This avoids excessive repository writes on every keystroke.
+     */
+    private fun debouncedAutoSave() {
+        noteDebounceJob?.cancel()
+        noteDebounceJob = viewModelScope.launch {
+            delay(NOTE_DEBOUNCE_MS)
+            autoSave()
+        }
+    }
+
+    /**
      * Determines if a FullDailyLog contains no user-entered data.
      */
-    private fun isLogEmpty(log: FullDailyLog): Boolean {
+    internal fun isLogEmpty(log: FullDailyLog): Boolean {
         val entry = log.entry
         return log.periodLog == null &&
                 log.symptomLogs.isEmpty() &&
@@ -329,5 +391,10 @@ class DailyLogViewModel(
                 entry.libidoScore == null &&
                 entry.customTags.isEmpty() &&
                 entry.note.isNullOrBlank()
+    }
+
+    companion object {
+        /** Debounce delay for note auto-save in milliseconds. */
+        const val NOTE_DEBOUNCE_MS = 500L
     }
 }

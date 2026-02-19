@@ -2,9 +2,11 @@ package com.veleda.cyclewise.ui.nav
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Settings
 import org.junit.Assert.assertEquals
@@ -99,13 +101,31 @@ class NavRoutesTest {
     // ── Companion.all ──────────────────────────────────────────────────
 
     @Test
-    fun all_WHEN_accessed_THEN_containsExactlyThreeBottomNavRoutes() {
+    fun all_WHEN_accessed_THEN_containsExactlyFourBottomNavRoutes() {
         // GIVEN — the companion-object list of bottom-nav routes
         // WHEN — size and contents are inspected
-        // THEN — exactly Tracker, Insights, Settings are present
+        // THEN — exactly DailyLogHome, Tracker, Insights, Settings are present
         assertEquals(
-            listOf(NavRoute.Tracker, NavRoute.Insights, NavRoute.Settings),
+            listOf(NavRoute.DailyLogHome, NavRoute.Tracker, NavRoute.Insights, NavRoute.Settings),
             NavRoute.all,
         )
+    }
+
+    // ── DailyLogHome ────────────────────────────────────────────────────
+
+    @Test
+    fun dailyLogHome_WHEN_selected_THEN_iconIsFilledEditNote() {
+        // GIVEN — the DailyLogHome route
+        // WHEN — selectedIcon is accessed
+        // THEN — it equals the filled EditNote icon
+        assertEquals(Icons.Filled.EditNote, NavRoute.DailyLogHome.selectedIcon)
+    }
+
+    @Test
+    fun dailyLogHome_WHEN_unselected_THEN_iconIsOutlinedEditNote() {
+        // GIVEN — the DailyLogHome route
+        // WHEN — unselectedIcon is accessed
+        // THEN — it equals the outlined EditNote icon
+        assertEquals(Icons.Outlined.EditNote, NavRoute.DailyLogHome.unselectedIcon)
     }
 }

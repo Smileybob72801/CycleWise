@@ -15,6 +15,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.*
 import kotlinx.datetime.*
@@ -140,6 +141,46 @@ class CycleViewModelTest {
         val mapped = vm.uiState.value.dayDetails[date]
         assertNotNull(mapped)
         assertTrue(mapped.hasNotes, "CalendarDayInfo.hasNotes should be true when DayDetails.hasNotes is true")
+    }
+
+    @Test
+    fun onEvent_PeriodMarkDay_WHEN_singleDayOngoingPeriodUnlogged_THEN_ongoingPeriodBecomesNull() = runTest {
+        // GIVEN — a single-day ongoing period exists for today (no endDate),
+        // backed by a mutable flow so the ViewModel's collector sees updates.
+        val ongoingPeriod = Period(
+            id = "ongoing-1",
+            startDate = today,
+            endDate = null,
+            createdAt = TestData.INSTANT,
+            updatedAt = TestData.INSTANT,
+        )
+        val periodsFlow = MutableStateFlow(listOf(ongoingPeriod))
+        every { mockRepository.getAllPeriods() } returns periodsFlow
+
+        val vm = TrackerViewModel(
+            mockRepository, mockSymptomProvider, mockMedicationProvider,
+            mockAutoCloseUseCase, mockAppSettings
+        )
+        advanceUntilIdle()
+
+        // Verify precondition — ongoingPeriod is non-null
+        assertNotNull(vm.uiState.value.ongoingPeriod, "ongoingPeriod should be non-null before unlog")
+
+        // Simulate repository removing the period after unlog
+        coEvery { mockRepository.unLogPeriodDay(today) } coAnswers {
+            periodsFlow.value = emptyList()
+        }
+
+        // WHEN — user long-presses to unmark the period day
+        vm.onEvent(TrackerEvent.PeriodMarkDay(today))
+        advanceUntilIdle()
+
+        // THEN — unLogPeriodDay was called and ongoingPeriod is null.
+        // This transition drives the AnimatedVisibility exit animation in
+        // TrackerScreen. The UI must handle ongoingPeriod being null during
+        // the exit animation (no !! operator).
+        coVerify(exactly = 1) { mockRepository.unLogPeriodDay(today) }
+        assertNull(vm.uiState.value.ongoingPeriod, "ongoingPeriod should be null after unlogging the only period day")
     }
 
     @Test

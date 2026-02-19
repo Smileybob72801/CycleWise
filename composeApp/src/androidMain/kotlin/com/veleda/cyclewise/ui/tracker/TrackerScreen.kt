@@ -131,7 +131,7 @@ fun TrackerScreen(navController: NavController) {
             when (effect) {
                 is TrackerEffect.NavigateToDailyLog -> {
                     navController.navigate(
-                        NavRoute.DailyLog.createRoute(effect.date, effect.isPeriodDay)
+                        NavRoute.DailyLog.createRoute(effect.date)
                     )
                 }
             }
@@ -302,8 +302,9 @@ fun TrackerScreen(navController: NavController) {
             Spacer(Modifier.height(dims.md))
 
             AnimatedVisibility(visible = uiState.ongoingPeriod != null) {
+                val ongoingStartDate = uiState.ongoingPeriod?.startDate?.toLocalizedDateString() ?: ""
                 Text(
-                    stringResource(R.string.tracker_ongoing_period, uiState.ongoingPeriod!!.startDate.toLocalizedDateString()),
+                    stringResource(R.string.tracker_ongoing_period, ongoingStartDate),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(dims.sm),
                     color = MaterialTheme.colorScheme.primary
