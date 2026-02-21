@@ -7,10 +7,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
-import androidx.test.core.app.ApplicationProvider
-import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.theme.Dimensions
 import com.veleda.cyclewise.ui.theme.LocalDimensions
+import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,8 +19,7 @@ import org.robolectric.annotation.Config
 /**
  * Robolectric-based Compose UI tests for [PhaseColorSettings].
  *
- * Tests the composable directly with a real [AppSettings] backed by
- * Robolectric's in-memory DataStore.
+ * Tests the composable directly with state values and no-op callbacks.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = com.veleda.cyclewise.RobolectricTestApp::class)
@@ -29,8 +27,6 @@ class PhaseColorSettingsTest {
 
     @get:Rule
     val composeTestRule = createComposeRule()
-
-    private val appSettings = AppSettings(ApplicationProvider.getApplicationContext())
 
     /**
      * Helper that wraps [PhaseColorSettings] with required composition locals.
@@ -41,7 +37,17 @@ class PhaseColorSettingsTest {
                 LocalDimensions provides Dimensions(),
             ) {
                 MaterialTheme {
-                    PhaseColorSettings(appSettings)
+                    PhaseColorSettings(
+                        menstruationHex = CyclePhaseColors.DEFAULT_MENSTRUATION_HEX,
+                        follicularHex = CyclePhaseColors.DEFAULT_FOLLICULAR_HEX,
+                        ovulationHex = CyclePhaseColors.DEFAULT_OVULATION_HEX,
+                        lutealHex = CyclePhaseColors.DEFAULT_LUTEAL_HEX,
+                        onMenstruationColorChanged = {},
+                        onFollicularColorChanged = {},
+                        onOvulationColorChanged = {},
+                        onLutealColorChanged = {},
+                        onResetDefaults = {},
+                    )
                 }
             }
         }

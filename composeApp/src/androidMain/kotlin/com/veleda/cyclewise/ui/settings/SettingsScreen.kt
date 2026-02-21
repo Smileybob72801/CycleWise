@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -28,22 +30,20 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -53,35 +53,45 @@ import androidx.navigation.NavController
 import com.veleda.cyclewise.BuildConfig
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
-import com.veleda.cyclewise.reminders.ReminderScheduler
-import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
+import org.koin.core.scope.Scope
 import kotlin.math.roundToInt
+
+/** Number of pages in the settings pager. */
+private const val PAGE_COUNT = 4
+
+/** Page indices for the settings pager. */
+private const val PAGE_GENERAL = 0
+private const val PAGE_APPEARANCE = 1
+private const val PAGE_NOTIFICATIONS = 2
+private const val PAGE_ABOUT = 3
 
 /**
  * Top-level settings screen with Koin-injected dependencies.
  *
- * Delegates all rendering to [SettingsContent] for testability, following the same
- * pattern as [com.veleda.cyclewise.ui.insights.InsightsScreen].
+ * Obtains [SettingsViewModel] via `koinViewModel()` and delegates all rendering to
+ * [SettingsContent] for testability. Session-specific operations (Lock Now, Debug Seeder)
+ * are handled at this level via Koin scope access.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(navController: NavController) {
     val koin = getKoin()
-    val appSettings: AppSettings = koin.get()
-    val reminderScheduler: ReminderScheduler = koin.get()
+    val viewModel: SettingsViewModel = koinViewModel()
+    val uiState by viewModel.uiState.collectAsState()
     val session = koin.getScopeOrNull("session")
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }
     ) { padding ->
         SettingsContent(
-            appSettings = appSettings,
+            uiState = uiState,
+            onEvent = viewModel::onEvent,
             session = session,
-            reminderScheduler = reminderScheduler,
             onLockNow = {
                 session?.close()
                 navController.navigate(NavRoute.Passphrase.route) {
@@ -94,40 +104,90 @@ fun SettingsScreen(navController: NavController) {
 }
 
 /**
- * Testable content composable that renders the settings UI grouped into [OutlinedCard] sections.
+ * Testable content composable that renders the settings UI as a 4-page [HorizontalPager].
  *
- * Accepts primitives and callbacks instead of a NavController or Koin scope, so it can be
- * tested in isolation without navigation or DI concerns.
+ * Accepts [SettingsUiState] and an event callback instead of direct dependencies,
+ * so it can be tested in isolation without navigation, DI, or ViewModel concerns.
  *
- * @param appSettings       The [AppSettings] for reading/writing preferences.
- * @param session           The Koin session scope, or `null` when the app is locked.
- * @param reminderScheduler The [ReminderScheduler] for notification scheduling.
- * @param onLockNow         Callback invoked when the user taps "Lock Now".
- * @param modifier          Modifier applied to the root scrollable column.
+ * @param uiState    The current settings UI state from [SettingsViewModel].
+ * @param onEvent    Event dispatcher for [SettingsEvent] variants.
+ * @param session    The Koin session scope, or `null` when the app is locked.
+ * @param onLockNow  Callback invoked when the user taps "Lock Now".
+ * @param modifier   Modifier applied to the root column.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsContent(
-    appSettings: AppSettings,
-    session: org.koin.core.scope.Scope?,
-    reminderScheduler: ReminderScheduler,
+    uiState: SettingsUiState,
+    onEvent: (SettingsEvent) -> Unit,
+    session: Scope?,
     onLockNow: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val dims = LocalDimensions.current
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val pagerState = rememberPagerState(pageCount = { PAGE_COUNT })
+    val coroutineScope = rememberCoroutineScope()
 
-    val autolock by appSettings.autolockMinutes.collectAsState(initial = 10)
-    val topSymptomsCount by appSettings.topSymptomsCount.collectAsState(initial = 3)
-    val showMood by appSettings.showMoodInSummary.collectAsState(initial = true)
-    val showEnergy by appSettings.showEnergyInSummary.collectAsState(initial = true)
-    val showLibido by appSettings.showLibidoInSummary.collectAsState(initial = true)
+    val pageLabels = listOf(
+        stringResource(R.string.settings_page_general),
+        stringResource(R.string.settings_page_appearance),
+        stringResource(R.string.settings_page_notifications),
+        stringResource(R.string.settings_page_about),
+    )
 
-    var showAboutDialog by remember { mutableStateOf(false) }
+    Column(modifier = modifier.fillMaxSize()) {
+        // Page indicator tabs
+        ScrollableTabRow(
+            selectedTabIndex = pagerState.currentPage,
+            edgePadding = dims.md,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            pageLabels.forEachIndexed { index, label ->
+                Tab(
+                    selected = pagerState.currentPage == index,
+                    onClick = {
+                        coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                    },
+                    text = {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    },
+                )
+            }
+        }
+
+        // Pager
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+        ) { page ->
+            when (page) {
+                PAGE_GENERAL -> GeneralPage(uiState, onEvent, session, onLockNow)
+                PAGE_APPEARANCE -> AppearancePage(uiState, onEvent)
+                PAGE_NOTIFICATIONS -> NotificationsPage(uiState, onEvent)
+                PAGE_ABOUT -> AboutPage(uiState, onEvent, session)
+            }
+        }
+    }
+}
+
+/**
+ * Page 0 — General: Security settings and Insights configuration.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GeneralPage(
+    uiState: SettingsUiState,
+    onEvent: (SettingsEvent) -> Unit,
+    session: Scope?,
+    onLockNow: () -> Unit,
+) {
+    val dims = LocalDimensions.current
 
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = dims.md),
@@ -155,8 +215,8 @@ internal fun SettingsContent(
                             index = index,
                             count = options.size
                         ),
-                        onClick = { scope.launch { appSettings.setAutolockMinutes(minutes) } },
-                        selected = autolock == minutes,
+                        onClick = { onEvent(SettingsEvent.AutolockChanged(minutes)) },
+                        selected = uiState.autolockMinutes == minutes,
                         label = { Text("$minutes ${stringResource(R.string.settings_autolock_minutes_unit)}") }
                     )
                 }
@@ -181,58 +241,10 @@ internal fun SettingsContent(
             }
         }
 
-        // ── Display Card ─────────────────────────────────────────────
-        SettingsSectionCard(title = stringResource(R.string.settings_section_display)) {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.show_mood_label)) },
-                supportingContent = { Text(stringResource(R.string.show_mood_description)) },
-                trailingContent = {
-                    Switch(
-                        checked = showMood,
-                        onCheckedChange = { scope.launch { appSettings.setShowMoodInSummary(it) } }
-                    )
-                }
-            )
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.show_energy_label)) },
-                supportingContent = { Text(stringResource(R.string.show_energy_description)) },
-                trailingContent = {
-                    Switch(
-                        checked = showEnergy,
-                        onCheckedChange = { scope.launch { appSettings.setShowEnergyInSummary(it) } }
-                    )
-                }
-            )
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.show_libido_label)) },
-                supportingContent = { Text(stringResource(R.string.show_libido_description)) },
-                trailingContent = {
-                    Switch(
-                        checked = showLibido,
-                        onCheckedChange = { scope.launch { appSettings.setShowLibidoInSummary(it) } }
-                    )
-                }
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = dims.md))
-
-            PhaseVisibilitySettings(appSettings, showTitle = false)
-        }
-
-        // ── Customization Card ───────────────────────────────────────
-        SettingsSectionCard(title = stringResource(R.string.settings_section_customization)) {
-            PhaseColorSettings(appSettings, showTitle = false)
-        }
-
-        // ── Notifications Card ───────────────────────────────────────
-        SettingsSectionCard(title = stringResource(R.string.settings_section_notifications)) {
-            ReminderSettings(appSettings, reminderScheduler, showTitle = false)
-        }
-
         // ── Insights Card ────────────────────────────────────────────
         SettingsSectionCard(title = stringResource(R.string.settings_insights_title)) {
             Text(
-                stringResource(R.string.settings_top_symptoms, topSymptomsCount),
+                stringResource(R.string.settings_top_symptoms, uiState.topSymptomsCount),
                 modifier = Modifier.padding(horizontal = dims.md)
             )
             Row(
@@ -245,11 +257,11 @@ internal fun SettingsContent(
                     Text(
                         text = value.toString(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (value == topSymptomsCount)
+                        color = if (value == uiState.topSymptomsCount)
                             MaterialTheme.colorScheme.primary
                         else
                             MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = if (value == topSymptomsCount)
+                        fontWeight = if (value == uiState.topSymptomsCount)
                             FontWeight.Bold
                         else
                             FontWeight.Normal
@@ -257,15 +269,170 @@ internal fun SettingsContent(
                 }
             }
             Slider(
-                value = topSymptomsCount.toFloat(),
+                value = uiState.topSymptomsCount.toFloat(),
                 onValueChange = { newValue ->
-                    scope.launch { appSettings.setTopSymptomsCount(newValue.roundToInt()) }
+                    onEvent(SettingsEvent.TopSymptomsCountChanged(newValue.roundToInt()))
                 },
                 valueRange = 1f..5f,
                 steps = 3,
                 modifier = Modifier.padding(horizontal = dims.md)
             )
         }
+
+        Spacer(Modifier.height(dims.xl))
+    }
+}
+
+/**
+ * Page 1 — Appearance: Display toggles, phase visibility, and phase colors.
+ */
+@Composable
+private fun AppearancePage(
+    uiState: SettingsUiState,
+    onEvent: (SettingsEvent) -> Unit,
+) {
+    val dims = LocalDimensions.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = dims.md),
+        verticalArrangement = Arrangement.spacedBy(dims.md)
+    ) {
+        Spacer(Modifier.height(dims.sm))
+
+        // ── Display Card ─────────────────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_section_display)) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.show_mood_label)) },
+                supportingContent = { Text(stringResource(R.string.show_mood_description)) },
+                trailingContent = {
+                    Switch(
+                        checked = uiState.showMood,
+                        onCheckedChange = { onEvent(SettingsEvent.ShowMoodToggled(it)) }
+                    )
+                }
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.show_energy_label)) },
+                supportingContent = { Text(stringResource(R.string.show_energy_description)) },
+                trailingContent = {
+                    Switch(
+                        checked = uiState.showEnergy,
+                        onCheckedChange = { onEvent(SettingsEvent.ShowEnergyToggled(it)) }
+                    )
+                }
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.show_libido_label)) },
+                supportingContent = { Text(stringResource(R.string.show_libido_description)) },
+                trailingContent = {
+                    Switch(
+                        checked = uiState.showLibido,
+                        onCheckedChange = { onEvent(SettingsEvent.ShowLibidoToggled(it)) }
+                    )
+                }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = dims.md))
+
+            PhaseVisibilitySettings(
+                showFollicular = uiState.showFollicular,
+                showOvulation = uiState.showOvulation,
+                showLuteal = uiState.showLuteal,
+                onFollicularToggled = { onEvent(SettingsEvent.ShowFollicularToggled(it)) },
+                onOvulationToggled = { onEvent(SettingsEvent.ShowOvulationToggled(it)) },
+                onLutealToggled = { onEvent(SettingsEvent.ShowLutealToggled(it)) },
+                showTitle = false,
+            )
+        }
+
+        // ── Customization Card ───────────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_section_customization)) {
+            PhaseColorSettings(
+                menstruationHex = uiState.menstruationColorHex,
+                follicularHex = uiState.follicularColorHex,
+                ovulationHex = uiState.ovulationColorHex,
+                lutealHex = uiState.lutealColorHex,
+                onMenstruationColorChanged = { onEvent(SettingsEvent.MenstruationColorChanged(it)) },
+                onFollicularColorChanged = { onEvent(SettingsEvent.FollicularColorChanged(it)) },
+                onOvulationColorChanged = { onEvent(SettingsEvent.OvulationColorChanged(it)) },
+                onLutealColorChanged = { onEvent(SettingsEvent.LutealColorChanged(it)) },
+                onResetDefaults = { onEvent(SettingsEvent.ResetPhaseColorsToDefaults) },
+                showTitle = false,
+            )
+        }
+
+        Spacer(Modifier.height(dims.xl))
+    }
+}
+
+/**
+ * Page 2 — Notifications: Period prediction, medication, and hydration reminders.
+ */
+@Composable
+private fun NotificationsPage(
+    uiState: SettingsUiState,
+    onEvent: (SettingsEvent) -> Unit,
+) {
+    val dims = LocalDimensions.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = dims.md),
+        verticalArrangement = Arrangement.spacedBy(dims.md)
+    ) {
+        Spacer(Modifier.height(dims.sm))
+
+        // ── Notifications Card ───────────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_section_notifications)) {
+            ReminderSettings(
+                periodEnabled = uiState.periodReminderEnabled,
+                periodDaysBefore = uiState.periodDaysBefore,
+                periodPrivacyAccepted = uiState.periodPrivacyAccepted,
+                medicationEnabled = uiState.medicationReminderEnabled,
+                medicationHour = uiState.medicationHour,
+                medicationMinute = uiState.medicationMinute,
+                hydrationEnabled = uiState.hydrationReminderEnabled,
+                hydrationGoalCups = uiState.hydrationGoalCups,
+                hydrationFrequencyHours = uiState.hydrationFrequencyHours,
+                hydrationStartHour = uiState.hydrationStartHour,
+                hydrationEndHour = uiState.hydrationEndHour,
+                showPermissionRationale = uiState.showPermissionRationale,
+                showPrivacyDialog = uiState.showPrivacyDialog,
+                onEvent = onEvent,
+                showTitle = false,
+            )
+        }
+
+        Spacer(Modifier.height(dims.xl))
+    }
+}
+
+/**
+ * Page 3 — About: App info, version dialog, and developer tools (debug only).
+ */
+@Composable
+private fun AboutPage(
+    uiState: SettingsUiState,
+    onEvent: (SettingsEvent) -> Unit,
+    session: Scope?,
+) {
+    val dims = LocalDimensions.current
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = dims.md),
+        verticalArrangement = Arrangement.spacedBy(dims.md)
+    ) {
+        Spacer(Modifier.height(dims.sm))
 
         // ── About Card ──────────────────────────────────────────────
         SettingsSectionCard(title = stringResource(R.string.about_title)) {
@@ -275,13 +442,13 @@ internal fun SettingsContent(
                 leadingContent = {
                     Icon(Icons.Default.Info, contentDescription = null)
                 },
-                modifier = Modifier.clickable { showAboutDialog = true }
+                modifier = Modifier.clickable { onEvent(SettingsEvent.ShowAboutDialog) }
             )
         }
 
-        if (showAboutDialog) {
+        if (uiState.showAboutDialog) {
             AlertDialog(
-                onDismissRequest = { showAboutDialog = false },
+                onDismissRequest = { onEvent(SettingsEvent.DismissAboutDialog) },
                 title = { Text(stringResource(R.string.app_name)) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(dims.sm)) {
@@ -291,7 +458,7 @@ internal fun SettingsContent(
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { showAboutDialog = false }) {
+                    TextButton(onClick = { onEvent(SettingsEvent.DismissAboutDialog) }) {
                         Text(stringResource(R.string.about_close))
                     }
                 }
@@ -345,7 +512,7 @@ internal fun SettingsContent(
             }
         }
 
-        Spacer(Modifier.height(dims.md))
+        Spacer(Modifier.height(dims.xl))
     }
 }
 

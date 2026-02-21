@@ -32,6 +32,7 @@ import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.auth.PassphraseViewModel
 import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.ui.insights.InsightsViewModel
+import com.veleda.cyclewise.ui.settings.SettingsViewModel
 import kotlinx.datetime.LocalDate
 import org.koin.core.qualifier.Qualifier
 
@@ -118,6 +119,8 @@ val appModule = module {
     viewModel { WaterTrackerViewModel(lockedWaterDraft = get()) }
 
     viewModel { PassphraseViewModel(appSettings = get(), lockedWaterDraft = get()) }
+
+    viewModel { SettingsViewModel(appSettings = get(), reminderScheduler = get()) }
 
     scope(SESSION_SCOPE) {
         /*
