@@ -13,12 +13,14 @@ import androidx.compose.ui.unit.dp
  *
  * | Token | Value |
  * |-------|-------|
+ * | xxs   | 2 dp  |
  * | xs    | 4 dp  |
  * | sm    | 8 dp  |
  * | md    | 16 dp |
  * | lg    | 24 dp |
  * | xl    | 32 dp |
  *
+ * @property xxs Double-extra-small spacing (2 dp) — borders, hairline gaps.
  * @property xs Extra-small spacing (4 dp).
  * @property sm Small spacing (8 dp).
  * @property md Medium / default spacing (16 dp).
@@ -27,6 +29,7 @@ import androidx.compose.ui.unit.dp
  */
 @Immutable
 data class Dimensions(
+    val xxs: Dp = 2.dp,
     val xs: Dp = 4.dp,
     val sm: Dp = 8.dp,
     val md: Dp = 16.dp,

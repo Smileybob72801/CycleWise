@@ -252,7 +252,7 @@ private fun WellnessPage(
                 cups = waterCups,
                 onIncrement = onWaterIncrement,
                 onDecrement = onWaterDecrement,
-                yesterdayMessage = null,
+                yesterdayCupsForPrompt = null,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

@@ -13,7 +13,7 @@ sealed interface TrackerEvent {
     data class PeriodMarkDay(val date: LocalDate) : TrackerEvent
 
     /** The user has dismissed the bottom sheet showing the log summary. */
-    object DismissLogSheet : TrackerEvent
+    data object DismissLogSheet : TrackerEvent
 
     /** The user tapped the Edit button in the bottom sheet. */
     data class EditLogClicked(val date: LocalDate) : TrackerEvent
@@ -25,10 +25,10 @@ sealed interface TrackerEvent {
     data class DeletePeriodConfirmed(val periodId: String) : TrackerEvent
 
     /** The user dismissed the deletion confirmation dialog. */
-    object DeletePeriodDismissed : TrackerEvent
+    data object DeletePeriodDismissed : TrackerEvent
 
-    /** Needed for auto-close period logic. */
-    object ScreenEntered : TrackerEvent
+    /** Dispatched when the screen is first composed, triggering auto-close period logic. */
+    data object ScreenEntered : TrackerEvent
 }
 
 /**

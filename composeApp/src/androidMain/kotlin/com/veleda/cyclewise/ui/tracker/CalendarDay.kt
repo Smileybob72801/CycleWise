@@ -127,7 +127,7 @@ internal fun CalendarDayCell(
             }
             .testTag("day-$date")
             .border(
-                width = if (isToday) 2.dp else 0.dp,
+                width = if (isToday) dims.xxs else 0.dp,
                 color = if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent,
                 shape = CircleShape
             )
@@ -165,8 +165,8 @@ internal fun CalendarDayCell(
             )
 
             Row(
-                modifier = Modifier.padding(top = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                modifier = Modifier.padding(top = dims.xxs),
+                horizontalArrangement = Arrangement.spacedBy(dims.xxs)
             ) {
                 if (dayInfo?.hasSymptoms == true) {
                     Box(

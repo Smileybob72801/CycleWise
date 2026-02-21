@@ -240,11 +240,11 @@ private fun PresetColorGrid(
 
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(dims.xl)
                     .clip(CircleShape)
                     .background(color)
                     .then(
-                        if (isSelected) Modifier.border(2.dp, primaryColor, CircleShape)
+                        if (isSelected) Modifier.border(dims.xxs, primaryColor, CircleShape)
                         else Modifier
                     )
                     .clickable { onSelect(hex) }

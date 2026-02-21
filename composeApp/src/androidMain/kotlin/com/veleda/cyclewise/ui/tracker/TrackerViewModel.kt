@@ -12,7 +12,14 @@ import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
 import com.veleda.cyclewise.settings.AppSettings
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -23,6 +30,19 @@ import kotlinx.datetime.todayIn
 import kotlin.math.roundToInt
 import kotlin.time.Clock
 
+/**
+ * UI state for the Tracker (calendar) screen.
+ *
+ * @property periods             All saved periods, used for calendar range highlighting.
+ * @property logForSheet         The full daily log to display in the bottom sheet, or null when the sheet is hidden.
+ * @property periodIdForSheet    The id of the period that contains the date shown in the bottom sheet, if any.
+ * @property symptomLibrary      Complete symptom library for rendering log summaries.
+ * @property medicationLibrary   Complete medication library for rendering log summaries.
+ * @property dayDetails          Per-date calendar annotations (period, symptoms, medications, notes, phase).
+ * @property showDeleteConfirmation Whether the delete-period confirmation dialog is visible.
+ * @property periodIdToDelete    The id of the period the user has requested to delete.
+ * @property waterCupsForSheet   Water intake cup count for the date shown in the bottom sheet.
+ */
 data class TrackerUiState(
     val periods: List<Period> = emptyList(),
     val logForSheet: FullDailyLog? = null,
@@ -40,9 +60,8 @@ data class TrackerUiState(
 /**
  * Calendar/tracker screen ViewModel managing period and log state.
  *
- * Uses a MVI-inspired pattern: [onEvent] dispatches to [reduce] (a pure function that
- * returns updated state). Side effects (navigation, repository writes) are launched
- * inside `reduce` via `viewModelScope`.
+ * Uses a MVI-inspired pattern: [onEvent] applies a pure [reduce] for state updates,
+ * then launches side effects (navigation, repository writes) in `viewModelScope`.
  *
  * **Init:** Collects 4 reactive flows — day details, periods, symptom library, and
  * medication library — each updating the corresponding [TrackerUiState] field.
@@ -55,7 +74,7 @@ data class TrackerUiState(
 class TrackerViewModel(
     private val periodRepository: PeriodRepository,
     private val symptomLibraryProvider: SymptomLibraryProvider,
-    private  val medicationLibraryProvider: MedicationLibraryProvider,
+    private val medicationLibraryProvider: MedicationLibraryProvider,
     private val autoClosePeriodUseCase: AutoCloseOngoingPeriodUseCase,
     private val appSettings: AppSettings
 ) : ViewModel() {
@@ -104,63 +123,86 @@ class TrackerViewModel(
         }
     }
 
+    /**
+     * The single public entry point for all UI interactions.
+     *
+     * Updates state synchronously via [reduce], then launches side effects
+     * (repository writes, navigation effects) asynchronously in [viewModelScope].
+     */
     fun onEvent(event: TrackerEvent) {
         _uiState.update { currentState ->
             reduce(currentState, event)
         }
-    }
 
-    private fun reduce(currentState: TrackerUiState, event: TrackerEvent): TrackerUiState {
-        return when (event) {
-            is TrackerEvent.ScreenEntered -> {
-                viewModelScope.launch {
-                    autoClosePeriodUseCase()
-                }
-                currentState
+        // Side effects: repository calls, navigation, auto-close.
+        when (event) {
+            is TrackerEvent.ScreenEntered -> viewModelScope.launch {
+                autoClosePeriodUseCase()
             }
-            is TrackerEvent.DayTapped -> {
+
+            is TrackerEvent.DayTapped -> viewModelScope.launch {
                 val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
                 val date = event.date
-                viewModelScope.launch {
-                    val periodForDate = _uiState.value.periods.find {
-                        date in (it.startDate..(it.endDate ?: today))
-                    }
-                    val existingLog = periodRepository.getFullLogForDate(date)
-
-                    if (existingLog != null) {
-                        val waterIntake = periodRepository.getWaterIntakeForDates(listOf(date)).firstOrNull()
-                        _uiState.update {
-                            it.copy(
-                                logForSheet = existingLog,
-                                periodIdForSheet = periodForDate?.id,
-                                waterCupsForSheet = waterIntake?.cups
-                            )
-                        }
-                    } else {
-                        _effect.emit(TrackerEffect.NavigateToDailyLog(date))
-                    }
+                val periodForDate = _uiState.value.periods.find {
+                    date in (it.startDate..(it.endDate ?: today))
                 }
-                currentState
-            }
-            is TrackerEvent.PeriodMarkDay -> {
-                viewModelScope.launch {
-                    val periodForDate = currentState.periods.find { event.date in (it.startDate..(it.endDate ?: Clock.System.todayIn(TimeZone.currentSystemDefault()))) }
+                val existingLog = periodRepository.getFullLogForDate(date)
 
-                    if (periodForDate != null) {
-                        periodRepository.unLogPeriodDay(event.date)
-                    } else {
-                        periodRepository.logPeriodDay(event.date)
+                if (existingLog != null) {
+                    val waterIntake = periodRepository.getWaterIntakeForDates(listOf(date)).firstOrNull()
+                    _uiState.update {
+                        it.copy(
+                            logForSheet = existingLog,
+                            periodIdForSheet = periodForDate?.id,
+                            waterCupsForSheet = waterIntake?.cups
+                        )
                     }
+                } else {
+                    _effect.emit(TrackerEffect.NavigateToDailyLog(date))
                 }
-                currentState
             }
+
+            is TrackerEvent.PeriodMarkDay -> viewModelScope.launch {
+                val periodForDate = _uiState.value.periods.find {
+                    event.date in (it.startDate..(it.endDate ?: Clock.System.todayIn(TimeZone.currentSystemDefault())))
+                }
+                if (periodForDate != null) {
+                    periodRepository.unLogPeriodDay(event.date)
+                } else {
+                    periodRepository.logPeriodDay(event.date)
+                }
+            }
+
+            is TrackerEvent.EditLogClicked -> viewModelScope.launch {
+                _effect.emit(TrackerEffect.NavigateToDailyLog(event.date))
+            }
+
+            is TrackerEvent.DeletePeriodConfirmed -> viewModelScope.launch {
+                periodRepository.deletePeriod(event.periodId)
+            }
+
+            // State-only events — no side effects needed.
+            is TrackerEvent.DismissLogSheet,
+            is TrackerEvent.DeletePeriodRequested,
+            is TrackerEvent.DeletePeriodDismissed -> { /* state-only */ }
+        }
+    }
+
+    /**
+     * Pure function that returns the new [TrackerUiState] for a given event.
+     *
+     * Contains no side effects — all repository writes, use-case calls, and
+     * effect emissions are handled in [onEvent] after the state has been updated.
+     */
+    private fun reduce(currentState: TrackerUiState, event: TrackerEvent): TrackerUiState {
+        return when (event) {
+            is TrackerEvent.ScreenEntered -> currentState
+            is TrackerEvent.DayTapped -> currentState
+            is TrackerEvent.PeriodMarkDay -> currentState
             is TrackerEvent.DismissLogSheet -> {
                 currentState.copy(logForSheet = null, periodIdForSheet = null, waterCupsForSheet = null)
             }
             is TrackerEvent.EditLogClicked -> {
-                viewModelScope.launch {
-                    _effect.emit(TrackerEffect.NavigateToDailyLog(event.date))
-                }
                 currentState.copy(logForSheet = null, periodIdForSheet = null, waterCupsForSheet = null)
             }
             is TrackerEvent.DeletePeriodRequested -> {
@@ -172,9 +214,6 @@ class TrackerViewModel(
                 )
             }
             is TrackerEvent.DeletePeriodConfirmed -> {
-                viewModelScope.launch {
-                    periodRepository.deletePeriod(event.periodId)
-                }
                 currentState.copy(
                     showDeleteConfirmation = false,
                     periodIdToDelete = null

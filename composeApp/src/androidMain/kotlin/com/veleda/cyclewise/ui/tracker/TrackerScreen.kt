@@ -407,7 +407,7 @@ private fun LegendChip(color: Color, label: String) {
             Box(
                 modifier = Modifier
                     .size(dims.sm)
-                    .background(color, RoundedCornerShape(2.dp))
+                    .background(color, RoundedCornerShape(dims.xxs))
             )
             Text(text = label, style = MaterialTheme.typography.labelSmall)
         }

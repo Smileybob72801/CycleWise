@@ -6,6 +6,7 @@ import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -97,7 +98,7 @@ class SettingsViewModel(
     private val _uiState = MutableStateFlow(SettingsUiState())
 
     /** Observable settings UI state. */
-    val uiState = _uiState.asStateFlow()
+    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
         // Collect each AppSettings flow individually to populate state.
@@ -345,7 +346,7 @@ class SettingsViewModel(
      * Contains no side effects — all DataStore writes and scheduler calls are
      * handled in [onEvent] after the state has been updated.
      */
-    internal fun reduce(state: SettingsUiState, event: SettingsEvent): SettingsUiState {
+    private fun reduce(state: SettingsUiState, event: SettingsEvent): SettingsUiState {
         return when (event) {
             is SettingsEvent.AutolockChanged -> state.copy(autolockMinutes = event.minutes)
             is SettingsEvent.TopSymptomsCountChanged -> state.copy(topSymptomsCount = event.count)

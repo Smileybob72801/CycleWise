@@ -211,7 +211,7 @@ fun PassphraseScreen(
                     cups = waterState.todayCups,
                     onIncrement = waterViewModel::onIncrement,
                     onDecrement = waterViewModel::onDecrement,
-                    yesterdayMessage = waterState.yesterdayMessage
+                    yesterdayCupsForPrompt = waterState.yesterdayCupsForPrompt
                 )
             }
         }
