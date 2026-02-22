@@ -159,6 +159,10 @@ fun TrackerScreen(navController: NavController) {
     var dragCurrent by remember { mutableStateOf<LocalDate?>(null) }
     var isDragging by remember { mutableStateOf(false) }
 
+    val anchorPeriod = if (isDragging && dragAnchor != null) {
+        uiState.periods.find { dragAnchor!! in (it.startDate..(it.endDate ?: today)) }
+    } else null
+
     // Coordinates of the calendar container Box for pointer mapping.
     var calendarBoxCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
@@ -359,6 +363,28 @@ fun TrackerScreen(navController: NavController) {
                             date in selStart..selEnd
                         }
 
+                        val isInRemovalRange = isDragging && dragAnchor != null && dragCurrent != null
+                            && anchorPeriod != null && run {
+                            val periodEnd = anchorPeriod.endDate ?: today
+                            when {
+                                // Shrink from start: anchor at start, dragging right into period
+                                dragAnchor == anchorPeriod.startDate
+                                    && dragAnchor != periodEnd
+                                    && dragCurrent!! > dragAnchor!!
+                                    && dragCurrent!! <= periodEnd ->
+                                    date >= dragAnchor!! && date < dragCurrent!!
+
+                                // Shrink from end: anchor at end, dragging left into period
+                                dragAnchor == periodEnd
+                                    && dragAnchor != anchorPeriod.startDate
+                                    && dragCurrent!! < dragAnchor!!
+                                    && dragCurrent!! >= anchorPeriod.startDate ->
+                                    date > dragCurrent!! && date <= dragAnchor!!
+
+                                else -> false
+                            }
+                        }
+
                         CalendarDayCell(
                             day = day,
                             dayInfo = dayInfo,
@@ -367,6 +393,7 @@ fun TrackerScreen(navController: NavController) {
                             isEndDate = cycleForDate?.endDate == date,
                             isInExistingRange = cycleForDate != null,
                             isInSelectionRange = inSelectionRange,
+                            isInRemovalRange = isInRemovalRange,
                             isDragging = isDragging,
                             isPhaseStart = displayPhase != null && displayPhase != prevDisplayPhase,
                             isPhaseEnd = displayPhase != null && displayPhase != nextDisplayPhase,

@@ -56,6 +56,9 @@ import kotlinx.datetime.toKotlinLocalDate
  * @param isEndDate         True if the date is the end of a period range.
  * @param isInExistingRange True if this date falls inside any saved period.
  * @param isInSelectionRange True if this date is part of an in-progress drag selection.
+ * @param isInRemovalRange  True if this date is a current period day that will be removed by an
+ *                          in-progress shrink drag. Renders with 40 % alpha menstruation fill
+ *                          instead of the full period colour.
  * @param isPhaseStart      True if this date is the first day of its displayed phase band.
  * @param isPhaseEnd        True if this date is the last day of its displayed phase band.
  * @param palette           The current [CyclePhasePalette] providing per-phase colours.
@@ -76,6 +79,7 @@ internal fun CalendarDayCell(
     isEndDate: Boolean,
     isInExistingRange: Boolean,
     isInSelectionRange: Boolean,
+    isInRemovalRange: Boolean = false,
     isDragging: Boolean = false,
     isPhaseStart: Boolean = true,
     isPhaseEnd: Boolean = true,
@@ -143,10 +147,10 @@ internal fun CalendarDayCell(
             )
             .background(
                 color = when {
-                    dayInfo?.isPeriodDay == true ->
+                    dayInfo?.isPeriodDay == true && !isInRemovalRange ->
                         palette.menstruation.fill
 
-                    isInSelectionRange ->
+                    isInSelectionRange || isInRemovalRange ->
                         palette.menstruation.fill.copy(alpha = 0.4f)
 
                     hasDisplayPhase ->
