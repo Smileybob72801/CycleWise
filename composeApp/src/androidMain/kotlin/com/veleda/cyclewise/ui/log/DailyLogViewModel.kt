@@ -205,7 +205,7 @@ class DailyLogViewModel(
             }
 
             is DailyLogEvent.WaterDecrement -> viewModelScope.launch {
-                if (_uiState.value.waterCups >= 0) {
+                if (_uiState.value.waterCups > 0) {
                     periodRepository.upsertWaterIntake(
                         WaterIntake(
                             date = entryDate,

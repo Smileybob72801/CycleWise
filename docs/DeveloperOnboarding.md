@@ -55,7 +55,8 @@ content from these companion documents:
   - [2.6 Platform vs Shared Separation](#26-platform-vs-shared-separation)
   - [2.7 DailyLogScreen and DailyLogViewModel](#27-dailylogscreen-and-dailylogviewmodel)
   - [2.8 InsightsScreen and InsightsViewModel](#28-insightsscreen-and-insightsviewmodel)
-  - [2.9 LockedWaterDraft — Pre-Authentication Water Tracking](#29-lockedwaterdraft--pre-authentication-water-tracking)
+  - [2.9 SettingsScreen and SettingsViewModel](#29-settingsscreen-and-settingsviewmodel)
+  - [2.10 LockedWaterDraft — Pre-Authentication Water Tracking](#210-lockedwaterdraft--pre-authentication-water-tracking)
 - [Phase 3 — Code Organization and Design Principles](#phase-3--code-organization-and-design-principles)
   - [3.1 Why Interfaces Live in Shared Module](#31-why-interfaces-live-in-shared-module)
   - [3.2 Why Platform Implementations Live in composeApp](#32-why-platform-implementations-live-in-composeapp)
@@ -436,11 +437,11 @@ Contains the Jetpack Compose UI and all Android-specific implementations.
 | `androidData/local/draft/` | `LockedWaterDraft` — persists water intake while locked |
 | `androidData/repository/` | `RoomPeriodRepository` — implements `PeriodRepository` |
 | `ui/auth/` | `PassphraseScreen`, `PassphraseViewModel`, `WaterTrackerViewModel`, `WaterDraftSyncer` |
-| `ui/tracker/` | `TrackerScreen`, `TrackerViewModel`, `TrackerEvent`, `CalendarDayInfo`, `CalendarDay`, `LogSummarySheet` |
-| `ui/log/` | `DailyLogScreen`, `DailyLogViewModel` |
+| `ui/tracker/` | `TrackerScreen`, `TrackerViewModel`, `TrackerEvent`, `CalendarDayInfo`, `CalendarDay`, `DayBoundsRegistry`, `CyclePhaseColors`, `LogSummarySheet` |
+| `ui/log/` | `DailyLogScreen`, `DailyLogViewModel`, `DailyLogEvent` |
 | `ui/insights/` | `InsightsScreen`, `InsightsViewModel` |
-| `ui/settings/` | `SettingsScreen` |
-| `ui/nav/` | `NavRoutes`, `CycleWiseAppUI` (NavHost + bottom navigation) |
+| `ui/settings/` | `SettingsScreen`, `SettingsViewModel`, `SettingsEvent`, `PhaseColorSettings`, `PhaseVisibilitySettings`, `ReminderSettings`, `PeriodPrivacyDialog` |
+| `ui/nav/` | `NavRoutes`, `BottomNavBar`, `CycleWiseAppUI` (NavHost + bottom navigation) |
 | `ui/theme/` | `Color.kt`, `CyclePhasePalette.kt`, `Dimensions.kt`, `Shape.kt`, `Theme.kt`, `Type.kt` |
 | `ui/utils/` | `DateFormatter.kt` — platform-specific date formatting |
 | `di/` | `AppModule.kt` — all Koin DI wiring |
@@ -542,17 +543,27 @@ PeriodTracker/
 │       │   │   ├── TrackerEvent.kt
 │       │   │   ├── CalendarDayInfo.kt
 │       │   │   ├── CalendarDay.kt
+│       │   │   ├── DayBoundsRegistry.kt
+│       │   │   ├── CyclePhaseColors.kt
 │       │   │   └── LogSummarySheet.kt
 │       │   ├── log/
 │       │   │   ├── DailyLogScreen.kt
-│       │   │   └── DailyLogViewModel.kt
+│       │   │   ├── DailyLogViewModel.kt
+│       │   │   └── DailyLogEvent.kt
 │       │   ├── insights/
 │       │   │   ├── InsightsScreen.kt
 │       │   │   └── InsightsViewModel.kt
 │       │   ├── settings/
-│       │   │   └── SettingsScreen.kt
+│       │   │   ├── SettingsScreen.kt
+│       │   │   ├── SettingsViewModel.kt
+│       │   │   ├── SettingsEvent.kt
+│       │   │   ├── PhaseColorSettings.kt
+│       │   │   ├── PhaseVisibilitySettings.kt
+│       │   │   ├── ReminderSettings.kt
+│       │   │   └── PeriodPrivacyDialog.kt
 │       │   ├── nav/
 │       │   │   ├── NavRoutes.kt
+│       │   │   ├── BottomNavBar.kt
 │       │   │   └── CycleWiseAppUI.kt             # NavHost + bottom navigation
 │       │   ├── theme/
 │       │   │   ├── Color.kt
@@ -741,6 +752,7 @@ process dies:
 | `ReminderScheduler` | Schedules medication, hydration, and prediction reminder workers |
 | `PassphraseViewModel` | Manages unlock flow (survives screen rotation) |
 | `WaterTrackerViewModel` | Manages water tracker on lock screen |
+| `SettingsViewModel` | Settings screen state (no DB access — depends only on `AppSettings` + `ReminderScheduler`) |
 
 #### 2. Session Scope (created on unlock, destroyed on logout/autolock)
 
@@ -970,6 +982,7 @@ warns you if you forget a case.
 sealed interface TrackerEvent {
     data class DayTapped(val date: LocalDate) : TrackerEvent
     data class PeriodMarkDay(val date: LocalDate) : TrackerEvent
+    data class PeriodRangeDragged(val anchorDate: LocalDate, val releaseDate: LocalDate) : TrackerEvent
     object ScreenEntered : TrackerEvent
     // ... more events
 }
@@ -1016,11 +1029,10 @@ top of MVVM components:
   The UI calls `viewModel.onEvent(TrackerEvent.DayTapped(date))`.
 - **Effects** (`TrackerEffect`) — One-shot side effects (navigation, toasts) that
   should be consumed exactly once. Exposed as `SharedFlow` with `replay = 0`.
-- **Reducer** (`reduce()`) — Takes current state + event and returns new state.
-  In `TrackerViewModel`, the reducer also launches side effects (repository calls,
-  navigation) inside `viewModelScope.launch` — making it a _hybrid_ reducer rather
-  than a pure function. `DailyLogViewModel` keeps most of its reducer branches pure,
-  but still launches async work for save, library creation, and water persistence.
+- **Reducer** (`reduce()`) — A pure function that takes current state + event and returns
+  new state with no side effects. All ViewModels (`TrackerViewModel`, `DailyLogViewModel`,
+  `SettingsViewModel`) keep their reducers pure. Side effects (repository writes,
+  scheduler calls, navigation) are launched in `onEvent()` after the state update.
 
 ### Concrete Example: TrackerViewModel
 
@@ -1043,15 +1055,16 @@ data class TrackerUiState(
 }
 ```
 
-**Events** (8 types defined in `ui/tracker/TrackerEvent.kt`):
+**Events** (9 types defined in `ui/tracker/TrackerEvent.kt`):
 1. `ScreenEntered` — Triggers auto-close of stale periods
 2. `DayTapped(date)` — Tap a day to view or create a log
 3. `PeriodMarkDay(date)` — Long-press to toggle period day
-4. `DismissLogSheet` — Close the log summary bottom sheet
-5. `EditLogClicked(date)` — Navigate to edit the daily log
-6. `DeletePeriodRequested(periodId)` — Show delete confirmation
-7. `DeletePeriodConfirmed(periodId)` — Execute deletion
-8. `DeletePeriodDismissed` — Cancel deletion
+4. `PeriodRangeDragged(anchorDate, releaseDate)` — Long-press-and-drag to mark/shrink a period range
+5. `DismissLogSheet` — Close the log summary bottom sheet
+6. `EditLogClicked(date)` — Navigate to edit the daily log
+7. `DeletePeriodRequested(periodId)` — Show delete confirmation
+8. `DeletePeriodConfirmed(periodId)` — Execute deletion
+9. `DeletePeriodDismissed` — Cancel deletion
 
 **Dispatch:**
 ```kotlin
@@ -1693,6 +1706,36 @@ When the user interacts with the tracker:
 - **Delete flow** — `DeletePeriodRequested` shows a confirmation dialog.
   `DeletePeriodConfirmed` calls `periodRepository.deletePeriod()`.
 
+### Long-Press-and-Drag Period Selection
+
+The calendar grid supports a long-press-and-drag gesture for marking or shrinking
+period ranges in a single interaction.
+
+**DayBoundsRegistry:** A lightweight coordinate registry (`ui/tracker/DayBoundsRegistry.kt`)
+that maps each calendar cell's screen bounds (`Rect`) to its `LocalDate`. Each cell
+registers its bounds via `register(date, rect)` during layout and unregisters on disposal.
+The gesture detector calls `dateAt(offset)` to convert pointer positions to dates.
+
+**Gesture detection:** The calendar grid wraps in a `pointerInput` modifier that detects
+long-press, then tracks drag position. On release:
+- If the drag stayed on the anchor date → dispatches `PeriodMarkDay` (toggle single day)
+- If the drag moved to a different date → dispatches `PeriodRangeDragged(anchor, release)`
+
+**Shrink vs Expand logic in TrackerViewModel:** When processing `PeriodRangeDragged`:
+- **Shrink from start:** When anchor equals the start date of an existing period and
+  release is inside the period → calls `unLogPeriodDay()` for each day from anchor up
+  to (but not including) release.
+- **Shrink from end:** When anchor equals the end date of an existing period and
+  release is inside the period → calls `unLogPeriodDay()` for each day from anchor down
+  to (but not including) release.
+- **Default (expand/mark):** Otherwise → calls `logPeriodDay()` for every day in the
+  anchor-to-release range (inclusive).
+
+**CyclePhaseColors:** Object (`ui/tracker/CyclePhaseColors.kt`) holding default hex color
+constants for the four cycle phases (menstruation, follicular, ovulation, luteal). Used
+by `TrackerScreen` for calendar cell coloring and by `SettingsViewModel` for default
+values and reset-to-defaults functionality.
+
 ---
 
 ## 2.5 Use Cases to Repository to DAO
@@ -1858,7 +1901,22 @@ operation rolls back.
 ## 2.7 DailyLogScreen and DailyLogViewModel
 
 `DailyLogViewModel` (`ui/log/DailyLogViewModel.kt`) is the most event-rich ViewModel
-in the codebase, handling 19 distinct event types for editing a single day's log.
+in the codebase, handling 20 distinct event types for editing a single day's log.
+
+### Navigation Routes
+
+The daily log has two navigation entry points:
+- **DailyLogHome** — Navigated to from the passphrase screen after unlock, shows today's date.
+- **DailyLog(date)** — Navigated from the tracker with a specific date parameter.
+
+### Swipeable Pager Layout
+
+`DailyLogScreen` uses a 5-page `HorizontalPager` with `ScrollableTabRow` navigation:
+1. **Wellness** — Mood (star rating), energy (star rating), libido (star rating), water intake
+2. **Period** — Period toggle switch, flow intensity, period color, period consistency
+3. **Symptoms** — Symptom library chips with create-and-add
+4. **Medications** — Medication library chips with create-and-add
+5. **Notes/Tags** — Custom tags with add/remove, free-text note editor
 
 ### Two-Phase Initialization
 
@@ -1871,8 +1929,15 @@ init {
         val result = getOrCreateDailyLog(entryDate)
         val waterIntake = periodRepository.getWaterIntakeForDates(listOf(entryDate)).firstOrNull()
 
+        // Self-determine isPeriodDay from existing periods
+        val periods = periodRepository.getAllPeriods().first()
+        val isPeriodDay = periods.any { period ->
+            val end = period.endDate
+            entryDate >= period.startDate && (end == null || entryDate <= end)
+        }
+
         onEvent(DailyLogEvent.LogLoaded(result, initialSymptoms, initialMedications))
-        _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0) }
+        _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0, isPeriodDay = isPeriodDay) }
     }
 
     // Phase 2: Subscribe to library changes as events (not direct state mutations)
@@ -1884,8 +1949,10 @@ init {
 
 This pattern ensures all state changes flow through the reducer, even for
 initialization. Library updates arrive as events, making the data flow auditable.
+The ViewModel self-determines `isPeriodDay` by querying the repository during init,
+rather than relying on a navigation parameter.
 
-### The 19 Event Types
+### The 20 Event Types
 
 All events are defined in `ui/log/DailyLogEvent.kt` as a sealed interface:
 
@@ -1907,16 +1974,17 @@ sealed interface DailyLogEvent {
     data class CreateAndAddSymptom(val name: String) : DailyLogEvent
     data class MedicationToggled(val medication: Medication) : DailyLogEvent
     data class MedicationCreatedAndAdded(val name: String) : DailyLogEvent
-    object SaveLog : DailyLogEvent
+    data class PeriodToggled(val isOnPeriod: Boolean) : DailyLogEvent
     object WaterIncrement : DailyLogEvent
     object WaterDecrement : DailyLogEvent
 }
 ```
 
-### The Hybrid Reducer
+### The Pure Reducer
 
-Most `DailyLogEvent` branches return updated state synchronously (mood changes, tag
-additions, symptom toggles). A few launch async work:
+All `reduce()` branches are pure — they return updated state with no side effects.
+Side effects (auto-save, repository writes, library creation, water persistence) are
+launched in `onEvent()` after the state update.
 
 | Event | Pure state return? | Async side effect? |
 |-------|-------------------|-------------------|
@@ -1924,14 +1992,21 @@ additions, symptom toggles). A few launch async work:
 | `MoodScoreChanged` | Yes | No |
 | `SymptomToggled` | Yes | No |
 | `CreateAndAddSymptom` | Returns `currentState` | Yes — creates symptom in library, then updates state |
-| `SaveLog` | Returns `currentState` | Yes — persists to repository, emits `NavigateBack` |
+| `PeriodToggled` | Returns `currentState` | Yes — calls `logPeriodDay` or `unLogPeriodDay` |
 | `WaterIncrement` | Yes (optimistic) | Yes — upserts water intake to DB |
+
+### Auto-Save
+
+The explicit `SaveLog` event has been replaced by automatic persistence. Every
+state-changing user event triggers `autoSave()`, which persists the current log if
+it contains any user data. The `NoteChanged` event uses `debouncedAutoSave()` with
+a 500ms delay to avoid excessive repository writes during typing.
 
 ### Empty Log Detection
 
-When the user taps Save, the ViewModel checks if the log contains any user-entered
-data. If it's empty (no mood, no symptoms, no medications, no notes, no tags), it
-skips the save and just navigates back:
+The `autoSave()` method checks if the log contains any user-entered data before
+persisting. If it's empty (no mood, no symptoms, no medications, no notes, no tags),
+the save is skipped:
 
 ```kotlin
 private fun isLogEmpty(log: FullDailyLog): Boolean {
@@ -1941,7 +2016,7 @@ private fun isLogEmpty(log: FullDailyLog): Boolean {
             log.medicationLogs.isEmpty() &&
             entry.moodScore == null &&
             entry.energyLevel == null &&
-            entry.libidoLevel == null &&
+            entry.libidoScore == null &&
             entry.customTags.isEmpty() &&
             entry.note.isNullOrBlank()
 }
@@ -2036,7 +2111,69 @@ portable to iOS without modification.
 
 ---
 
-## 2.9 LockedWaterDraft — Pre-Authentication Water Tracking
+## 2.9 SettingsScreen and SettingsViewModel
+
+`SettingsViewModel` (`ui/settings/SettingsViewModel.kt`) manages all user preferences
+using the MVI pattern. It is **singleton-scoped** (no database dependency — depends
+only on `AppSettings` and `ReminderScheduler`).
+
+### Architecture
+
+- **State:** `SettingsUiState` — a `data class` with 26 properties covering autolock,
+  top symptoms count, summary toggles, phase visibility, phase colors, reminder
+  configuration, and dialog visibility flags.
+- **Events:** `SettingsEvent` — a `sealed interface` with 28+ event types covering
+  every toggle, slider, color input, and dialog interaction.
+- **Reducer:** Pure `reduce()` function — returns new state with no side effects. Side
+  effects (DataStore writes, `ReminderScheduler` calls) are launched in `onEvent()`.
+
+### Initialization Pattern
+
+The init block uses 22 individual `Flow.onEach { }.launchIn(viewModelScope)` collectors
+— one for each `AppSettings` preference flow. This intentionally avoids `combine()`
+because Kotlin's `combine()` supports a maximum of 5 parameters without custom
+extensions, and there are 22+ settings flows to observe.
+
+### 4-Page Swipeable Pager
+
+`SettingsScreen` uses a `HorizontalPager` with 4 pages:
+1. **General** — Autolock toggle, top symptoms count, summary visibility toggles
+   (mood, energy, libido on calendar cells)
+2. **Appearance** — Phase visibility toggles (`PhaseVisibilitySettings`), phase color
+   customization (`PhaseColorSettings`) with hex input and preset swatch grid
+3. **Notifications** — Period prediction, medication, and hydration reminder
+   configuration (`ReminderSettings`) with POST_NOTIFICATIONS permission handling
+4. **About** — App version, privacy policy, about dialog
+
+### Phase Color Customization
+
+`PhaseColorSettings` (`ui/settings/PhaseColorSettings.kt`) provides:
+- Four color rows (Menstruation, Follicular, Ovulation, Luteal)
+- Hex string input for each phase color
+- Preset color swatch grid with 10 colors
+- "Reset to Defaults" button using constants from `CyclePhaseColors`
+- Colors stored in `AppSettings` as 6-character hex strings
+
+### Reminder Configuration
+
+`ReminderSettings` (`ui/settings/ReminderSettings.kt`) handles:
+- **Period prediction reminders:** Toggle + days-before selection (1–3)
+- **Daily medication reminders:** Toggle + hour/minute configuration
+- **Hydration reminders:** Toggle + goal cups, frequency (2h/3h/4h), active window
+  (start/end hour)
+- POST_NOTIFICATIONS permission request at the composable level (requires
+  `@Composable` context for `rememberPermissionState`)
+- Privacy dialog (`PeriodPrivacyDialog`) for period reminder consent
+
+### Lock Now
+
+The "Lock Now" action is handled at the screen level (not in `SettingsViewModel`)
+because it requires access to the Koin session scope to close it — which is a
+DI/lifecycle concern outside the ViewModel's responsibility.
+
+---
+
+## 2.10 LockedWaterDraft — Pre-Authentication Water Tracking
 
 A unique pattern in RhythmWise: the user can log water intake _before_ unlocking the
 encrypted database.

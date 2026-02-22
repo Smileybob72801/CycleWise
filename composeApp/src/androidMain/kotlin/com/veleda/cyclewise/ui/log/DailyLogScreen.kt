@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LocalHospital
 import androidx.compose.material.icons.outlined.MedicalServices
 import androidx.compose.material.icons.automirrored.outlined.Notes
@@ -235,7 +236,7 @@ private fun WellnessPage(
 
         SectionCard(
             title = stringResource(R.string.libido_section_title),
-            icon = Icons.Outlined.Bedtime,
+            icon = Icons.Outlined.FavoriteBorder,
         ) {
             ScoreSelector(
                 selectedScore = libidoScore,

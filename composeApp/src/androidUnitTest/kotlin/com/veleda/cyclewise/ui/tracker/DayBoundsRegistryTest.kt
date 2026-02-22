@@ -7,6 +7,12 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
+/**
+ * Unit tests for [DayBoundsRegistry].
+ *
+ * Verifies date registration, unregistration, hit-testing via [dateAt],
+ * and correct behavior with multiple registered dates.
+ */
 class DayBoundsRegistryTest {
 
     private val registry = DayBoundsRegistry()

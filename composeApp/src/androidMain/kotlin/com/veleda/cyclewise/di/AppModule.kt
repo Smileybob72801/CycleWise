@@ -84,7 +84,8 @@ internal fun createDatabaseAndZeroizeKey(
  *
  * **Singleton scope** (lives for the app process):
  * [SaltStorage], [AppSettings], [SessionBus], [PassphraseService], [LockedWaterDraft],
- * [ReminderScheduler], [InsightEngine], [WaterTrackerViewModel], [PassphraseViewModel].
+ * [ReminderScheduler], [InsightEngine], [WaterTrackerViewModel], [PassphraseViewModel],
+ * [SettingsViewModel].
  *
  * **Session scope** ([SESSION_SCOPE], created on unlock, destroyed on logout/autolock):
  * [PeriodDatabase], all DAOs, [PeriodRepository], use cases, library providers,

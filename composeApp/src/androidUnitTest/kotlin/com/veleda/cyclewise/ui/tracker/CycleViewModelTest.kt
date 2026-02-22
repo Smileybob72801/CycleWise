@@ -25,6 +25,13 @@ import org.junit.Rule
 import org.junit.Test
 import kotlin.test.*
 
+/**
+ * Unit tests for [TrackerViewModel].
+ *
+ * Covers day-tap event dispatching, period deletion flow, day-details mapping,
+ * period mark/unmark via long-press, and long-press-and-drag range selection
+ * including shrink-from-start, shrink-from-end, and outward expansion scenarios.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class CycleViewModelTest {
 
@@ -68,14 +75,14 @@ class CycleViewModelTest {
 
     @Test
     fun onEvent_DayTapped_WHEN_logExists_THEN_showsLogSheet() = runTest {
-        // ARRANGE
+        // GIVEN
         val fakeLog = mockk<FullDailyLog>()
         coEvery { mockRepository.getFullLogForDate(pastDate) } returns fakeLog
 
-        // ACT
+        // WHEN
         viewModel.onEvent(TrackerEvent.DayTapped(pastDate))
 
-        // ASSERT
+        // THEN
         viewModel.uiState.test {
             assertEquals(fakeLog, awaitItem().logForSheet, "Log for sheet should be set")
         }
@@ -83,10 +90,10 @@ class CycleViewModelTest {
 
     @Test
     fun onEvent_DayTapped_WHEN_noLogExists_THEN_emitsNavigateEffect() = runTest {
-        // ARRANGE
+        // GIVEN
         coEvery { mockRepository.getFullLogForDate(pastDate) } returns null
 
-        // ACT & ASSERT
+        // WHEN & THEN
         viewModel.effect.test {
             viewModel.onEvent(TrackerEvent.DayTapped(pastDate))
             val effect = awaitItem()
@@ -97,7 +104,7 @@ class CycleViewModelTest {
 
     @Test
     fun onEvent_DeletePeriodConfirmed_THEN_callsRepositoryDeleteAndClearsState() = runTest {
-        // ARRANGE
+        // GIVEN
         val periodId = "period-to-delete-id"
         val fakePeriod = Period(periodId, pastDate, today, TestData.INSTANT, TestData.INSTANT)
         val fakeLog = FullDailyLog(DailyEntry("log-id", pastDate, 5, createdAt = TestData.INSTANT, updatedAt = TestData.INSTANT))
@@ -116,11 +123,11 @@ class CycleViewModelTest {
         assertTrue(viewModel.uiState.value.showDeleteConfirmation)
         assertNull(viewModel.uiState.value.logForSheet)
 
-        // ACT
+        // WHEN
         viewModel.onEvent(TrackerEvent.DeletePeriodConfirmed(periodId))
         advanceUntilIdle()
 
-        // ASSERT
+        // THEN
         coVerify(exactly = 1) { mockRepository.deletePeriod(periodId) }
         assertFalse(viewModel.uiState.value.showDeleteConfirmation)
         assertNull(viewModel.uiState.value.periodIdToDelete)
@@ -185,15 +192,15 @@ class CycleViewModelTest {
 
     @Test
     fun onEvent_DeletePeriodDismissed_THEN_clearsConfirmationState() = runTest {
-        // ARRANGE
+        // GIVEN
         val periodId = "period-to-dismiss-id"
         viewModel.onEvent(TrackerEvent.DeletePeriodRequested(periodId))
         assertTrue(viewModel.uiState.value.showDeleteConfirmation)
 
-        // ACT
+        // WHEN
         viewModel.onEvent(TrackerEvent.DeletePeriodDismissed)
 
-        // ASSERT
+        // THEN
         assertFalse(viewModel.uiState.value.showDeleteConfirmation)
         assertNull(viewModel.uiState.value.periodIdToDelete)
     }

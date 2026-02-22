@@ -27,6 +27,12 @@ import org.junit.Rule
 import org.junit.Test
 import kotlin.test.*
 
+/**
+ * Unit tests for [DailyLogViewModel].
+ *
+ * Covers isPeriodDay initialization from repository state, period toggle
+ * dispatching to the repository, and auto-save behavior including note debounce.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DailyLogViewModelTest {
 
