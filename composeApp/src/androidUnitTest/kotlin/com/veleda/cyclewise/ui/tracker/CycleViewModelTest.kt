@@ -197,4 +197,181 @@ class CycleViewModelTest {
         assertFalse(viewModel.uiState.value.showDeleteConfirmation)
         assertNull(viewModel.uiState.value.periodIdToDelete)
     }
+
+    // --- PeriodRangeDragged tests ---
+
+    /**
+     * Creates a [TrackerViewModel] pre-loaded with the given [periods] list.
+     */
+    private fun viewModelWithPeriods(periods: List<Period>): TrackerViewModel {
+        every { mockRepository.getAllPeriods() } returns flowOf(periods)
+        return TrackerViewModel(
+            mockRepository, mockSymptomProvider, mockMedicationProvider,
+            mockAutoCloseUseCase, mockAppSettings
+        )
+    }
+
+    @Test
+    fun onEvent_PeriodRangeDragged_WHEN_noPeriodExists_THEN_logsAllDaysInRange() = runTest {
+        // GIVEN — no existing periods
+        val vm = viewModelWithPeriods(emptyList())
+        advanceUntilIdle()
+
+        val anchor = LocalDate(2025, 6, 10)
+        val release = LocalDate(2025, 6, 13)
+
+        // WHEN
+        vm.onEvent(TrackerEvent.PeriodRangeDragged(anchor, release))
+        advanceUntilIdle()
+
+        // THEN — logPeriodDay called for June 10, 11, 12, 13
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 10)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 11)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 12)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 13)) }
+    }
+
+    @Test
+    fun onEvent_PeriodRangeDragged_WHEN_dragReversed_THEN_logsAllDaysInRange() = runTest {
+        // GIVEN — no existing periods, drag from later to earlier date
+        val vm = viewModelWithPeriods(emptyList())
+        advanceUntilIdle()
+
+        val anchor = LocalDate(2025, 6, 13)
+        val release = LocalDate(2025, 6, 10)
+
+        // WHEN
+        vm.onEvent(TrackerEvent.PeriodRangeDragged(anchor, release))
+        advanceUntilIdle()
+
+        // THEN — logPeriodDay called for June 10, 11, 12, 13
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 10)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 11)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 12)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 13)) }
+    }
+
+    @Test
+    fun onEvent_PeriodRangeDragged_WHEN_anchorIsStartDate_THEN_shrinksFromStart() = runTest {
+        // GIVEN — period exists June 10–15, anchor at start
+        val period = Period("p1", LocalDate(2025, 6, 10), LocalDate(2025, 6, 15), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        val anchor = LocalDate(2025, 6, 10) // start of period
+        val release = LocalDate(2025, 6, 12)
+
+        // WHEN
+        vm.onEvent(TrackerEvent.PeriodRangeDragged(anchor, release))
+        advanceUntilIdle()
+
+        // THEN — unLogPeriodDay called for June 10, 11 (not 12)
+        coVerify(exactly = 1) { mockRepository.unLogPeriodDay(LocalDate(2025, 6, 10)) }
+        coVerify(exactly = 1) { mockRepository.unLogPeriodDay(LocalDate(2025, 6, 11)) }
+        coVerify(exactly = 0) { mockRepository.unLogPeriodDay(LocalDate(2025, 6, 12)) }
+    }
+
+    @Test
+    fun onEvent_PeriodRangeDragged_WHEN_anchorIsEndDate_THEN_shrinksFromEnd() = runTest {
+        // GIVEN — period exists June 10–15, anchor at end
+        val period = Period("p1", LocalDate(2025, 6, 10), LocalDate(2025, 6, 15), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        val anchor = LocalDate(2025, 6, 15) // end of period
+        val release = LocalDate(2025, 6, 13)
+
+        // WHEN
+        vm.onEvent(TrackerEvent.PeriodRangeDragged(anchor, release))
+        advanceUntilIdle()
+
+        // THEN — unLogPeriodDay called for June 15, 14 (not 13)
+        coVerify(exactly = 1) { mockRepository.unLogPeriodDay(LocalDate(2025, 6, 15)) }
+        coVerify(exactly = 1) { mockRepository.unLogPeriodDay(LocalDate(2025, 6, 14)) }
+        coVerify(exactly = 0) { mockRepository.unLogPeriodDay(LocalDate(2025, 6, 13)) }
+    }
+
+    @Test
+    fun onEvent_PeriodRangeDragged_WHEN_singleDayPeriodDraggedLater_THEN_marksRange() = runTest {
+        // GIVEN — single-day period June 10 (start == end)
+        val period = Period("p1", LocalDate(2025, 6, 10), LocalDate(2025, 6, 10), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        val anchor = LocalDate(2025, 6, 10)
+        val release = LocalDate(2025, 6, 12)
+
+        // WHEN — drag later from a single-day period
+        vm.onEvent(TrackerEvent.PeriodRangeDragged(anchor, release))
+        advanceUntilIdle()
+
+        // THEN — falls to default mark; logs June 10, 11, 12
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 10)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 11)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 12)) }
+    }
+
+    @Test
+    fun onEvent_PeriodRangeDragged_WHEN_singleDayPeriodDraggedEarlier_THEN_marksRange() = runTest {
+        // GIVEN — single-day period June 10
+        val period = Period("p1", LocalDate(2025, 6, 10), LocalDate(2025, 6, 10), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        val anchor = LocalDate(2025, 6, 10)
+        val release = LocalDate(2025, 6, 8)
+
+        // WHEN — drag earlier from a single-day period
+        vm.onEvent(TrackerEvent.PeriodRangeDragged(anchor, release))
+        advanceUntilIdle()
+
+        // THEN — falls to default mark; logs June 8, 9, 10
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 8)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 9)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 10)) }
+    }
+
+    @Test
+    fun onEvent_PeriodRangeDragged_WHEN_anchorIsStartAndDragOutward_THEN_marksRange() = runTest {
+        // GIVEN — period June 10–15, anchor at start, release before start (outward)
+        val period = Period("p1", LocalDate(2025, 6, 10), LocalDate(2025, 6, 15), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        val anchor = LocalDate(2025, 6, 10)
+        val release = LocalDate(2025, 6, 7)
+
+        // WHEN — drag outward from start (earlier)
+        vm.onEvent(TrackerEvent.PeriodRangeDragged(anchor, release))
+        advanceUntilIdle()
+
+        // THEN — does not match shrink (release < anchor fails shrink-from-start guard)
+        // Falls to default: logs June 7, 8, 9, 10
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 7)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 8)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 9)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 10)) }
+    }
+
+    @Test
+    fun onEvent_PeriodRangeDragged_WHEN_anchorIsEndAndDragOutward_THEN_marksRange() = runTest {
+        // GIVEN — period June 10–15, anchor at end, release after end (outward)
+        val period = Period("p1", LocalDate(2025, 6, 10), LocalDate(2025, 6, 15), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        val anchor = LocalDate(2025, 6, 15)
+        val release = LocalDate(2025, 6, 18)
+
+        // WHEN — drag outward from end (later)
+        vm.onEvent(TrackerEvent.PeriodRangeDragged(anchor, release))
+        advanceUntilIdle()
+
+        // THEN — does not match shrink (release > anchor fails shrink-from-end guard)
+        // Falls to default: logs June 15, 16, 17, 18
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 15)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 16)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 17)) }
+        coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 18)) }
+    }
 }

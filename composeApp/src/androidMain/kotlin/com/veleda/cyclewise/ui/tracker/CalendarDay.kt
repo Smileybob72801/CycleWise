@@ -3,10 +3,9 @@ package com.veleda.cyclewise.ui.tracker
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.kizitonwose.calendar.core.CalendarDay
@@ -42,23 +44,29 @@ import kotlinx.datetime.toKotlinLocalDate
  *
  * Displays the day number, optional period/phase background colouring,
  * dot indicators for logged symptoms, medications, and notes, a today
- * border ring, and a bounce-scale animation on long-press.
+ * border ring, and a bounce-scale animation on press.
  *
- * @param day              The [CalendarDay] from the calendar library.
- * @param dayInfo          Aggregated day status (period, symptoms, medications, notes, phase).
- * @param isToday          True if this cell represents today's date — draws a primary border ring.
- * @param isStartDate      True if the date is the start of a period range.
- * @param isEndDate        True if the date is the end of a period range.
+ * Long-press is handled at the calendar container level (via [DayBoundsRegistry]
+ * coordinate look-up), so this cell only handles single-tap via [onTap].
+ *
+ * @param day               The [CalendarDay] from the calendar library.
+ * @param dayInfo           Aggregated day status (period, symptoms, medications, notes, phase).
+ * @param isToday           True if this cell represents today's date — draws a primary border ring.
+ * @param isStartDate       True if the date is the start of a period range.
+ * @param isEndDate         True if the date is the end of a period range.
  * @param isInExistingRange True if this date falls inside any saved period.
- * @param isInSelectionRange True if this date is part of an in-progress selection.
- * @param isPhaseStart     True if this date is the first day of its displayed phase band.
- * @param isPhaseEnd       True if this date is the last day of its displayed phase band.
- * @param palette          The current [CyclePhasePalette] providing per-phase colours.
- * @param displayPhase     The cycle phase to render (null suppresses phase colouring).
- * @param onTap            Callback for a single tap, or null if the cell is not tappable.
- * @param onLongPress      Callback for a long press, or null if the cell is not long-pressable.
+ * @param isInSelectionRange True if this date is part of an in-progress drag selection.
+ * @param isPhaseStart      True if this date is the first day of its displayed phase band.
+ * @param isPhaseEnd        True if this date is the last day of its displayed phase band.
+ * @param palette           The current [CyclePhasePalette] providing per-phase colours.
+ * @param displayPhase      The cycle phase to render (null suppresses phase colouring).
+ * @param isDragging        True while a period-range drag gesture is in progress. Disables the
+ *                          [clickable] modifier so that releasing a drag does not fire [onTap].
+ * @param onTap             Callback for a single tap, or null if the cell is not tappable.
+ * @param boundsRegistry    Optional [DayBoundsRegistry] — when provided, this cell registers
+ *                          its root-coordinate bounds so the container-level drag gesture
+ *                          can map pointer positions to dates.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun CalendarDayCell(
     day: CalendarDay,
@@ -68,12 +76,13 @@ internal fun CalendarDayCell(
     isEndDate: Boolean,
     isInExistingRange: Boolean,
     isInSelectionRange: Boolean,
+    isDragging: Boolean = false,
     isPhaseStart: Boolean = true,
     isPhaseEnd: Boolean = true,
     palette: CyclePhasePalette,
     displayPhase: CyclePhase? = null,
     onTap: (() -> Unit)?,
-    onLongPress: (() -> Unit)?
+    boundsRegistry: DayBoundsRegistry? = null
 ) {
     val dims = LocalDimensions.current
     val date = day.date.toKotlinLocalDate()
@@ -97,6 +106,7 @@ internal fun CalendarDayCell(
 
     val bgShape = when {
         dayInfo?.isPeriodDay == true -> periodShape
+        isInSelectionRange -> periodShape
         hasDisplayPhase -> phaseShape
         else -> CircleShape
     }
@@ -136,6 +146,9 @@ internal fun CalendarDayCell(
                     dayInfo?.isPeriodDay == true ->
                         palette.menstruation.fill
 
+                    isInSelectionRange ->
+                        palette.menstruation.fill.copy(alpha = 0.4f)
+
                     hasDisplayPhase ->
                         palette.forPhase(displayPhase!!).fillSubtle
 
@@ -143,15 +156,20 @@ internal fun CalendarDayCell(
                 },
                 shape = bgShape
             )
-            .combinedClickable(
+            .clickable(
                 interactionSource = interactionSource,
                 indication = null,
-                enabled = day.position == DayPosition.MonthDate,
-                onClick = { onTap?.invoke() },
-                onLongClick = { onLongPress?.invoke() }
-            ),
+                enabled = day.position == DayPosition.MonthDate && !isDragging,
+                onClick = { onTap?.invoke() }
+            )
+            .onGloballyPositioned { coords ->
+                boundsRegistry?.register(date, coords.boundsInRoot())
+            },
         contentAlignment = Alignment.Center
     ) {
+        DisposableEffect(date) {
+            onDispose { boundsRegistry?.unregister(date) }
+        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center

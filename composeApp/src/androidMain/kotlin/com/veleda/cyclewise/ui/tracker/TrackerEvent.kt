@@ -12,6 +12,9 @@ sealed interface TrackerEvent {
     /** The user long-pressed a day to mark or unmark it as a period day. */
     data class PeriodMarkDay(val date: LocalDate) : TrackerEvent
 
+    /** The user long-pressed [anchorDate] and dragged to [releaseDate], requesting a period range operation. */
+    data class PeriodRangeDragged(val anchorDate: LocalDate, val releaseDate: LocalDate) : TrackerEvent
+
     /** The user has dismissed the bottom sheet showing the log summary. */
     data object DismissLogSheet : TrackerEvent
 

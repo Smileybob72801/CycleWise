@@ -25,6 +25,7 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
+import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import kotlin.math.roundToInt
@@ -173,6 +174,53 @@ class TrackerViewModel(
                 }
             }
 
+            is TrackerEvent.PeriodRangeDragged -> viewModelScope.launch {
+                val anchor = event.anchorDate
+                val release = event.releaseDate
+                val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+                val rangeStart = minOf(anchor, release)
+                val rangeEnd = maxOf(anchor, release)
+
+                val anchorPeriod = _uiState.value.periods.find {
+                    anchor in (it.startDate..(it.endDate ?: today))
+                }
+
+                when {
+                    // Shrink from start: anchor is start of period, release is later (inside period).
+                    anchorPeriod != null
+                        && anchor == anchorPeriod.startDate
+                        && anchor != (anchorPeriod.endDate ?: today)
+                        && release > anchor
+                        && release <= (anchorPeriod.endDate ?: today) -> {
+                        var d = anchor
+                        while (d < release) {
+                            periodRepository.unLogPeriodDay(d)
+                            d = d.plus(1, DateTimeUnit.DAY)
+                        }
+                    }
+                    // Shrink from end: anchor is end of period, release is earlier (inside period).
+                    anchorPeriod != null
+                        && anchor == (anchorPeriod.endDate ?: today)
+                        && anchor != anchorPeriod.startDate
+                        && release < anchor
+                        && release >= anchorPeriod.startDate -> {
+                        var d = anchor
+                        while (d > release) {
+                            periodRepository.unLogPeriodDay(d)
+                            d = d.minus(1, DateTimeUnit.DAY)
+                        }
+                    }
+                    // Default: mark all days in range as period days.
+                    else -> {
+                        var d = rangeStart
+                        while (d <= rangeEnd) {
+                            periodRepository.logPeriodDay(d)
+                            d = d.plus(1, DateTimeUnit.DAY)
+                        }
+                    }
+                }
+            }
+
             is TrackerEvent.EditLogClicked -> viewModelScope.launch {
                 _effect.emit(TrackerEffect.NavigateToDailyLog(event.date))
             }
@@ -199,6 +247,7 @@ class TrackerViewModel(
             is TrackerEvent.ScreenEntered -> currentState
             is TrackerEvent.DayTapped -> currentState
             is TrackerEvent.PeriodMarkDay -> currentState
+            is TrackerEvent.PeriodRangeDragged -> currentState
             is TrackerEvent.DismissLogSheet -> {
                 currentState.copy(logForSheet = null, periodIdForSheet = null, waterCupsForSheet = null)
             }

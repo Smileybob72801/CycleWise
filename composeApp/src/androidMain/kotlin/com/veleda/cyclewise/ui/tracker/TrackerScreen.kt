@@ -35,15 +35,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.datetime.LocalDate
 import com.veleda.cyclewise.R
 import androidx.navigation.NavController
 import com.kizitonwose.calendar.compose.HorizontalCalendar
@@ -143,6 +153,14 @@ fun TrackerScreen(navController: NavController) {
     val endMonth = remember { currentMonth.plusMonths(100) }
     val firstDayOfWeek = remember { firstDayOfWeekFromLocale() }
     val calendarState = rememberCalendarState(startMonth, endMonth, currentMonth, firstDayOfWeek)
+
+    val boundsRegistry = remember { DayBoundsRegistry() }
+    var dragAnchor by remember { mutableStateOf<LocalDate?>(null) }
+    var dragCurrent by remember { mutableStateOf<LocalDate?>(null) }
+    var isDragging by remember { mutableStateOf(false) }
+
+    // Coordinates of the calendar container Box for pointer mapping.
+    var calendarBoxCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     if (uiState.logForSheet != null) {
         ModalBottomSheet(
@@ -250,54 +268,116 @@ fun TrackerScreen(navController: NavController) {
                 days.subList(it.value - 1, days.size) + days.subList(0, it.value - 1)
             })
             PhaseLegend(palette = palette, phaseVisible = phaseVisible)
-            HorizontalCalendar(
-                state = calendarState,
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .testTag("calendar-root"),
-                dayContent = { day ->
-                    val date = day.date.toKotlinLocalDate()
-                    val cycleForDate = uiState.periods.find { date in (it.startDate..(it.endDate ?: today)) }
-                    val dayInfo = uiState.dayDetails[date]
+                    .onGloballyPositioned { calendarBoxCoords = it }
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val rootPos = calendarBoxCoords
+                                ?.localToRoot(down.position)
+                                ?: return@awaitEachGesture
+                            val anchorDate = boundsRegistry.dateAt(rootPos)
+                                ?: return@awaitEachGesture
 
-                    // Effective display phase (null for period days — they keep their own color).
-                    // Also null when the user has toggled the phase off in settings.
-                    val rawPhase = if (dayInfo?.isPeriodDay == true) null else dayInfo?.cyclePhase
-                    val displayPhase = rawPhase?.takeIf { phaseVisible[it] != false }
-                    val prevInfo = uiState.dayDetails[date.minus(1, DateTimeUnit.DAY)]
-                    val nextInfo = uiState.dayDetails[date.plus(1, DateTimeUnit.DAY)]
-                    val prevRaw = if (prevInfo?.isPeriodDay == true) null else prevInfo?.cyclePhase
-                    val nextRaw = if (nextInfo?.isPeriodDay == true) null else nextInfo?.cyclePhase
-                    val prevDisplayPhase = prevRaw?.takeIf { phaseVisible[it] != false }
-                    val nextDisplayPhase = nextRaw?.takeIf { phaseVisible[it] != false }
+                            val longPress = awaitLongPressOrCancellation(down.id)
+                            if (longPress == null) {
+                                // Cancelled before long-press threshold — let other gestures handle.
+                                return@awaitEachGesture
+                            }
 
-                    val dayIsNotTappable = day.position != DayPosition.MonthDate
+                            dragAnchor = anchorDate
+                            dragCurrent = anchorDate
+                            isDragging = true
 
-                    val handleTap: (() -> Unit)? = if (dayIsNotTappable) null else {
-                        { viewModel.onEvent(TrackerEvent.DayTapped(date)) }
+                            var dragged = false
+                            drag(longPress.id) { change ->
+                                dragged = true
+                                val dragRootPos = calendarBoxCoords
+                                    ?.localToRoot(change.position)
+                                if (dragRootPos != null) {
+                                    val hoveredDate = boundsRegistry.dateAt(dragRootPos)
+                                    if (hoveredDate != null) {
+                                        dragCurrent = hoveredDate
+                                    }
+                                }
+                                change.consume()
+                            }
+
+                            // Gesture ended — emit the appropriate event.
+                            val anchor = dragAnchor
+                            val current = dragCurrent
+                            if (anchor != null && current != null) {
+                                if (dragged && anchor != current) {
+                                    viewModel.onEvent(
+                                        TrackerEvent.PeriodRangeDragged(anchor, current)
+                                    )
+                                } else {
+                                    viewModel.onEvent(TrackerEvent.PeriodMarkDay(anchor))
+                                }
+                            }
+
+                            // Reset drag state.
+                            dragAnchor = null
+                            dragCurrent = null
+                            isDragging = false
+                        }
                     }
+            ) {
+                HorizontalCalendar(
+                    state = calendarState,
+                    userScrollEnabled = !isDragging,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("calendar-root"),
+                    dayContent = { day ->
+                        val date = day.date.toKotlinLocalDate()
+                        val cycleForDate = uiState.periods.find { date in (it.startDate..(it.endDate ?: today)) }
+                        val dayInfo = uiState.dayDetails[date]
 
-                    val handleLongPress: (() -> Unit)? = if (dayIsNotTappable) null else {
-                        { viewModel.onEvent(TrackerEvent.PeriodMarkDay(date)) }
+                        // Effective display phase (null for period days — they keep their own color).
+                        // Also null when the user has toggled the phase off in settings.
+                        val rawPhase = if (dayInfo?.isPeriodDay == true) null else dayInfo?.cyclePhase
+                        val displayPhase = rawPhase?.takeIf { phaseVisible[it] != false }
+                        val prevInfo = uiState.dayDetails[date.minus(1, DateTimeUnit.DAY)]
+                        val nextInfo = uiState.dayDetails[date.plus(1, DateTimeUnit.DAY)]
+                        val prevRaw = if (prevInfo?.isPeriodDay == true) null else prevInfo?.cyclePhase
+                        val nextRaw = if (nextInfo?.isPeriodDay == true) null else nextInfo?.cyclePhase
+                        val prevDisplayPhase = prevRaw?.takeIf { phaseVisible[it] != false }
+                        val nextDisplayPhase = nextRaw?.takeIf { phaseVisible[it] != false }
+
+                        val dayIsNotTappable = day.position != DayPosition.MonthDate
+
+                        val handleTap: (() -> Unit)? = if (dayIsNotTappable) null else {
+                            { viewModel.onEvent(TrackerEvent.DayTapped(date)) }
+                        }
+
+                        val inSelectionRange = isDragging && dragAnchor != null && dragCurrent != null && run {
+                            val selStart = minOf(dragAnchor!!, dragCurrent!!)
+                            val selEnd = maxOf(dragAnchor!!, dragCurrent!!)
+                            date in selStart..selEnd
+                        }
+
+                        CalendarDayCell(
+                            day = day,
+                            dayInfo = dayInfo,
+                            isToday = date == today,
+                            isStartDate = cycleForDate?.startDate == date,
+                            isEndDate = cycleForDate?.endDate == date,
+                            isInExistingRange = cycleForDate != null,
+                            isInSelectionRange = inSelectionRange,
+                            isDragging = isDragging,
+                            isPhaseStart = displayPhase != null && displayPhase != prevDisplayPhase,
+                            isPhaseEnd = displayPhase != null && displayPhase != nextDisplayPhase,
+                            palette = palette,
+                            displayPhase = displayPhase,
+                            onTap = handleTap,
+                            boundsRegistry = boundsRegistry
+                        )
                     }
-
-                    CalendarDayCell(
-                        day = day,
-                        dayInfo = dayInfo,
-                        isToday = date == today,
-                        isStartDate = cycleForDate?.startDate == date,
-                        isEndDate = cycleForDate?.endDate == date,
-                        isInExistingRange = cycleForDate != null,
-                        isInSelectionRange = false,
-                        isPhaseStart = displayPhase != null && displayPhase != prevDisplayPhase,
-                        isPhaseEnd = displayPhase != null && displayPhase != nextDisplayPhase,
-                        palette = palette,
-                        displayPhase = displayPhase,
-                        onTap = handleTap,
-                        onLongPress = handleLongPress
-                    )
-                }
-            )
+                )
+            }
 
             Spacer(Modifier.height(dims.md))
 
@@ -312,7 +392,7 @@ fun TrackerScreen(navController: NavController) {
             }
             AnimatedVisibility(visible = uiState.ongoingPeriod == null) {
                 Text(
-                    stringResource(R.string.tracker_instructions),
+                    stringResource(R.string.tracker_instructions_drag),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(dims.sm)
                 )
