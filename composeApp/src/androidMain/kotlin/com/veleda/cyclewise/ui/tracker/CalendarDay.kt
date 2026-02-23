@@ -114,6 +114,17 @@ internal fun CalendarDayCell(
         else -> CircleShape
     }
 
+    val isBandStart = when {
+        dayInfo?.isPeriodDay == true || isInSelectionRange -> isStartDate
+        hasDisplayPhase -> isPhaseStart
+        else -> false
+    }
+    val isBandEnd = when {
+        dayInfo?.isPeriodDay == true || isInSelectionRange -> isEndDate
+        hasDisplayPhase -> isPhaseEnd
+        else -> false
+    }
+
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -126,10 +137,10 @@ internal fun CalendarDayCell(
         modifier = Modifier
             .aspectRatio(1f)
             .padding(
-                vertical = when {
-                    inRange || hasDisplayPhase -> dims.xxs
-                    else -> dims.xs
-                }
+                top = if (inRange || hasDisplayPhase) dims.xxs else dims.xs,
+                bottom = if (inRange || hasDisplayPhase) dims.xxs else dims.xs,
+                start = if (isBandStart) dims.xxs else 0.dp,
+                end = if (isBandEnd) dims.xxs else 0.dp
             )
             .graphicsLayer {
                 scaleX = scale
