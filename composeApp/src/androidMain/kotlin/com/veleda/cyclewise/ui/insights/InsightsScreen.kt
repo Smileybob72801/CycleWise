@@ -46,7 +46,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.insights.CycleLengthAverage
 import com.veleda.cyclewise.domain.insights.CycleLengthTrend
@@ -154,7 +153,7 @@ private fun InsightsEmptyState(modifier: Modifier = Modifier) {
         Icon(
             imageVector = Icons.Outlined.Insights,
             contentDescription = stringResource(R.string.insights_content_description_empty_icon),
-            modifier = Modifier.size(64.dp),
+            modifier = Modifier.size(dims.iconLg),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
@@ -282,7 +281,7 @@ private fun PredictionCard(insight: NextPeriodPrediction) {
             Icon(
                 imageVector = Icons.Filled.CalendarMonth,
                 contentDescription = stringResource(R.string.insights_content_description_prediction_icon),
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(dims.iconSm),
                 tint = tertiaryColor
             )
             Text(
@@ -347,7 +346,7 @@ private fun TrendCard(insight: CycleLengthTrend) {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDesc,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(dims.iconSm),
                 tint = tint
             )
             Text(
@@ -423,7 +422,7 @@ private fun MoodPatternCard(insight: MoodPhasePattern) {
             Icon(
                 imageVector = icon,
                 contentDescription = insight.moodType,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(dims.iconSm),
                 tint = tertiaryColor
             )
             Text(

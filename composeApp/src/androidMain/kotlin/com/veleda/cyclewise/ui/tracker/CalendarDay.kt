@@ -39,6 +39,9 @@ import com.veleda.cyclewise.ui.theme.CyclePhasePalette
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.datetime.toKotlinLocalDate
 
+/** Alpha applied to the period-range fill when a day is in the selection/removal range. */
+private const val PERIOD_FILL_ALPHA = 0.4f
+
 /**
  * A single calendar-day cell rendered inside the [HorizontalCalendar] grid.
  *
@@ -95,16 +98,16 @@ internal fun CalendarDayCell(
 
     val periodShape = when {
         isStartDate && isEndDate -> CircleShape
-        isStartDate -> RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50)
-        isEndDate -> RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50)
+        isStartDate -> RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
+        isEndDate -> RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
         inRange -> RoundedCornerShape(0)
         else -> CircleShape
     }
 
     val phaseShape = when {
-        isPhaseStart && isPhaseEnd -> RoundedCornerShape(50)
-        isPhaseStart -> RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50)
-        isPhaseEnd -> RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50)
+        isPhaseStart && isPhaseEnd -> RoundedCornerShape(8.dp)
+        isPhaseStart -> RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
+        isPhaseEnd -> RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
         else -> RoundedCornerShape(0)
     }
 
@@ -151,7 +154,7 @@ internal fun CalendarDayCell(
                         palette.menstruation.fill
 
                     isInSelectionRange || isInRemovalRange ->
-                        palette.menstruation.fill.copy(alpha = 0.4f)
+                        palette.menstruation.fill.copy(alpha = PERIOD_FILL_ALPHA)
 
                     hasDisplayPhase ->
                         palette.forPhase(displayPhase!!).fillSubtle
@@ -183,7 +186,7 @@ internal fun CalendarDayCell(
                 color = if (day.position == DayPosition.MonthDate)
                     MaterialTheme.colorScheme.onSurface
                 else
-                    Color.Gray
+                    MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Row(
@@ -193,7 +196,7 @@ internal fun CalendarDayCell(
                 if (dayInfo?.hasSymptoms == true) {
                     Box(
                         modifier = Modifier
-                            .size(dims.xs)
+                            .size(dims.sm)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.secondary)
                             .testTag("symptom-dot-$date")
@@ -202,7 +205,7 @@ internal fun CalendarDayCell(
                 if (dayInfo?.hasMedications == true) {
                     Box(
                         modifier = Modifier
-                            .size(dims.xs)
+                            .size(dims.sm)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.tertiary)
                             .testTag("medication-dot-$date")
@@ -211,7 +214,7 @@ internal fun CalendarDayCell(
                 if (dayInfo?.hasNotes == true) {
                     Box(
                         modifier = Modifier
-                            .size(dims.xs)
+                            .size(dims.sm)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.outline)
                             .testTag("notes-dot-$date")

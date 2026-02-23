@@ -42,9 +42,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.ui.theme.LocalDimensions
 import org.koin.androidx.compose.koinViewModel
+
+/** Alpha for the scrim overlay shown while the passphrase is being verified. */
+private const val SCRIM_ALPHA = 0.5f
 
 /**
  * Passphrase unlock screen — the first screen the user sees.
@@ -60,6 +63,7 @@ import org.koin.androidx.compose.koinViewModel
 fun PassphraseScreen(
     onPassphraseEntered: () -> Unit
 ) {
+    val dims = LocalDimensions.current
     val viewModel: PassphraseViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
 
@@ -109,7 +113,7 @@ fun PassphraseScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .padding(dims.xl),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -121,10 +125,10 @@ fun PassphraseScreen(
                 Image(
                     painter = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = stringResource(R.string.passphrase_logo_description),
-                    modifier = Modifier.size(96.dp)
+                    modifier = Modifier.size(dims.iconXl)
                 )
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(dims.lg))
 
             // App name and instruction
             Text(
@@ -135,7 +139,7 @@ fun PassphraseScreen(
                 text = stringResource(R.string.passphrase_instruction),
                 style = MaterialTheme.typography.bodyMedium
             )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(dims.lg))
 
             // Passphrase field with visibility toggle and inline error
             OutlinedTextField(
@@ -180,7 +184,7 @@ fun PassphraseScreen(
                     .focusRequester(focusRequester)
                     .testTag("passphrase-input")
             )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(dims.lg))
 
             // Unlock button
             Button(
@@ -193,12 +197,12 @@ fun PassphraseScreen(
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(dims.md)
                 )
-                Spacer(Modifier.size(8.dp))
+                Spacer(Modifier.size(dims.sm))
                 Text(stringResource(R.string.passphrase_unlock))
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(dims.md))
 
             // Collapsible water tracker
             TextButton(onClick = { showWater = !showWater }) {
@@ -221,7 +225,7 @@ fun PassphraseScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f)),
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = SCRIM_ALPHA)),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
