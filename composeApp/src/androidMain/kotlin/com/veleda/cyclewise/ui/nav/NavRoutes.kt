@@ -2,9 +2,11 @@ package com.veleda.cyclewise.ui.nav
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -32,6 +34,19 @@ sealed class NavRoute(
     /** Passphrase authentication gate — no bottom-bar icon. */
     object Passphrase : NavRoute("passphrase", "Pass Phrase")
 
+    /**
+     * Daily Log home tab — the default destination after unlock.
+     *
+     * Renders [DailyLogScreen] for today's date. Unlike [DailyLog] (the detail route
+     * navigated from Tracker), this route has no date parameter and always shows today.
+     */
+    object DailyLogHome : NavRoute(
+        route = "daily_log_home",
+        label = "Daily Log",
+        selectedIcon = Icons.Filled.EditNote,
+        unselectedIcon = Icons.Outlined.EditNote,
+    )
+
     /** Cycle tracker calendar tab. */
     object Tracker : NavRoute(
         route = "tracker",
@@ -56,15 +71,15 @@ sealed class NavRoute(
         unselectedIcon = Icons.Outlined.Settings,
     )
 
-    /** Daily log detail screen — no bottom-bar icon. */
-    object DailyLog : NavRoute("log/{date}?isPeriodDay={isPeriodDay}", "Daily Log") {
-        /** Builds a concrete route for the given [date] and [isPeriodDay] flag. */
-        fun createRoute(date: LocalDate, isPeriodDay: Boolean = false) = "log/$date?isPeriodDay=$isPeriodDay"
+    /** Daily log detail screen — navigated from Tracker for a specific date. No bottom-bar icon. */
+    object DailyLog : NavRoute("log/{date}", "Daily Log") {
+        /** Builds a concrete route for the given [date]. */
+        fun createRoute(date: LocalDate) = "log/$date"
     }
 
     companion object {
         /** Routes displayed in the bottom navigation bar. */
         val all: List<NavRoute>
-            get() = listOf(Tracker, Insights, Settings)
+            get() = listOf(DailyLogHome, Tracker, Insights, Settings)
     }
 }

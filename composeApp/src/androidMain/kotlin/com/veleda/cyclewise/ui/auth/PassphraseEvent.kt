@@ -21,7 +21,7 @@ sealed interface PassphraseEffect {
      * tracker screen. By the time this is emitted, the session scope is active,
      * the database is open, and all DAOs are available.
      */
-    object NavigateToTracker : PassphraseEffect
+    data object NavigateToTracker : PassphraseEffect
 
     /**
      * Emitted when unlock fails (wrong passphrase, database corruption, etc.).

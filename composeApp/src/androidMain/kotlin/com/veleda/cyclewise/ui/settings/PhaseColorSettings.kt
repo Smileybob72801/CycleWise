@@ -20,9 +20,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,11 +29,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
-import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
 import com.veleda.cyclewise.ui.tracker.parseHexColor
-import kotlinx.coroutines.launch
 
 /** Material 200-shade presets for quick color selection. */
 private val PRESET_COLORS = listOf(
@@ -60,19 +55,35 @@ private val PRESET_COLORS = listOf(
  * for entering a 6-character hex color code (no `#` prefix), and a horizontally
  * scrollable row of preset color swatches. Invalid input displays an inline error.
  *
- * @param appSettings The [AppSettings] instance used to read and persist phase-color preferences.
- * @param showTitle   When `true` (default), renders a [titleMedium] header above the rows.
- *                    Set to `false` when embedded inside a parent card that already provides a title.
+ * Accepts state values and change callbacks instead of [AppSettings] directly,
+ * wiring through the [SettingsViewModel].
+ *
+ * @param menstruationHex            Current 6-char hex color for the Menstruation phase.
+ * @param follicularHex              Current 6-char hex color for the Follicular phase.
+ * @param ovulationHex               Current 6-char hex color for the Ovulation phase.
+ * @param lutealHex                  Current 6-char hex color for the Luteal phase.
+ * @param onMenstruationColorChanged Callback invoked with the sanitised hex when the user edits the Menstruation color.
+ * @param onFollicularColorChanged   Callback invoked with the sanitised hex when the user edits the Follicular color.
+ * @param onOvulationColorChanged    Callback invoked with the sanitised hex when the user edits the Ovulation color.
+ * @param onLutealColorChanged       Callback invoked with the sanitised hex when the user edits the Luteal color.
+ * @param onResetDefaults            Callback invoked when the user taps "Reset to Defaults".
+ * @param showTitle                  When `true` (default), renders a [titleMedium] header above the rows.
+ *                                   Set to `false` when embedded inside a parent card that already provides a title.
  */
 @Composable
-fun PhaseColorSettings(appSettings: AppSettings, showTitle: Boolean = true) {
-    val scope = rememberCoroutineScope()
+fun PhaseColorSettings(
+    menstruationHex: String,
+    follicularHex: String,
+    ovulationHex: String,
+    lutealHex: String,
+    onMenstruationColorChanged: (String) -> Unit,
+    onFollicularColorChanged: (String) -> Unit,
+    onOvulationColorChanged: (String) -> Unit,
+    onLutealColorChanged: (String) -> Unit,
+    onResetDefaults: () -> Unit,
+    showTitle: Boolean = true,
+) {
     val dims = LocalDimensions.current
-
-    val menstruationHex by appSettings.menstruationColor.collectAsState(initial = CyclePhaseColors.DEFAULT_MENSTRUATION_HEX)
-    val follicularHex by appSettings.follicularColor.collectAsState(initial = CyclePhaseColors.DEFAULT_FOLLICULAR_HEX)
-    val ovulationHex by appSettings.ovulationColor.collectAsState(initial = CyclePhaseColors.DEFAULT_OVULATION_HEX)
-    val lutealHex by appSettings.lutealColor.collectAsState(initial = CyclePhaseColors.DEFAULT_LUTEAL_HEX)
 
     Column {
         if (showTitle) {
@@ -87,11 +98,11 @@ fun PhaseColorSettings(appSettings: AppSettings, showTitle: Boolean = true) {
             label = stringResource(R.string.phase_color_period_label),
             hexValue = menstruationHex,
             defaultColor = CyclePhaseColors.Menstruation,
-            onValueChange = { scope.launch { appSettings.setMenstruationColor(it) } }
+            onValueChange = onMenstruationColorChanged
         )
         PresetColorGrid(
             selectedHex = menstruationHex,
-            onSelect = { scope.launch { appSettings.setMenstruationColor(it) } }
+            onSelect = onMenstruationColorChanged
         )
 
         Spacer(Modifier.height(dims.sm))
@@ -100,11 +111,11 @@ fun PhaseColorSettings(appSettings: AppSettings, showTitle: Boolean = true) {
             label = stringResource(R.string.phase_color_follicular_label),
             hexValue = follicularHex,
             defaultColor = CyclePhaseColors.Follicular,
-            onValueChange = { scope.launch { appSettings.setFollicularColor(it) } }
+            onValueChange = onFollicularColorChanged
         )
         PresetColorGrid(
             selectedHex = follicularHex,
-            onSelect = { scope.launch { appSettings.setFollicularColor(it) } }
+            onSelect = onFollicularColorChanged
         )
 
         Spacer(Modifier.height(dims.sm))
@@ -113,11 +124,11 @@ fun PhaseColorSettings(appSettings: AppSettings, showTitle: Boolean = true) {
             label = stringResource(R.string.phase_color_ovulation_label),
             hexValue = ovulationHex,
             defaultColor = CyclePhaseColors.Ovulation,
-            onValueChange = { scope.launch { appSettings.setOvulationColor(it) } }
+            onValueChange = onOvulationColorChanged
         )
         PresetColorGrid(
             selectedHex = ovulationHex,
-            onSelect = { scope.launch { appSettings.setOvulationColor(it) } }
+            onSelect = onOvulationColorChanged
         )
 
         Spacer(Modifier.height(dims.sm))
@@ -126,23 +137,16 @@ fun PhaseColorSettings(appSettings: AppSettings, showTitle: Boolean = true) {
             label = stringResource(R.string.phase_color_luteal_label),
             hexValue = lutealHex,
             defaultColor = CyclePhaseColors.Luteal,
-            onValueChange = { scope.launch { appSettings.setLutealColor(it) } }
+            onValueChange = onLutealColorChanged
         )
         PresetColorGrid(
             selectedHex = lutealHex,
-            onSelect = { scope.launch { appSettings.setLutealColor(it) } }
+            onSelect = onLutealColorChanged
         )
 
         Spacer(Modifier.height(dims.sm))
         TextButton(
-            onClick = {
-                scope.launch {
-                    appSettings.setMenstruationColor(CyclePhaseColors.DEFAULT_MENSTRUATION_HEX)
-                    appSettings.setFollicularColor(CyclePhaseColors.DEFAULT_FOLLICULAR_HEX)
-                    appSettings.setOvulationColor(CyclePhaseColors.DEFAULT_OVULATION_HEX)
-                    appSettings.setLutealColor(CyclePhaseColors.DEFAULT_LUTEAL_HEX)
-                }
-            },
+            onClick = onResetDefaults,
             modifier = Modifier.padding(horizontal = dims.md)
         ) {
             Text(stringResource(R.string.phase_color_reset_defaults))
@@ -236,11 +240,11 @@ private fun PresetColorGrid(
 
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(dims.xl)
                     .clip(CircleShape)
                     .background(color)
                     .then(
-                        if (isSelected) Modifier.border(2.dp, primaryColor, CircleShape)
+                        if (isSelected) Modifier.border(dims.xxs, primaryColor, CircleShape)
                         else Modifier
                     )
                     .clickable { onSelect(hex) }

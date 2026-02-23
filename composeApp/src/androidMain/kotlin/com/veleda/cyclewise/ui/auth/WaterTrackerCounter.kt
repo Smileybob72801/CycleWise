@@ -26,7 +26,7 @@ fun WaterTrackerCounter(
     cups: Int,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
-    yesterdayMessage: String?,
+    yesterdayCupsForPrompt: Int?,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -74,10 +74,10 @@ fun WaterTrackerCounter(
                 Icon(Icons.Default.Add, contentDescription = null)
             }
         }
-        if (yesterdayMessage != null) {
+        if (yesterdayCupsForPrompt != null) {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = yesterdayMessage,
+                text = stringResource(R.string.water_yesterday_message, yesterdayCupsForPrompt),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -66,6 +66,7 @@
     <string name="tracker_cancel">Cancel</string>
     <string name="tracker_ongoing_period">Ongoing Period: %s</string>
     <string name="tracker_instructions">Long press a day to start/mark your period. Tap to log details.</string>
+    <string name="tracker_instructions_drag">Long press a day to toggle period. Press and drag to select a range.</string>
     <string name="tracker_log_for">Log for %s</string>
     <string name="tracker_edit_log">Edit Log</string>
     <string name="tracker_delete_period">Delete Period</string>
@@ -86,6 +87,19 @@
 
     <!-- Daily Log -->
     <string name="daily_log_save">Save Log</string>
+    <string name="daily_log_page_wellness">Wellness</string>
+    <string name="daily_log_page_period">Period</string>
+    <string name="daily_log_page_symptoms">Symptoms</string>
+    <string name="daily_log_page_medications">Medications</string>
+    <string name="daily_log_page_notes">Notes &amp; Tags</string>
+    <string name="daily_log_period_toggle">I\'m on my period today</string>
+    <string name="daily_log_period_empty">Toggle above to log period details</string>
+    <string name="daily_log_symptoms_count">%d symptoms logged</string>
+    <string name="daily_log_medications_count">%d medications logged</string>
+    <string name="daily_log_tab_label">Daily Log</string>
+    <string name="daily_log_no_wellness_data">Log your mood, energy, and water intake</string>
+    <string name="daily_log_no_notes_data">Add tags or notes about your day</string>
+    <string name="daily_log_save_success">Log saved</string>
     <string name="daily_log_for">Log for %s</string>
     <string name="daily_log_flow_title">Flow</string>
     <string name="daily_log_mood_title">Mood</string>
@@ -122,6 +136,10 @@
     <string name="settings_section_display">Display</string>
     <string name="settings_section_customization">Customization</string>
     <string name="settings_section_notifications">Notifications</string>
+    <string name="settings_page_general">General</string>
+    <string name="settings_page_appearance">Appearance</string>
+    <string name="settings_page_notifications">Notifications</string>
+    <string name="settings_page_about">About</string>
     <string name="settings_autolock_description">Lock the app after inactivity</string>
     <string name="settings_autolock_minutes_unit">min</string>
     <string name="show_mood_description">Display mood score in daily log summary</string>

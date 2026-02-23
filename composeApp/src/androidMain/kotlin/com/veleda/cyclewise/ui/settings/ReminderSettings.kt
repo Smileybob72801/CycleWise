@@ -17,23 +17,17 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.reminders.ReminderNotifier
-import com.veleda.cyclewise.reminders.ReminderScheduler
-import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.theme.LocalDimensions
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
@@ -41,30 +35,53 @@ import kotlin.math.roundToInt
  * Period Prediction, Daily Medication, and Hydration.
  *
  * Each section has an enable/disable [Switch] plus type-specific settings that
- * are only shown when the reminder is enabled. Toggling or changing any setting
- * immediately schedules/cancels the corresponding WorkManager job via [reminderScheduler].
+ * are only shown when the reminder is enabled. All state changes are dispatched
+ * via [onEvent] to the [SettingsViewModel].
  *
  * On enabling any reminder on API 33+, the composable requests the POST_NOTIFICATIONS
  * runtime permission. If denied, the toggle reverts and a rationale message is shown.
+ * Permission handling stays in the composable since it requires `@Composable` context.
  *
- * @param appSettings       the [AppSettings] instance for reading/writing reminder preferences.
- * @param reminderScheduler the [ReminderScheduler] instance for enqueuing/cancelling work.
- * @param showTitle         When `true` (default), renders a [titleMedium] header above the sections.
- *                          Set to `false` when embedded inside a parent card that already provides a title.
+ * @param periodEnabled            Whether the period prediction reminder is enabled.
+ * @param periodDaysBefore         Days before predicted period to notify (1-3).
+ * @param periodPrivacyAccepted    Whether the user has accepted the period privacy notice.
+ * @param medicationEnabled        Whether the daily medication reminder is enabled.
+ * @param medicationHour           Hour for the medication reminder (0-23).
+ * @param medicationMinute         Minute for the medication reminder (0-59).
+ * @param hydrationEnabled         Whether the hydration reminder is enabled.
+ * @param hydrationGoalCups        Daily water goal in cups.
+ * @param hydrationFrequencyHours  Interval between hydration reminders in hours.
+ * @param hydrationStartHour       Active window start hour.
+ * @param hydrationEndHour         Active window end hour.
+ * @param showPermissionRationale  Whether to show the permission denied rationale text.
+ * @param showPrivacyDialog        Whether the period privacy dialog should be shown.
+ * @param onEvent                  Event dispatcher for [SettingsEvent] variants.
+ * @param showTitle                When `true` (default), renders a [titleMedium] header above the sections.
+ *                                 Set to `false` when embedded inside a parent card that already provides a title.
  */
 @Composable
 fun ReminderSettings(
-    appSettings: AppSettings,
-    reminderScheduler: ReminderScheduler,
-    showTitle: Boolean = true
+    periodEnabled: Boolean,
+    periodDaysBefore: Int,
+    periodPrivacyAccepted: Boolean,
+    medicationEnabled: Boolean,
+    medicationHour: Int,
+    medicationMinute: Int,
+    hydrationEnabled: Boolean,
+    hydrationGoalCups: Int,
+    hydrationFrequencyHours: Int,
+    hydrationStartHour: Int,
+    hydrationEndHour: Int,
+    showPermissionRationale: Boolean,
+    showPrivacyDialog: Boolean,
+    onEvent: (SettingsEvent) -> Unit,
+    showTitle: Boolean = true,
 ) {
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val dims = LocalDimensions.current
 
-    // --- Notification permission handling ---
+    // --- Notification permission handling (requires @Composable context) ---
     var pendingEnableAction by remember { mutableStateOf<(() -> Unit)?>(null) }
-    var showPermissionRationale by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -72,7 +89,7 @@ fun ReminderSettings(
         if (granted) {
             pendingEnableAction?.invoke()
         } else {
-            showPermissionRationale = true
+            onEvent(SettingsEvent.ShowPermissionRationale)
         }
         pendingEnableAction = null
     }
@@ -89,22 +106,6 @@ fun ReminderSettings(
             permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
-
-    // --- State ---
-    val periodEnabled by appSettings.reminderPeriodEnabled.collectAsState(initial = false)
-    val periodDaysBefore by appSettings.reminderPeriodDaysBefore.collectAsState(initial = 2)
-    val periodPrivacyAccepted by appSettings.reminderPeriodPrivacyAccepted.collectAsState(initial = false)
-    var showPrivacyDialog by remember { mutableStateOf(false) }
-
-    val medicationEnabled by appSettings.reminderMedicationEnabled.collectAsState(initial = false)
-    val medicationHour by appSettings.reminderMedicationHour.collectAsState(initial = 9)
-    val medicationMinute by appSettings.reminderMedicationMinute.collectAsState(initial = 0)
-
-    val hydrationEnabled by appSettings.reminderHydrationEnabled.collectAsState(initial = false)
-    val hydrationGoalCups by appSettings.reminderHydrationGoalCups.collectAsState(initial = 8)
-    val hydrationFrequencyHours by appSettings.reminderHydrationFrequencyHours.collectAsState(initial = 3)
-    val hydrationStartHour by appSettings.reminderHydrationStartHour.collectAsState(initial = 8)
-    val hydrationEndHour by appSettings.reminderHydrationEndHour.collectAsState(initial = 20)
 
     Column {
         if (showTitle) {
@@ -138,19 +139,13 @@ fun ReminderSettings(
                     if (checked) {
                         ensurePermissionThen {
                             if (periodPrivacyAccepted) {
-                                scope.launch {
-                                    appSettings.setReminderPeriodEnabled(true)
-                                    reminderScheduler.schedulePeriodPrediction(true)
-                                }
+                                onEvent(SettingsEvent.PeriodReminderToggled(true))
                             } else {
-                                showPrivacyDialog = true
+                                onEvent(SettingsEvent.ShowPrivacyDialog)
                             }
                         }
                     } else {
-                        scope.launch {
-                            appSettings.setReminderPeriodEnabled(false)
-                            reminderScheduler.schedulePeriodPrediction(false)
-                        }
+                        onEvent(SettingsEvent.PeriodReminderToggled(false))
                     }
                 }
             )
@@ -163,11 +158,7 @@ fun ReminderSettings(
                 listOf(1, 2, 3).forEach { days ->
                     FilterChip(
                         selected = periodDaysBefore == days,
-                        onClick = {
-                            scope.launch {
-                                appSettings.setReminderPeriodDaysBefore(days)
-                            }
-                        },
+                        onClick = { onEvent(SettingsEvent.PeriodDaysBeforeChanged(days)) },
                         label = { Text("$days") }
                     )
                 }
@@ -198,16 +189,10 @@ fun ReminderSettings(
                 onCheckedChange = { checked ->
                     if (checked) {
                         ensurePermissionThen {
-                            scope.launch {
-                                appSettings.setReminderMedicationEnabled(true)
-                                reminderScheduler.scheduleMedication(true, medicationHour, medicationMinute)
-                            }
+                            onEvent(SettingsEvent.MedicationReminderToggled(true))
                         }
                     } else {
-                        scope.launch {
-                            appSettings.setReminderMedicationEnabled(false)
-                            reminderScheduler.scheduleMedication(false)
-                        }
+                        onEvent(SettingsEvent.MedicationReminderToggled(false))
                     }
                 }
             )
@@ -230,11 +215,7 @@ fun ReminderSettings(
                     Slider(
                         value = medicationHour.toFloat(),
                         onValueChange = { newHour ->
-                            val hour = newHour.roundToInt()
-                            scope.launch {
-                                appSettings.setReminderMedicationHour(hour)
-                                reminderScheduler.scheduleMedication(true, hour, medicationMinute)
-                            }
+                            onEvent(SettingsEvent.MedicationHourChanged(newHour.roundToInt()))
                         },
                         valueRange = 0f..23f,
                         steps = 22,
@@ -251,11 +232,7 @@ fun ReminderSettings(
                     Slider(
                         value = medicationMinute.toFloat(),
                         onValueChange = { newMinute ->
-                            val minute = newMinute.roundToInt()
-                            scope.launch {
-                                appSettings.setReminderMedicationMinute(minute)
-                                reminderScheduler.scheduleMedication(true, medicationHour, minute)
-                            }
+                            onEvent(SettingsEvent.MedicationMinuteChanged(newMinute.roundToInt()))
                         },
                         valueRange = 0f..59f,
                         steps = 58,
@@ -289,16 +266,10 @@ fun ReminderSettings(
                 onCheckedChange = { checked ->
                     if (checked) {
                         ensurePermissionThen {
-                            scope.launch {
-                                appSettings.setReminderHydrationEnabled(true)
-                                reminderScheduler.scheduleHydration(true, hydrationFrequencyHours)
-                            }
+                            onEvent(SettingsEvent.HydrationReminderToggled(true))
                         }
                     } else {
-                        scope.launch {
-                            appSettings.setReminderHydrationEnabled(false)
-                            reminderScheduler.scheduleHydration(false)
-                        }
+                        onEvent(SettingsEvent.HydrationReminderToggled(false))
                     }
                 }
             )
@@ -312,7 +283,7 @@ fun ReminderSettings(
             Slider(
                 value = hydrationGoalCups.toFloat(),
                 onValueChange = { newValue ->
-                    scope.launch { appSettings.setReminderHydrationGoalCups(newValue.roundToInt()) }
+                    onEvent(SettingsEvent.HydrationGoalCupsChanged(newValue.roundToInt()))
                 },
                 valueRange = 1f..20f,
                 steps = 18,
@@ -326,12 +297,7 @@ fun ReminderSettings(
                 listOf(2, 3, 4).forEach { hours ->
                     FilterChip(
                         selected = hydrationFrequencyHours == hours,
-                        onClick = {
-                            scope.launch {
-                                appSettings.setReminderHydrationFrequencyHours(hours)
-                                reminderScheduler.scheduleHydration(true, hours)
-                            }
-                        },
+                        onClick = { onEvent(SettingsEvent.HydrationFrequencyChanged(hours)) },
                         label = { Text("${hours}h") }
                     )
                 }
@@ -348,9 +314,7 @@ fun ReminderSettings(
                     Slider(
                         value = hydrationStartHour.toFloat(),
                         onValueChange = { newValue ->
-                            scope.launch {
-                                appSettings.setReminderHydrationStartHour(newValue.roundToInt())
-                            }
+                            onEvent(SettingsEvent.HydrationStartHourChanged(newValue.roundToInt()))
                         },
                         valueRange = 0f..23f,
                         steps = 22
@@ -362,9 +326,7 @@ fun ReminderSettings(
                     Slider(
                         value = hydrationEndHour.toFloat(),
                         onValueChange = { newValue ->
-                            scope.launch {
-                                appSettings.setReminderHydrationEndHour(newValue.roundToInt())
-                            }
+                            onEvent(SettingsEvent.HydrationEndHourChanged(newValue.roundToInt()))
                         },
                         valueRange = 0f..23f,
                         steps = 22
@@ -388,17 +350,8 @@ fun ReminderSettings(
     // --- Privacy dialog ---
     if (showPrivacyDialog) {
         PeriodPrivacyDialog(
-            onAccept = {
-                showPrivacyDialog = false
-                scope.launch {
-                    appSettings.setReminderPeriodPrivacyAccepted(true)
-                    appSettings.setReminderPeriodEnabled(true)
-                    reminderScheduler.schedulePeriodPrediction(true)
-                }
-            },
-            onDismiss = {
-                showPrivacyDialog = false
-            }
+            onAccept = { onEvent(SettingsEvent.PeriodPrivacyAccepted) },
+            onDismiss = { onEvent(SettingsEvent.DismissPrivacyDialog) }
         )
     }
 }

@@ -17,14 +17,14 @@ class ThemeTest {
     // --- RhythmWiseColors ---
 
     @Test
-    fun RhythmWiseColors_StarGold_WHEN_accessed_THEN_equalsExpectedGoldColor() {
-        // GIVEN the expected gold color constant
-        val expected = Color(0xFFFFD700)
+    fun RhythmWiseColors_StarGold_WHEN_accessed_THEN_equalsAppPaletteAccent() {
+        // GIVEN the expected accent color from the Velvet Garden palette
+        val expected = AppPalette.Light.Accent
 
         // WHEN accessing StarGold
         val result = RhythmWiseColors.StarGold
 
-        // THEN it matches the expected value
+        // THEN it matches the palette accent value
         assertEquals(expected, result)
     }
 

@@ -16,6 +16,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * UI state for the Insights screen.
+ *
+ * @property isLoading    True during the initial insight generation pass.
+ * @property isRefreshing True during a pull-to-refresh reload (existing content stays visible).
+ * @property insights     The generated list of [Insight] cards to display.
+ */
 data class InsightsUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,

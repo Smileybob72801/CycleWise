@@ -14,9 +14,10 @@ import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -48,18 +49,26 @@ data class DailyLogUiState(
 )
 
 /**
- * Daily log entry editor ViewModel.
+ * Daily log entry editor ViewModel with auto-save and period toggle support.
  *
- * Uses a pure-reducer MVI pattern: [onEvent] dispatches to [reduce], which returns
- * updated state without side effects. Async operations (save, library creation) are
- * launched via `viewModelScope` inside the relevant event branch.
+ * Uses a pure-reducer MVI pattern: [onEvent] dispatches to [reduce] (a pure function
+ * that returns updated state without side effects), then launches async operations
+ * (auto-save, library creation, period toggle, water persistence) in `viewModelScope`.
+ *
+ * **Auto-save:** Every user interaction persists immediately via [autoSave]. The
+ * [NoteChanged] event is debounced by [NOTE_DEBOUNCE_MS] to avoid excessive writes
+ * during typing.
+ *
+ * **Period toggle:** The ViewModel self-determines [DailyLogUiState.isPeriodDay] by
+ * querying the repository during init. The [DailyLogEvent.PeriodToggled] event calls
+ * [PeriodRepository.logPeriodDay] or [PeriodRepository.unLogPeriodDay] — the same
+ * repository methods used by the Tracker's long-press mark/unmark, ensuring consistent
+ * period-splitting and merging behavior across both screens.
  *
  * **Two-phase init:**
- * 1. Fetches the initial log, symptom library, medication library, and water intake.
+ * 1. Fetches the initial log, symptom library, medication library, water intake, and
+ *    determines isPeriodDay from existing periods.
  * 2. Subscribes to library changes for live updates during editing.
- *
- * **Empty log detection:** [isLogEmpty] determines if a log contains no user-entered
- * data; empty logs are not persisted on save.
  *
  * Session-scoped (destroyed on logout/autolock).
  */
@@ -69,14 +78,13 @@ class DailyLogViewModel(
     private val getOrCreateDailyLog: GetOrCreateDailyLogUseCase,
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private val medicationLibraryProvider: MedicationLibraryProvider,
-    private val isPeriodDay: Boolean
 ) : ViewModel()
 {
-    private val _uiState = MutableStateFlow(DailyLogUiState(isPeriodDay = isPeriodDay))
-    val uiState = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(DailyLogUiState())
+    val uiState: StateFlow<DailyLogUiState> = _uiState.asStateFlow()
 
-    private val _effect = MutableSharedFlow<DailyLogEffect>(replay = 0)
-    val effect: SharedFlow<DailyLogEffect> = _effect
+    /** Active debounce job for [DailyLogEvent.NoteChanged] auto-save. */
+    private var noteDebounceJob: Job? = null
 
     init {
         // 1. Initial data load dispatches a single, comprehensive event when complete.
@@ -87,8 +95,15 @@ class DailyLogViewModel(
             val result = getOrCreateDailyLog(entryDate)
             val waterIntake = periodRepository.getWaterIntakeForDates(listOf(entryDate)).firstOrNull()
 
+            // Self-determine isPeriodDay from existing periods
+            val periods = periodRepository.getAllPeriods().first()
+            val isPeriodDay = periods.any { period ->
+                val end = period.endDate
+                entryDate >= period.startDate && (end == null || entryDate <= end)
+            }
+
             onEvent(DailyLogEvent.LogLoaded(result, initialSymptoms, initialMedications))
-            _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0) }
+            _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0, isPeriodDay = isPeriodDay) }
         }
 
         // 2. Subsequent library changes also dispatch events instead of mutating state directly.
@@ -103,16 +118,131 @@ class DailyLogViewModel(
 
     /**
      * The single, public entry point for all UI actions.
+     *
+     * State is updated synchronously via [reduce], then side effects (auto-save,
+     * repository writes, library creation) are launched asynchronously.
      */
     fun onEvent(event: DailyLogEvent) {
         _uiState.update { currentState ->
             reduce(currentState, event)
         }
+
+        // Side effects: repository writes, library creation, water persistence.
+        when (event) {
+            is DailyLogEvent.CreateAndAddSymptom -> {
+                val name = event.name.trim()
+                if (name.isBlank()) return
+                viewModelScope.launch {
+                    val newSymptom = periodRepository.createOrGetSymptomInLibrary(name)
+                    val newLogEntry = SymptomLog(
+                        id = uuid4().toString(),
+                        entryId = _uiState.value.log!!.entry.id,
+                        symptomId = newSymptom.id,
+                        severity = 3,
+                        createdAt = Clock.System.now()
+                    )
+                    _uiState.update {
+                        val updatedLogs = it.log!!.symptomLogs + newLogEntry
+                        val updatedLibrary = if (it.symptomLibrary.any { s -> s.id == newSymptom.id }) {
+                            it.symptomLibrary
+                        } else {
+                            it.symptomLibrary + newSymptom
+                        }
+                        it.copy(
+                            log = it.log.copy(symptomLogs = updatedLogs),
+                            symptomLibrary = updatedLibrary
+                        )
+                    }
+                    autoSave()
+                }
+            }
+
+            is DailyLogEvent.MedicationCreatedAndAdded -> {
+                val name = event.name.trim()
+                if (name.isBlank()) return
+                viewModelScope.launch {
+                    val newMedication = periodRepository.createOrGetMedicationInLibrary(name)
+                    val newLogEntry = MedicationLog(
+                        id = uuid4().toString(),
+                        entryId = _uiState.value.log!!.entry.id,
+                        medicationId = newMedication.id,
+                        createdAt = Clock.System.now()
+                    )
+                    _uiState.update {
+                        val updatedLogs = it.log!!.medicationLogs + newLogEntry
+                        val updatedLibrary = if (it.medicationLibrary.any { m -> m.id == newMedication.id }) {
+                            it.medicationLibrary
+                        } else {
+                            it.medicationLibrary + newMedication
+                        }
+                        it.copy(
+                            log = it.log.copy(medicationLogs = updatedLogs),
+                            medicationLibrary = updatedLibrary
+                        )
+                    }
+                    autoSave()
+                }
+            }
+
+            is DailyLogEvent.PeriodToggled -> viewModelScope.launch {
+                if (event.isOnPeriod) {
+                    periodRepository.logPeriodDay(entryDate)
+                } else {
+                    periodRepository.unLogPeriodDay(entryDate)
+                }
+                _uiState.update { it.copy(isPeriodDay = event.isOnPeriod) }
+            }
+
+            is DailyLogEvent.WaterIncrement -> viewModelScope.launch {
+                periodRepository.upsertWaterIntake(
+                    WaterIntake(
+                        date = entryDate,
+                        cups = _uiState.value.waterCups,
+                        createdAt = Clock.System.now(),
+                        updatedAt = Clock.System.now()
+                    )
+                )
+            }
+
+            is DailyLogEvent.WaterDecrement -> viewModelScope.launch {
+                if (_uiState.value.waterCups > 0) {
+                    periodRepository.upsertWaterIntake(
+                        WaterIntake(
+                            date = entryDate,
+                            cups = _uiState.value.waterCups,
+                            createdAt = Clock.System.now(),
+                            updatedAt = Clock.System.now()
+                        )
+                    )
+                }
+            }
+
+            // Auto-save after state update for data-changing user events.
+            is DailyLogEvent.MoodScoreChanged,
+            is DailyLogEvent.EnergyLevelChanged,
+            is DailyLogEvent.LibidoScoreChanged,
+            is DailyLogEvent.FlowIntensityChanged,
+            is DailyLogEvent.PeriodColorChanged,
+            is DailyLogEvent.PeriodConsistencyChanged,
+            is DailyLogEvent.SymptomToggled,
+            is DailyLogEvent.MedicationToggled,
+            is DailyLogEvent.TagAdded,
+            is DailyLogEvent.TagRemoved -> autoSave()
+
+            is DailyLogEvent.NoteChanged -> debouncedAutoSave()
+
+            // No side effects for load/library/symptomName events.
+            is DailyLogEvent.LogLoaded,
+            is DailyLogEvent.LibraryUpdated,
+            is DailyLogEvent.SymptomNameChanged -> { /* state-only */ }
+        }
     }
 
     /**
-     * A pure function that takes the current state and an event, and returns the new state.
-     * All state modification logic is centralized here.
+     * Pure function that returns the new [DailyLogUiState] for a given event.
+     *
+     * Contains no side effects — all repository writes, library creation, and water
+     * persistence are handled in [onEvent] after the state has been updated.
      */
     private fun reduce(currentState: DailyLogUiState, event: DailyLogEvent): DailyLogUiState {
         // The log must exist for almost all events.
@@ -124,7 +254,6 @@ class DailyLogViewModel(
                     log = event.log,
                     symptomLibrary = event.initialSymptoms,
                     medicationLibrary = event.initialMedications,
-                    isPeriodDay = isPeriodDay,
                     error = if (event.log == null) "Could not find a parent cycle for this date." else null
                 )
                 is DailyLogEvent.LibraryUpdated -> currentState.copy(
@@ -137,7 +266,6 @@ class DailyLogViewModel(
         return when (event) {
             is DailyLogEvent.FlowIntensityChanged -> {
                 val newPeriodLog = if (event.intensity != null) {
-                    // Create/Update the PeriodLog
                     val existingLog = log.periodLog
                     val now = Clock.System.now()
                     existingLog?.copy(flowIntensity = event.intensity, updatedAt = now)
@@ -149,7 +277,6 @@ class DailyLogViewModel(
                             updatedAt = now
                         )
                 } else {
-                    // Remove PeriodLog
                     null
                 }
                 currentState.copy(log = log.copy(periodLog = newPeriodLog))
@@ -202,35 +329,7 @@ class DailyLogViewModel(
                 }
                 currentState.copy(log = log.copy(symptomLogs = newLogs))
             }
-            is DailyLogEvent.CreateAndAddSymptom -> {
-                val name = event.name.trim()
-                if (name.isBlank()) {
-                    return currentState
-                }
-                viewModelScope.launch {
-                    val newSymptom = periodRepository.createOrGetSymptomInLibrary(name)
-                    val newLogEntry = SymptomLog(
-                        id = uuid4().toString(),
-                        entryId = currentState.log.entry.id,
-                        symptomId = newSymptom.id,
-                        severity = 3,
-                        createdAt = Clock.System.now()
-                    )
-                    _uiState.update {
-                        val updatedLogs = it.log!!.symptomLogs + newLogEntry
-                        val updatedLibrary = if (it.symptomLibrary.any { s -> s.id == newSymptom.id }) {
-                            it.symptomLibrary
-                        } else {
-                            it.symptomLibrary + newSymptom
-                        }
-                        it.copy(
-                            log = it.log.copy(symptomLogs = updatedLogs),
-                            symptomLibrary = updatedLibrary
-                        )
-                    }
-                }
-                currentState
-            }
+            is DailyLogEvent.CreateAndAddSymptom -> currentState
             is DailyLogEvent.MedicationToggled -> {
                 val existingLog = log.medicationLogs.find { it.medicationId == event.medication.id }
                 val newLogs = if (existingLog != null) {
@@ -240,84 +339,50 @@ class DailyLogViewModel(
                 }
                 currentState.copy(log = log.copy(medicationLogs = newLogs))
             }
-            is DailyLogEvent.MedicationCreatedAndAdded -> {
-                val name = event.name.trim()
-                if (name.isBlank()) {
-                    return currentState
-                }
-                viewModelScope.launch {
-                    val newMedication = periodRepository.createOrGetMedicationInLibrary(name)
-                    val newLogEntry = MedicationLog(
-                        id = uuid4().toString(),
-                        entryId = currentState.log.entry.id,
-                        medicationId = newMedication.id,
-                        createdAt = Clock.System.now()
-                    )
-                    _uiState.update {
-                        val updatedLogs = it.log!!.medicationLogs + newLogEntry
-                        val updatedLibrary = if (it.medicationLibrary.any { m -> m.id == newMedication.id }) {
-                            it.medicationLibrary
-                        } else {
-                            it.medicationLibrary + newMedication
-                        }
-                        it.copy(
-                            log = it.log.copy(medicationLogs = updatedLogs),
-                            medicationLibrary = updatedLibrary
-                        )
-                    }
-                }
-                currentState
-            }
-            is DailyLogEvent.SaveLog -> {
-                viewModelScope.launch {
-                    val currentLog = _uiState.value.log ?: run {
-                        _effect.emit(DailyLogEffect.NavigateBack)
-                        return@launch
-                    }
-                    if (isLogEmpty(currentLog)) {
-                        _effect.emit(DailyLogEffect.NavigateBack)
-                        return@launch
-                    }
-                    periodRepository.saveFullLog(currentLog)
-                    _effect.emit(DailyLogEffect.NavigateBack)
-                }
-                currentState
-            }
+            is DailyLogEvent.MedicationCreatedAndAdded -> currentState
+            is DailyLogEvent.PeriodToggled -> currentState
             is DailyLogEvent.WaterIncrement -> {
-                val newCups = currentState.waterCups + 1
-                viewModelScope.launch {
-                    periodRepository.upsertWaterIntake(
-                        WaterIntake(
-                            date = entryDate,
-                            cups = newCups,
-                            createdAt = Clock.System.now(),
-                            updatedAt = Clock.System.now()
-                        )
-                    )
-                }
-                currentState.copy(waterCups = newCups)
+                currentState.copy(waterCups = currentState.waterCups + 1)
             }
             is DailyLogEvent.WaterDecrement -> {
                 if (currentState.waterCups <= 0) return currentState
-                val newCups = currentState.waterCups - 1
-                viewModelScope.launch {
-                    periodRepository.upsertWaterIntake(
-                        WaterIntake(
-                            date = entryDate,
-                            cups = newCups,
-                            createdAt = Clock.System.now(),
-                            updatedAt = Clock.System.now()
-                        )
-                    )
-                }
-                currentState.copy(waterCups = newCups)
+                currentState.copy(waterCups = currentState.waterCups - 1)
             }
             is DailyLogEvent.LogLoaded, is DailyLogEvent.LibraryUpdated, is DailyLogEvent.SymptomNameChanged -> currentState
         }
     }
 
     /**
-     * Determines if a FullDailyLog contains no user-entered data.
+     * Persists the current log state to the repository if the log contains any user data.
+     *
+     * Called after every state-changing user interaction (except water, which has its own
+     * persistence path, and notes, which use [debouncedAutoSave]).
+     */
+    private fun autoSave() {
+        viewModelScope.launch {
+            val currentLog = _uiState.value.log ?: return@launch
+            if (!isLogEmpty(currentLog)) {
+                periodRepository.saveFullLog(currentLog)
+            }
+        }
+    }
+
+    /**
+     * Debounced variant of [autoSave] for [DailyLogEvent.NoteChanged].
+     *
+     * Cancels any pending save and schedules a new one after [NOTE_DEBOUNCE_MS].
+     * This avoids excessive repository writes on every keystroke.
+     */
+    private fun debouncedAutoSave() {
+        noteDebounceJob?.cancel()
+        noteDebounceJob = viewModelScope.launch {
+            delay(NOTE_DEBOUNCE_MS)
+            autoSave()
+        }
+    }
+
+    /**
+     * Determines if a [FullDailyLog] contains no user-entered data.
      */
     private fun isLogEmpty(log: FullDailyLog): Boolean {
         val entry = log.entry
@@ -329,5 +394,10 @@ class DailyLogViewModel(
                 entry.libidoScore == null &&
                 entry.customTags.isEmpty() &&
                 entry.note.isNullOrBlank()
+    }
+
+    companion object {
+        /** Debounce delay for note auto-save in milliseconds. */
+        const val NOTE_DEBOUNCE_MS = 500L
     }
 }
