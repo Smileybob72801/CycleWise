@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
@@ -96,29 +98,13 @@ internal fun CalendarDayCell(
     val inRange = isInExistingRange || isInSelectionRange
     val hasDisplayPhase = displayPhase != null
 
-    val periodShape = when {
-        isStartDate && isEndDate -> CircleShape
-        isStartDate -> RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
-        isEndDate -> RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
-        inRange -> RoundedCornerShape(0)
-        else -> CircleShape
-    }
-
-    val phaseShape = when {
-        isPhaseStart && isPhaseEnd -> RoundedCornerShape(8.dp)
-        isPhaseStart -> RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
-        isPhaseEnd -> RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
-        else -> RoundedCornerShape(0)
-    }
-
     val bgShape = when {
-        dayInfo?.isPeriodDay == true -> periodShape
-        isInSelectionRange -> periodShape
-        hasDisplayPhase -> phaseShape
+        dayInfo?.isPeriodDay == true || isInSelectionRange ->
+            bandShape(isStart = isStartDate, isEnd = isEndDate, radius = dims.xs)
+        hasDisplayPhase ->
+            bandShape(isStart = isPhaseStart, isEnd = isPhaseEnd, radius = dims.xs)
         else -> CircleShape
     }
-
-    val isPhaseMiddle = hasDisplayPhase && !isPhaseStart && !isPhaseEnd
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -133,8 +119,8 @@ internal fun CalendarDayCell(
             .aspectRatio(1f)
             .padding(
                 vertical = when {
-                    inRange && !isStartDate && !isEndDate -> 0.dp
-                    isPhaseMiddle -> 0.dp
+                    inRange -> 0.dp
+                    hasDisplayPhase -> 0.dp
                     else -> dims.xs
                 }
             )
@@ -226,4 +212,21 @@ internal fun CalendarDayCell(
             }
         }
     }
+}
+
+/**
+ * Returns the [Shape] for one cell of a horizontal band (period or phase).
+ *
+ * Start/end caps get rounded corners on the leading/trailing side;
+ * middle cells are flat rectangles. A single-cell band is rounded on all sides.
+ *
+ * @param isStart True when this cell is the first day of the band.
+ * @param isEnd   True when this cell is the last day of the band.
+ * @param radius  Corner radius for the rounded edges.
+ */
+private fun bandShape(isStart: Boolean, isEnd: Boolean, radius: Dp): Shape = when {
+    isStart && isEnd -> RoundedCornerShape(radius)
+    isStart -> RoundedCornerShape(topStart = radius, bottomStart = radius)
+    isEnd -> RoundedCornerShape(topEnd = radius, bottomEnd = radius)
+    else -> RoundedCornerShape(0)
 }
