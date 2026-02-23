@@ -3,6 +3,7 @@ package com.veleda.cyclewise.ui.settings
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.settings.AppSettings
+import com.veleda.cyclewise.ui.theme.ThemeMode
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
 import io.mockk.coVerify
 import io.mockk.every
@@ -49,6 +50,7 @@ class SettingsViewModelTest {
         mockReminderScheduler = mockk(relaxed = true)
 
         // Configure all AppSettings flows to return defaults.
+        every { mockAppSettings.themeMode } returns flowOf("system")
         every { mockAppSettings.autolockMinutes } returns flowOf(10)
         every { mockAppSettings.topSymptomsCount } returns flowOf(3)
         every { mockAppSettings.showMoodInSummary } returns flowOf(true)
@@ -97,6 +99,7 @@ class SettingsViewModelTest {
 
         // THEN — state matches defaults
         val state = viewModel.uiState.value
+        assertEquals(ThemeMode.SYSTEM, state.themeMode)
         assertEquals(10, state.autolockMinutes)
         assertEquals(3, state.topSymptomsCount)
         assertTrue(state.showMood)
@@ -452,5 +455,35 @@ class SettingsViewModelTest {
         coVerify(atLeast = 1) { mockAppSettings.setReminderPeriodPrivacyAccepted(true) }
         coVerify(atLeast = 1) { mockAppSettings.setReminderPeriodEnabled(true) }
         verify(atLeast = 1) { mockReminderScheduler.schedulePeriodPrediction(true) }
+    }
+
+    // ── Theme mode ──────────────────────────────────────────────────
+
+    @Test
+    fun `onEvent ThemeModeChanged WHEN dark THEN updatesStateAndPersists`() = runTest {
+        // GIVEN — ViewModel with defaults (themeMode = SYSTEM)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — theme mode changed to DARK
+        viewModel.onEvent(SettingsEvent.ThemeModeChanged(ThemeMode.DARK))
+        advanceUntilIdle()
+
+        // THEN — state updated and persistence called
+        assertEquals(ThemeMode.DARK, viewModel.uiState.value.themeMode)
+        coVerify(atLeast = 1) { mockAppSettings.setThemeMode("dark") }
+    }
+
+    @Test
+    fun `init WHEN themeModeIsLight THEN uiStateReflectsLight`() = runTest {
+        // GIVEN — AppSettings returns "light" for themeMode
+        every { mockAppSettings.themeMode } returns flowOf("light")
+
+        // WHEN — ViewModel is created
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // THEN — state reflects LIGHT mode
+        assertEquals(ThemeMode.LIGHT, viewModel.uiState.value.themeMode)
     }
 }

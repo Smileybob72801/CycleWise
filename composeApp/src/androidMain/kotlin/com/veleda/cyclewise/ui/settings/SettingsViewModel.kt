@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.settings.AppSettings
+import com.veleda.cyclewise.ui.theme.ThemeMode
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
  * Dialog visibility flags (about, privacy, permission rationale) are also managed here
  * instead of via local `remember { mutableStateOf() }` to keep state centralized.
  *
+ * @property themeMode                 User-selected theme mode (default [ThemeMode.SYSTEM]).
  * @property autolockMinutes          Auto-lock timeout in minutes (default 10).
  * @property topSymptomsCount         Number of top symptoms shown in insights (default 3).
  * @property showMood                 Whether mood is shown in the daily log summary.
@@ -48,6 +50,7 @@ import kotlinx.coroutines.launch
  * @property showPermissionRationale  Whether the notification permission rationale is shown.
  */
 data class SettingsUiState(
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val autolockMinutes: Int = 10,
     val topSymptomsCount: Int = 3,
     val showMood: Boolean = true,
@@ -103,6 +106,10 @@ class SettingsViewModel(
     init {
         // Collect each AppSettings flow individually to populate state.
         // This avoids the 22+ param combine() limitation.
+        appSettings.themeMode
+            .onEach { value -> _uiState.update { it.copy(themeMode = ThemeMode.fromKey(value)) } }
+            .launchIn(viewModelScope)
+
         appSettings.autolockMinutes
             .onEach { value -> _uiState.update { it.copy(autolockMinutes = value) } }
             .launchIn(viewModelScope)
@@ -207,6 +214,10 @@ class SettingsViewModel(
 
         // Side effects: persist to DataStore and schedule/cancel reminders.
         when (event) {
+            is SettingsEvent.ThemeModeChanged -> viewModelScope.launch {
+                appSettings.setThemeMode(event.mode.key)
+            }
+
             is SettingsEvent.AutolockChanged -> viewModelScope.launch {
                 appSettings.setAutolockMinutes(event.minutes)
             }
@@ -348,6 +359,7 @@ class SettingsViewModel(
      */
     private fun reduce(state: SettingsUiState, event: SettingsEvent): SettingsUiState {
         return when (event) {
+            is SettingsEvent.ThemeModeChanged -> state.copy(themeMode = event.mode)
             is SettingsEvent.AutolockChanged -> state.copy(autolockMinutes = event.minutes)
             is SettingsEvent.TopSymptomsCountChanged -> state.copy(topSymptomsCount = event.count)
 

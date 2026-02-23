@@ -1,5 +1,7 @@
 package com.veleda.cyclewise.ui.settings
 
+import com.veleda.cyclewise.ui.theme.ThemeMode
+
 /**
  * All events that can be dispatched to [SettingsViewModel.onEvent].
  *
@@ -31,6 +33,11 @@ sealed interface SettingsEvent {
 
     /** User toggled "Show Libido in summary". */
     data class ShowLibidoToggled(val enabled: Boolean) : SettingsEvent
+
+    // ── Theme ─────────────────────────────────────────────────────────
+
+    /** User selected a new theme mode from the segmented button row. */
+    data class ThemeModeChanged(val mode: ThemeMode) : SettingsEvent
 
     // ── Phase visibility toggles ─────────────────────────────────────
 

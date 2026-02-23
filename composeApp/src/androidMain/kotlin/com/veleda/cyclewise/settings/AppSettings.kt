@@ -36,6 +36,7 @@ private val REMINDER_HYDRATION_FREQUENCY_HOURS = intPreferencesKey("reminder_hyd
 private val REMINDER_HYDRATION_START_HOUR = intPreferencesKey("reminder_hydration_start_hour")
 private val REMINDER_HYDRATION_END_HOUR = intPreferencesKey("reminder_hydration_end_hour")
 private val CACHED_PREDICTED_PERIOD_DATE = stringPreferencesKey("cached_predicted_period_date")
+private val THEME_MODE = stringPreferencesKey("theme_mode")
 
 /**
  * DataStore-backed wrapper for user-configurable app preferences.
@@ -68,6 +69,7 @@ private val CACHED_PREDICTED_PERIOD_DATE = stringPreferencesKey("cached_predicte
  * @property reminderHydrationStartHour     Active window start hour (0–23, default: 8).
  * @property reminderHydrationEndHour       Active window end hour (0–23, default: 20).
  * @property cachedPredictedPeriodDate      ISO date cache for the period prediction worker (e.g. "2026-03-15").
+ * @property themeMode                     User-selected theme mode key ("system", "light", or "dark"; default: "system").
  */
 class AppSettings(private val context: Context) {
     val autolockMinutes = context.dataStore.data.map { prefs -> prefs[AUTOLOCK_MIN] ?: 10 }
@@ -293,5 +295,16 @@ class AppSettings(private val context: Context) {
     /** Persists the cached predicted period date for the background worker. */
     suspend fun setCachedPredictedPeriodDate(date: String) {
         context.dataStore.edit { it[CACHED_PREDICTED_PERIOD_DATE] = date }
+    }
+
+    // ── Theme preferences ─────────────────────────────────────────────
+
+    /** User-selected theme mode key ("system", "light", or "dark"). */
+    val themeMode: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[THEME_MODE] ?: "system" }
+
+    /** Persists the user's selected theme mode. */
+    suspend fun setThemeMode(mode: String) {
+        context.dataStore.edit { it[THEME_MODE] = mode }
     }
 }
