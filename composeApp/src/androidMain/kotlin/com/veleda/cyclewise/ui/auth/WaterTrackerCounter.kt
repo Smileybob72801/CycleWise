@@ -18,8 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.ui.theme.LocalDimensions
 
 @Composable
 fun WaterTrackerCounter(
@@ -29,6 +29,8 @@ fun WaterTrackerCounter(
     yesterdayCupsForPrompt: Int?,
     modifier: Modifier = Modifier
 ) {
+    val dims = LocalDimensions.current
+
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -38,16 +40,16 @@ fun WaterTrackerCounter(
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(dims.sm))
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(dims.md)
         ) {
             FilledIconButton(
                 onClick = onDecrement,
                 enabled = cups > 0,
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(dims.buttonMin)
                     .testTag("water-decrement"),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -64,7 +66,7 @@ fun WaterTrackerCounter(
             FilledIconButton(
                 onClick = onIncrement,
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(dims.buttonMin)
                     .testTag("water-increment"),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -75,7 +77,7 @@ fun WaterTrackerCounter(
             }
         }
         if (yesterdayCupsForPrompt != null) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(dims.sm))
             Text(
                 text = stringResource(R.string.water_yesterday_message, yesterdayCupsForPrompt),
                 style = MaterialTheme.typography.bodySmall,

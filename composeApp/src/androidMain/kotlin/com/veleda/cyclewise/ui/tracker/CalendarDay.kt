@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
@@ -38,6 +40,9 @@ import com.veleda.cyclewise.domain.models.CyclePhase
 import com.veleda.cyclewise.ui.theme.CyclePhasePalette
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.datetime.toKotlinLocalDate
+
+/** Alpha applied to the period-range fill when a day is in the selection/removal range. */
+private const val PERIOD_FILL_ALPHA = 0.4f
 
 /**
  * A single calendar-day cell rendered inside the [HorizontalCalendar] grid.
@@ -93,29 +98,32 @@ internal fun CalendarDayCell(
     val inRange = isInExistingRange || isInSelectionRange
     val hasDisplayPhase = displayPhase != null
 
-    val periodShape = when {
-        isStartDate && isEndDate -> CircleShape
-        isStartDate -> RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50)
-        isEndDate -> RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50)
-        inRange -> RoundedCornerShape(0)
-        else -> CircleShape
-    }
-
-    val phaseShape = when {
-        isPhaseStart && isPhaseEnd -> RoundedCornerShape(50)
-        isPhaseStart -> RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50)
-        isPhaseEnd -> RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50)
-        else -> RoundedCornerShape(0)
+    val bandColor = when {
+        dayInfo?.isPeriodDay == true && !isInRemovalRange -> palette.menstruation.fill
+        isInSelectionRange || isInRemovalRange ->
+            palette.menstruation.fill.copy(alpha = PERIOD_FILL_ALPHA)
+        hasDisplayPhase -> palette.forPhase(displayPhase!!).fillSubtle
+        else -> Color.Transparent
     }
 
     val bgShape = when {
-        dayInfo?.isPeriodDay == true -> periodShape
-        isInSelectionRange -> periodShape
-        hasDisplayPhase -> phaseShape
+        dayInfo?.isPeriodDay == true || isInSelectionRange ->
+            bandShape(isStart = isStartDate, isEnd = isEndDate, radius = dims.sm)
+        hasDisplayPhase ->
+            bandShape(isStart = isPhaseStart, isEnd = isPhaseEnd, radius = dims.sm)
         else -> CircleShape
     }
 
-    val isPhaseMiddle = hasDisplayPhase && !isPhaseStart && !isPhaseEnd
+    val isBandStart = when {
+        dayInfo?.isPeriodDay == true || isInSelectionRange -> isStartDate
+        hasDisplayPhase -> isPhaseStart
+        else -> false
+    }
+    val isBandEnd = when {
+        dayInfo?.isPeriodDay == true || isInSelectionRange -> isEndDate
+        hasDisplayPhase -> isPhaseEnd
+        else -> false
+    }
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -129,11 +137,10 @@ internal fun CalendarDayCell(
         modifier = Modifier
             .aspectRatio(1f)
             .padding(
-                vertical = when {
-                    inRange && !isStartDate && !isEndDate -> 0.dp
-                    isPhaseMiddle -> 0.dp
-                    else -> dims.xs
-                }
+                top = if (inRange || hasDisplayPhase) dims.xxs else dims.xs,
+                bottom = if (inRange || hasDisplayPhase) dims.xxs else dims.xs,
+                start = if (isBandStart) dims.xxs else 0.dp,
+                end = if (isBandEnd) dims.xxs else 0.dp
             )
             .graphicsLayer {
                 scaleX = scale
@@ -145,21 +152,7 @@ internal fun CalendarDayCell(
                 color = if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent,
                 shape = CircleShape
             )
-            .background(
-                color = when {
-                    dayInfo?.isPeriodDay == true && !isInRemovalRange ->
-                        palette.menstruation.fill
-
-                    isInSelectionRange || isInRemovalRange ->
-                        palette.menstruation.fill.copy(alpha = 0.4f)
-
-                    hasDisplayPhase ->
-                        palette.forPhase(displayPhase!!).fillSubtle
-
-                    else -> Color.Transparent
-                },
-                shape = bgShape
-            )
+            .background(color = bandColor, shape = bgShape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -183,7 +176,7 @@ internal fun CalendarDayCell(
                 color = if (day.position == DayPosition.MonthDate)
                     MaterialTheme.colorScheme.onSurface
                 else
-                    Color.Gray
+                    MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Row(
@@ -193,7 +186,7 @@ internal fun CalendarDayCell(
                 if (dayInfo?.hasSymptoms == true) {
                     Box(
                         modifier = Modifier
-                            .size(dims.xs)
+                            .size(dims.sm)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.secondary)
                             .testTag("symptom-dot-$date")
@@ -202,7 +195,7 @@ internal fun CalendarDayCell(
                 if (dayInfo?.hasMedications == true) {
                     Box(
                         modifier = Modifier
-                            .size(dims.xs)
+                            .size(dims.sm)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.tertiary)
                             .testTag("medication-dot-$date")
@@ -211,7 +204,7 @@ internal fun CalendarDayCell(
                 if (dayInfo?.hasNotes == true) {
                     Box(
                         modifier = Modifier
-                            .size(dims.xs)
+                            .size(dims.sm)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.outline)
                             .testTag("notes-dot-$date")
@@ -223,4 +216,21 @@ internal fun CalendarDayCell(
             }
         }
     }
+}
+
+/**
+ * Returns the [Shape] for one cell of a horizontal band (period or phase).
+ *
+ * Start/end caps get rounded corners on the leading/trailing side;
+ * middle cells are flat rectangles. A single-cell band is rounded on all sides.
+ *
+ * @param isStart True when this cell is the first day of the band.
+ * @param isEnd   True when this cell is the last day of the band.
+ * @param radius  Corner radius for the rounded edges.
+ */
+private fun bandShape(isStart: Boolean, isEnd: Boolean, radius: Dp): Shape = when {
+    isStart && isEnd -> RoundedCornerShape(radius)
+    isStart -> RoundedCornerShape(topStart = radius, bottomStart = radius)
+    isEnd -> RoundedCornerShape(topEnd = radius, bottomEnd = radius)
+    else -> RoundedCornerShape(0)
 }
