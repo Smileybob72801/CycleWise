@@ -98,11 +98,19 @@ internal fun CalendarDayCell(
     val inRange = isInExistingRange || isInSelectionRange
     val hasDisplayPhase = displayPhase != null
 
+    val bandColor = when {
+        dayInfo?.isPeriodDay == true && !isInRemovalRange -> palette.menstruation.fill
+        isInSelectionRange || isInRemovalRange ->
+            palette.menstruation.fill.copy(alpha = PERIOD_FILL_ALPHA)
+        hasDisplayPhase -> palette.forPhase(displayPhase!!).fillSubtle
+        else -> Color.Transparent
+    }
+
     val bgShape = when {
         dayInfo?.isPeriodDay == true || isInSelectionRange ->
-            bandShape(isStart = isStartDate, isEnd = isEndDate, radius = dims.xs)
+            bandShape(isStart = isStartDate, isEnd = isEndDate, radius = dims.sm)
         hasDisplayPhase ->
-            bandShape(isStart = isPhaseStart, isEnd = isPhaseEnd, radius = dims.xs)
+            bandShape(isStart = isPhaseStart, isEnd = isPhaseEnd, radius = dims.sm)
         else -> CircleShape
     }
 
@@ -119,8 +127,7 @@ internal fun CalendarDayCell(
             .aspectRatio(1f)
             .padding(
                 vertical = when {
-                    inRange -> 0.dp
-                    hasDisplayPhase -> 0.dp
+                    inRange || hasDisplayPhase -> dims.xxs
                     else -> dims.xs
                 }
             )
@@ -134,21 +141,7 @@ internal fun CalendarDayCell(
                 color = if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent,
                 shape = CircleShape
             )
-            .background(
-                color = when {
-                    dayInfo?.isPeriodDay == true && !isInRemovalRange ->
-                        palette.menstruation.fill
-
-                    isInSelectionRange || isInRemovalRange ->
-                        palette.menstruation.fill.copy(alpha = PERIOD_FILL_ALPHA)
-
-                    hasDisplayPhase ->
-                        palette.forPhase(displayPhase!!).fillSubtle
-
-                    else -> Color.Transparent
-                },
-                shape = bgShape
-            )
+            .background(color = bandColor, shape = bgShape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
