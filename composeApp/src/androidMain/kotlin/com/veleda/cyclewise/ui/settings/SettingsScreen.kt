@@ -56,6 +56,7 @@ import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
 import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.theme.LocalDimensions
+import com.veleda.cyclewise.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
@@ -302,6 +303,36 @@ private fun AppearancePage(
         verticalArrangement = Arrangement.spacedBy(dims.md)
     ) {
         Spacer(Modifier.height(dims.sm))
+
+        // ── Theme Card ───────────────────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_section_theme)) {
+            val modes = ThemeMode.entries
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = dims.md)
+            ) {
+                modes.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = modes.size
+                        ),
+                        onClick = { onEvent(SettingsEvent.ThemeModeChanged(mode)) },
+                        selected = uiState.themeMode == mode,
+                        label = {
+                            Text(
+                                when (mode) {
+                                    ThemeMode.SYSTEM -> stringResource(R.string.theme_mode_system)
+                                    ThemeMode.LIGHT -> stringResource(R.string.theme_mode_light)
+                                    ThemeMode.DARK -> stringResource(R.string.theme_mode_dark)
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+        }
 
         // ── Display Card ─────────────────────────────────────────────
         SettingsSectionCard(title = stringResource(R.string.settings_section_display)) {
