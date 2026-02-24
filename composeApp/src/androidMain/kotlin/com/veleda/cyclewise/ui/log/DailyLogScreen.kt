@@ -46,6 +46,8 @@ import com.veleda.cyclewise.domain.models.PeriodConsistency
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.ui.auth.WaterTrackerCounter
+import com.veleda.cyclewise.ui.components.EducationalBottomSheet
+import com.veleda.cyclewise.ui.components.InfoButton
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.theme.RhythmWiseColors
 import com.veleda.cyclewise.ui.utils.toLocalizedDateString
@@ -152,6 +154,7 @@ fun DailyLogScreen(
                             onLibidoChanged = { viewModel.onEvent(DailyLogEvent.LibidoScoreChanged(it)) },
                             onWaterIncrement = { viewModel.onEvent(DailyLogEvent.WaterIncrement) },
                             onWaterDecrement = { viewModel.onEvent(DailyLogEvent.WaterDecrement) },
+                            onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
                         )
                         PAGE_PERIOD -> PeriodPage(
                             isPeriodDay = uiState.isPeriodDay,
@@ -162,12 +165,14 @@ fun DailyLogScreen(
                             onFlowChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) },
                             onColorChanged = { viewModel.onEvent(DailyLogEvent.PeriodColorChanged(it)) },
                             onConsistencyChanged = { viewModel.onEvent(DailyLogEvent.PeriodConsistencyChanged(it)) },
+                            onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
                         )
                         PAGE_SYMPTOMS -> SymptomsPage(
                             loggedSymptoms = log.symptomLogs,
                             symptomLibrary = uiState.symptomLibrary,
                             onToggleSymptom = { viewModel.onEvent(DailyLogEvent.SymptomToggled(it)) },
                             onCreateAndAddSymptom = { viewModel.onEvent(DailyLogEvent.CreateAndAddSymptom(it)) },
+                            onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
                         )
                         PAGE_MEDICATIONS -> MedicationsPage(
                             loggedMedications = log.medicationLogs,
@@ -183,6 +188,13 @@ fun DailyLogScreen(
                             onNoteChanged = { viewModel.onEvent(DailyLogEvent.NoteChanged(it)) },
                         )
                     }
+                }
+
+                uiState.educationalArticles?.let { articles ->
+                    EducationalBottomSheet(
+                        articles = articles,
+                        onDismiss = { viewModel.onEvent(DailyLogEvent.DismissEducationalSheet) },
+                    )
                 }
             }
         }
@@ -202,6 +214,7 @@ private fun WellnessPage(
     onLibidoChanged: (Int) -> Unit,
     onWaterIncrement: () -> Unit,
     onWaterDecrement: () -> Unit,
+    onShowEducationalSheet: (String) -> Unit,
 ) {
     val dims = LocalDimensions.current
     Column(
@@ -216,6 +229,7 @@ private fun WellnessPage(
         SectionCard(
             title = stringResource(R.string.daily_log_mood_title),
             icon = Icons.Outlined.SelfImprovement,
+            onInfoClick = { onShowEducationalSheet("Mood") },
         ) {
             MoodSelector(
                 selectedMood = moodScore,
@@ -226,6 +240,7 @@ private fun WellnessPage(
         SectionCard(
             title = stringResource(R.string.energy_section_title),
             icon = Icons.Outlined.Bedtime,
+            onInfoClick = { onShowEducationalSheet("Energy") },
         ) {
             ScoreSelector(
                 selectedScore = energyLevel,
@@ -273,6 +288,7 @@ private fun PeriodPage(
     onFlowChanged: (FlowIntensity?) -> Unit,
     onColorChanged: (PeriodColor?) -> Unit,
     onConsistencyChanged: (PeriodConsistency?) -> Unit,
+    onShowEducationalSheet: (String) -> Unit,
 ) {
     val dims = LocalDimensions.current
     Column(
@@ -319,6 +335,7 @@ private fun PeriodPage(
                 SectionCard(
                     title = stringResource(R.string.daily_log_flow_title),
                     icon = Icons.Outlined.WaterDrop,
+                    onInfoClick = { onShowEducationalSheet("FlowIntensity") },
                 ) {
                     FlowIntensitySelector(
                         selectedIntensity = flowIntensity,
@@ -329,6 +346,7 @@ private fun PeriodPage(
                 SectionCard(
                     title = stringResource(R.string.period_color_section_title),
                     icon = Icons.Outlined.WaterDrop,
+                    onInfoClick = { onShowEducationalSheet("PeriodColor") },
                 ) {
                     PeriodColorSelector(
                         selectedColor = periodColor,
@@ -339,6 +357,7 @@ private fun PeriodPage(
                 SectionCard(
                     title = stringResource(R.string.period_consistency_section_title),
                     icon = Icons.Outlined.WaterDrop,
+                    onInfoClick = { onShowEducationalSheet("PeriodConsistency") },
                 ) {
                     PeriodConsistencySelector(
                         selectedConsistency = periodConsistency,
@@ -377,6 +396,7 @@ private fun SymptomsPage(
     symptomLibrary: List<Symptom>,
     onToggleSymptom: (Symptom) -> Unit,
     onCreateAndAddSymptom: (String) -> Unit,
+    onShowEducationalSheet: (String) -> Unit,
 ) {
     val dims = LocalDimensions.current
     Column(
@@ -399,6 +419,7 @@ private fun SymptomsPage(
         SectionCard(
             title = stringResource(R.string.daily_log_symptoms_title),
             icon = Icons.Outlined.LocalHospital,
+            onInfoClick = { onShowEducationalSheet("Symptoms") },
         ) {
             SymptomLogger(
                 loggedSymptoms = loggedSymptoms,
@@ -504,14 +525,17 @@ private fun NotesTagsPage(
  * Provides consistent visual treatment: surfaceVariant background, medium rounded
  * shape, a leading icon and title row, followed by the section [content].
  *
- * @param title   Section heading text.
- * @param icon    Leading icon displayed beside the title.
- * @param content Slot for the section's interactive content.
+ * @param title       Section heading text.
+ * @param icon        Leading icon displayed beside the title.
+ * @param onInfoClick Optional callback for an info button aligned to the end of the title row.
+ *                    When non-null, an [InfoButton] is displayed. When null, no button is shown.
+ * @param content     Slot for the section's interactive content.
  */
 @Composable
 private fun SectionCard(
     title: String,
     icon: ImageVector,
+    onInfoClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val dims = LocalDimensions.current
@@ -524,18 +548,31 @@ private fun SectionCard(
         Column(modifier = Modifier.padding(dims.md)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(dims.sm),
-                modifier = Modifier.padding(bottom = dims.sm),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = dims.sm),
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(dims.sm),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+                if (onInfoClick != null) {
+                    InfoButton(
+                        onClick = onInfoClick,
+                        contentDescription = stringResource(R.string.educational_info_button_cd, title),
+                    )
+                }
             }
             content()
         }

@@ -186,6 +186,23 @@
     <string name="reminder_hour_label">Hour</string>
     <string name="reminder_minute_label">Minute</string>
 
+    <!-- Educational Content -->
+    <string name="medical_disclaimer_text">This information is for educational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider with questions about your health.</string>
+    <string name="source_attribution_prefix">Source: %1$s</string>
+    <string name="source_public_domain_notice">Content adapted from U.S. government public domain materials.</string>
+    <string name="settings_about_health_content_header">About Health Content</string>
+    <string name="settings_about_health_content_description">Educational content in this app is sourced from the U.S. Office on Women\'s Health (womenshealth.gov) and the National Institute of Child Health and Human Development (nichd.nih.gov). These materials are in the public domain.</string>
+    <string name="insights_learn_header">Learn</string>
+    <string name="insights_learn_subtitle">Understanding your cycle</string>
+    <string name="article_category_all">All</string>
+    <string name="article_category_cycle_basics">Cycle Basics</string>
+    <string name="article_category_symptoms">Symptoms</string>
+    <string name="article_category_wellness">Wellness</string>
+    <string name="article_category_when_to_see_doctor">When to See a Doctor</string>
+    <string name="educational_info_button_cd">Learn more about %1$s</string>
+    <string name="educational_sheet_source_label">Source:</string>
+    <string name="educational_sheet_dismiss">Close</string>
+
     <!-- About -->
     <string name="about_title">About</string>
     <string name="about_description">Privacy-first cycle tracking</string>

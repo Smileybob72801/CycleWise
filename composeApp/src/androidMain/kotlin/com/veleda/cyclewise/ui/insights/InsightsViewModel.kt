@@ -6,6 +6,9 @@ import com.veleda.cyclewise.domain.insights.Insight
 import com.veleda.cyclewise.domain.insights.InsightEngine
 import com.veleda.cyclewise.domain.insights.NextPeriodPrediction
 import com.veleda.cyclewise.domain.insights.SymptomPhasePattern
+import com.veleda.cyclewise.domain.models.ArticleCategory
+import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.utils.toLocalizedDateString
@@ -19,14 +22,22 @@ import kotlinx.coroutines.launch
 /**
  * UI state for the Insights screen.
  *
- * @property isLoading    True during the initial insight generation pass.
- * @property isRefreshing True during a pull-to-refresh reload (existing content stays visible).
- * @property insights     The generated list of [Insight] cards to display.
+ * @property isLoading          True during the initial insight generation pass.
+ * @property isRefreshing       True during a pull-to-refresh reload (existing content stays visible).
+ * @property insights           The generated list of [Insight] cards to display.
+ * @property allArticles        Complete list of educational articles (sorted by [EducationalArticle.sortOrder]).
+ * @property filteredArticles   Articles filtered by the currently selected category (or all if no filter).
+ * @property selectedCategory   The active category filter, or `null` for "All".
+ * @property expandedArticleIds IDs of articles whose body content is currently expanded.
  */
 data class InsightsUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
-    val insights: List<Insight> = emptyList()
+    val insights: List<Insight> = emptyList(),
+    val allArticles: List<EducationalArticle> = emptyList(),
+    val filteredArticles: List<EducationalArticle> = emptyList(),
+    val selectedCategory: ArticleCategory? = null,
+    val expandedArticleIds: Set<String> = emptySet(),
 )
 
 /**
@@ -39,12 +50,16 @@ data class InsightsUiState(
  * Initial load sets [InsightsUiState.isLoading]; pull-to-refresh sets
  * [InsightsUiState.isRefreshing] so existing content stays visible during reload.
  *
+ * The Learn section is populated from [EducationalContentProvider] (singleton-scoped,
+ * static content) with category filtering and expandable article cards.
+ *
  * Session-scoped (destroyed on logout/autolock).
  */
 class InsightsViewModel(
     private val periodRepository: PeriodRepository,
     private val insightEngine: InsightEngine,
-    private val appSettings: AppSettings
+    private val appSettings: AppSettings,
+    private val educationalContentProvider: EducationalContentProvider,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(InsightsUiState())
@@ -52,6 +67,7 @@ class InsightsViewModel(
 
     init {
         loadInsights(isRefresh = false)
+        loadArticles()
     }
 
     /**
@@ -118,6 +134,64 @@ class InsightsViewModel(
                     insights = formattedInsights
                 )
             }
+        }
+    }
+
+    /**
+     * Dispatches a user interaction [event] to the appropriate handler.
+     */
+    fun onEvent(event: InsightsEvent) {
+        when (event) {
+            is InsightsEvent.FilterArticles -> filterArticles(event.category)
+            is InsightsEvent.ToggleArticleExpanded -> toggleArticleExpanded(event.articleId)
+        }
+    }
+
+    /**
+     * Populates the article lists from [EducationalContentProvider].
+     *
+     * Called once during init. Articles are sorted by [EducationalArticle.sortOrder]
+     * (handled by the provider).
+     */
+    private fun loadArticles() {
+        val articles = educationalContentProvider.articles
+        _uiState.update {
+            it.copy(
+                allArticles = articles,
+                filteredArticles = articles,
+            )
+        }
+    }
+
+    /**
+     * Filters articles by [category], or shows all when `null`.
+     *
+     * Updates both [InsightsUiState.selectedCategory] and [InsightsUiState.filteredArticles].
+     */
+    private fun filterArticles(category: ArticleCategory?) {
+        val filtered = if (category == null) {
+            _uiState.value.allArticles
+        } else {
+            educationalContentProvider.getByCategory(category)
+        }
+        _uiState.update {
+            it.copy(
+                selectedCategory = category,
+                filteredArticles = filtered,
+            )
+        }
+    }
+
+    /**
+     * Toggles the expanded state of the article with the given [articleId].
+     *
+     * If the article is currently expanded, it collapses; otherwise it expands.
+     */
+    private fun toggleArticleExpanded(articleId: String) {
+        _uiState.update { state ->
+            val ids = state.expandedArticleIds.toMutableSet()
+            if (articleId in ids) ids.remove(articleId) else ids.add(articleId)
+            state.copy(expandedArticleIds = ids)
         }
     }
 }

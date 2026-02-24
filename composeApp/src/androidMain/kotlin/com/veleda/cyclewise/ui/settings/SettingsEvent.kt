@@ -125,4 +125,12 @@ sealed interface SettingsEvent {
 
     /** Permission rationale has been acknowledged or dismissed. */
     data object DismissPermissionRationale : SettingsEvent
+
+    // ── Educational ──────────────────────────────────────────────────
+
+    /** The user tapped an info button to view educational content for the given [contentTag]. */
+    data class ShowEducationalSheet(val contentTag: String) : SettingsEvent
+
+    /** The user dismissed the educational bottom sheet. */
+    data object DismissEducationalSheet : SettingsEvent
 }

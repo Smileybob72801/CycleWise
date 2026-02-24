@@ -20,6 +20,8 @@ import com.veleda.cyclewise.domain.insights.generators.MoodPhasePatternGenerator
 import com.veleda.cyclewise.domain.insights.generators.NextPeriodPredictionGenerator
 import com.veleda.cyclewise.domain.insights.generators.SymptomPhasePatternGenerator
 import com.veleda.cyclewise.domain.insights.generators.SymptomRecurrenceGenerator
+import com.veleda.cyclewise.androidData.local.EducationalContentLoader
+import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
@@ -117,11 +119,13 @@ val appModule = module {
 
     single { ReminderScheduler(androidContext()) }
 
+    single { EducationalContentProvider(EducationalContentLoader.load(androidContext())) }
+
     viewModel { WaterTrackerViewModel(lockedWaterDraft = get()) }
 
     viewModel { PassphraseViewModel(appSettings = get(), lockedWaterDraft = get()) }
 
-    viewModel { SettingsViewModel(appSettings = get(), reminderScheduler = get()) }
+    viewModel { SettingsViewModel(appSettings = get(), reminderScheduler = get(), educationalContentProvider = get()) }
 
     scope(SESSION_SCOPE) {
         /*
@@ -191,7 +195,8 @@ val appModule = module {
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get(),
                 autoClosePeriodUseCase = get(),
-                appSettings = get()
+                appSettings = get(),
+                educationalContentProvider = get(),
             )
         }
 
@@ -202,6 +207,7 @@ val appModule = module {
                 getOrCreateDailyLog = get(),
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get(),
+                educationalContentProvider = get(),
             )
         }
 
@@ -209,7 +215,8 @@ val appModule = module {
             InsightsViewModel(
                 periodRepository = get(),
                 insightEngine = get(),
-                appSettings = get()
+                appSettings = get(),
+                educationalContentProvider = get(),
             )
         }
     }

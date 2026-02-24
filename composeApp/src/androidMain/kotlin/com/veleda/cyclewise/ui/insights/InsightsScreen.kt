@@ -1,5 +1,9 @@
 package com.veleda.cyclewise.ui.insights
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,11 +11,14 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -26,10 +33,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -54,6 +63,10 @@ import com.veleda.cyclewise.domain.insights.MoodPhasePattern
 import com.veleda.cyclewise.domain.insights.NextPeriodPrediction
 import com.veleda.cyclewise.domain.insights.SymptomPhasePattern
 import com.veleda.cyclewise.domain.insights.TopSymptomsInsight
+import com.veleda.cyclewise.domain.models.ArticleCategory
+import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.ui.components.MedicalDisclaimer
+import com.veleda.cyclewise.ui.components.SourceAttribution
 import com.veleda.cyclewise.ui.theme.LocalCyclePhasePalette
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import org.koin.androidx.compose.koinViewModel
@@ -80,6 +93,7 @@ fun InsightsScreen() {
         InsightsContent(
             uiState = uiState,
             onRefresh = viewModel::refresh,
+            onEvent = viewModel::onEvent,
             modifier = Modifier.padding(padding)
         )
     }
@@ -91,8 +105,12 @@ fun InsightsScreen() {
  * Accepts [InsightsUiState] and an [onRefresh] callback instead of a ViewModel reference
  * so it can be tested in isolation without Koin or coroutine concerns.
  *
+ * When educational articles are available, a **Learn** section is appended below the insight
+ * cards with category filter chips and expandable article cards.
+ *
  * @param uiState  Current UI state (loading, refreshing, or populated).
  * @param onRefresh Callback invoked when the user pulls to refresh.
+ * @param onEvent   Callback for [InsightsEvent] dispatching (article filtering, expand/collapse).
  * @param modifier  Modifier applied to the root container.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,9 +118,11 @@ fun InsightsScreen() {
 internal fun InsightsContent(
     uiState: InsightsUiState,
     onRefresh: () -> Unit,
+    onEvent: (InsightsEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val dims = LocalDimensions.current
+    val hasContent = uiState.insights.isNotEmpty() || uiState.allArticles.isNotEmpty()
 
     Box(
         modifier = modifier.fillMaxSize()
@@ -111,7 +131,7 @@ internal fun InsightsContent(
             uiState.isLoading -> {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
-            uiState.insights.isEmpty() -> {
+            !hasContent -> {
                 InsightsEmptyState(modifier = Modifier.align(Alignment.Center))
             }
             else -> {
@@ -127,6 +147,40 @@ internal fun InsightsContent(
                     ) {
                         items(uiState.insights, key = { it.id }) { insight ->
                             InsightCardDispatcher(insight = insight)
+                        }
+
+                        if (uiState.allArticles.isNotEmpty()) {
+                            item(key = "learn-header") {
+                                LearnSectionHeader()
+                            }
+
+                            item(key = "learn-chips") {
+                                LearnCategoryChips(
+                                    selectedCategory = uiState.selectedCategory,
+                                    onCategorySelected = { category ->
+                                        onEvent(InsightsEvent.FilterArticles(category))
+                                    },
+                                )
+                            }
+
+                            items(
+                                uiState.filteredArticles,
+                                key = { "article-${it.id}" }
+                            ) { article ->
+                                LearnArticleCard(
+                                    article = article,
+                                    isExpanded = article.id in uiState.expandedArticleIds,
+                                    onToggle = {
+                                        onEvent(InsightsEvent.ToggleArticleExpanded(article.id))
+                                    },
+                                )
+                            }
+
+                            item(key = "learn-disclaimer") {
+                                MedicalDisclaimer(
+                                    modifier = Modifier.padding(top = dims.sm)
+                                )
+                            }
                         }
                     }
                 }
@@ -463,4 +517,143 @@ private fun TopSymptomsCard(insight: TopSymptomsInsight) {
             }
         }
     }
+}
+
+// ── Learn Section ────────────────────────────────────────────────────────
+
+/**
+ * Header for the Learn section with title and subtitle.
+ *
+ * Wrapped in a [Surface] with background color so it visually separates
+ * from the insight cards above during scrolling.
+ */
+@Composable
+private fun LearnSectionHeader(modifier: Modifier = Modifier) {
+    val dims = LocalDimensions.current
+
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = dims.sm),
+            verticalArrangement = Arrangement.spacedBy(dims.xs)
+        ) {
+            Text(
+                text = stringResource(R.string.insights_learn_header),
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Text(
+                text = stringResource(R.string.insights_learn_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * Horizontal row of [FilterChip]s for selecting an article category.
+ *
+ * Includes an "All" chip plus one chip per [ArticleCategory]. The currently
+ * selected chip is highlighted.
+ *
+ * @param selectedCategory The currently active filter, or `null` for "All".
+ * @param onCategorySelected Callback when a chip is tapped.
+ */
+@Composable
+private fun LearnCategoryChips(
+    selectedCategory: ArticleCategory?,
+    onCategorySelected: (ArticleCategory?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val dims = LocalDimensions.current
+
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(dims.sm),
+    ) {
+        item {
+            FilterChip(
+                selected = selectedCategory == null,
+                onClick = { onCategorySelected(null) },
+                label = { Text(stringResource(R.string.article_category_all)) }
+            )
+        }
+        items(ArticleCategory.entries.toList()) { category ->
+            FilterChip(
+                selected = selectedCategory == category,
+                onClick = { onCategorySelected(category) },
+                label = { Text(stringResource(categoryStringRes(category))) }
+            )
+        }
+    }
+}
+
+/**
+ * Expandable article card for the Learn section.
+ *
+ * When collapsed, shows the title and category label. When expanded, reveals
+ * the article body and [SourceAttribution] with an expand/collapse animation.
+ *
+ * @param article    The [EducationalArticle] to display.
+ * @param isExpanded Whether the body content is currently visible.
+ * @param onToggle   Callback to toggle expanded state.
+ */
+@Composable
+private fun LearnArticleCard(
+    article: EducationalArticle,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val dims = LocalDimensions.current
+
+    val accentColor = when (article.category) {
+        ArticleCategory.CYCLE_BASICS -> MaterialTheme.colorScheme.primary
+        ArticleCategory.SYMPTOMS -> MaterialTheme.colorScheme.secondary
+        ArticleCategory.WELLNESS -> MaterialTheme.colorScheme.tertiary
+        ArticleCategory.WHEN_TO_SEE_A_DOCTOR -> MaterialTheme.colorScheme.error
+    }
+
+    AccentedInsightCard(
+        accentColor = accentColor,
+        modifier = modifier.clickable(onClick = onToggle),
+    ) {
+        Text(
+            text = article.title,
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            text = stringResource(categoryStringRes(article.category)),
+            style = MaterialTheme.typography.labelMedium,
+            color = accentColor
+        )
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(dims.sm)
+            ) {
+                Spacer(modifier = Modifier.height(dims.xs))
+                Text(
+                    text = article.body,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                SourceAttribution(sourceName = article.sourceName)
+            }
+        }
+    }
+}
+
+/**
+ * Maps an [ArticleCategory] to its string resource ID.
+ */
+private fun categoryStringRes(category: ArticleCategory): Int = when (category) {
+    ArticleCategory.CYCLE_BASICS -> R.string.article_category_cycle_basics
+    ArticleCategory.SYMPTOMS -> R.string.article_category_symptoms
+    ArticleCategory.WELLNESS -> R.string.article_category_wellness
+    ArticleCategory.WHEN_TO_SEE_A_DOCTOR -> R.string.article_category_when_to_see_doctor
 }

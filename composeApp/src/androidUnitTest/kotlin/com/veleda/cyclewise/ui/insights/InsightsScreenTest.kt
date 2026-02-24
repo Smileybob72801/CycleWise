@@ -35,7 +35,8 @@ class InsightsScreenTest {
      */
     private fun setInsightsContent(
         uiState: InsightsUiState,
-        onRefresh: () -> Unit = {}
+        onRefresh: () -> Unit = {},
+        onEvent: (InsightsEvent) -> Unit = {}
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(
@@ -45,7 +46,8 @@ class InsightsScreenTest {
                 MaterialTheme {
                     InsightsContent(
                         uiState = uiState,
-                        onRefresh = onRefresh
+                        onRefresh = onRefresh,
+                        onEvent = onEvent,
                     )
                 }
             }

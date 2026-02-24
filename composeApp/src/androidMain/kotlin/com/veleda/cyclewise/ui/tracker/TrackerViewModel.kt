@@ -2,10 +2,12 @@ package com.veleda.cyclewise.ui.tracker
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
@@ -42,7 +44,8 @@ import kotlin.time.Clock
  * @property dayDetails          Per-date calendar annotations (period, symptoms, medications, notes, phase).
  * @property showDeleteConfirmation Whether the delete-period confirmation dialog is visible.
  * @property periodIdToDelete    The id of the period the user has requested to delete.
- * @property waterCupsForSheet   Water intake cup count for the date shown in the bottom sheet.
+ * @property waterCupsForSheet      Water intake cup count for the date shown in the bottom sheet.
+ * @property educationalArticles   Articles to display in the educational bottom sheet, or null when the sheet is hidden.
  */
 data class TrackerUiState(
     val periods: List<Period> = emptyList(),
@@ -53,7 +56,8 @@ data class TrackerUiState(
     val dayDetails: Map<LocalDate, CalendarDayInfo> = emptyMap(),
     val showDeleteConfirmation: Boolean = false,
     val periodIdToDelete: String? = null,
-    val waterCupsForSheet: Int? = null
+    val waterCupsForSheet: Int? = null,
+    val educationalArticles: List<EducationalArticle>? = null,
 ) {
     val ongoingPeriod: Period? = periods.find { it.endDate == null }
 }
@@ -77,7 +81,8 @@ class TrackerViewModel(
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private val medicationLibraryProvider: MedicationLibraryProvider,
     private val autoClosePeriodUseCase: AutoCloseOngoingPeriodUseCase,
-    private val appSettings: AppSettings
+    private val appSettings: AppSettings,
+    private val educationalContentProvider: EducationalContentProvider,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TrackerUiState())
     val uiState: StateFlow<TrackerUiState> = _uiState.asStateFlow()
@@ -229,10 +234,16 @@ class TrackerViewModel(
                 periodRepository.deletePeriod(event.periodId)
             }
 
+            is TrackerEvent.ShowEducationalSheet -> {
+                val articles = educationalContentProvider.getByTag(event.contentTag)
+                _uiState.update { it.copy(educationalArticles = articles.ifEmpty { null }) }
+            }
+
             // State-only events — no side effects needed.
             is TrackerEvent.DismissLogSheet,
             is TrackerEvent.DeletePeriodRequested,
-            is TrackerEvent.DeletePeriodDismissed -> { /* state-only */ }
+            is TrackerEvent.DeletePeriodDismissed,
+            is TrackerEvent.DismissEducationalSheet -> { /* state-only */ }
         }
     }
 
@@ -274,6 +285,8 @@ class TrackerViewModel(
                     periodIdToDelete = null
                 )
             }
+            is TrackerEvent.ShowEducationalSheet -> currentState
+            is TrackerEvent.DismissEducationalSheet -> currentState.copy(educationalArticles = null)
         }
     }
 

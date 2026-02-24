@@ -10,6 +10,8 @@ import com.veleda.cyclewise.domain.models.PeriodLog
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.domain.models.WaterIntake
+import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
@@ -35,8 +37,9 @@ import kotlinx.coroutines.flow.onEach
  * @property error              Error message to display (e.g., no parent period found).
  * @property symptomLibrary     Current symptom library for the toggle list.
  * @property medicationLibrary  Current medication library for the toggle list.
- * @property isPeriodDay        Whether the date being edited falls within a period.
- * @property waterCups          Water intake count for this date.
+ * @property isPeriodDay           Whether the date being edited falls within a period.
+ * @property waterCups             Water intake count for this date.
+ * @property educationalArticles   Articles to display in the educational bottom sheet, or null when the sheet is hidden.
  */
 data class DailyLogUiState(
     val isLoading: Boolean = true,
@@ -45,7 +48,8 @@ data class DailyLogUiState(
     val symptomLibrary: List<Symptom> = emptyList(),
     val medicationLibrary: List<Medication> = emptyList(),
     val isPeriodDay: Boolean = false,
-    val waterCups: Int = 0
+    val waterCups: Int = 0,
+    val educationalArticles: List<EducationalArticle>? = null,
 )
 
 /**
@@ -78,6 +82,7 @@ class DailyLogViewModel(
     private val getOrCreateDailyLog: GetOrCreateDailyLogUseCase,
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private val medicationLibraryProvider: MedicationLibraryProvider,
+    private val educationalContentProvider: EducationalContentProvider,
 ) : ViewModel()
 {
     private val _uiState = MutableStateFlow(DailyLogUiState())
@@ -231,10 +236,16 @@ class DailyLogViewModel(
 
             is DailyLogEvent.NoteChanged -> debouncedAutoSave()
 
-            // No side effects for load/library/symptomName events.
+            is DailyLogEvent.ShowEducationalSheet -> {
+                val articles = educationalContentProvider.getByTag(event.contentTag)
+                _uiState.update { it.copy(educationalArticles = articles.ifEmpty { null }) }
+            }
+
+            // No side effects for load/library/symptomName/dismiss events.
             is DailyLogEvent.LogLoaded,
             is DailyLogEvent.LibraryUpdated,
-            is DailyLogEvent.SymptomNameChanged -> { /* state-only */ }
+            is DailyLogEvent.SymptomNameChanged,
+            is DailyLogEvent.DismissEducationalSheet -> { /* state-only */ }
         }
     }
 
@@ -348,6 +359,8 @@ class DailyLogViewModel(
                 if (currentState.waterCups <= 0) return currentState
                 currentState.copy(waterCups = currentState.waterCups - 1)
             }
+            is DailyLogEvent.DismissEducationalSheet -> currentState.copy(educationalArticles = null)
+            is DailyLogEvent.ShowEducationalSheet -> currentState
             is DailyLogEvent.LogLoaded, is DailyLogEvent.LibraryUpdated, is DailyLogEvent.SymptomNameChanged -> currentState
         }
     }

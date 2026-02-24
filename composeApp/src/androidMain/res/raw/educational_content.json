@@ -1,0 +1,182 @@
+[
+  {
+    "id": "cycle-basics-01",
+    "title": "What Is a Menstrual Cycle?",
+    "body": "A menstrual cycle is the monthly series of changes your body goes through to prepare for pregnancy. Each cycle begins on the first day of your period and ends the day before your next period starts. A typical cycle lasts between 21 and 35 days.\n\nThe cycle is driven by hormones \u2014 mainly estrogen and progesterone \u2014 produced by the ovaries. These hormones cause the lining of the uterus to build up and, if pregnancy does not occur, to shed. That shedding is your period.\n\nEvery person's cycle is a little different. Tracking yours over time helps you learn what is normal for you and notice changes early.",
+    "category": "CYCLE_BASICS",
+    "contentTags": ["CyclePhase"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle",
+    "sortOrder": 1
+  },
+  {
+    "id": "cycle-basics-02",
+    "title": "The Menstrual Phase",
+    "body": "The menstrual phase is the start of your cycle. It begins on the first day of bleeding and typically lasts 3 to 7 days.\n\nDuring this phase, the uterus sheds the lining it built up during the previous cycle. Hormone levels \u2014 especially estrogen and progesterone \u2014 are at their lowest, which is why many people feel tired or experience cramps.\n\n**What you may notice:**\n- Bleeding that ranges from light spotting to heavy flow\n- Cramping in the lower abdomen or back\n- Fatigue or low energy\n- Mood changes\n\nFlow intensity can vary from day to day and from cycle to cycle. Tracking your flow helps you understand what is typical for you.",
+    "category": "CYCLE_BASICS",
+    "contentTags": ["CyclePhase", "CyclePhase.MENSTRUATION", "FlowIntensity"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle/your-menstrual-cycle",
+    "sortOrder": 2
+  },
+  {
+    "id": "cycle-basics-03",
+    "title": "The Follicular Phase",
+    "body": "The follicular phase overlaps with and extends beyond your period. It starts on the first day of menstruation and ends when ovulation begins.\n\nDuring this phase, the pituitary gland releases follicle-stimulating hormone (FSH), which signals the ovaries to prepare several follicles. Usually one follicle becomes dominant and continues to mature. At the same time, rising estrogen levels cause the uterine lining to thicken.\n\n**What you may notice:**\n- Gradually increasing energy after your period ends\n- Improved mood as estrogen rises\n- Lighter or no bleeding as menstruation wraps up\n\nThis phase typically lasts about 14 days, but it can be shorter or longer, which is the main reason cycle lengths vary between people.",
+    "category": "CYCLE_BASICS",
+    "contentTags": ["CyclePhase", "CyclePhase.FOLLICULAR"],
+    "sourceName": "National Institute of Child Health and Human Development",
+    "sourceUrl": "https://www.nichd.nih.gov/health/topics/menstruation/conditioninfo/cycle",
+    "sortOrder": 3
+  },
+  {
+    "id": "cycle-basics-04",
+    "title": "Ovulation: What Happens and When",
+    "body": "Ovulation is the release of a mature egg from one of the ovaries. It typically happens around the middle of your cycle \u2014 roughly day 14 in a 28-day cycle \u2014 but the exact timing varies.\n\nA surge in luteinizing hormone (LH) triggers the ovary to release the egg, which then travels down the fallopian tube. The egg can be fertilized for about 12 to 24 hours after release.\n\n**What you may notice:**\n- A slight increase in basal body temperature\n- Changes in cervical mucus (clearer, more slippery)\n- Mild pain on one side of the lower abdomen (sometimes called mittelschmerz)\n\nOvulation marks the transition from the follicular phase to the luteal phase.",
+    "category": "CYCLE_BASICS",
+    "contentTags": ["CyclePhase", "CyclePhase.OVULATION"],
+    "sourceName": "National Institute of Child Health and Human Development",
+    "sourceUrl": "https://www.nichd.nih.gov/health/topics/menstruation/conditioninfo/cycle",
+    "sortOrder": 4
+  },
+  {
+    "id": "cycle-basics-05",
+    "title": "The Luteal Phase",
+    "body": "The luteal phase is the second half of your cycle, lasting from ovulation until the start of your next period \u2014 typically about 14 days.\n\nAfter the egg is released, the empty follicle transforms into the corpus luteum, which produces progesterone. Progesterone keeps the uterine lining thick and ready for a fertilized egg. If pregnancy does not occur, the corpus luteum breaks down, progesterone drops, and the lining sheds as your period.\n\n**What you may notice:**\n- Premenstrual symptoms such as bloating, breast tenderness, or mood changes\n- Changes in appetite or food cravings\n- Fatigue or lower energy in the days before your period\n\nThese symptoms are driven by shifting hormone levels and are a normal part of the cycle.",
+    "category": "CYCLE_BASICS",
+    "contentTags": ["CyclePhase", "CyclePhase.LUTEAL"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle/your-menstrual-cycle",
+    "sortOrder": 5
+  },
+  {
+    "id": "symptoms-01",
+    "title": "Pain and Cramps",
+    "body": "Menstrual cramps (dysmenorrhea) are one of the most common period symptoms. They are caused by prostaglandins \u2014 chemicals that make the uterus contract to shed its lining.\n\nCramps usually begin just before or at the start of your period and may last 1 to 3 days. They are most often felt in the lower abdomen but can also radiate to the lower back or thighs.\n\n**Tips for managing cramps:**\n- Over-the-counter pain relievers (such as ibuprofen) can reduce prostaglandin production\n- A heating pad on the lower abdomen or back may ease discomfort\n- Gentle exercise, like walking or stretching, can help relax muscles\n- Staying hydrated supports overall comfort\n\nIf cramps are severe enough to interfere with daily activities or do not improve with self-care, talk to a healthcare provider.",
+    "category": "SYMPTOMS",
+    "contentTags": ["Symptoms", "SymptomCategory.PAIN"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle/period-problems",
+    "sortOrder": 10
+  },
+  {
+    "id": "symptoms-02",
+    "title": "Mood Changes and Your Cycle",
+    "body": "Hormonal shifts throughout the menstrual cycle can affect mood and emotional well-being. Many people notice changes in the days leading up to their period, when progesterone drops and estrogen fluctuates.\n\n**Common mood-related experiences:**\n- Irritability or feeling easily frustrated\n- Sadness or tearfulness\n- Anxiety or feeling on edge\n- Difficulty concentrating\n\nThese changes are part of premenstrual syndrome (PMS) and are experienced by up to 3 in 4 menstruating people. For most, symptoms are mild and manageable.\n\n**Strategies that may help:**\n- Regular physical activity\n- Adequate sleep\n- Reducing caffeine and alcohol intake\n- Stress-management techniques like deep breathing\n\nIf mood changes are severe or significantly impact your daily life, a healthcare provider can discuss additional options.",
+    "category": "SYMPTOMS",
+    "contentTags": ["Symptoms", "SymptomCategory.MOOD", "Mood"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle/premenstrual-syndrome",
+    "sortOrder": 11
+  },
+  {
+    "id": "symptoms-03",
+    "title": "Digestive Symptoms",
+    "body": "Digestive changes around your period are common and are largely driven by prostaglandins \u2014 the same chemicals that cause uterine cramps. When prostaglandins affect nearby intestinal tissue, they can speed up or slow down digestion.\n\n**What you may notice:**\n- Bloating, especially in the days before your period\n- Looser stools or diarrhea during the first days of bleeding\n- Constipation in the luteal phase (due to progesterone slowing digestion)\n- Nausea\n- Changes in appetite\n\n**Tips for comfort:**\n- Eat smaller, more frequent meals\n- Stay hydrated\n- Include fiber-rich foods to support regularity\n- Limit salty foods that can worsen bloating\n\nDigestive symptoms that are persistent or unusually severe should be discussed with a healthcare provider.",
+    "category": "SYMPTOMS",
+    "contentTags": ["Symptoms", "SymptomCategory.DIGESTIVE"],
+    "sourceName": "National Institute of Child Health and Human Development",
+    "sourceUrl": "https://www.nichd.nih.gov/health/topics/menstruation",
+    "sortOrder": 12
+  },
+  {
+    "id": "symptoms-04",
+    "title": "Skin Changes During Your Cycle",
+    "body": "Hormonal fluctuations throughout the menstrual cycle can visibly affect your skin. Many people notice these changes in predictable patterns each month.\n\n**What you may notice:**\n- Breakouts or acne, often in the days before your period when progesterone peaks and estrogen drops\n- Oilier skin in the luteal phase due to increased sebum production\n- Drier skin during menstruation when estrogen is at its lowest\n- A \"glow\" or clearer complexion around ovulation when estrogen peaks\n\n**Tips for skin care:**\n- Keep a consistent cleansing routine throughout your cycle\n- Use a gentle, non-comedogenic moisturizer\n- Avoid picking at breakouts, which can lead to scarring\n- Consider tracking skin changes alongside your cycle to identify patterns\n\nPersistent or severe acne that does not respond to basic skin care may benefit from guidance by a healthcare provider.",
+    "category": "SYMPTOMS",
+    "contentTags": ["Symptoms", "SymptomCategory.SKIN"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle/premenstrual-syndrome",
+    "sortOrder": 13
+  },
+  {
+    "id": "symptoms-05",
+    "title": "Fatigue and Energy",
+    "body": "Energy levels naturally rise and fall with the menstrual cycle. Understanding these patterns can help you plan your activities and practice self-care.\n\n**Typical energy patterns:**\n- **Menstrual phase:** Energy tends to be lowest, especially if bleeding is heavy\n- **Follicular phase:** Rising estrogen often brings increasing energy and motivation\n- **Ovulation:** Many people feel their most energetic around ovulation\n- **Luteal phase:** Progesterone can cause fatigue, especially in the days before your period\n\n**Tips for managing fatigue:**\n- Prioritize sleep, especially in low-energy phases\n- Stay physically active \u2014 even light movement can boost energy\n- Eat balanced meals with iron-rich foods during your period\n- Stay hydrated throughout your cycle\n\nPersistent fatigue that does not follow a cyclical pattern or that significantly impacts your daily life should be discussed with a healthcare provider.",
+    "category": "SYMPTOMS",
+    "contentTags": ["Symptoms", "SymptomCategory.ENERGY", "Energy"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle",
+    "sortOrder": 14
+  },
+  {
+    "id": "wellness-01",
+    "title": "Why Track Your Cycle?",
+    "body": "Tracking your menstrual cycle gives you a clearer picture of your overall health. Your cycle is considered a vital sign \u2014 changes in its length, regularity, or symptoms can provide early clues about your well-being.\n\n**Benefits of cycle tracking:**\n- **Know your patterns:** Understand what is normal for you, including cycle length, flow, and symptoms\n- **Spot changes early:** Irregular cycles, missed periods, or new symptoms are easier to notice when you have a baseline\n- **Plan ahead:** Anticipate when your period will arrive and prepare for high- or low-energy days\n- **Inform your healthcare provider:** Detailed cycle data makes medical conversations more productive\n- **Understand mood and energy:** Many people find that tracking mood and energy alongside their cycle reveals helpful patterns\n\nConsistency is key \u2014 even logging a few details each day builds a valuable picture over time.",
+    "category": "WELLNESS",
+    "contentTags": ["Mood", "Energy"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle",
+    "sortOrder": 20
+  },
+  {
+    "id": "wellness-02",
+    "title": "Hydration and Nutrition",
+    "body": "What you eat and drink can influence how you feel throughout your cycle. While no single diet eliminates period symptoms, balanced nutrition supports your body during each phase.\n\n**Hydration:**\n- Aim for about 8 cups (64 oz) of water per day, adjusting for activity and climate\n- During your period, extra fluid loss from bleeding means hydration is especially important\n- Warm beverages like herbal tea may help soothe cramps\n\n**Nutrition tips by phase:**\n- **Menstrual phase:** Iron-rich foods (leafy greens, beans, fortified cereals) help replace iron lost through bleeding\n- **Follicular and ovulation phases:** Complex carbohydrates and lean proteins support rising energy\n- **Luteal phase:** Magnesium-rich foods (nuts, seeds, dark chocolate) may help with bloating and mood\n\n**General tips:**\n- Limit caffeine and alcohol, which can worsen cramps and mood swings\n- Reduce salty foods to help manage bloating\n- Eat regular, balanced meals to maintain stable energy",
+    "category": "WELLNESS",
+    "contentTags": ["CyclePhase.MENSTRUATION"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle",
+    "sortOrder": 21
+  },
+  {
+    "id": "wellness-03",
+    "title": "Exercise and Your Cycle",
+    "body": "Physical activity is one of the most effective ways to manage period symptoms, and you do not need to stop exercising during your period.\n\n**How exercise helps:**\n- Releases endorphins, which are natural pain relievers and mood boosters\n- Improves blood circulation, which can ease cramps\n- Reduces bloating and water retention\n- Supports better sleep\n\n**Adapting to your cycle:**\n- **Menstrual phase:** Gentle activities like walking, yoga, or swimming can feel good without overexertion\n- **Follicular phase:** Rising energy makes this a good time for more intense workouts\n- **Ovulation:** Many people feel strongest and most coordinated around ovulation\n- **Luteal phase:** Moderate exercise is still beneficial; listen to your body and reduce intensity if needed\n\nThe best exercise is the kind you enjoy and can do consistently. There is no need to push through severe discomfort \u2014 rest is also an important part of wellness.",
+    "category": "WELLNESS",
+    "contentTags": ["Energy"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/getting-active",
+    "sortOrder": 22
+  },
+  {
+    "id": "wellness-04",
+    "title": "Mood, Hormones, and the Cycle",
+    "body": "Hormones play a significant role in how you feel emotionally throughout your cycle. Understanding this connection can help you respond to mood shifts with self-compassion rather than frustration.\n\n**The hormone\u2013mood connection:**\n- **Estrogen** generally supports positive mood. When it rises (follicular phase), many people feel more upbeat and social\n- **Progesterone** has a calming effect but can also contribute to fatigue and low mood, especially as it drops in the late luteal phase\n- The **premenstrual drop** in both hormones is what triggers common PMS mood symptoms\n\n**What may help:**\n- Track your mood alongside your cycle to identify your personal patterns\n- Plan demanding tasks for phases when you typically feel your best\n- Practice self-care during your luteal phase: extra sleep, gentle exercise, and stress reduction\n- Social connection and talking about how you feel can also make a difference\n\nIf mood changes are severe, persistent, or interfere with relationships and daily life, consider speaking with a healthcare provider about premenstrual dysphoric disorder (PMDD).",
+    "category": "WELLNESS",
+    "contentTags": ["Mood", "CyclePhase.LUTEAL"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle/premenstrual-syndrome",
+    "sortOrder": 23
+  },
+  {
+    "id": "doctor-01",
+    "title": "Heavy Flow and Large Clots",
+    "body": "Heavy menstrual bleeding (menorrhagia) is one of the most common reasons people seek help for period problems. While flow varies from person to person, certain signs suggest your bleeding may be heavier than typical.\n\n**Signs of heavy flow:**\n- Soaking through a pad or tampon every hour for several hours\n- Needing to change protection during the night\n- Passing blood clots larger than a quarter (about 2.5 cm)\n- Bleeding that lasts longer than 7 days\n- Feeling tired, short of breath, or lightheaded (possible signs of anemia)\n\n**Why it matters:**\nHeavy bleeding can lead to iron-deficiency anemia and significantly affect quality of life. There are many possible causes, including hormonal imbalances, uterine fibroids, or clotting disorders.\n\n**What to do:**\nIf you regularly experience any of the signs above, schedule an appointment with a healthcare provider. Tracking your flow intensity and clot size can provide helpful information for your visit.",
+    "category": "WHEN_TO_SEE_A_DOCTOR",
+    "contentTags": ["FlowIntensity", "FlowIntensity.HEAVY", "PeriodConsistency"],
+    "sourceName": "National Institute of Child Health and Human Development",
+    "sourceUrl": "https://www.nichd.nih.gov/health/topics/menstruation/conditioninfo/heavy-bleeding",
+    "sortOrder": 30
+  },
+  {
+    "id": "doctor-02",
+    "title": "Period Color Changes",
+    "body": "Period blood can range in color from bright red to dark brown or even black, and most color variations are completely normal. The color often reflects how quickly blood is leaving the body.\n\n**What different colors may mean:**\n- **Bright red:** Fresh blood, typically seen during the heaviest days of flow\n- **Dark red:** Blood that has had time to oxidize; common at the start or end of a period\n- **Brown or black:** Older blood that took longer to leave the uterus; often seen at the beginning or end of a period\n- **Pink:** Blood mixed with cervical fluid; may appear during light flow or spotting\n\n**When to talk to a provider:**\n- Orange or grey-tinged discharge, which could indicate an infection\n- Consistently unusual colors that are new for you\n- Color changes accompanied by a strong or unusual odor\n- Any bleeding that occurs between periods or after menopause\n\nTracking your period color over time can help you recognize what is typical for you and notice meaningful changes.",
+    "category": "WHEN_TO_SEE_A_DOCTOR",
+    "contentTags": ["PeriodColor", "PeriodColor.UNUSUAL_COLOR"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle",
+    "sortOrder": 31
+  },
+  {
+    "id": "doctor-03",
+    "title": "Irregular and Absent Periods",
+    "body": "A \"regular\" cycle is one that falls within a consistent range for you, typically between 21 and 35 days. Some variation is normal, but significant changes may be worth discussing with a healthcare provider.\n\n**Types of irregularity:**\n- **Oligomenorrhea:** Infrequent periods (cycles longer than 35 days)\n- **Polymenorrhea:** Frequent periods (cycles shorter than 21 days)\n- **Amenorrhea:** Absence of periods for 3 or more months (when not pregnant, breastfeeding, or in menopause)\n- **Metrorrhagia:** Bleeding between periods\n\n**Possible causes:**\n- Stress, significant weight changes, or excessive exercise\n- Polycystic ovary syndrome (PCOS)\n- Thyroid disorders\n- Perimenopause\n- Certain medications\n\n**When to seek care:**\n- Your period stops for 3 or more months\n- Your cycle suddenly changes significantly\n- You consistently experience cycles shorter than 21 days or longer than 35 days\n- You bleed between periods\n\nKeeping a record of your cycle dates makes it easier for a provider to evaluate your pattern.",
+    "category": "WHEN_TO_SEE_A_DOCTOR",
+    "contentTags": ["CyclePhase"],
+    "sourceName": "National Institute of Child Health and Human Development",
+    "sourceUrl": "https://www.nichd.nih.gov/health/topics/menstruation/conditioninfo/irregular",
+    "sortOrder": 32
+  },
+  {
+    "id": "doctor-04",
+    "title": "Severe Pain",
+    "body": "While some discomfort during your period is common, severe pain that disrupts daily activities is not something you should simply accept. Pain that does not improve with over-the-counter remedies deserves medical attention.\n\n**Signs that pain may need evaluation:**\n- Cramps that are significantly worse than usual or that worsen over time\n- Pain that does not respond to ibuprofen or other over-the-counter pain relief\n- Pain that occurs outside of your period\n- Pain during sexual intercourse\n- Pain with urination or bowel movements during your period\n\n**Possible causes of severe menstrual pain:**\n- Endometriosis (tissue similar to the uterine lining grows outside the uterus)\n- Adenomyosis (uterine lining grows into the muscular wall of the uterus)\n- Uterine fibroids\n- Pelvic inflammatory disease\n\n**What to do:**\nTrack when your pain occurs, how intense it is, and what makes it better or worse. This information helps a healthcare provider determine the cause and recommend appropriate treatment. You deserve to have your pain taken seriously.",
+    "category": "WHEN_TO_SEE_A_DOCTOR",
+    "contentTags": ["Symptoms", "SymptomCategory.PAIN"],
+    "sourceName": "Office on Women\u2019s Health",
+    "sourceUrl": "https://www.womenshealth.gov/menstrual-cycle/period-problems",
+    "sortOrder": 33
+  }
+]

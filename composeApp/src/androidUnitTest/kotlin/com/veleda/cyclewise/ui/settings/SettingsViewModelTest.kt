@@ -1,6 +1,9 @@
 package com.veleda.cyclewise.ui.settings
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import com.veleda.cyclewise.domain.models.ArticleCategory
+import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.theme.ThemeMode
@@ -23,6 +26,8 @@ import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -41,6 +46,7 @@ class SettingsViewModelTest {
 
     private lateinit var mockAppSettings: AppSettings
     private lateinit var mockReminderScheduler: ReminderScheduler
+    private lateinit var mockEducationalContentProvider: EducationalContentProvider
 
     @Before
     fun setUp() {
@@ -48,6 +54,7 @@ class SettingsViewModelTest {
 
         mockAppSettings = mockk(relaxed = true)
         mockReminderScheduler = mockk(relaxed = true)
+        mockEducationalContentProvider = mockk(relaxed = true)
 
         // Configure all AppSettings flows to return defaults.
         every { mockAppSettings.themeMode } returns flowOf("system")
@@ -85,6 +92,7 @@ class SettingsViewModelTest {
         return SettingsViewModel(
             appSettings = mockAppSettings,
             reminderScheduler = mockReminderScheduler,
+            educationalContentProvider = mockEducationalContentProvider,
         )
     }
 
@@ -485,5 +493,67 @@ class SettingsViewModelTest {
 
         // THEN — state reflects LIGHT mode
         assertEquals(ThemeMode.LIGHT, viewModel.uiState.value.themeMode)
+    }
+
+    // ── Educational sheet tests ────────────────────────────────────
+
+    private val testArticle = EducationalArticle(
+        id = "test-article",
+        title = "Test",
+        body = "Body",
+        category = ArticleCategory.CYCLE_BASICS,
+        contentTags = listOf("CyclePhase.Colors"),
+        sourceName = "Test Source",
+        sourceUrl = "https://example.com",
+        sortOrder = 1,
+    )
+
+    @Test
+    fun `onEvent ShowEducationalSheet WHEN tagHasArticles THEN educationalArticlesPopulated`() = runTest {
+        // GIVEN — provider returns articles for the tag
+        every { mockEducationalContentProvider.getByTag("CyclePhase.Colors") } returns listOf(testArticle)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — show educational sheet dispatched
+        viewModel.onEvent(SettingsEvent.ShowEducationalSheet("CyclePhase.Colors"))
+        advanceUntilIdle()
+
+        // THEN — educationalArticles is populated
+        assertNotNull(viewModel.uiState.value.educationalArticles)
+        assertEquals(1, viewModel.uiState.value.educationalArticles!!.size)
+    }
+
+    @Test
+    fun `onEvent ShowEducationalSheet WHEN tagHasNoArticles THEN educationalArticlesRemainsNull`() = runTest {
+        // GIVEN — provider returns empty list for the tag
+        every { mockEducationalContentProvider.getByTag("NonExistent") } returns emptyList()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — show educational sheet dispatched
+        viewModel.onEvent(SettingsEvent.ShowEducationalSheet("NonExistent"))
+        advanceUntilIdle()
+
+        // THEN — educationalArticles remains null
+        assertNull(viewModel.uiState.value.educationalArticles)
+    }
+
+    @Test
+    fun `onEvent DismissEducationalSheet WHEN shown THEN educationalArticlesNull`() = runTest {
+        // GIVEN — educational sheet is showing
+        every { mockEducationalContentProvider.getByTag("CyclePhase.Colors") } returns listOf(testArticle)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.ShowEducationalSheet("CyclePhase.Colors"))
+        advanceUntilIdle()
+        assertNotNull(viewModel.uiState.value.educationalArticles)
+
+        // WHEN — dismiss educational sheet dispatched
+        viewModel.onEvent(SettingsEvent.DismissEducationalSheet)
+        advanceUntilIdle()
+
+        // THEN — educationalArticles is null
+        assertNull(viewModel.uiState.value.educationalArticles)
     }
 }

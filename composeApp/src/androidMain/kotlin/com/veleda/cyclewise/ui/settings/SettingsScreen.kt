@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -55,6 +56,9 @@ import com.veleda.cyclewise.BuildConfig
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
 import com.veleda.cyclewise.ui.nav.NavRoute
+import com.veleda.cyclewise.ui.components.EducationalBottomSheet
+import com.veleda.cyclewise.ui.components.InfoButton
+import com.veleda.cyclewise.ui.components.MedicalDisclaimer
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
@@ -381,7 +385,10 @@ private fun AppearancePage(
         }
 
         // ── Customization Card ───────────────────────────────────────
-        SettingsSectionCard(title = stringResource(R.string.settings_section_customization)) {
+        SettingsSectionCard(
+            title = stringResource(R.string.settings_section_customization),
+            onInfoClick = { onEvent(SettingsEvent.ShowEducationalSheet("CyclePhase.Colors")) },
+        ) {
             PhaseColorSettings(
                 menstruationHex = uiState.menstruationColorHex,
                 follicularHex = uiState.follicularColorHex,
@@ -397,6 +404,13 @@ private fun AppearancePage(
         }
 
         Spacer(Modifier.height(dims.xl))
+    }
+
+    uiState.educationalArticles?.let { articles ->
+        EducationalBottomSheet(
+            articles = articles,
+            onDismiss = { onEvent(SettingsEvent.DismissEducationalSheet) },
+        )
     }
 }
 
@@ -497,6 +511,16 @@ private fun AboutPage(
             )
         }
 
+        // ── About Health Content Card ────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_about_health_content_header)) {
+            Text(
+                text = stringResource(R.string.settings_about_health_content_description),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = dims.md),
+            )
+            MedicalDisclaimer(modifier = Modifier.padding(horizontal = dims.md))
+        }
+
         // ── Developer Card (debug only) ──────────────────────────────
         if (BuildConfig.DEBUG) {
             SettingsSectionCard(title = stringResource(R.string.settings_developer_title)) {
@@ -556,14 +580,17 @@ private fun AboutPage(
  * should add their own horizontal padding (`dims.md`). [ListItem] composables handle
  * their own 16 dp horizontal padding natively, avoiding double padding.
  *
- * @param title   Section header text, rendered in [titleMedium] with [primary] color.
- * @param modifier Modifier applied to the outer [OutlinedCard].
- * @param content  Card body content (typically [ListItem]s, [Switch]es, and custom rows).
+ * @param title       Section header text, rendered in [titleMedium] with [primary] color.
+ * @param modifier    Modifier applied to the outer [OutlinedCard].
+ * @param onInfoClick Optional callback for an info button aligned to the end of the title row.
+ *                    When non-null, an [InfoButton] is displayed. When null, no button is shown.
+ * @param content     Card body content (typically [ListItem]s, [Switch]es, and custom rows).
  */
 @Composable
 private fun SettingsSectionCard(
     title: String,
     modifier: Modifier = Modifier,
+    onInfoClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val dims = LocalDimensions.current
@@ -577,12 +604,25 @@ private fun SettingsSectionCard(
             modifier = Modifier.padding(vertical = dims.md),
             verticalArrangement = Arrangement.spacedBy(dims.sm)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = dims.md)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = dims.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f),
+                )
+                if (onInfoClick != null) {
+                    InfoButton(
+                        onClick = onInfoClick,
+                        contentDescription = stringResource(R.string.educational_info_button_cd, title),
+                    )
+                }
+            }
             content()
         }
     }
