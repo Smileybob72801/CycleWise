@@ -32,6 +32,14 @@ sealed interface TrackerEvent {
 
     /** Dispatched when the screen is first composed, triggering auto-close period logic. */
     data object ScreenEntered : TrackerEvent
+
+    // ── Educational ──────────────────────────────────────────────────
+
+    /** The user tapped an info button to view educational content for the given [contentTag]. */
+    data class ShowEducationalSheet(val contentTag: String) : TrackerEvent
+
+    /** The user dismissed the educational bottom sheet. */
+    data object DismissEducationalSheet : TrackerEvent
 }
 
 /**

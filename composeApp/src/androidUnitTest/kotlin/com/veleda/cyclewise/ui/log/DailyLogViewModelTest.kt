@@ -4,6 +4,9 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Period
+import com.veleda.cyclewise.domain.models.ArticleCategory
+import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
@@ -45,6 +48,7 @@ class DailyLogViewModelTest {
     private lateinit var mockGetOrCreateDailyLog: GetOrCreateDailyLogUseCase
     private lateinit var mockSymptomProvider: SymptomLibraryProvider
     private lateinit var mockMedicationProvider: MedicationLibraryProvider
+    private lateinit var mockEducationalContentProvider: EducationalContentProvider
 
     private val testDate = TestData.DATE
     private val testInstant = TestData.INSTANT
@@ -66,6 +70,7 @@ class DailyLogViewModelTest {
         mockGetOrCreateDailyLog = mockk(relaxed = true)
         mockSymptomProvider = mockk(relaxed = true)
         mockMedicationProvider = mockk(relaxed = true)
+        mockEducationalContentProvider = mockk(relaxed = true)
 
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
@@ -86,6 +91,7 @@ class DailyLogViewModelTest {
             getOrCreateDailyLog = mockGetOrCreateDailyLog,
             symptomLibraryProvider = mockSymptomProvider,
             medicationLibraryProvider = mockMedicationProvider,
+            educationalContentProvider = mockEducationalContentProvider,
         )
     }
 
@@ -237,5 +243,67 @@ class DailyLogViewModelTest {
 
         // THEN — saveFullLog is called after debounce
         coVerify(atLeast = 1) { mockRepository.saveFullLog(any()) }
+    }
+
+    // ── Educational sheet tests ──────────────────────────────────────
+
+    private val testArticle = EducationalArticle(
+        id = "test-article",
+        title = "Test",
+        body = "Body",
+        category = ArticleCategory.CYCLE_BASICS,
+        contentTags = listOf("Mood"),
+        sourceName = "Test Source",
+        sourceUrl = "https://example.com",
+        sortOrder = 1,
+    )
+
+    @Test
+    fun `onEvent ShowEducationalSheet WHEN tagHasArticles THEN educationalArticlesPopulated`() = runTest {
+        // GIVEN
+        every { mockEducationalContentProvider.getByTag("Mood") } returns listOf(testArticle)
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN
+        vm.onEvent(DailyLogEvent.ShowEducationalSheet("Mood"))
+        advanceUntilIdle()
+
+        // THEN
+        assertNotNull(vm.uiState.value.educationalArticles)
+        assertEquals(1, vm.uiState.value.educationalArticles!!.size)
+    }
+
+    @Test
+    fun `onEvent ShowEducationalSheet WHEN tagHasNoArticles THEN educationalArticlesRemainsNull`() = runTest {
+        // GIVEN
+        every { mockEducationalContentProvider.getByTag("NonExistent") } returns emptyList()
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN
+        vm.onEvent(DailyLogEvent.ShowEducationalSheet("NonExistent"))
+        advanceUntilIdle()
+
+        // THEN
+        assertNull(vm.uiState.value.educationalArticles)
+    }
+
+    @Test
+    fun `onEvent DismissEducationalSheet WHEN shown THEN educationalArticlesNull`() = runTest {
+        // GIVEN
+        every { mockEducationalContentProvider.getByTag("Mood") } returns listOf(testArticle)
+        val vm = createViewModel()
+        advanceUntilIdle()
+        vm.onEvent(DailyLogEvent.ShowEducationalSheet("Mood"))
+        advanceUntilIdle()
+        assertNotNull(vm.uiState.value.educationalArticles)
+
+        // WHEN
+        vm.onEvent(DailyLogEvent.DismissEducationalSheet)
+        advanceUntilIdle()
+
+        // THEN
+        assertNull(vm.uiState.value.educationalArticles)
     }
 }

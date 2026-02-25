@@ -79,4 +79,12 @@ sealed interface DailyLogEvent {
 
     /** The user tapped the decrement button on the water counter. */
     data object WaterDecrement : DailyLogEvent
+
+    // ── Educational ──────────────────────────────────────────────────
+
+    /** The user tapped an info button to view educational content for the given [contentTag]. */
+    data class ShowEducationalSheet(val contentTag: String) : DailyLogEvent
+
+    /** The user dismissed the educational bottom sheet. */
+    data object DismissEducationalSheet : DailyLogEvent
 }

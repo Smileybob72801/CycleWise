@@ -63,6 +63,8 @@ import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.veleda.cyclewise.domain.models.CyclePhase
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.nav.NavRoute
+import com.veleda.cyclewise.ui.components.EducationalBottomSheet
+import com.veleda.cyclewise.ui.components.InfoButton
 import com.veleda.cyclewise.ui.theme.CyclePhasePalette
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.theme.buildCyclePhasePalette
@@ -214,6 +216,13 @@ fun TrackerScreen(navController: NavController) {
         )
     }
 
+    uiState.educationalArticles?.let { articles ->
+        EducationalBottomSheet(
+            articles = articles,
+            onDismiss = { viewModel.onEvent(TrackerEvent.DismissEducationalSheet) },
+        )
+    }
+
     Scaffold { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -271,7 +280,22 @@ fun TrackerScreen(navController: NavController) {
                 val days = JavaDayOfWeek.entries
                 days.subList(it.value - 1, days.size) + days.subList(0, it.value - 1)
             })
-            PhaseLegend(palette = palette, phaseVisible = phaseVisible)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = dims.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PhaseLegend(
+                    palette = palette,
+                    phaseVisible = phaseVisible,
+                    modifier = Modifier.weight(1f),
+                )
+                InfoButton(
+                    onClick = { viewModel.onEvent(TrackerEvent.ShowEducationalSheet("CyclePhase")) },
+                    contentDescription = stringResource(R.string.educational_info_button_cd, stringResource(R.string.tracker_phase_label)),
+                )
+            }
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -456,12 +480,13 @@ private fun DaysOfWeekTitle(daysOfWeek: List<JavaDayOfWeek>) {
 @Composable
 private fun PhaseLegend(
     palette: CyclePhasePalette,
-    phaseVisible: Map<CyclePhase, Boolean> = emptyMap()
+    phaseVisible: Map<CyclePhase, Boolean> = emptyMap(),
+    modifier: Modifier = Modifier,
 ) {
     val dims = LocalDimensions.current
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = dims.md, vertical = dims.xs),
         horizontalArrangement = Arrangement.SpaceEvenly

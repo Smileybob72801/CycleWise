@@ -2,6 +2,8 @@ package com.veleda.cyclewise.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.theme.ThemeMode
@@ -48,6 +50,7 @@ import kotlinx.coroutines.launch
  * @property showAboutDialog          Whether the About dialog is visible.
  * @property showPrivacyDialog        Whether the period privacy dialog is visible.
  * @property showPermissionRationale  Whether the notification permission rationale is shown.
+ * @property educationalArticles     Articles to display in the educational bottom sheet, or null when the sheet is hidden.
  */
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -77,6 +80,7 @@ data class SettingsUiState(
     val showAboutDialog: Boolean = false,
     val showPrivacyDialog: Boolean = false,
     val showPermissionRationale: Boolean = false,
+    val educationalArticles: List<EducationalArticle>? = null,
 )
 
 /**
@@ -96,6 +100,7 @@ data class SettingsUiState(
 class SettingsViewModel(
     private val appSettings: AppSettings,
     private val reminderScheduler: ReminderScheduler,
+    private val educationalContentProvider: EducationalContentProvider,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -341,13 +346,19 @@ class SettingsViewModel(
                 appSettings.setReminderHydrationEndHour(event.hour)
             }
 
+            is SettingsEvent.ShowEducationalSheet -> {
+                val articles = educationalContentProvider.getByTag(event.contentTag)
+                _uiState.update { it.copy(educationalArticles = articles.ifEmpty { null }) }
+            }
+
             // Dialog events are UI-only state changes — no side effects needed.
             is SettingsEvent.ShowAboutDialog,
             is SettingsEvent.DismissAboutDialog,
             is SettingsEvent.ShowPrivacyDialog,
             is SettingsEvent.DismissPrivacyDialog,
             is SettingsEvent.ShowPermissionRationale,
-            is SettingsEvent.DismissPermissionRationale -> { /* state-only */ }
+            is SettingsEvent.DismissPermissionRationale,
+            is SettingsEvent.DismissEducationalSheet -> { /* state-only */ }
         }
     }
 
@@ -406,6 +417,9 @@ class SettingsViewModel(
             is SettingsEvent.DismissPrivacyDialog -> state.copy(showPrivacyDialog = false)
             is SettingsEvent.ShowPermissionRationale -> state.copy(showPermissionRationale = true)
             is SettingsEvent.DismissPermissionRationale -> state.copy(showPermissionRationale = false)
+
+            is SettingsEvent.ShowEducationalSheet -> state
+            is SettingsEvent.DismissEducationalSheet -> state.copy(educationalArticles = null)
         }
     }
 }

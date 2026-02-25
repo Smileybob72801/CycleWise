@@ -3,6 +3,9 @@ package com.veleda.cyclewise.ui.tracker
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import app.cash.turbine.test
 import com.veleda.cyclewise.domain.models.*
+import com.veleda.cyclewise.domain.models.ArticleCategory
+import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
@@ -45,6 +48,7 @@ class CycleViewModelTest {
     private lateinit var mockMedicationProvider: MedicationLibraryProvider
     private lateinit var mockAutoCloseUseCase: AutoCloseOngoingPeriodUseCase
     private lateinit var mockAppSettings: AppSettings
+    private lateinit var mockEducationalContentProvider: EducationalContentProvider
     private lateinit var viewModel: TrackerViewModel
 
     @Before
@@ -56,13 +60,14 @@ class CycleViewModelTest {
         mockMedicationProvider = mockk(relaxed = true)
         mockAutoCloseUseCase = mockk(relaxed = true)
         mockAppSettings = mockk(relaxed = true)
+        mockEducationalContentProvider = mockk(relaxed = true)
 
         every { mockRepository.observeDayDetails() } returns flowOf(emptyMap())
         every { mockRepository.getAllPeriods() } returns flowOf(emptyList())
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
 
-        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings)
+        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider)
     }
 
     @After
@@ -110,7 +115,7 @@ class CycleViewModelTest {
         val fakeLog = FullDailyLog(DailyEntry("log-id", pastDate, 5, createdAt = TestData.INSTANT, updatedAt = TestData.INSTANT))
 
         every { mockRepository.getAllPeriods() } returns flowOf(listOf(fakePeriod))
-        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings)
+        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider)
         advanceUntilIdle()
 
         coEvery { mockRepository.getFullLogForDate(pastDate) } returns fakeLog
@@ -141,7 +146,7 @@ class CycleViewModelTest {
         every { mockRepository.observeDayDetails() } returns flowOf(mapOf(date to dayDetails))
 
         // WHEN — a new ViewModel is created and collects the flow
-        val vm = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings)
+        val vm = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider)
         advanceUntilIdle()
 
         // THEN — the mapped CalendarDayInfo has hasNotes = true
@@ -166,7 +171,7 @@ class CycleViewModelTest {
 
         val vm = TrackerViewModel(
             mockRepository, mockSymptomProvider, mockMedicationProvider,
-            mockAutoCloseUseCase, mockAppSettings
+            mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider
         )
         advanceUntilIdle()
 
@@ -214,7 +219,7 @@ class CycleViewModelTest {
         every { mockRepository.getAllPeriods() } returns flowOf(periods)
         return TrackerViewModel(
             mockRepository, mockSymptomProvider, mockMedicationProvider,
-            mockAutoCloseUseCase, mockAppSettings
+            mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider
         )
     }
 
@@ -380,5 +385,48 @@ class CycleViewModelTest {
         coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 16)) }
         coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 17)) }
         coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 18)) }
+    }
+
+    // --- Educational sheet tests ---
+
+    private val testArticle = EducationalArticle(
+        id = "test-article",
+        title = "Test",
+        body = "Body",
+        category = ArticleCategory.CYCLE_BASICS,
+        contentTags = listOf("CyclePhase"),
+        sourceName = "Test Source",
+        sourceUrl = "https://example.com",
+        sortOrder = 1,
+    )
+
+    @Test
+    fun onEvent_ShowEducationalSheet_WHEN_tagHasArticles_THEN_educationalArticlesPopulated() = runTest {
+        // GIVEN
+        every { mockEducationalContentProvider.getByTag("CyclePhase") } returns listOf(testArticle)
+
+        // WHEN
+        viewModel.onEvent(TrackerEvent.ShowEducationalSheet("CyclePhase"))
+        advanceUntilIdle()
+
+        // THEN
+        assertNotNull(viewModel.uiState.value.educationalArticles)
+        assertEquals(1, viewModel.uiState.value.educationalArticles!!.size)
+    }
+
+    @Test
+    fun onEvent_DismissEducationalSheet_WHEN_shown_THEN_educationalArticlesNull() = runTest {
+        // GIVEN
+        every { mockEducationalContentProvider.getByTag("CyclePhase") } returns listOf(testArticle)
+        viewModel.onEvent(TrackerEvent.ShowEducationalSheet("CyclePhase"))
+        advanceUntilIdle()
+        assertNotNull(viewModel.uiState.value.educationalArticles)
+
+        // WHEN
+        viewModel.onEvent(TrackerEvent.DismissEducationalSheet)
+        advanceUntilIdle()
+
+        // THEN
+        assertNull(viewModel.uiState.value.educationalArticles)
     }
 }
