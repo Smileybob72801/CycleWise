@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.Star as StarOutlined
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,9 +35,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import com.veleda.cyclewise.ui.coachmark.CoachMarkOverlay
+import com.veleda.cyclewise.ui.coachmark.CoachMarkState
+import com.veleda.cyclewise.ui.coachmark.HintKey
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
+import com.veleda.cyclewise.ui.coachmark.coachMarkTarget
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.Medication
@@ -74,7 +83,8 @@ fun DailyLogScreen(
     date: LocalDate,
 ) {
     val dims = LocalDimensions.current
-    val sessionScope = getKoin().getScope("session")
+    val koin = getKoin()
+    val sessionScope = koin.getScope("session")
 
     val viewModel: DailyLogViewModel = koinViewModel(
         scope = sessionScope,
@@ -84,6 +94,29 @@ fun DailyLogScreen(
     val uiState by viewModel.uiState.collectAsState()
     val pagerState = rememberPagerState(pageCount = { PAGE_COUNT })
     val coroutineScope = rememberCoroutineScope()
+
+    // Coach mark system
+    val hintPreferences: HintPreferences = koin.get()
+    val coachMarkState = remember { CoachMarkState(hintPreferences, coroutineScope) }
+
+    // Start the walkthrough when the log finishes loading for the first time.
+    LaunchedEffect(uiState.isLoading) {
+        if (!uiState.isLoading && uiState.log != null) {
+            val seen = hintPreferences.isHintSeen(HintKey.DAILY_LOG_WELCOME).first()
+            if (!seen) {
+                DAILY_LOG_HINTS[HintKey.DAILY_LOG_WELCOME]?.let { coachMarkState.showHint(it) }
+            }
+        }
+    }
+
+    // When the active coach mark changes from DAILY_LOG_PERIOD_TAB to DAILY_LOG_PERIOD_TOGGLE,
+    // auto-scroll the pager to the Period page so the toggle target is visible.
+    val activeHint by coachMarkState.active.collectAsState()
+    LaunchedEffect(activeHint?.def?.key) {
+        if (activeHint?.def?.key == HintKey.DAILY_LOG_PERIOD_TOGGLE) {
+            pagerState.animateScrollToPage(PAGE_PERIOD)
+        }
+    }
 
     val pageLabels = listOf(
         stringResource(R.string.daily_log_page_wellness),
@@ -99,6 +132,8 @@ fun DailyLogScreen(
                 CircularProgressIndicator()
             }
         }
+        // Generic error fallback. The "no parent cycle" path no longer reaches here
+        // since GetOrCreateDailyLogUseCase now always returns a FullDailyLog.
         uiState.error != null -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(text = uiState.error!!, color = MaterialTheme.colorScheme.error)
@@ -106,97 +141,119 @@ fun DailyLogScreen(
         }
         uiState.log != null -> {
             val log = uiState.log!!
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Header
-                Text(
-                    text = stringResource(R.string.daily_log_for, log.entry.entryDate.toLocalizedDateString()),
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(horizontal = dims.md, vertical = dims.md)
-                )
 
-                // Page indicator tabs
-                ScrollableTabRow(
-                    selectedTabIndex = pagerState.currentPage,
-                    edgePadding = dims.md,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    pageLabels.forEachIndexed { index, label ->
-                        Tab(
-                            selected = pagerState.currentPage == index,
-                            onClick = {
-                                coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                            },
-                            text = {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelLarge,
-                                )
-                            },
-                        )
-                    }
-                }
-
-                // Pager
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("daily_log_pager"),
-                ) { page ->
-                    when (page) {
-                        PAGE_WELLNESS -> WellnessPage(
-                            moodScore = log.entry.moodScore,
-                            energyLevel = log.entry.energyLevel,
-                            libidoScore = log.entry.libidoScore,
-                            waterCups = uiState.waterCups,
-                            onMoodChanged = { viewModel.onEvent(DailyLogEvent.MoodScoreChanged(it)) },
-                            onEnergyChanged = { viewModel.onEvent(DailyLogEvent.EnergyLevelChanged(it)) },
-                            onLibidoChanged = { viewModel.onEvent(DailyLogEvent.LibidoScoreChanged(it)) },
-                            onWaterIncrement = { viewModel.onEvent(DailyLogEvent.WaterIncrement) },
-                            onWaterDecrement = { viewModel.onEvent(DailyLogEvent.WaterDecrement) },
-                            onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
-                        )
-                        PAGE_PERIOD -> PeriodPage(
-                            isPeriodDay = uiState.isPeriodDay,
-                            flowIntensity = log.periodLog?.flowIntensity,
-                            periodColor = log.periodLog?.periodColor,
-                            periodConsistency = log.periodLog?.periodConsistency,
-                            onPeriodToggled = { viewModel.onEvent(DailyLogEvent.PeriodToggled(it)) },
-                            onFlowChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) },
-                            onColorChanged = { viewModel.onEvent(DailyLogEvent.PeriodColorChanged(it)) },
-                            onConsistencyChanged = { viewModel.onEvent(DailyLogEvent.PeriodConsistencyChanged(it)) },
-                            onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
-                        )
-                        PAGE_SYMPTOMS -> SymptomsPage(
-                            loggedSymptoms = log.symptomLogs,
-                            symptomLibrary = uiState.symptomLibrary,
-                            onToggleSymptom = { viewModel.onEvent(DailyLogEvent.SymptomToggled(it)) },
-                            onCreateAndAddSymptom = { viewModel.onEvent(DailyLogEvent.CreateAndAddSymptom(it)) },
-                            onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
-                        )
-                        PAGE_MEDICATIONS -> MedicationsPage(
-                            loggedMedications = log.medicationLogs,
-                            medicationLibrary = uiState.medicationLibrary,
-                            onToggleMedication = { viewModel.onEvent(DailyLogEvent.MedicationToggled(it)) },
-                            onCreateAndAddMedication = { viewModel.onEvent(DailyLogEvent.MedicationCreatedAndAdded(it)) },
-                            onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
-                        )
-                        PAGE_NOTES -> NotesTagsPage(
-                            tags = log.entry.customTags,
-                            note = log.entry.note ?: "",
-                            onAddTag = { viewModel.onEvent(DailyLogEvent.TagAdded(it)) },
-                            onRemoveTag = { viewModel.onEvent(DailyLogEvent.TagRemoved(it)) },
-                            onNoteChanged = { viewModel.onEvent(DailyLogEvent.NoteChanged(it)) },
-                        )
-                    }
-                }
-
-                uiState.educationalArticles?.let { articles ->
-                    EducationalBottomSheet(
-                        articles = articles,
-                        onDismiss = { viewModel.onEvent(DailyLogEvent.DismissEducationalSheet) },
+            // Use graphicsLayer with CompositingStrategy.Offscreen so BlendMode.Clear
+            // works correctly in the CoachMarkOverlay scrim canvas.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Header
+                    Text(
+                        text = stringResource(R.string.daily_log_for, log.entry.entryDate.toLocalizedDateString()),
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier
+                            .padding(horizontal = dims.md, vertical = dims.md)
+                            .coachMarkTarget(HintKey.DAILY_LOG_WELCOME, coachMarkState)
                     )
+
+                    // Page indicator tabs
+                    ScrollableTabRow(
+                        selectedTabIndex = pagerState.currentPage,
+                        edgePadding = dims.md,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .coachMarkTarget(HintKey.DAILY_LOG_EXPLORE_TABS, coachMarkState),
+                    ) {
+                        pageLabels.forEachIndexed { index, label ->
+                            Tab(
+                                selected = pagerState.currentPage == index,
+                                onClick = {
+                                    coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                                },
+                                text = {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelLarge,
+                                    )
+                                },
+                                modifier = if (index == PAGE_PERIOD) {
+                                    Modifier.coachMarkTarget(HintKey.DAILY_LOG_PERIOD_TAB, coachMarkState)
+                                } else {
+                                    Modifier
+                                },
+                            )
+                        }
+                    }
+
+                    // Pager
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("daily_log_pager"),
+                    ) { page ->
+                        when (page) {
+                            PAGE_WELLNESS -> WellnessPage(
+                                moodScore = log.entry.moodScore,
+                                energyLevel = log.entry.energyLevel,
+                                libidoScore = log.entry.libidoScore,
+                                waterCups = uiState.waterCups,
+                                onMoodChanged = { viewModel.onEvent(DailyLogEvent.MoodScoreChanged(it)) },
+                                onEnergyChanged = { viewModel.onEvent(DailyLogEvent.EnergyLevelChanged(it)) },
+                                onLibidoChanged = { viewModel.onEvent(DailyLogEvent.LibidoScoreChanged(it)) },
+                                onWaterIncrement = { viewModel.onEvent(DailyLogEvent.WaterIncrement) },
+                                onWaterDecrement = { viewModel.onEvent(DailyLogEvent.WaterDecrement) },
+                                onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
+                            )
+                            PAGE_PERIOD -> PeriodPage(
+                                isPeriodDay = uiState.isPeriodDay,
+                                flowIntensity = log.periodLog?.flowIntensity,
+                                periodColor = log.periodLog?.periodColor,
+                                periodConsistency = log.periodLog?.periodConsistency,
+                                onPeriodToggled = { viewModel.onEvent(DailyLogEvent.PeriodToggled(it)) },
+                                onFlowChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) },
+                                onColorChanged = { viewModel.onEvent(DailyLogEvent.PeriodColorChanged(it)) },
+                                onConsistencyChanged = { viewModel.onEvent(DailyLogEvent.PeriodConsistencyChanged(it)) },
+                                onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
+                                coachMarkState = coachMarkState,
+                            )
+                            PAGE_SYMPTOMS -> SymptomsPage(
+                                loggedSymptoms = log.symptomLogs,
+                                symptomLibrary = uiState.symptomLibrary,
+                                onToggleSymptom = { viewModel.onEvent(DailyLogEvent.SymptomToggled(it)) },
+                                onCreateAndAddSymptom = { viewModel.onEvent(DailyLogEvent.CreateAndAddSymptom(it)) },
+                                onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
+                            )
+                            PAGE_MEDICATIONS -> MedicationsPage(
+                                loggedMedications = log.medicationLogs,
+                                medicationLibrary = uiState.medicationLibrary,
+                                onToggleMedication = { viewModel.onEvent(DailyLogEvent.MedicationToggled(it)) },
+                                onCreateAndAddMedication = { viewModel.onEvent(DailyLogEvent.MedicationCreatedAndAdded(it)) },
+                                onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
+                            )
+                            PAGE_NOTES -> NotesTagsPage(
+                                tags = log.entry.customTags,
+                                note = log.entry.note ?: "",
+                                onAddTag = { viewModel.onEvent(DailyLogEvent.TagAdded(it)) },
+                                onRemoveTag = { viewModel.onEvent(DailyLogEvent.TagRemoved(it)) },
+                                onNoteChanged = { viewModel.onEvent(DailyLogEvent.NoteChanged(it)) },
+                            )
+                        }
+                    }
+
+                    uiState.educationalArticles?.let { articles ->
+                        EducationalBottomSheet(
+                            articles = articles,
+                            onDismiss = { viewModel.onEvent(DailyLogEvent.DismissEducationalSheet) },
+                        )
+                    }
                 }
+
+                // Coach mark overlay draws on top of all screen content.
+                CoachMarkOverlay(state = coachMarkState, allDefs = DAILY_LOG_HINTS)
             }
         }
     }
@@ -292,6 +349,7 @@ private fun PeriodPage(
     onColorChanged: (PeriodColor?) -> Unit,
     onConsistencyChanged: (PeriodConsistency?) -> Unit,
     onShowEducationalSheet: (String) -> Unit,
+    coachMarkState: CoachMarkState? = null,
 ) {
     val dims = LocalDimensions.current
     Column(
@@ -309,6 +367,11 @@ private fun PeriodPage(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
             ),
+            modifier = if (coachMarkState != null) {
+                Modifier.coachMarkTarget(HintKey.DAILY_LOG_PERIOD_TOGGLE, coachMarkState)
+            } else {
+                Modifier
+            },
         ) {
             Row(
                 modifier = Modifier

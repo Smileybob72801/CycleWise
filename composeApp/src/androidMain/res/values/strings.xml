@@ -119,6 +119,18 @@
     <string name="daily_log_add_symptom">Add new symptom…</string>
     <string name="daily_log_create_symptom">Create and Add Symptom</string>
 
+    <!-- Coach Marks -->
+    <string name="coach_mark_next">Next</string>
+    <string name="coach_mark_got_it">Got it</string>
+    <string name="hint_daily_log_welcome_title">Welcome to Your Daily Log</string>
+    <string name="hint_daily_log_welcome_body">This is where you record how you are feeling each day. Swipe through the tabs to explore mood, period, symptoms, medications, and notes.</string>
+    <string name="hint_daily_log_explore_tabs_title">Explore the Tabs</string>
+    <string name="hint_daily_log_explore_tabs_body">Each tab focuses on a different part of your day. Start anywhere that feels relevant to you.</string>
+    <string name="hint_daily_log_period_tab_title">The Period Tab</string>
+    <string name="hint_daily_log_period_tab_body">If you menstruate, this is where you log flow details. Tap this tab to continue.</string>
+    <string name="hint_daily_log_period_toggle_title">Mark Today as a Period Day</string>
+    <string name="hint_daily_log_period_toggle_body">Toggle this on if today is a period day. This creates a new cycle automatically. If you do not menstruate, skip this and use the other tabs to track your health.</string>
+
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_autolock_title">Auto-lock timeout (minutes)</string>
@@ -154,6 +166,12 @@
     <string name="show_luteal_description">Show Luteal phase tint on the calendar</string>
     <string name="phase_color_presets_label">Presets</string>
     <string name="phase_color_preset_content_description">Select color %s</string>
+
+    <!-- Tutorial -->
+    <string name="settings_section_tutorial">Tutorial</string>
+    <string name="settings_reset_hints">Reset Tutorial Hints</string>
+    <string name="settings_reset_hints_description">Show the guided walkthrough again next time you open a screen</string>
+    <string name="settings_reset_hints_confirmation">Tutorial hints have been reset</string>
 
     <!-- Passphrase -->
     <string name="passphrase_unlocking">Unlocking…</string>

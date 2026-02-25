@@ -6,6 +6,7 @@ import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.settings.AppSettings
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.theme.ThemeMode
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
 import io.mockk.coVerify
@@ -47,6 +48,7 @@ class SettingsViewModelTest {
     private lateinit var mockAppSettings: AppSettings
     private lateinit var mockReminderScheduler: ReminderScheduler
     private lateinit var mockEducationalContentProvider: EducationalContentProvider
+    private lateinit var mockHintPreferences: HintPreferences
 
     @Before
     fun setUp() {
@@ -55,6 +57,7 @@ class SettingsViewModelTest {
         mockAppSettings = mockk(relaxed = true)
         mockReminderScheduler = mockk(relaxed = true)
         mockEducationalContentProvider = mockk(relaxed = true)
+        mockHintPreferences = mockk(relaxed = true)
 
         // Configure all AppSettings flows to return defaults.
         every { mockAppSettings.themeMode } returns flowOf("system")
@@ -93,6 +96,7 @@ class SettingsViewModelTest {
             appSettings = mockAppSettings,
             reminderScheduler = mockReminderScheduler,
             educationalContentProvider = mockEducationalContentProvider,
+            hintPreferences = mockHintPreferences,
         )
     }
 

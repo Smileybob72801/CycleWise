@@ -13,7 +13,8 @@ import kotlin.time.Instant
  *
  * @property id         UUID primary key.
  * @property entryDate  Calendar date this entry represents (one entry per date).
- * @property dayInCycle 1-based offset from the parent period's start date.
+ * @property dayInCycle 1-based offset from the parent period's start date, or `0` when no
+ *                      parent period was found at creation time (sentinel value).
  * @property moodScore  User-rated mood on a 1 (lowest) to 5 (highest) scale, or null if unrecorded.
  * @property energyLevel User-rated energy on a 1 (lowest) to 5 (highest) scale, or null if unrecorded.
  * @property libidoScore User-rated libido on a 1 (lowest) to 5 (highest) scale, or null if unrecorded.

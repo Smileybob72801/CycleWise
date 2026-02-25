@@ -16,7 +16,7 @@ import com.veleda.cyclewise.domain.models.Symptom
  */
 sealed interface DailyLogEvent {
     /** Internal event dispatched when the initial log, symptom library, and medication library have been fetched. */
-    data class LogLoaded(val log: FullDailyLog?, val initialSymptoms: List<Symptom>, val initialMedications: List<Medication>) : DailyLogEvent
+    data class LogLoaded(val log: FullDailyLog, val initialSymptoms: List<Symptom>, val initialMedications: List<Medication>) : DailyLogEvent
 
     /** Internal event dispatched when the symptom or medication library changes after init. */
     data class LibraryUpdated(val symptoms: List<Symptom>, val medications: List<Medication>) : DailyLogEvent

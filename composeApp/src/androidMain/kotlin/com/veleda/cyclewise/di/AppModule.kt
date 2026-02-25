@@ -29,6 +29,7 @@ import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
 import org.koin.core.qualifier.named
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
 import com.veleda.cyclewise.session.SessionBus
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.auth.PassphraseViewModel
@@ -121,11 +122,13 @@ val appModule = module {
 
     single { EducationalContentProvider(EducationalContentLoader.load(androidContext())) }
 
+    single { HintPreferences(androidContext()) }
+
     viewModel { WaterTrackerViewModel(lockedWaterDraft = get()) }
 
     viewModel { PassphraseViewModel(appSettings = get(), lockedWaterDraft = get()) }
 
-    viewModel { SettingsViewModel(appSettings = get(), reminderScheduler = get(), educationalContentProvider = get()) }
+    viewModel { SettingsViewModel(appSettings = get(), reminderScheduler = get(), educationalContentProvider = get(), hintPreferences = get()) }
 
     scope(SESSION_SCOPE) {
         /*

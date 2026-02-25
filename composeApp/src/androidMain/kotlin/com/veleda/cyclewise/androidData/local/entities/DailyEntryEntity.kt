@@ -14,6 +14,10 @@ import kotlin.time.Instant
  * Maps to the domain [DailyEntry] model. The [libidoScore] is a nullable 1-5 integer.
  * The [customTags] field is a JSON-serialized string array.
  * Timestamps ([createdAt], [updatedAt]) are stored as epoch milliseconds.
+ *
+ * [dayInCycle] is 1-based when a parent period exists, or `0` as a sentinel when no
+ * parent period was found at creation time. No schema change is needed since the column
+ * is `INTEGER NOT NULL` and already accepts `0`.
  */
 @OptIn(ExperimentalTime::class)
 @Entity(
