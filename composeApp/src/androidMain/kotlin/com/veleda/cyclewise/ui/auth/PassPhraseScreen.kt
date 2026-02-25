@@ -44,17 +44,21 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.theme.LocalDimensions
+import kotlinx.coroutines.flow.SharedFlow
 import org.koin.androidx.compose.koinViewModel
 
 /** Alpha for the scrim overlay shown while the passphrase is being verified. */
-private const val SCRIM_ALPHA = 0.5f
+internal const val SCRIM_ALPHA = 0.5f
 
 /**
- * Passphrase unlock screen — the first screen the user sees.
+ * Passphrase screen — entry point for both first-time setup and returning unlock.
  *
- * Displays the app logo with an entrance animation, a passphrase text field with
- * visibility toggle, inline error feedback, and a collapsible water-tracking widget.
- * A semi-transparent loading overlay prevents interaction during unlock.
+ * Branches on [PassphraseUiState.isFirstTime]:
+ * - `true` → renders [SetupScreen] (onboarding pager with passphrase creation).
+ * - `false` → renders the existing unlock UI with passphrase field and Unlock button.
+ *
+ * Both paths share the same [onPassphraseEntered] callback so navigation works
+ * identically after a successful unlock.
  *
  * @param onPassphraseEntered Callback invoked when the passphrase is successfully verified
  *   and the encrypted session is ready.
@@ -63,9 +67,52 @@ private const val SCRIM_ALPHA = 0.5f
 fun PassphraseScreen(
     onPassphraseEntered: () -> Unit
 ) {
-    val dims = LocalDimensions.current
     val viewModel: PassphraseViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
+
+    // Collect one-time effects from the ViewModel (shared by both paths)
+    LaunchedEffect(Unit) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                is PassphraseEffect.NavigateToTracker -> onPassphraseEntered()
+                is PassphraseEffect.ShowError -> {
+                    // ShowError is handled within each sub-screen
+                }
+            }
+        }
+    }
+
+    // Wait for DataStore to resolve before rendering to avoid a flash
+    if (!uiState.isFirstTimeLoaded) return
+
+    if (uiState.isFirstTime) {
+        SetupScreen(
+            uiState = uiState,
+            onEvent = viewModel::onEvent,
+        )
+    } else {
+        UnlockScreen(
+            uiState = uiState,
+            onEvent = viewModel::onEvent,
+            effect = viewModel.effect,
+        )
+    }
+}
+
+/**
+ * Existing unlock UI for returning users.
+ *
+ * Displays the app logo with an entrance animation, a passphrase text field with
+ * visibility toggle, inline error feedback, and a collapsible water-tracking widget.
+ * A semi-transparent loading overlay prevents interaction during unlock.
+ */
+@Composable
+private fun UnlockScreen(
+    uiState: PassphraseUiState,
+    onEvent: (PassphraseEvent) -> Unit,
+    effect: SharedFlow<PassphraseEffect>,
+) {
+    val dims = LocalDimensions.current
 
     var passphrase by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -87,21 +134,18 @@ fun PassphraseScreen(
         focusRequester.requestFocus()
     }
 
-    // Collect one-time effects from the ViewModel
+    // Collect ShowError effects for the unlock screen
     LaunchedEffect(Unit) {
-        viewModel.effect.collect { effect ->
-            when (effect) {
-                is PassphraseEffect.NavigateToTracker -> onPassphraseEntered()
-                is PassphraseEffect.ShowError -> {
-                    errorMessage = errorString
-                }
+        effect.collect { e ->
+            if (e is PassphraseEffect.ShowError) {
+                errorMessage = errorString
             }
         }
     }
 
     val submit = {
         if (passphrase.isNotBlank() && !uiState.isUnlocking) {
-            viewModel.onEvent(PassphraseEvent.UnlockClicked(passphrase))
+            onEvent(PassphraseEvent.UnlockClicked(passphrase))
         }
     }
 
