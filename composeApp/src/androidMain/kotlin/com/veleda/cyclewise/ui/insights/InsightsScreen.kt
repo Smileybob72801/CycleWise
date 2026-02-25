@@ -65,6 +65,7 @@ import com.veleda.cyclewise.domain.insights.SymptomPhasePattern
 import com.veleda.cyclewise.domain.insights.TopSymptomsInsight
 import com.veleda.cyclewise.domain.models.ArticleCategory
 import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.ui.components.MarkdownText
 import com.veleda.cyclewise.ui.components.MedicalDisclaimer
 import com.veleda.cyclewise.ui.components.SourceAttribution
 import com.veleda.cyclewise.ui.theme.LocalCyclePhasePalette
@@ -638,9 +639,9 @@ private fun LearnArticleCard(
                 verticalArrangement = Arrangement.spacedBy(dims.sm)
             ) {
                 Spacer(modifier = Modifier.height(dims.xs))
-                Text(
+                MarkdownText(
                     text = article.body,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
                 )
                 SourceAttribution(sourceName = article.sourceName)
             }

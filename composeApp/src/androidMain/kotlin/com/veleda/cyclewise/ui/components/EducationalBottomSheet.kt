@@ -57,7 +57,7 @@ fun EducationalBottomSheet(
                         text = article.title,
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    Text(
+                    MarkdownText(
                         text = article.body,
                         style = MaterialTheme.typography.bodyMedium,
                     )

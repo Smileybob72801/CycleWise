@@ -25,7 +25,7 @@ enum class ArticleCategory(val displayKey: String) {
  *
  * Articles are authored as a JSON asset (`res/raw/educational_content.json`)
  * and deserialised at app start. Body text uses lightweight Markdown formatting
- * (headers, bullets, bold) — rendered as plain text for now.
+ * (`**bold**`, `- ` bullet lists) rendered by the [MarkdownText] composable.
  *
  * Annotated with [@Serializable] (unlike other domain models) because the
  * loading mechanism is JSON deserialization via `kotlinx.serialization`.
