@@ -84,19 +84,35 @@ class EducationalContentLoaderTest {
           {"id":"cycle-basics-03","title":"The Follicular Phase","body":"body","category":"CYCLE_BASICS","contentTags":["CyclePhase","CyclePhase.FOLLICULAR"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":3},
           {"id":"cycle-basics-04","title":"Ovulation: What Happens and When","body":"body","category":"CYCLE_BASICS","contentTags":["CyclePhase","CyclePhase.OVULATION"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":4},
           {"id":"cycle-basics-05","title":"The Luteal Phase","body":"body","category":"CYCLE_BASICS","contentTags":["CyclePhase","CyclePhase.LUTEAL"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":5},
+          {"id":"cycle-basics-06","title":"Reproductive Anatomy Basics","body":"body","category":"CYCLE_BASICS","contentTags":["CyclePhase"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":6},
+          {"id":"cycle-basics-07","title":"Hormones and Your Cycle","body":"body","category":"CYCLE_BASICS","contentTags":["CyclePhase"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":7},
+          {"id":"cycle-basics-08","title":"Cervical Mucus Changes","body":"body","category":"CYCLE_BASICS","contentTags":["CyclePhase","CyclePhase.OVULATION"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":8},
           {"id":"symptoms-01","title":"Pain and Cramps","body":"body","category":"SYMPTOMS","contentTags":["Symptoms","SymptomCategory.PAIN"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":10},
           {"id":"symptoms-02","title":"Mood Changes and Your Cycle","body":"body","category":"SYMPTOMS","contentTags":["Symptoms","SymptomCategory.MOOD","Mood"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":11},
           {"id":"symptoms-03","title":"Digestive Symptoms","body":"body","category":"SYMPTOMS","contentTags":["Symptoms","SymptomCategory.DIGESTIVE"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":12},
           {"id":"symptoms-04","title":"Skin Changes During Your Cycle","body":"body","category":"SYMPTOMS","contentTags":["Symptoms","SymptomCategory.SKIN"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":13},
           {"id":"symptoms-05","title":"Fatigue and Energy","body":"body","category":"SYMPTOMS","contentTags":["Symptoms","SymptomCategory.ENERGY","Energy"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":14},
+          {"id":"symptoms-06","title":"Libido and Your Cycle","body":"body","category":"SYMPTOMS","contentTags":["Symptoms","Libido"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":15},
+          {"id":"symptoms-07","title":"Sleep and Your Cycle","body":"body","category":"SYMPTOMS","contentTags":["Symptoms","SymptomCategory.ENERGY","Energy"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":16},
           {"id":"wellness-01","title":"Why Track Your Cycle?","body":"body","category":"WELLNESS","contentTags":["Mood","Energy"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":20},
-          {"id":"wellness-02","title":"Hydration and Nutrition","body":"body","category":"WELLNESS","contentTags":["CyclePhase.MENSTRUATION"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":21},
+          {"id":"wellness-02","title":"Hydration and Nutrition","body":"body","category":"WELLNESS","contentTags":["Hydration","CyclePhase.MENSTRUATION"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":21},
           {"id":"wellness-03","title":"Exercise and Your Cycle","body":"body","category":"WELLNESS","contentTags":["Energy"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":22},
           {"id":"wellness-04","title":"Mood, Hormones, and the Cycle","body":"body","category":"WELLNESS","contentTags":["Mood","CyclePhase.LUTEAL"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":23},
-          {"id":"doctor-01","title":"Heavy Flow and Large Clots","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["FlowIntensity","FlowIntensity.HEAVY","PeriodConsistency"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":30},
-          {"id":"doctor-02","title":"Period Color Changes","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["PeriodColor","PeriodColor.UNUSUAL_COLOR"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":31},
-          {"id":"doctor-03","title":"Irregular and Absent Periods","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["CyclePhase"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":32},
-          {"id":"doctor-04","title":"Severe Pain","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["Symptoms","SymptomCategory.PAIN"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":33}
+          {"id":"wellness-05","title":"Hydration and Your Menstrual Cycle","body":"body","category":"WELLNESS","contentTags":["Hydration","CyclePhase.MENSTRUATION"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":24},
+          {"id":"wellness-06","title":"Hydration for Reproductive Health","body":"body","category":"WELLNESS","contentTags":["Hydration"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":25},
+          {"id":"wellness-07","title":"Medication and Your Cycle","body":"body","category":"WELLNESS","contentTags":["Medication"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":26},
+          {"id":"wellness-08","title":"Common Medications and Period Effects","body":"body","category":"WELLNESS","contentTags":["Medication","Symptoms"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":27},
+          {"id":"wellness-09","title":"Understanding PMS and PMDD","body":"body","category":"WELLNESS","contentTags":["Mood","CyclePhase.LUTEAL","Symptoms"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":28},
+          {"id":"wellness-10","title":"Hormonal Birth Control and Your Cycle","body":"body","category":"WELLNESS","contentTags":["CyclePhase","Medication"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":29},
+          {"id":"wellness-11","title":"Cycle Tracking Through Life Stages","body":"body","category":"WELLNESS","contentTags":["CyclePhase","Pregnancy","Menopause"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":30},
+          {"id":"doctor-01","title":"Heavy Flow and Large Clots","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["FlowIntensity","FlowIntensity.HEAVY","PeriodConsistency"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":40},
+          {"id":"doctor-02","title":"Period Color Changes","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["PeriodColor","PeriodColor.UNUSUAL_COLOR"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":41},
+          {"id":"doctor-03","title":"Irregular and Absent Periods","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["CyclePhase"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":42},
+          {"id":"doctor-04","title":"Severe Pain","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["Symptoms","SymptomCategory.PAIN"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":43},
+          {"id":"doctor-05","title":"Pregnancy and Your Cycle","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["Pregnancy","CyclePhase"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":44},
+          {"id":"doctor-06","title":"Fertility Awareness","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["Pregnancy","CyclePhase.OVULATION"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":45},
+          {"id":"doctor-07","title":"Perimenopause and Cycle Changes","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["Menopause","CyclePhase"],"sourceName":"NICHD","sourceUrl":"https://example.com","sortOrder":46},
+          {"id":"doctor-08","title":"Menopause: What to Expect","body":"body","category":"WHEN_TO_SEE_A_DOCTOR","contentTags":["Menopause"],"sourceName":"OWH","sourceUrl":"https://example.com","sortOrder":47}
         ]
     """.trimIndent()
 
@@ -105,8 +121,8 @@ class EducationalContentLoaderTest {
         // WHEN
         val result = EducationalContentLoader.parseJson(productionJson)
 
-        // THEN — 18 articles total
-        assertEquals(18, result.size, "Production JSON should contain 18 articles")
+        // THEN — 34 articles total
+        assertEquals(34, result.size, "Production JSON should contain 34 articles")
     }
 
     @Test
@@ -114,12 +130,12 @@ class EducationalContentLoaderTest {
         // WHEN
         val result = EducationalContentLoader.parseJson(productionJson)
 
-        // THEN — every category has at least 3 articles
+        // THEN — every category has at least 4 articles
         ArticleCategory.entries.forEach { category ->
             val count = result.count { it.category == category }
             assertTrue(
-                count >= 3,
-                "Category $category should have at least 3 articles, but has $count"
+                count >= 4,
+                "Category $category should have at least 4 articles, but has $count"
             )
         }
     }
@@ -130,6 +146,7 @@ class EducationalContentLoaderTest {
         val validTags = setOf(
             // Bare tags (used as info button content tags)
             "Mood", "Energy", "Symptoms", "FlowIntensity", "PeriodColor", "PeriodConsistency",
+            "Hydration", "Medication", "Libido", "Pregnancy", "Menopause",
             // CyclePhase
             "CyclePhase",
             "CyclePhase.MENSTRUATION", "CyclePhase.FOLLICULAR",
@@ -169,6 +186,7 @@ class EducationalContentLoaderTest {
         val infoButtonTags = listOf(
             "FlowIntensity", "Mood", "Energy", "PeriodColor",
             "PeriodConsistency", "Symptoms", "CyclePhase",
+            "Hydration", "Medication", "Libido",
         )
 
         // WHEN

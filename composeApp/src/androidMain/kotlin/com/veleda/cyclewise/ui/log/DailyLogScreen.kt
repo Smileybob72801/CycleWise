@@ -179,6 +179,7 @@ fun DailyLogScreen(
                             medicationLibrary = uiState.medicationLibrary,
                             onToggleMedication = { viewModel.onEvent(DailyLogEvent.MedicationToggled(it)) },
                             onCreateAndAddMedication = { viewModel.onEvent(DailyLogEvent.MedicationCreatedAndAdded(it)) },
+                            onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
                         )
                         PAGE_NOTES -> NotesTagsPage(
                             tags = log.entry.customTags,
@@ -252,6 +253,7 @@ private fun WellnessPage(
         SectionCard(
             title = stringResource(R.string.libido_section_title),
             icon = Icons.Outlined.FavoriteBorder,
+            onInfoClick = { onShowEducationalSheet("Libido") },
         ) {
             ScoreSelector(
                 selectedScore = libidoScore,
@@ -263,6 +265,7 @@ private fun WellnessPage(
         SectionCard(
             title = stringResource(R.string.water_section_title),
             icon = Icons.Outlined.WaterDrop,
+            onInfoClick = { onShowEducationalSheet("Hydration") },
         ) {
             WaterTrackerCounter(
                 cups = waterCups,
@@ -439,6 +442,7 @@ private fun MedicationsPage(
     medicationLibrary: List<Medication>,
     onToggleMedication: (Medication) -> Unit,
     onCreateAndAddMedication: (String) -> Unit,
+    onShowEducationalSheet: (String) -> Unit,
 ) {
     val dims = LocalDimensions.current
     Column(
@@ -461,6 +465,7 @@ private fun MedicationsPage(
         SectionCard(
             title = stringResource(R.string.daily_log_medications_title),
             icon = Icons.Outlined.MedicalServices,
+            onInfoClick = { onShowEducationalSheet("Medication") },
         ) {
             MedicationLogger(
                 loggedMedications = loggedMedications,
