@@ -15,15 +15,32 @@ import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.parameter.parametersOf
 
+/** Minimum passphrase length enforced during first-time setup. */
+internal const val MIN_PASSPHRASE_LENGTH = 8
+
 /**
  * UI state for the passphrase screen.
  *
- * @property isUnlocking `true` while an unlock attempt is in progress; used by the UI
- *           to show a loading indicator and by [PassphraseViewModel.unlock] as a
- *           re-entrancy guard to ignore duplicate tap events.
+ * @property isUnlocking        `true` while an unlock attempt is in progress; used by the UI
+ *                              to show a loading indicator and by [PassphraseViewModel.unlock]
+ *                              as a re-entrancy guard to ignore duplicate tap events.
+ * @property isFirstTime        `true` when the user has never completed setup (derived from
+ *                              `AppSettings.isPrepopulated`). When `true` the UI shows the
+ *                              onboarding setup flow instead of the unlock screen.
+ * @property isFirstTimeLoaded  `true` once [isFirstTime] has been resolved from DataStore.
+ *                              The UI should not render until this is `true` to avoid a
+ *                              flash of the wrong screen.
+ * @property passphraseError    Inline error for the passphrase field during setup (e.g. too
+ *                              short). `null` means no error.
+ * @property confirmationError  Inline error for the confirmation field during setup (e.g.
+ *                              mismatch). `null` means no error.
  */
 data class PassphraseUiState(
-    val isUnlocking: Boolean = false
+    val isUnlocking: Boolean = false,
+    val isFirstTime: Boolean = false,
+    val isFirstTimeLoaded: Boolean = false,
+    val passphraseError: String? = null,
+    val confirmationError: String? = null,
 )
 
 /**
@@ -64,16 +81,59 @@ class PassphraseViewModel(
      */
     val effect: SharedFlow<PassphraseEffect> = _effect.asSharedFlow()
 
+    init {
+        viewModelScope.launch {
+            val prepopulated = appSettings.isPrepopulated.first()
+            _uiState.update {
+                it.copy(
+                    isFirstTime = !prepopulated,
+                    isFirstTimeLoaded = true,
+                )
+            }
+        }
+    }
+
     /**
      * Single entry-point for all screen-level user interactions.
      *
      * Delegates to the appropriate handler based on the [event] type.
-     * Currently supports [PassphraseEvent.UnlockClicked].
      */
     fun onEvent(event: PassphraseEvent) {
         when (event) {
             is PassphraseEvent.UnlockClicked -> unlock(event.passphrase)
+            is PassphraseEvent.SetupClicked -> handleSetup(event.passphrase, event.confirmation)
         }
+    }
+
+    /**
+     * Validates the new passphrase during first-time setup and, if valid, delegates
+     * to the standard [unlock] flow.
+     *
+     * Validation rules (checked in order):
+     * 1. Passphrase must be at least [MIN_PASSPHRASE_LENGTH] characters.
+     * 2. Passphrase and confirmation must match exactly.
+     *
+     * If validation fails, the corresponding error field in [PassphraseUiState] is set
+     * and no unlock attempt is made. If validation passes, both error fields are cleared
+     * and [unlock] is called with the validated passphrase.
+     *
+     * @param passphrase    the new passphrase entered by the user.
+     * @param confirmation  the confirmation re-entry.
+     */
+    private fun handleSetup(passphrase: String, confirmation: String) {
+        // Clear previous errors
+        _uiState.update { it.copy(passphraseError = null, confirmationError = null) }
+
+        if (passphrase.length < MIN_PASSPHRASE_LENGTH) {
+            _uiState.update { it.copy(passphraseError = "too_short") }
+            return
+        }
+        if (passphrase != confirmation) {
+            _uiState.update { it.copy(confirmationError = "mismatch") }
+            return
+        }
+
+        unlock(passphrase)
     }
 
     /**

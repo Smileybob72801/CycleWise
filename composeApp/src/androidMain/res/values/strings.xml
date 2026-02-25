@@ -166,6 +166,22 @@
     <string name="passphrase_logo_description">RhythmWise logo</string>
     <string name="passphrase_water_toggle">Quick log water</string>
 
+    <!-- Setup / Onboarding -->
+    <string name="setup_page1_title">Your Data Stays on This Device</string>
+    <string name="setup_page1_body">RhythmWise stores everything you track right here on your phone. Your cycle data, symptoms, moods, and notes never leave this device. There is no account, no cloud sync, and no way for anyone (including us) to see your information.\n\nTo keep your data safe, the app encrypts it with a passphrase that only you know. Think of it as a lock on a private journal. Without the right passphrase, the data is unreadable.</string>
+    <string name="setup_page2_title">Choosing a Passphrase You Will Remember</string>
+    <string name="setup_page2_body">A good passphrase is a short phrase that is easy for you to picture but hard for someone else to guess.\n\n**How to build one:**\n- Pick 4 or 5 unrelated words and string them together. \"purple dog Tuesday pancake\" is much stronger than a short password with special characters\n- Add a personal twist that helps it stick in your mind. Maybe swap a word for something only you would think of, or picture a silly scene\n- Avoid names, birthdays, and common phrases. \"ILoveYou123\" is one of the first things an attacker would try\n\n**Why this works:** Length beats complexity. A passphrase with 4 random words is far stronger than \"P@ssw0rd!\" and much easier to type on a phone.</string>
+    <string name="setup_page3_title">No Recovery, No Exceptions</string>
+    <string name="setup_page3_body">If you forget your passphrase, your data cannot be recovered. There is no reset button, no recovery email, and no back door. This is intentional.\n\nThe same encryption that keeps your data private means that nobody, not even this app, can unlock it without the correct passphrase.\n\n**Before you continue:**\n- Make sure you have a passphrase you are confident you will remember\n- Consider writing it down and keeping it somewhere safe and private until you have it memorized\n- Once you have it memorized, destroy the written copy</string>
+    <string name="setup_page4_title">Create Your Passphrase</string>
+    <string name="setup_passphrase_label">Create passphrase</string>
+    <string name="setup_confirm_label">Confirm passphrase</string>
+    <string name="setup_create_button">Create and Unlock</string>
+    <string name="setup_error_too_short">Passphrase must be at least 8 characters</string>
+    <string name="setup_error_mismatch">Passphrases do not match</string>
+    <string name="setup_next">Next</string>
+    <string name="setup_back">Back</string>
+
     <!-- Insights -->
     <string name="insights_title">Insights</string>
     <string name="insights_empty">Not enough data to generate insights yet. Keep tracking!</string>

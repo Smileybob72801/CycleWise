@@ -6,6 +6,22 @@ package com.veleda.cyclewise.ui.auth
 sealed interface PassphraseEvent {
     /** The user has entered their passphrase and tapped the Unlock button. */
     data class UnlockClicked(val passphrase: String) : PassphraseEvent
+
+    /**
+     * The first-time user has created a passphrase and tapped the Create button.
+     *
+     * Semantically distinct from [UnlockClicked] — the ViewModel validates the
+     * passphrase length and confirmation match before delegating to the same
+     * unlock sequence (key derivation, database creation, session scope,
+     * symptom prepopulation, water draft sync, navigation).
+     *
+     * @property passphrase    the new passphrase entered by the user.
+     * @property confirmation  the confirmation re-entry; must match [passphrase].
+     */
+    data class SetupClicked(
+        val passphrase: String,
+        val confirmation: String,
+    ) : PassphraseEvent
 }
 
 /**
