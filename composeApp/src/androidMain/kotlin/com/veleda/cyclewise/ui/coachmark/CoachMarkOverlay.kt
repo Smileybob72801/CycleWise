@@ -34,9 +34,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -297,25 +297,25 @@ private fun HoldToSkipButton(
 }
 
 /**
- * Draws a semi-transparent scrim over the entire canvas with a clear rounded-rect
+ * Draws a semi-transparent scrim over the entire canvas with a transparent rounded-rect
  * cutout at [highlightRect].
+ *
+ * Uses [PathFillType.EvenOdd] to draw a single donut-shaped path (full screen minus
+ * cutout) instead of drawing a full scrim and then clearing a hole. This avoids the
+ * need for [androidx.compose.ui.graphics.CompositingStrategy.Offscreen] on the parent,
+ * which caused [androidx.compose.ui.graphics.BlendMode.Clear] to erase underlying
+ * screen content along with the scrim.
  */
 private fun DrawScope.drawScrimWithCutout(highlightRect: Rect, cornerRadius: Float) {
-    // Draw the full-screen scrim.
-    drawRect(color = Color.Black.copy(alpha = 0.6f))
-
-    // Punch a clear hole for the target.
-    val cutoutPath = Path().apply {
+    val scrimPath = Path().apply {
+        addRect(Rect(0f, 0f, size.width, size.height))
         addRoundRect(
             RoundRect(
                 rect = highlightRect,
                 cornerRadius = CornerRadius(cornerRadius, cornerRadius),
             )
         )
+        fillType = PathFillType.EvenOdd
     }
-    drawPath(
-        path = cutoutPath,
-        color = Color.Transparent,
-        blendMode = BlendMode.Clear,
-    )
+    drawPath(path = scrimPath, color = Color.Black.copy(alpha = 0.6f))
 }
