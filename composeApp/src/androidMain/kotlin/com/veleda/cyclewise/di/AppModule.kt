@@ -26,6 +26,7 @@ import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
 import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
+import com.veleda.cyclewise.domain.usecases.TutorialSeederUseCase
 import org.koin.core.qualifier.named
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
 import com.veleda.cyclewise.session.SessionBus
@@ -190,6 +191,7 @@ val appModule = module {
         // Use Case Providers
         scoped { GetOrCreateDailyLogUseCase(get()) }
         scoped { DebugSeederUseCase(get()) }
+        scoped { TutorialSeederUseCase(get()) }
         scoped { AutoCloseOngoingPeriodUseCase(get()) }
         // ViewModel Providers
         viewModel {

@@ -100,7 +100,16 @@ fun CycleWiseAppUI() {
                 }
                 composable(NavRoute.DailyLogHome.route) {
                     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
-                    DailyLogScreen(date = today)
+                    DailyLogScreen(
+                        date = today,
+                        onNavigateToTracker = {
+                            navController.navigate(NavRoute.Tracker.route) {
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                    )
                 }
                 composable(NavRoute.Tracker.route) {
                     TrackerScreen(navController)

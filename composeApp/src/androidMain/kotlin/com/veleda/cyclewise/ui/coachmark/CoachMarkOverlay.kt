@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.launch
@@ -204,7 +205,7 @@ fun CoachMarkOverlay(
                     modifier = Modifier.padding(top = dims.sm),
                 )
 
-                // Button row: "Hold to skip" on the start, "Next"/"Got it" on the end.
+                // Button row: "Hold to skip" on the start, optional skip + primary on the end.
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -214,16 +215,37 @@ fun CoachMarkOverlay(
                 ) {
                     HoldToSkipButton(
                         onSkip = { state.skipAll(allDefs) },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f, fill = false),
                     )
 
-                    TextButton(
-                        onClick = { state.advanceOrDismiss(allDefs) },
-                    ) {
-                        Text(
-                            text = stringResource(active.def.dismissLabelRes),
-                            maxLines = 1,
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (active.def.skipButtonRes != null) {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            TextButton(
+                                onClick = {
+                                    state.skipToKey(active.def.skipTargetKey!!, allDefs)
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(active.def.skipToastRes!!),
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                },
+                            ) {
+                                Text(
+                                    text = stringResource(active.def.skipButtonRes),
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+
+                        TextButton(
+                            onClick = { state.advanceOrDismiss(allDefs) },
+                        ) {
+                            Text(
+                                text = stringResource(active.def.dismissLabelRes),
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
             }

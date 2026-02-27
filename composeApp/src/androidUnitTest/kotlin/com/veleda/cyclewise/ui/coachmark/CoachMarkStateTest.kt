@@ -299,4 +299,49 @@ class CoachMarkStateTest {
         assertEquals(HintKey.DAILY_LOG_PERIOD_TOGGLE, active.def.key)
         assertEquals(bounds, active.targetBounds)
     }
+
+    @Test
+    fun `skipToKey WHEN targetInChain THEN marksIntermediatesSeenAndActivatesTarget`() {
+        // GIVEN — welcome is active, period tab bounds are registered
+        state.registerTarget(HintKey.DAILY_LOG_WELCOME, testBounds)
+        state.registerTarget(HintKey.DAILY_LOG_EXPLORE_TABS, Rect(10f, 100f, 300f, 150f))
+        val periodTabBounds = Rect(10f, 100f, 200f, 140f)
+        state.registerTarget(HintKey.DAILY_LOG_PERIOD_TAB, periodTabBounds)
+        state.showHint(defWelcome)
+
+        // WHEN — skip from WELCOME to PERIOD_TAB
+        state.skipToKey(HintKey.DAILY_LOG_PERIOD_TAB, allDefs)
+        testScope.advanceUntilIdle()
+
+        // THEN — active is PERIOD_TAB
+        val active = state.active.value
+        assertNotNull(active, "Active should be the skip target")
+        assertEquals(HintKey.DAILY_LOG_PERIOD_TAB, active.def.key)
+
+        // AND — intermediate steps (WELCOME, EXPLORE_TABS) were marked seen
+        coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_WELCOME) }
+        coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_EXPLORE_TABS) }
+
+        // AND — target step was NOT marked seen (it's now active, user still needs to dismiss)
+        coVerify(exactly = 0) { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_PERIOD_TAB) }
+    }
+
+    @Test
+    fun `skipToKey WHEN targetNotInChain THEN marksAllSeenAndClearsActive`() {
+        // GIVEN — PERIOD_TAB is active (chain: PERIOD_TAB → PERIOD_TOGGLE → null)
+        state.registerTarget(HintKey.DAILY_LOG_PERIOD_TAB, testBounds)
+        state.showHint(defPeriodTab)
+
+        // WHEN — skip to a key that doesn't exist in the remaining chain
+        state.skipToKey(HintKey.DAILY_LOG_WELCOME, allDefs) // WELCOME is not after PERIOD_TAB
+        testScope.advanceUntilIdle()
+
+        // THEN — active and pending are cleared
+        assertNull(state.active.value, "Active should be null when target not found in chain")
+        assertNull(state.pendingHintKey.value, "pendingHintKey should be null when target not found")
+
+        // AND — all chain steps from current onward are marked seen
+        coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_PERIOD_TAB) }
+        coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_PERIOD_TOGGLE) }
+    }
 }

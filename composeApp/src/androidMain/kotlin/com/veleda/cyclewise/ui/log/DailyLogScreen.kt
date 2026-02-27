@@ -53,6 +53,7 @@ import com.veleda.cyclewise.domain.models.PeriodColor
 import com.veleda.cyclewise.domain.models.PeriodConsistency
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.domain.usecases.TutorialSeederUseCase
 import com.veleda.cyclewise.ui.auth.WaterTrackerCounter
 import com.veleda.cyclewise.ui.components.EducationalBottomSheet
 import com.veleda.cyclewise.ui.components.InfoButton
@@ -80,6 +81,7 @@ private const val PAGE_NOTES = 4
 @Composable
 fun DailyLogScreen(
     date: LocalDate,
+    onNavigateToTracker: () -> Unit = {},
 ) {
     val dims = LocalDimensions.current
     val koin = getKoin()
@@ -98,11 +100,18 @@ fun DailyLogScreen(
     val hintPreferences: HintPreferences = koin.get()
     val coachMarkState = remember { CoachMarkState(hintPreferences, coroutineScope) }
 
-    // Start the walkthrough when the log finishes loading for the first time.
+    // Tracks whether the walkthrough has been started this session, used to detect
+    // completion and navigate to the Tracker screen.
+    var walkthroughActive by remember { mutableStateOf(false) }
+
+    // Start the walkthrough (and seed demo data) when the log finishes loading.
     LaunchedEffect(uiState.isLoading) {
         if (!uiState.isLoading && uiState.log != null) {
             val seen = hintPreferences.isHintSeen(HintKey.DAILY_LOG_WELCOME).first()
             if (!seen) {
+                val seeder: TutorialSeederUseCase = sessionScope.get()
+                seeder()
+                walkthroughActive = true
                 DAILY_LOG_HINTS[HintKey.DAILY_LOG_WELCOME]?.let { coachMarkState.showHint(it) }
             }
         }
@@ -111,15 +120,34 @@ fun DailyLogScreen(
     val activeHint by coachMarkState.active.collectAsState()
     val pendingKey by coachMarkState.pendingHintKey.collectAsState()
 
-    // When a pending hint targets the Period page (e.g. user pressed the overlay's
-    // "Next" button at step 3), auto-scroll the pager so the target composable
-    // becomes visible. Hold activation during the scroll so the overlay only
-    // appears once the page has fully settled.
+    // Detect walkthrough completion: the Daily Log walkthrough ended (NOTES_TAB seen)
+    // and the Tracker walkthrough hasn't started yet → navigate to Tracker.
+    LaunchedEffect(activeHint, pendingKey, walkthroughActive) {
+        if (walkthroughActive && activeHint == null && pendingKey == null) {
+            val notesSeen = hintPreferences.isHintSeen(HintKey.DAILY_LOG_NOTES_TAB).first()
+            val trackerSeen = hintPreferences.isHintSeen(HintKey.TRACKER_WELCOME).first()
+            if (notesSeen && !trackerSeen) {
+                walkthroughActive = false
+                onNavigateToTracker()
+            }
+        }
+    }
+
+    // When a pending hint targets a page that is not currently visible, auto-scroll
+    // the pager so the target composable becomes visible. Hold activation during
+    // the scroll so the overlay only appears once the page has fully settled.
     LaunchedEffect(pendingKey) {
-        if (pendingKey == HintKey.DAILY_LOG_PERIOD_TOGGLE) {
+        val targetPage = when (pendingKey) {
+            HintKey.DAILY_LOG_PERIOD_TAB, HintKey.DAILY_LOG_PERIOD_TOGGLE -> PAGE_PERIOD
+            HintKey.DAILY_LOG_SYMPTOMS_TAB -> PAGE_SYMPTOMS
+            HintKey.DAILY_LOG_MEDICATIONS_TAB -> PAGE_MEDICATIONS
+            HintKey.DAILY_LOG_NOTES_TAB -> PAGE_NOTES
+            else -> null
+        }
+        if (targetPage != null && pagerState.currentPage != targetPage) {
             coachMarkState.hold()
             try {
-                pagerState.animateScrollToPage(PAGE_PERIOD)
+                pagerState.animateScrollToPage(targetPage)
             } finally {
                 coachMarkState.release()
             }
@@ -199,10 +227,12 @@ fun DailyLogScreen(
                                         style = MaterialTheme.typography.labelLarge,
                                     )
                                 },
-                                modifier = if (index == PAGE_PERIOD) {
-                                    Modifier.coachMarkTarget(HintKey.DAILY_LOG_PERIOD_TAB, coachMarkState)
-                                } else {
-                                    Modifier
+                                modifier = when (index) {
+                                    PAGE_PERIOD -> Modifier.coachMarkTarget(HintKey.DAILY_LOG_PERIOD_TAB, coachMarkState)
+                                    PAGE_SYMPTOMS -> Modifier.coachMarkTarget(HintKey.DAILY_LOG_SYMPTOMS_TAB, coachMarkState)
+                                    PAGE_MEDICATIONS -> Modifier.coachMarkTarget(HintKey.DAILY_LOG_MEDICATIONS_TAB, coachMarkState)
+                                    PAGE_NOTES -> Modifier.coachMarkTarget(HintKey.DAILY_LOG_NOTES_TAB, coachMarkState)
+                                    else -> Modifier
                                 },
                             )
                         }
@@ -228,6 +258,7 @@ fun DailyLogScreen(
                                 onWaterIncrement = { viewModel.onEvent(DailyLogEvent.WaterIncrement) },
                                 onWaterDecrement = { viewModel.onEvent(DailyLogEvent.WaterDecrement) },
                                 onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
+                                coachMarkState = coachMarkState,
                             )
                             PAGE_PERIOD -> PeriodPage(
                                 isPeriodDay = uiState.isPeriodDay,
@@ -294,6 +325,7 @@ private fun WellnessPage(
     onWaterIncrement: () -> Unit,
     onWaterDecrement: () -> Unit,
     onShowEducationalSheet: (String) -> Unit,
+    coachMarkState: CoachMarkState? = null,
 ) {
     val dims = LocalDimensions.current
     Column(
@@ -309,6 +341,11 @@ private fun WellnessPage(
             title = stringResource(R.string.daily_log_mood_title),
             icon = Icons.Outlined.SelfImprovement,
             onInfoClick = { onShowEducationalSheet("Mood") },
+            modifier = if (coachMarkState != null) {
+                Modifier.coachMarkTarget(HintKey.DAILY_LOG_MOOD, coachMarkState)
+            } else {
+                Modifier
+            },
         ) {
             MoodSelector(
                 selectedMood = moodScore,
@@ -320,6 +357,11 @@ private fun WellnessPage(
             title = stringResource(R.string.energy_section_title),
             icon = Icons.Outlined.Bedtime,
             onInfoClick = { onShowEducationalSheet("Energy") },
+            modifier = if (coachMarkState != null) {
+                Modifier.coachMarkTarget(HintKey.DAILY_LOG_ENERGY, coachMarkState)
+            } else {
+                Modifier
+            },
         ) {
             ScoreSelector(
                 selectedScore = energyLevel,
@@ -344,6 +386,11 @@ private fun WellnessPage(
             title = stringResource(R.string.water_section_title),
             icon = Icons.Outlined.WaterDrop,
             onInfoClick = { onShowEducationalSheet("Hydration") },
+            modifier = if (coachMarkState != null) {
+                Modifier.coachMarkTarget(HintKey.DAILY_LOG_WATER, coachMarkState)
+            } else {
+                Modifier
+            },
         ) {
             WaterTrackerCounter(
                 cups = waterCups,
@@ -625,6 +672,7 @@ private fun SectionCard(
     title: String,
     icon: ImageVector,
     onInfoClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val dims = LocalDimensions.current
@@ -633,6 +681,7 @@ private fun SectionCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
         ),
+        modifier = modifier,
     ) {
         Column(modifier = Modifier.padding(dims.md)) {
             Row(

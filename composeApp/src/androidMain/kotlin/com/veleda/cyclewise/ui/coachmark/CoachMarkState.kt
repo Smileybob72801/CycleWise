@@ -141,6 +141,39 @@ class CoachMarkState(
     }
 
     /**
+     * Skips forward in the walkthrough chain to the step identified by [targetKey].
+     *
+     * Walks the [CoachMarkDef.nextKey] chain starting from the currently active hint,
+     * marking each intermediate step (including the current one) as seen. When
+     * [targetKey] is found, it is activated via [showHint]. If [targetKey] is not
+     * found in the remaining chain, all remaining steps are marked seen and the
+     * overlay is cleared.
+     *
+     * Used by the "I don't have periods" skip button to jump past period-specific
+     * steps without terminating the entire walkthrough.
+     *
+     * @param targetKey The [HintKey] to skip to.
+     * @param allDefs   Full walkthrough map so definitions can be resolved by key.
+     */
+    fun skipToKey(targetKey: HintKey, allDefs: Map<HintKey, CoachMarkDef>) {
+        val current = _active.value?.def ?: return
+        var cursor: CoachMarkDef? = current
+        while (cursor != null) {
+            if (cursor.key == targetKey) {
+                showHint(cursor)
+                return
+            }
+            val keyToMark = cursor.key
+            scope.launch { hintPreferences.markHintSeen(keyToMark) }
+            cursor = cursor.nextKey?.let { allDefs[it] }
+        }
+        // Target not found in chain — clear everything.
+        _active.value = null
+        pendingDef = null
+        _pendingHintKey.value = null
+    }
+
+    /**
      * Marks **all** hints in the walkthrough as seen and clears the overlay.
      *
      * Used by the long-press "Hold to skip" button to terminate the entire
