@@ -19,7 +19,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -214,12 +214,16 @@ fun CoachMarkOverlay(
                 ) {
                     HoldToSkipButton(
                         onSkip = { state.skipAll(allDefs) },
+                        modifier = Modifier.weight(1f),
                     )
 
-                    Button(
+                    TextButton(
                         onClick = { state.advanceOrDismiss(allDefs) },
                     ) {
-                        Text(stringResource(active.def.dismissLabelRes))
+                        Text(
+                            text = stringResource(active.def.dismissLabelRes),
+                            maxLines = 1,
+                        )
                     }
                 }
             }
@@ -234,16 +238,19 @@ fun CoachMarkOverlay(
  * the button. Releasing early resets progress. When the progress reaches
  * 100%, [onSkip] is called to terminate the entire walkthrough.
  *
- * @param onSkip Callback invoked when the hold completes successfully.
+ * @param onSkip   Callback invoked when the hold completes successfully.
+ * @param modifier [Modifier] applied to the root [Column].
  */
 @Composable
 private fun HoldToSkipButton(
     onSkip: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
     val progress = remember { Animatable(0f) }
 
     Column(
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
