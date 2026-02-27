@@ -112,11 +112,18 @@ fun DailyLogScreen(
     val activeHint by coachMarkState.active.collectAsState()
     val pendingKey by coachMarkState.pendingHintKey.collectAsState()
 
-    // When a pending hint targets the Period page, auto-scroll the pager so the
-    // target composable becomes visible and can register its bounds.
+    // When a pending hint targets the Period page (e.g. user pressed the overlay's
+    // "Next" button at step 3), auto-scroll the pager so the target composable
+    // becomes visible. Hold activation during the scroll so the overlay only
+    // appears once the page has fully settled.
     LaunchedEffect(pendingKey) {
         if (pendingKey == HintKey.DAILY_LOG_PERIOD_TOGGLE) {
-            pagerState.animateScrollToPage(PAGE_PERIOD)
+            coachMarkState.hold()
+            try {
+                pagerState.animateScrollToPage(PAGE_PERIOD)
+            } finally {
+                coachMarkState.release()
+            }
         }
     }
 
@@ -179,11 +186,16 @@ fun DailyLogScreen(
                                         !tutorialActive -> {
                                             coroutineScope.launch { pagerState.animateScrollToPage(index) }
                                         }
-                                        // Step 3 (PERIOD_TAB) + user tapped the Period tab — scroll & advance.
+                                        // Step 3 (PERIOD_TAB) + user tapped the Period tab.
+                                        // Scroll first, then advance — this way pendingKey never
+                                        // changes during the animation, avoiding a race with the
+                                        // LaunchedEffect that also scrolls on pendingKey changes.
                                         activeHint?.def?.key == HintKey.DAILY_LOG_PERIOD_TAB
                                             && index == PAGE_PERIOD -> {
-                                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                                            coachMarkState.advanceOrDismiss(DAILY_LOG_HINTS)
+                                            coroutineScope.launch {
+                                                pagerState.animateScrollToPage(index)
+                                                coachMarkState.advanceOrDismiss(DAILY_LOG_HINTS)
+                                            }
                                         }
                                         // All other clicks during tutorial — blocked (no-op).
                                     }

@@ -51,11 +51,21 @@ class CoachMarkState(
     private var pendingDef: CoachMarkDef? = null
 
     /**
+     * When `true`, [registerTarget] stores bounds but defers activating pending hints
+     * until [release] is called. This prevents the overlay from appearing mid-animation
+     * (e.g., while a pager is scrolling to a new page).
+     */
+    private var held = false
+
+    /**
      * Called by [coachMarkTarget] modifiers to report the screen-space bounds of a
-     * target composable. If a pending hint matches [key], the overlay activates immediately.
+     * target composable. If a pending hint matches [key] and the state is not [held],
+     * the overlay activates immediately. Otherwise the bounds are stored for later
+     * resolution when [release] is called.
      */
     fun registerTarget(key: HintKey, bounds: Rect) {
         targetBoundsMap[key] = bounds
+        if (held) return
         val pending = pendingDef
         if (pending != null && pending.key == key) {
             _active.value = ActiveCoachMark(pending, bounds)
@@ -101,6 +111,33 @@ class CoachMarkState(
         }
         _active.value = null
         pendingDef = null
+    }
+
+    /**
+     * Prevents pending hints from activating until [release] is called.
+     *
+     * Call this before starting an animation or transition that would cause target
+     * composables to register bounds prematurely (e.g., a pager scroll). Pair with
+     * [release] after the animation completes so the next hint appears only once the
+     * UI has settled.
+     */
+    fun hold() {
+        held = true
+    }
+
+    /**
+     * Resumes normal activation after a previous [hold].
+     *
+     * If a pending hint's target bounds were registered while held, the hint
+     * activates immediately upon release. Safe to call when not held (no-op).
+     */
+    fun release() {
+        held = false
+        val pending = pendingDef ?: return
+        val bounds = targetBoundsMap[pending.key] ?: return
+        _active.value = ActiveCoachMark(pending, bounds)
+        pendingDef = null
+        _pendingHintKey.value = null
     }
 
     /**

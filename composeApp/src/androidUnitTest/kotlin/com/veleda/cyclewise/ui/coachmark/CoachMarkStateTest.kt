@@ -206,6 +206,78 @@ class CoachMarkStateTest {
     }
 
     @Test
+    fun `hold WHEN registerTargetCalledWhileHeld THEN doesNotActivatePending`() {
+        // GIVEN — PERIOD_TAB is active and we advance to PERIOD_TOGGLE (pending)
+        state.registerTarget(HintKey.DAILY_LOG_PERIOD_TAB, testBounds)
+        state.showHint(defPeriodTab)
+        state.hold()
+        state.advanceOrDismiss(allDefs)
+        testScope.advanceUntilIdle()
+
+        // Preconditions: active is null, pending is PERIOD_TOGGLE
+        assertNull(state.active.value, "Precondition: active should be null while pending")
+        assertEquals(
+            HintKey.DAILY_LOG_PERIOD_TOGGLE,
+            state.pendingHintKey.value,
+            "Precondition: pendingHintKey should be PERIOD_TOGGLE"
+        )
+
+        // WHEN — target registers bounds while held
+        val toggleBounds = Rect(20f, 200f, 350f, 260f)
+        state.registerTarget(HintKey.DAILY_LOG_PERIOD_TOGGLE, toggleBounds)
+
+        // THEN — activation is deferred; active remains null
+        assertNull(state.active.value, "Active should remain null while held")
+        assertEquals(
+            HintKey.DAILY_LOG_PERIOD_TOGGLE,
+            state.pendingHintKey.value,
+            "pendingHintKey should remain set while held"
+        )
+    }
+
+    @Test
+    fun `release WHEN pendingBoundsRegisteredWhileHeld THEN activatesPendingHint`() {
+        // GIVEN — PERIOD_TAB is active and we advance to PERIOD_TOGGLE (pending) while held
+        state.registerTarget(HintKey.DAILY_LOG_PERIOD_TAB, testBounds)
+        state.showHint(defPeriodTab)
+        state.hold()
+        state.advanceOrDismiss(allDefs)
+        testScope.advanceUntilIdle()
+
+        // Register bounds while held (deferred activation)
+        val toggleBounds = Rect(20f, 200f, 350f, 260f)
+        state.registerTarget(HintKey.DAILY_LOG_PERIOD_TOGGLE, toggleBounds)
+        assertNull(state.active.value, "Precondition: active should be null while held")
+
+        // WHEN — release the hold
+        state.release()
+
+        // THEN — pending hint activates with the stored bounds
+        val active = state.active.value
+        assertNotNull(active, "Active should resolve after release")
+        assertEquals(HintKey.DAILY_LOG_PERIOD_TOGGLE, active.def.key)
+        assertEquals(toggleBounds, active.targetBounds)
+        assertNull(state.pendingHintKey.value, "pendingHintKey should be cleared after release")
+    }
+
+    @Test
+    fun `release WHEN noPending THEN noOp`() {
+        // GIVEN — a hint is active with no pending
+        state.registerTarget(HintKey.DAILY_LOG_WELCOME, testBounds)
+        state.showHint(defWelcome)
+        state.hold()
+
+        // WHEN — release with no pending hint
+        state.release()
+
+        // THEN — active is unchanged
+        val active = state.active.value
+        assertNotNull(active, "Active should remain set")
+        assertEquals(HintKey.DAILY_LOG_WELCOME, active.def.key)
+        assertNull(state.pendingHintKey.value, "pendingHintKey should remain null")
+    }
+
+    @Test
     fun `registerTarget WHEN pendingResolves THEN clearsPendingHintKey`() {
         // GIVEN — a hint is pending (bounds not yet available)
         state.showHint(defPeriodToggle)
