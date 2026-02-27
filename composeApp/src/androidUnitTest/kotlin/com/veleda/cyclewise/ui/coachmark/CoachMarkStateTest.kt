@@ -41,6 +41,13 @@ class CoachMarkStateTest {
         nextKey = HintKey.DAILY_LOG_PERIOD_TAB,
         dismissLabelRes = 0,
     )
+    private val defPeriodTab = CoachMarkDef(
+        key = HintKey.DAILY_LOG_PERIOD_TAB,
+        titleRes = 0,
+        bodyRes = 0,
+        nextKey = HintKey.DAILY_LOG_PERIOD_TOGGLE,
+        dismissLabelRes = 0,
+    )
     private val defPeriodToggle = CoachMarkDef(
         key = HintKey.DAILY_LOG_PERIOD_TOGGLE,
         titleRes = 0,
@@ -52,6 +59,7 @@ class CoachMarkStateTest {
     private val allDefs = mapOf(
         HintKey.DAILY_LOG_WELCOME to defWelcome,
         HintKey.DAILY_LOG_EXPLORE_TABS to defExploreTabs,
+        HintKey.DAILY_LOG_PERIOD_TAB to defPeriodTab,
         HintKey.DAILY_LOG_PERIOD_TOGGLE to defPeriodToggle,
     )
 
@@ -75,6 +83,9 @@ class CoachMarkStateTest {
         assertNotNull(active, "Active coach mark should be non-null after showHint")
         assertEquals(HintKey.DAILY_LOG_WELCOME, active.def.key)
         assertEquals(testBounds, active.targetBounds)
+
+        // AND — no pending hint key
+        assertNull(state.pendingHintKey.value, "pendingHintKey should be null when bounds are available")
     }
 
     @Test
@@ -82,16 +93,22 @@ class CoachMarkStateTest {
         // WHEN — showHint is called before bounds are registered
         state.showHint(defWelcome)
 
-        // THEN — active is null (pending)
+        // THEN — active is null (pending) and pendingHintKey is set
         assertNull(state.active.value, "Active should be null until bounds are registered")
+        assertEquals(
+            HintKey.DAILY_LOG_WELCOME,
+            state.pendingHintKey.value,
+            "pendingHintKey should be set when bounds are not available"
+        )
 
         // WHEN — bounds are registered
         state.registerTarget(HintKey.DAILY_LOG_WELCOME, testBounds)
 
-        // THEN — active is set
+        // THEN — active is set and pendingHintKey is cleared
         val active = state.active.value
         assertNotNull(active, "Active should resolve once bounds are registered")
         assertEquals(HintKey.DAILY_LOG_WELCOME, active.def.key)
+        assertNull(state.pendingHintKey.value, "pendingHintKey should be cleared after resolve")
     }
 
     @Test
@@ -139,12 +156,75 @@ class CoachMarkStateTest {
         state.skipAll(allDefs)
         testScope.advanceUntilIdle()
 
-        // THEN — active is cleared
+        // THEN — active and pendingHintKey are cleared
         assertNull(state.active.value, "Active should be null after skipAll")
+        assertNull(state.pendingHintKey.value, "pendingHintKey should be null after skipAll")
 
         // AND — markHintSeen was called for every hint key in the walkthrough
         coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_WELCOME) }
         coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_EXPLORE_TABS) }
+        coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_PERIOD_TAB) }
         coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_PERIOD_TOGGLE) }
+    }
+
+    @Test
+    fun `advanceOrDismiss WHEN nextTargetNotComposed THEN setsPendingAndClearsActive`() {
+        // GIVEN — PERIOD_TAB hint is active, but PERIOD_TOGGLE bounds are NOT registered
+        state.registerTarget(HintKey.DAILY_LOG_WELCOME, testBounds)
+        state.registerTarget(HintKey.DAILY_LOG_EXPLORE_TABS, Rect(10f, 100f, 300f, 150f))
+        state.registerTarget(HintKey.DAILY_LOG_PERIOD_TAB, Rect(10f, 100f, 200f, 140f))
+        state.showHint(defWelcome)
+        state.advanceOrDismiss(allDefs) // → EXPLORE_TABS
+        testScope.advanceUntilIdle()
+        state.advanceOrDismiss(allDefs) // → PERIOD_TAB
+        testScope.advanceUntilIdle()
+
+        assertEquals(HintKey.DAILY_LOG_PERIOD_TAB, state.active.value?.def?.key)
+
+        // WHEN — advance from PERIOD_TAB → PERIOD_TOGGLE (bounds not registered)
+        state.advanceOrDismiss(allDefs)
+        testScope.advanceUntilIdle()
+
+        // THEN — active is cleared and pendingHintKey is set
+        assertNull(state.active.value, "Active should be null when next target is not composed")
+        assertEquals(
+            HintKey.DAILY_LOG_PERIOD_TOGGLE,
+            state.pendingHintKey.value,
+            "pendingHintKey should be PERIOD_TOGGLE"
+        )
+
+        // WHEN — the Period page composes and registers the toggle target
+        val toggleBounds = Rect(20f, 200f, 350f, 260f)
+        state.registerTarget(HintKey.DAILY_LOG_PERIOD_TOGGLE, toggleBounds)
+
+        // THEN — pending resolves: active shows the PERIOD_TOGGLE hint
+        val active = state.active.value
+        assertNotNull(active, "Active should resolve after registerTarget")
+        assertEquals(HintKey.DAILY_LOG_PERIOD_TOGGLE, active.def.key)
+        assertEquals(toggleBounds, active.targetBounds)
+        assertNull(state.pendingHintKey.value, "pendingHintKey should be cleared after resolve")
+    }
+
+    @Test
+    fun `registerTarget WHEN pendingResolves THEN clearsPendingHintKey`() {
+        // GIVEN — a hint is pending (bounds not yet available)
+        state.showHint(defPeriodToggle)
+        assertEquals(
+            HintKey.DAILY_LOG_PERIOD_TOGGLE,
+            state.pendingHintKey.value,
+            "Precondition: pendingHintKey should be set"
+        )
+        assertNull(state.active.value, "Precondition: active should be null")
+
+        // WHEN — target registers its bounds
+        val bounds = Rect(50f, 300f, 400f, 360f)
+        state.registerTarget(HintKey.DAILY_LOG_PERIOD_TOGGLE, bounds)
+
+        // THEN — pending clears and active is set
+        assertNull(state.pendingHintKey.value, "pendingHintKey should be null after resolve")
+        val active = state.active.value
+        assertNotNull(active, "Active should be set after pending resolves")
+        assertEquals(HintKey.DAILY_LOG_PERIOD_TOGGLE, active.def.key)
+        assertEquals(bounds, active.targetBounds)
     }
 }

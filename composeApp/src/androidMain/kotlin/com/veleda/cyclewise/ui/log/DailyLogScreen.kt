@@ -109,11 +109,13 @@ fun DailyLogScreen(
         }
     }
 
-    // When the active coach mark changes from DAILY_LOG_PERIOD_TAB to DAILY_LOG_PERIOD_TOGGLE,
-    // auto-scroll the pager to the Period page so the toggle target is visible.
     val activeHint by coachMarkState.active.collectAsState()
-    LaunchedEffect(activeHint?.def?.key) {
-        if (activeHint?.def?.key == HintKey.DAILY_LOG_PERIOD_TOGGLE) {
+    val pendingKey by coachMarkState.pendingHintKey.collectAsState()
+
+    // When a pending hint targets the Period page, auto-scroll the pager so the
+    // target composable becomes visible and can register its bounds.
+    LaunchedEffect(pendingKey) {
+        if (pendingKey == HintKey.DAILY_LOG_PERIOD_TOGGLE) {
             pagerState.animateScrollToPage(PAGE_PERIOD)
         }
     }
@@ -171,7 +173,20 @@ fun DailyLogScreen(
                             Tab(
                                 selected = pagerState.currentPage == index,
                                 onClick = {
-                                    coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                                    val tutorialActive = activeHint != null || pendingKey != null
+                                    when {
+                                        // No tutorial running — allow normal navigation.
+                                        !tutorialActive -> {
+                                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                                        }
+                                        // Step 3 (PERIOD_TAB) + user tapped the Period tab — scroll & advance.
+                                        activeHint?.def?.key == HintKey.DAILY_LOG_PERIOD_TAB
+                                            && index == PAGE_PERIOD -> {
+                                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                                            coachMarkState.advanceOrDismiss(DAILY_LOG_HINTS)
+                                        }
+                                        // All other clicks during tutorial — blocked (no-op).
+                                    }
                                 },
                                 text = {
                                     Text(
@@ -191,7 +206,7 @@ fun DailyLogScreen(
                     // Pager — disable swiping while the coach mark walkthrough is active.
                     HorizontalPager(
                         state = pagerState,
-                        userScrollEnabled = activeHint == null,
+                        userScrollEnabled = activeHint == null && pendingKey == null,
                         modifier = Modifier
                             .fillMaxSize()
                             .testTag("daily_log_pager"),

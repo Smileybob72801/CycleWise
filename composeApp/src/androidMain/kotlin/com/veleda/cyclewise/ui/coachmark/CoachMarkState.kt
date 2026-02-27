@@ -37,6 +37,16 @@ class CoachMarkState(
     /** The currently active coach mark, or `null` when no hint is showing. */
     val active: StateFlow<ActiveCoachMark?> = _active.asStateFlow()
 
+    private val _pendingHintKey = MutableStateFlow<HintKey?>(null)
+
+    /**
+     * The [HintKey] of a hint whose target composable has not yet reported bounds.
+     *
+     * Hosting screens observe this to trigger navigation (e.g. scrolling a pager)
+     * so the target becomes visible and can register its bounds via [registerTarget].
+     */
+    val pendingHintKey: StateFlow<HintKey?> = _pendingHintKey.asStateFlow()
+
     private val targetBoundsMap = mutableMapOf<HintKey, Rect>()
     private var pendingDef: CoachMarkDef? = null
 
@@ -50,6 +60,7 @@ class CoachMarkState(
         if (pending != null && pending.key == key) {
             _active.value = ActiveCoachMark(pending, bounds)
             pendingDef = null
+            _pendingHintKey.value = null
         }
     }
 
@@ -63,8 +74,11 @@ class CoachMarkState(
         if (bounds != null) {
             _active.value = ActiveCoachMark(def, bounds)
             pendingDef = null
+            _pendingHintKey.value = null
         } else {
             pendingDef = def
+            _pendingHintKey.value = def.key
+            _active.value = null
         }
     }
 
@@ -103,5 +117,6 @@ class CoachMarkState(
         }
         _active.value = null
         pendingDef = null
+        _pendingHintKey.value = null
     }
 }
