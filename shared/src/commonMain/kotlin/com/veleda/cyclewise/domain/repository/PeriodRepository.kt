@@ -211,6 +211,24 @@ interface PeriodRepository {
      */
     suspend fun getWaterIntakeForDates(dates: List<LocalDate>): List<WaterIntake>
 
+    // ── Tutorial Cleanup ─────────────────────────────────────────────────
+
+    /**
+     * Deletes tutorial seed data identified by exact IDs.
+     *
+     * Runs inside a database transaction. CASCADE delete on daily entries
+     * automatically removes associated period_logs, symptom_logs, and medication_logs.
+     *
+     * @param periodUuids UUIDs of seeded periods to delete.
+     * @param entryIds    IDs of seeded daily entries to delete.
+     * @param waterDates  ISO-8601 dates of seeded water intake records to delete.
+     */
+    suspend fun deleteSeedData(
+        periodUuids: List<String>,
+        entryIds: List<String>,
+        waterDates: List<LocalDate>,
+    )
+
     // ── Debug ────────────────────────────────────────────────────────────
 
     /**

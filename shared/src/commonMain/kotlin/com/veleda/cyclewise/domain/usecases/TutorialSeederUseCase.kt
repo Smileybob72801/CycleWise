@@ -54,11 +54,18 @@ class TutorialSeederUseCase(
      * Each period day gets a [FullDailyLog] with flow, mood, energy, symptoms, and
      * medications. A selection of non-period gap days also receive wellness data.
      * Water intake is seeded for all days that have a daily entry.
+     *
+     * @return A [SeedManifest] containing all created record IDs, or `null` if
+     *         seeding was skipped because periods already exist.
      */
-    suspend operator fun invoke() {
+    suspend operator fun invoke(): SeedManifest? {
         // Guard: do not seed if user already has data.
         val existing = repository.getAllPeriods().first()
-        if (existing.isNotEmpty()) return
+        if (existing.isNotEmpty()) return null
+
+        val periodUuids = mutableListOf<String>()
+        val dailyEntryIds = mutableListOf<String>()
+        val waterIntakeDates = mutableListOf<String>()
 
         val today = clock.todayIn(TimeZone.currentSystemDefault())
 
@@ -72,7 +79,8 @@ class TutorialSeederUseCase(
         // ── Cycle 1: 5-day period ending 5 days ago ─────────────────────
         val c1End = today.minus(5, DateTimeUnit.DAY)
         val c1Start = c1End.minus(4, DateTimeUnit.DAY) // 5 days inclusive
-        repository.createCompletedPeriod(c1Start, c1End)
+        val c1Period = repository.createCompletedPeriod(c1Start, c1End)
+        periodUuids.add(c1Period.id)
 
         val c1Flows = listOf(FlowIntensity.MEDIUM, FlowIntensity.HEAVY, FlowIntensity.HEAVY, FlowIntensity.MEDIUM, FlowIntensity.LIGHT)
         val c1Moods = listOf(2, 2, 3, 3, 4)
@@ -115,13 +123,16 @@ class TutorialSeederUseCase(
                 medicationLogs = medLogs,
             )
             repository.saveFullLog(log)
+            dailyEntryIds.add(entryId)
             repository.upsertWaterIntake(WaterIntake(date, c1Water[dayOffset], now, now))
+            waterIntakeDates.add(date.toString())
         }
 
         // ── Cycle 2: 4-day period, ~33 days before C1 start ─────────────
         val c2Start = c1Start.minus(33, DateTimeUnit.DAY)
         val c2End = c2Start.plus(3, DateTimeUnit.DAY) // 4 days inclusive
-        repository.createCompletedPeriod(c2Start, c2End)
+        val c2Period = repository.createCompletedPeriod(c2Start, c2End)
+        periodUuids.add(c2Period.id)
 
         val c2Flows = listOf(FlowIntensity.MEDIUM, FlowIntensity.MEDIUM, FlowIntensity.LIGHT, FlowIntensity.LIGHT)
         val c2Moods = listOf(3, 3, 3, 4)
@@ -162,13 +173,16 @@ class TutorialSeederUseCase(
                 medicationLogs = medLogs,
             )
             repository.saveFullLog(log)
+            dailyEntryIds.add(entryId)
             repository.upsertWaterIntake(WaterIntake(date, c2Water[dayOffset], now, now))
+            waterIntakeDates.add(date.toString())
         }
 
         // ── Cycle 3: 5-day period, ~30 days before C2 start ─────────────
         val c3Start = c2Start.minus(30, DateTimeUnit.DAY)
         val c3End = c3Start.plus(4, DateTimeUnit.DAY) // 5 days inclusive
-        repository.createCompletedPeriod(c3Start, c3End)
+        val c3Period = repository.createCompletedPeriod(c3Start, c3End)
+        periodUuids.add(c3Period.id)
 
         val c3Flows = listOf(FlowIntensity.MEDIUM, FlowIntensity.HEAVY, FlowIntensity.HEAVY, FlowIntensity.MEDIUM, FlowIntensity.LIGHT)
         val c3Moods = listOf(2, 2, 2, 3, 3)
@@ -212,25 +226,34 @@ class TutorialSeederUseCase(
                 medicationLogs = medLogs,
             )
             repository.saveFullLog(log)
+            dailyEntryIds.add(entryId)
             repository.upsertWaterIntake(WaterIntake(date, c3Water[dayOffset], now, now))
+            waterIntakeDates.add(date.toString())
         }
 
         // ── Non-period gap days ──────────────────────────────────────────
         // Seed ~60% of gap days with wellness data across all three cycles.
-        seedGapDays(c1End, today, headache, fatigue)
-        seedGapDays(c2End, c1Start, headache, fatigue)
-        seedGapDays(c3End, c2Start, headache, fatigue)
+        seedGapDays(c1End, today, headache, fatigue, dailyEntryIds, waterIntakeDates)
+        seedGapDays(c2End, c1Start, headache, fatigue, dailyEntryIds, waterIntakeDates)
+        seedGapDays(c3End, c2Start, headache, fatigue, dailyEntryIds, waterIntakeDates)
+
+        return SeedManifest(periodUuids, dailyEntryIds, waterIntakeDates)
     }
 
     /**
      * Seeds a selection of non-period gap days between [gapStart] (exclusive) and
      * [gapEnd] (exclusive) with mood, energy, and occasional symptoms/water.
+     *
+     * @param dailyEntryIds   Mutable list to append created entry IDs for the manifest.
+     * @param waterIntakeDates Mutable list to append created water date strings for the manifest.
      */
     private suspend fun seedGapDays(
         gapStart: LocalDate,
         gapEnd: LocalDate,
         headache: com.veleda.cyclewise.domain.models.Symptom,
         fatigue: com.veleda.cyclewise.domain.models.Symptom,
+        dailyEntryIds: MutableList<String>,
+        waterIntakeDates: MutableList<String>,
     ) {
         var date = gapStart.plus(1, DateTimeUnit.DAY)
         var dayCount = 0
@@ -268,7 +291,9 @@ class TutorialSeederUseCase(
                     ),
                 )
                 repository.saveFullLog(log)
+                dailyEntryIds.add(entryId)
                 repository.upsertWaterIntake(WaterIntake(date, water, now, now))
+                waterIntakeDates.add(date.toString())
             }
             date = date.plus(1, DateTimeUnit.DAY)
             dayCount++

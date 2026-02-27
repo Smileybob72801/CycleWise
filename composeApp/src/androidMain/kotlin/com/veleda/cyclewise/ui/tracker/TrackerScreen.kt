@@ -85,6 +85,8 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
+import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
+import com.veleda.cyclewise.settings.parseSeedManifest
 import org.koin.compose.getKoin
 import org.koin.compose.koinInject
 import kotlin.time.Clock
@@ -109,15 +111,37 @@ fun TrackerScreen(navController: NavController) {
     val activeHint by coachMarkState.active.collectAsState()
     val pendingKey by coachMarkState.pendingHintKey.collectAsState()
 
+    // Tracks whether the Tracker walkthrough was started this composition.
+    var trackerWalkthroughActive by remember { mutableStateOf(false) }
+
     // Start the Tracker walkthrough if the user hasn't seen it yet.
     LaunchedEffect(Unit) {
         val seen = hintPreferences.isHintSeen(HintKey.TRACKER_WELCOME).first()
         if (!seen) {
+            trackerWalkthroughActive = true
             TRACKER_HINTS[HintKey.TRACKER_WELCOME]?.let { coachMarkState.showHint(it) }
         }
     }
 
     val appSettings: AppSettings = koin.get()
+
+    // Detect Tracker walkthrough completion (normal advance past last hint, or skipAll)
+    // and clean up seed data.
+    LaunchedEffect(activeHint, pendingKey, trackerWalkthroughActive) {
+        if (trackerWalkthroughActive && activeHint == null && pendingKey == null) {
+            trackerWalkthroughActive = false
+            val manifestJson = appSettings.seedManifestJson.first()
+            if (manifestJson.isNotEmpty()) {
+                val manifest = parseSeedManifest(manifestJson)
+                if (manifest != null) {
+                    val sessionScope = koin.getScope("session")
+                    val cleanup: TutorialCleanupUseCase = sessionScope.get()
+                    cleanup(manifest)
+                }
+                appSettings.clearSeedManifest()
+            }
+        }
+    }
     val showMood by appSettings.showMoodInSummary.collectAsState(initial = true)
     val showEnergy by appSettings.showEnergyInSummary.collectAsState(initial = true)
     val showLibido by appSettings.showLibidoInSummary.collectAsState(initial = true)

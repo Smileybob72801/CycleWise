@@ -53,7 +53,11 @@ import com.veleda.cyclewise.domain.models.PeriodColor
 import com.veleda.cyclewise.domain.models.PeriodConsistency
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import com.veleda.cyclewise.domain.usecases.TutorialSeederUseCase
+import com.veleda.cyclewise.settings.AppSettings
+import com.veleda.cyclewise.settings.parseSeedManifest
+import com.veleda.cyclewise.settings.toJson
 import com.veleda.cyclewise.ui.auth.WaterTrackerCounter
 import com.veleda.cyclewise.ui.components.EducationalBottomSheet
 import com.veleda.cyclewise.ui.components.InfoButton
@@ -105,12 +109,31 @@ fun DailyLogScreen(
     var walkthroughActive by remember { mutableStateOf(false) }
 
     // Start the walkthrough (and seed demo data) when the log finishes loading.
+    // Also acts as a safety net: if a seed manifest exists from a previous
+    // interrupted session, clean it up before doing anything else.
     LaunchedEffect(uiState.isLoading) {
         if (!uiState.isLoading && uiState.log != null) {
+            val appSettings: AppSettings = koin.get()
+            val manifestJson = appSettings.seedManifestJson.first()
+
+            // Safety net: if seed data exists from a previous session/break-out, wipe it.
+            if (manifestJson.isNotEmpty()) {
+                val manifest = parseSeedManifest(manifestJson)
+                if (manifest != null) {
+                    val cleanup: TutorialCleanupUseCase = sessionScope.get()
+                    cleanup(manifest)
+                }
+                appSettings.clearSeedManifest()
+                return@LaunchedEffect // data was stale; don't restart walkthrough
+            }
+
             val seen = hintPreferences.isHintSeen(HintKey.DAILY_LOG_WELCOME).first()
             if (!seen) {
                 val seeder: TutorialSeederUseCase = sessionScope.get()
-                seeder()
+                val manifest = seeder()
+                if (manifest != null) {
+                    appSettings.setSeedManifestJson(manifest.toJson())
+                }
                 walkthroughActive = true
                 DAILY_LOG_HINTS[HintKey.DAILY_LOG_WELCOME]?.let { coachMarkState.showHint(it) }
             }

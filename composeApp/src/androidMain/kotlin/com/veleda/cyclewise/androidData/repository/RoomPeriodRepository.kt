@@ -545,6 +545,22 @@ class RoomPeriodRepository(
         }
     }
 
+    override suspend fun deleteSeedData(
+        periodUuids: List<String>,
+        entryIds: List<String>,
+        waterDates: List<LocalDate>,
+    ) {
+        db.withTransaction {
+            // CASCADE on daily_entries automatically deletes
+            // period_logs, symptom_logs, medication_logs for these entries.
+            if (entryIds.isNotEmpty()) dailyEntryDao.deleteByIds(entryIds)
+            if (periodUuids.isNotEmpty()) periodDao.deleteByUuids(periodUuids)
+            if (waterDates.isNotEmpty()) {
+                waterIntakeDao.deleteByDates(waterDates.map { it.toString() })
+            }
+        }
+    }
+
     override suspend fun logPeriodDay(date: LocalDate) {
         db.withTransaction {
             val periodBefore = getPeriodForDate(date.minus(1, DateTimeUnit.DAY))
