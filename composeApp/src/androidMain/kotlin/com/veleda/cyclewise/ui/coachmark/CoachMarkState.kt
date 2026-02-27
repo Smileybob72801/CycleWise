@@ -90,12 +90,17 @@ class CoachMarkState(
     }
 
     /**
-     * Marks the current hint as seen and clears the overlay regardless of whether
-     * a next hint exists. Used when the user taps the scrim to dismiss early.
+     * Marks **all** hints in the walkthrough as seen and clears the overlay.
+     *
+     * Used by the long-press "Hold to skip" button to terminate the entire
+     * walkthrough in one action.
+     *
+     * @param allDefs Full walkthrough map whose keys will all be persisted as seen.
      */
-    fun dismiss() {
-        val current = _active.value?.def ?: return
-        scope.launch { hintPreferences.markHintSeen(current.key) }
+    fun skipAll(allDefs: Map<HintKey, CoachMarkDef>) {
+        scope.launch {
+            allDefs.keys.forEach { hintPreferences.markHintSeen(it) }
+        }
         _active.value = null
         pendingDef = null
     }

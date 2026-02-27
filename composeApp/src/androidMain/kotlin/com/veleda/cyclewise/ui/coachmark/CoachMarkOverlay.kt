@@ -1,25 +1,36 @@
 package com.veleda.cyclewise.ui.coachmark
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
@@ -27,15 +38,21 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.theme.LocalDimensions
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /** Padding around the cutout highlight in dp. */
@@ -49,6 +66,12 @@ private val TOOLTIP_GAP_DP = 8.dp
 
 /** Maximum width for the tooltip card. */
 private val TOOLTIP_MAX_WIDTH_DP = 320.dp
+
+/** Duration in milliseconds for the long-press skip gesture. */
+private const val SKIP_HOLD_DURATION_MS = 2_000
+
+/** Height of the skip progress indicator bar. */
+private val SKIP_PROGRESS_HEIGHT = 4.dp
 
 /**
  * Modifier that reports a composable's root-coordinate bounds to [CoachMarkState]
@@ -71,6 +94,13 @@ fun Modifier.coachMarkTarget(key: HintKey, state: CoachMarkState): Modifier =
  *
  * Only renders when [CoachMarkState.active] is non-null.
  *
+ * The overlay tracks its own position within the window root so that target bounds
+ * (which are reported in root coordinates) are correctly translated to overlay-local
+ * coordinates. This avoids misalignment caused by system bars and scaffold padding.
+ *
+ * All pointer events on the scrim are consumed to prevent interaction with underlying
+ * content (tabs, pager swipes, buttons) during the walkthrough.
+ *
  * @param state   The per-screen [CoachMarkState] driving this overlay.
  * @param allDefs The full walkthrough map, used by [CoachMarkState.advanceOrDismiss].
  */
@@ -84,24 +114,38 @@ fun CoachMarkOverlay(
 
     val dims = LocalDimensions.current
     val density = LocalDensity.current
-    val configuration = LocalConfiguration.current
-    val screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
-    val screenWidth = with(density) { configuration.screenWidthDp.dp.toPx() }
+
+    // Track the overlay's own position and size so we can translate root-coordinate
+    // target bounds into overlay-local coordinates.
+    var overlayOffset by remember { mutableStateOf(Offset.Zero) }
+    var overlaySize by remember { mutableStateOf(IntSize.Zero) }
 
     val cutoutPadding = with(density) { CUTOUT_PADDING_DP.toPx() }
     val cutoutCorner = with(density) { CUTOUT_CORNER_DP.toPx() }
 
+    // Translate target bounds from root coordinates to overlay-local coordinates.
+    val localBounds = Rect(
+        left = active.targetBounds.left - overlayOffset.x,
+        top = active.targetBounds.top - overlayOffset.y,
+        right = active.targetBounds.right - overlayOffset.x,
+        bottom = active.targetBounds.bottom - overlayOffset.y,
+    )
+
     // Expand target bounds by the cutout padding.
     val highlightRect = Rect(
-        left = active.targetBounds.left - cutoutPadding,
-        top = active.targetBounds.top - cutoutPadding,
-        right = active.targetBounds.right + cutoutPadding,
-        bottom = active.targetBounds.bottom + cutoutPadding,
+        left = localBounds.left - cutoutPadding,
+        top = localBounds.top - cutoutPadding,
+        right = localBounds.right + cutoutPadding,
+        bottom = localBounds.bottom + cutoutPadding,
     )
+
+    // Use overlay's own size for positioning calculations.
+    val overlayHeightPx = overlaySize.height.toFloat()
+    val overlayWidthPx = overlaySize.width.toFloat()
 
     // Decide whether the tooltip goes below or above the cutout.
     val tooltipGapPx = with(density) { TOOLTIP_GAP_DP.toPx() }
-    val spaceBelow = screenHeight - highlightRect.bottom - tooltipGapPx
+    val spaceBelow = overlayHeightPx - highlightRect.bottom - tooltipGapPx
     val spaceAbove = highlightRect.top - tooltipGapPx
     val placeBelow = spaceBelow >= spaceAbove
 
@@ -114,15 +158,26 @@ fun CoachMarkOverlay(
         (highlightRect.top - tooltipGapPx - estimatedTooltipHeightPx).coerceAtLeast(0f)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Scrim with cutout
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onGloballyPositioned { coordinates ->
+                overlayOffset = coordinates.positionInRoot()
+                overlaySize = coordinates.size
+            },
+    ) {
+        // Scrim with cutout — consumes ALL pointer events to block underlying interaction.
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                ) { state.dismiss() }
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            event.changes.forEach { it.consume() }
+                        }
+                    }
+                },
         ) {
             drawScrimWithCutout(highlightRect, cutoutCorner)
         }
@@ -131,7 +186,7 @@ fun CoachMarkOverlay(
         val tooltipMaxWidthPx = with(density) { TOOLTIP_MAX_WIDTH_DP.toPx() }
         val marginPx = with(density) { dims.md.toPx() }
         val tooltipX = highlightRect.left
-            .coerceIn(marginPx, (screenWidth - tooltipMaxWidthPx - marginPx).coerceAtLeast(marginPx))
+            .coerceIn(marginPx, (overlayWidthPx - tooltipMaxWidthPx - marginPx).coerceAtLeast(marginPx))
 
         ElevatedCard(
             modifier = Modifier
@@ -156,16 +211,96 @@ fun CoachMarkOverlay(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = dims.sm),
                 )
-                TextButton(
-                    onClick = { state.advanceOrDismiss(allDefs) },
+
+                // Button row: "Hold to skip" on the start, "Next"/"Got it" on the end.
+                Row(
                     modifier = Modifier
-                        .align(Alignment.End)
+                        .fillMaxWidth()
                         .padding(top = dims.sm),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(stringResource(active.def.dismissLabelRes))
+                    HoldToSkipButton(
+                        onSkip = { state.skipAll(allDefs) },
+                    )
+
+                    TextButton(
+                        onClick = { state.advanceOrDismiss(allDefs) },
+                    ) {
+                        Text(stringResource(active.def.dismissLabelRes))
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * A button that requires a sustained ~2-second press to activate.
+ *
+ * Shows a linear progress indicator that fills while the user holds down
+ * the button. Releasing early resets progress. When the progress reaches
+ * 100%, [onSkip] is called to terminate the entire walkthrough.
+ *
+ * @param onSkip Callback invoked when the hold completes successfully.
+ */
+@Composable
+private fun HoldToSkipButton(
+    onSkip: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val progress = remember { Animatable(0f) }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.coach_mark_hold_to_skip),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            // Wait for a finger to press down.
+                            awaitFirstDown(requireUnconsumed = false)
+
+                            // Animate progress from current value to 1f.
+                            val animationJob = scope.launch {
+                                progress.animateTo(
+                                    targetValue = 1f,
+                                    animationSpec = tween(
+                                        durationMillis = SKIP_HOLD_DURATION_MS,
+                                        easing = LinearEasing,
+                                    ),
+                                )
+                            }
+
+                            // Wait until the user lifts or cancels.
+                            val up = waitForUpOrCancellation()
+
+                            animationJob.cancel()
+
+                            if (up != null && progress.value >= 1f) {
+                                // Hold completed — skip the walkthrough.
+                                onSkip()
+                            } else {
+                                // Released early — reset progress.
+                                scope.launch { progress.snapTo(0f) }
+                            }
+                        }
+                    }
+                },
+        )
+
+        LinearProgressIndicator(
+            progress = { progress.value },
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .height(SKIP_PROGRESS_HEIGHT)
+                .clip(RoundedCornerShape(SKIP_PROGRESS_HEIGHT / 2)),
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        )
     }
 }
 

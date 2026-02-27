@@ -130,17 +130,21 @@ class CoachMarkStateTest {
     }
 
     @Test
-    fun `dismiss WHEN hintHasNext THEN clearsActiveWithoutAdvancing`() {
-        // GIVEN — welcome hint is active (has nextKey)
+    fun `skipAll WHEN walkthroughActive THEN marksAllSeenAndClearsActive`() {
+        // GIVEN — welcome hint is active
         state.registerTarget(HintKey.DAILY_LOG_WELCOME, testBounds)
         state.showHint(defWelcome)
 
-        // WHEN — dismiss (not advance)
-        state.dismiss()
+        // WHEN — skip the entire walkthrough
+        state.skipAll(allDefs)
         testScope.advanceUntilIdle()
 
-        // THEN — active is cleared and markHintSeen is called
-        assertNull(state.active.value, "Active should be null after dismiss")
+        // THEN — active is cleared
+        assertNull(state.active.value, "Active should be null after skipAll")
+
+        // AND — markHintSeen was called for every hint key in the walkthrough
         coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_WELCOME) }
+        coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_EXPLORE_TABS) }
+        coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_PERIOD_TOGGLE) }
     }
 }

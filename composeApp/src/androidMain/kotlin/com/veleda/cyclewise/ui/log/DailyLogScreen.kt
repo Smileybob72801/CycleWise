@@ -188,9 +188,10 @@ fun DailyLogScreen(
                         }
                     }
 
-                    // Pager
+                    // Pager — disable swiping while the coach mark walkthrough is active.
                     HorizontalPager(
                         state = pagerState,
+                        userScrollEnabled = activeHint == null,
                         modifier = Modifier
                             .fillMaxSize()
                             .testTag("daily_log_pager"),

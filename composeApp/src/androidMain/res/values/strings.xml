@@ -122,6 +122,7 @@
     <!-- Coach Marks -->
     <string name="coach_mark_next">Next</string>
     <string name="coach_mark_got_it">Got it</string>
+    <string name="coach_mark_hold_to_skip">Hold to skip</string>
     <string name="hint_daily_log_welcome_title">Welcome to Your Daily Log</string>
     <string name="hint_daily_log_welcome_body">This is where you record how you are feeling each day. Swipe through the tabs to explore mood, period, symptoms, medications, and notes.</string>
     <string name="hint_daily_log_explore_tabs_title">Explore the Tabs</string>
