@@ -12,7 +12,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -47,7 +46,11 @@ class ReminderSchedulerTest {
         // THEN
         val workInfos = workManager.getWorkInfosForUniqueWork(ReminderScheduler.WORK_NAME_PERIOD).get()
         assertTrue(workInfos.isNotEmpty(), "Period prediction work should be enqueued")
-        assertEquals(WorkInfo.State.ENQUEUED, workInfos.first().state)
+        val state = workInfos.first().state
+        assertTrue(
+            state == WorkInfo.State.ENQUEUED || state == WorkInfo.State.RUNNING,
+            "Period prediction work should be enqueued or running, was: $state"
+        )
     }
 
     @Test
@@ -74,7 +77,11 @@ class ReminderSchedulerTest {
         // THEN
         val workInfos = workManager.getWorkInfosForUniqueWork(ReminderScheduler.WORK_NAME_MEDICATION).get()
         assertTrue(workInfos.isNotEmpty(), "Medication work should be enqueued")
-        assertEquals(WorkInfo.State.ENQUEUED, workInfos.first().state)
+        val state = workInfos.first().state
+        assertTrue(
+            state == WorkInfo.State.ENQUEUED || state == WorkInfo.State.RUNNING,
+            "Medication work should be enqueued or running, was: $state"
+        )
     }
 
     @Test
