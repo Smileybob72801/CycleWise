@@ -19,7 +19,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -98,8 +98,9 @@ fun Modifier.coachMarkTarget(key: HintKey, state: CoachMarkState): Modifier =
  * (which are reported in root coordinates) are correctly translated to overlay-local
  * coordinates. This avoids misalignment caused by system bars and scaffold padding.
  *
- * All pointer events on the scrim are consumed to prevent interaction with underlying
- * content (tabs, pager swipes, buttons) during the walkthrough.
+ * Touch events pass through the scrim so users can interact with the highlighted target
+ * (e.g., tapping the Period tab at step 3). Underlying controls are guarded by per-step
+ * logic in the host screen (tab locks, pager scroll disable) rather than by the overlay.
  *
  * @param state   The per-screen [CoachMarkState] driving this overlay.
  * @param allDefs The full walkthrough map, used by [CoachMarkState.advanceOrDismiss].
@@ -166,18 +167,9 @@ fun CoachMarkOverlay(
                 overlaySize = coordinates.size
             },
     ) {
-        // Scrim with cutout — consumes ALL pointer events to block underlying interaction.
+        // Scrim with cutout — purely visual; touch events pass through to the host screen.
         Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            event.changes.forEach { it.consume() }
-                        }
-                    }
-                },
+            modifier = Modifier.fillMaxSize(),
         ) {
             drawScrimWithCutout(highlightRect, cutoutCorner)
         }
@@ -224,7 +216,7 @@ fun CoachMarkOverlay(
                         onSkip = { state.skipAll(allDefs) },
                     )
 
-                    TextButton(
+                    Button(
                         onClick = { state.advanceOrDismiss(allDefs) },
                     ) {
                         Text(stringResource(active.def.dismissLabelRes))

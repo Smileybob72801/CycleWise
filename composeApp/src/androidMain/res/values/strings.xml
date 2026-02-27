@@ -124,9 +124,9 @@
     <string name="coach_mark_got_it">Got it</string>
     <string name="coach_mark_hold_to_skip">Hold to skip</string>
     <string name="hint_daily_log_welcome_title">Welcome to Your Daily Log</string>
-    <string name="hint_daily_log_welcome_body">This is where you record how you are feeling each day. Swipe through the tabs to explore mood, period, symptoms, medications, and notes.</string>
+    <string name="hint_daily_log_welcome_body">This is where you record how you are feeling each day. Each tab covers a different area: mood, period, symptoms, medications, and notes.</string>
     <string name="hint_daily_log_explore_tabs_title">Explore the Tabs</string>
-    <string name="hint_daily_log_explore_tabs_body">Each tab focuses on a different part of your day. Start anywhere that feels relevant to you.</string>
+    <string name="hint_daily_log_explore_tabs_body">Each tab focuses on a different part of your day. Let us walk you through the key features.</string>
     <string name="hint_daily_log_period_tab_title">The Period Tab</string>
     <string name="hint_daily_log_period_tab_body">If you menstruate, this is where you log flow details. Tap this tab to continue.</string>
     <string name="hint_daily_log_period_toggle_title">Mark Today as a Period Day</string>
