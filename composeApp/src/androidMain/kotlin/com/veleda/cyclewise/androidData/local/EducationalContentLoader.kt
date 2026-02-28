@@ -38,7 +38,7 @@ object EducationalContentLoader {
                 .use { it.readText() }
             parseJson(jsonText)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load educational content", e)
+            Log.e(TAG, "Failed to load educational content: ${e.message}")
             emptyList()
         }
     }

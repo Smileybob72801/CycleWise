@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
         )
 
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            Log.e("GlobalCrashHandler", "Uncaught exception in ${thread.name}", throwable)
+            Log.e("GlobalCrashHandler", "Uncaught exception in ${thread.name}: ${throwable.message}")
         }
 
         setContent {
