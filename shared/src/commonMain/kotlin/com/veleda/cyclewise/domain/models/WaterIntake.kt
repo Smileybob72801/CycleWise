@@ -12,7 +12,7 @@ import kotlin.time.Instant
  * and the daily log screen; drafts are synced into the encrypted database on unlock.
  *
  * @property date      Calendar date this record represents (PK, ISO-8601 string in DB).
- * @property cups      Number of cups logged for this day (non-negative).
+ * @property cups      Number of cups logged for this day (0–99).
  * @property createdAt Timestamp when this record was first persisted.
  * @property updatedAt Timestamp of the most recent modification.
  */

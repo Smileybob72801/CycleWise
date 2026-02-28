@@ -12,7 +12,11 @@ import kotlin.time.Instant
  * Room entity for the `symptom_library` table.
  *
  * Each row is a unique symptom type. The [name] column has a UNIQUE index.
- * The [category] enum is stored as its name string via [Converters].
+ *
+ * @property id        UUID primary key.
+ * @property name      Human-readable symptom name (UNIQUE).
+ * @property category  Symptom category, stored as the enum name string via [Converters].
+ * @property createdAt Timestamp when this record was first persisted.
  */
 @Entity(
     tableName = "symptom_library",

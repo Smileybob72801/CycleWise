@@ -22,6 +22,19 @@ import org.koin.core.component.inject
 import androidx.core.content.edit
 import com.veleda.cyclewise.session.SessionBus
 
+/**
+ * Application subclass responsible for Koin initialization and autolock lifecycle management.
+ *
+ * On [onCreate], initializes Koin with [appModule], creates the notification channel for
+ * reminders, and begins observing [AppSettings.autolockMinutes].
+ *
+ * Implements [LifecycleEventObserver] on the process lifecycle to enforce autolock:
+ * - **ON_STOP** — records the elapsed-realtime timestamp when the app moves to background.
+ * - **ON_START** — compares elapsed time against the configured threshold; if exceeded,
+ *   closes the Koin session scope (destroying [PeriodDatabase] and all session-scoped
+ *   dependencies) and emits a logout event via [SessionBus] so the UI navigates to the
+ *   passphrase screen.
+ */
 class CycleWiseApp :
     Application(),
     LifecycleEventObserver,

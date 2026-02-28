@@ -50,6 +50,7 @@ private const val DETAIL_TRANSITION_DURATION_MS = 300
 /** Duration (ms) for the passphrase authentication gate fade transition. */
 private const val AUTH_TRANSITION_DURATION_MS = 400
 
+/** Root composable that wires up theming, navigation host, bottom nav bar, and session logout handling. */
 @Composable
 @Preview
 fun CycleWiseAppUI() {

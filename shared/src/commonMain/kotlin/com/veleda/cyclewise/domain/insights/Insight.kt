@@ -29,7 +29,8 @@ sealed interface Insight {
 
 /**
  * An insight about the user's average cycle length.
- * @param averageDays The calculated average length of completed cycles.
+ *
+ * @property averageDays The calculated average length of completed cycles.
  */
 data class CycleLengthAverage(
     val averageDays: Double
@@ -42,9 +43,10 @@ data class CycleLengthAverage(
 
 /**
  * An insight that predicts the start date of the next menstrual period.
- * @param predictedDate The calculated raw date for the next period's start.
- * @param daysUntilPrediction The number of days from today until the predicted date.
- * @param formattedDateString The localized date string for display (set by ViewModel).
+ *
+ * @property predictedDate The calculated raw date for the next period's start.
+ * @property daysUntilPrediction The number of days from today until the predicted date.
+ * @property formattedDateString The localized date string for display (set by ViewModel).
  */
 data class NextPeriodPrediction @OptIn(ExperimentalTime::class) constructor(
     val predictedDate: LocalDate,
@@ -68,8 +70,9 @@ data class NextPeriodPrediction @OptIn(ExperimentalTime::class) constructor(
 
 /**
  * An insight that identifies a trend in cycle length over time.
- * @param trendDescription A user-facing string like "shortened", "lengthened", or "remained consistent".
- * @param changeInDays The number of days the cycle has changed by.
+ *
+ * @property trendDescription A user-facing string like "shortened", "lengthened", or "remained consistent".
+ * @property changeInDays The number of days the cycle has changed by.
  */
 data class CycleLengthTrend(
     val trendDescription: String,
@@ -88,10 +91,11 @@ data class CycleLengthTrend(
 /**
  * An advanced insight that identifies a strong correlation between a symptom
  * and a specific phase of the menstrual cycle.
- * @param symptomName The name of the recurring symptom.
- * @param phaseDescription A user-friendly description of the cycle phase (e.g., "during your period").
- * @param recurrenceRate A string representing the pattern's strength (e.g., "4 out of 5").
- * @param formattedPredictedDateString The localized date string for display (set by ViewModel).
+ *
+ * @property symptomName The name of the recurring symptom.
+ * @property phaseDescription A user-friendly description of the cycle phase (e.g., "during your period").
+ * @property recurrenceRate A string representing the pattern's strength (e.g., "4 out of 5").
+ * @property formattedPredictedDateString The localized date string for display (set by ViewModel).
  */
 data class SymptomPhasePattern(
     val symptomName: String,
@@ -120,9 +124,10 @@ data class SymptomPhasePattern(
 /**
  * An advanced insight that identifies a strong correlation between mood and a
  * specific phase of the menstrual cycle, accounting for variable cycle lengths.
- * @param moodType A string like "low" or "high".
- * @param phaseDescription A user-friendly description of the phase (e.g., "on the last day of your cycle").
- * @param recurrenceRate A string representing the pattern's strength (e.g., "4 out of 5").
+ *
+ * @property moodType A string like "low" or "high".
+ * @property phaseDescription A user-friendly description of the phase (e.g., "on the last day of your cycle").
+ * @property recurrenceRate A string representing the pattern's strength (e.g., "4 out of 5").
  */
 data class MoodPhasePattern(
     val moodType: String,
@@ -146,7 +151,8 @@ data class MoodPhasePattern(
 
 /**
  * An insight that lists the user's most frequently logged symptoms overall.
- * @param topSymptoms A list of the names of the most common symptoms.
+ *
+ * @property topSymptoms A list of the names of the most common symptoms.
  */
 data class TopSymptomsInsight(
     val topSymptoms: List<String>

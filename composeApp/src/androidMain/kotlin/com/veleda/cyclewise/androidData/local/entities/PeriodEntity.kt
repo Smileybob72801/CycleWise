@@ -7,14 +7,20 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
- * Room entity representing a period.
+ * Room entity representing a single menstrual period, mapped to the `periods` table.
  *
- * @param id      Internal PK for Room (fast indexing, auto-generated).
- * @param uuid    External ID for exports/sync (TEXT UNIQUE NOT NULL).
- * @param startDate Start date for period (DATE NOT NULL)
- * @param endDate End date for period (DATE NULLABLE)
- * @param createdAt Record creation timestamp
- * @param updatedAt Record update timestamp
+ * Uses a dual-key strategy: an auto-generated [id] for fast Room joins and indexing,
+ * and an exposed [uuid] (TEXT UNIQUE) for domain-layer identification.
+ *
+ * **Invariant:** [startDate] <= [endDate] when [endDate] is non-null.
+ * A null [endDate] indicates an ongoing period.
+ *
+ * @property id        Auto-generated internal PK for Room (fast joins/indexing).
+ * @property uuid      External UUID exposed to the domain layer (TEXT UNIQUE NOT NULL).
+ * @property startDate The first day of this period.
+ * @property endDate   The last day of this period, or null if ongoing.
+ * @property createdAt Timestamp when this record was first persisted.
+ * @property updatedAt Timestamp of the most recent modification.
  */
 @Entity(
     tableName = "periods",

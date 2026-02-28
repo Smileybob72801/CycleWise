@@ -14,8 +14,15 @@ import kotlin.time.Instant
  * Room entity for the `period_logs` table.
  *
  * Records menstrual flow attributes for a single day. Linked to [DailyEntryEntity]
- * via `entry_id` FK with CASCADE delete. The [flowIntensity], [periodColor], and
- * [periodConsistency] enums are stored as their name strings via [Converters].
+ * via `entry_id` FK with **CASCADE delete** (deleting the parent entry removes this log).
+ *
+ * @property id                UUID primary key.
+ * @property entryId           FK to [DailyEntryEntity.id] (indexed, CASCADE on delete).
+ * @property flowIntensity     Menstrual flow level, stored as the enum name string via [Converters].
+ * @property periodColor       Optional period color, stored as the enum name string via [Converters].
+ * @property periodConsistency Optional period consistency, stored as the enum name string via [Converters].
+ * @property createdAt         Timestamp when this record was first persisted (epoch ms).
+ * @property updatedAt         Timestamp of the most recent modification (epoch ms).
  */
 @OptIn(ExperimentalTime::class)
 @Entity(

@@ -11,6 +11,10 @@ import kotlin.time.Instant
  * Room entity for the `medication_library` table.
  *
  * Each row is a unique medication type. The [name] column has a UNIQUE index.
+ *
+ * @property id        UUID primary key.
+ * @property name      Human-readable medication name (UNIQUE).
+ * @property createdAt Timestamp when this record was first persisted.
  */
 @OptIn(ExperimentalTime::class)
 @Entity(

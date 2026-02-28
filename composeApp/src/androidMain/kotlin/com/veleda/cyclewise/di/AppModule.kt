@@ -85,16 +85,23 @@ internal fun createDatabaseAndZeroizeKey(
 }
 
 /**
- * Root Koin module defining two DI lifetimes:
+ * Root Koin module defining two DI lifetimes for the application.
  *
  * **Singleton scope** (lives for the app process):
  * [SaltStorage], [AppSettings], [SessionBus], [PassphraseService], [LockedWaterDraft],
  * [ReminderScheduler], [InsightEngine], [WaterTrackerViewModel], [PassphraseViewModel],
- * [SettingsViewModel].
+ * [SettingsViewModel], [HintPreferences], [EducationalContentProvider].
  *
  * **Session scope** ([SESSION_SCOPE], created on unlock, destroyed on logout/autolock):
  * [PeriodDatabase], all DAOs, [PeriodRepository], use cases, library providers,
  * [TrackerViewModel], [DailyLogViewModel], [InsightsViewModel].
+ *
+ * **Key lifecycle:** On session creation the user's passphrase is passed to
+ * [createDatabaseAndZeroizeKey], which derives the AES-256 key via Argon2id and
+ * zeroizes the original key array immediately (the copy is consumed by SQLCipher).
+ * When the session scope is destroyed (logout or autolock), all scoped instances —
+ * including the [PeriodDatabase] — are released and the encryption key is no longer
+ * reachable in memory.
  */
 val appModule = module {
     single { SaltStorage(androidContext()) }
