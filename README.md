@@ -28,15 +28,21 @@ See [`SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) for detailed implementation.
 RhythmWise follows a **Clean Architecture** layout:
 ```
 shared/
-├── domain/ # Use-cases, entities, pure logic
-├── data/ # Repositories, SQLCipher Room DAO, local storage
-├── di/ # Koin dependency-injection modules
-├── platform/ # expect/actual platform utilities
-└── presentation/ # UI-facing state & mappers
-androidApp/
-├── ui/ # Jetpack Compose screens
-├── navigation/
-└── main/ # App entry, Koin bootstrap
+└── domain/              # Use cases, entities, repository interface, insight engine, providers
+    ├── models/          # Period, DailyEntry, FullDailyLog, CyclePhase, enums, etc.
+    ├── usecases/        # StartNewPeriodUseCase, EndPeriodUseCase, etc.
+    ├── insights/        # InsightEngine + 6 generators
+    ├── repository/      # PeriodRepository interface
+    ├── providers/       # SymptomLibrary, MedicationLibrary, EducationalContent
+    └── services/        # PassphraseService interface
+composeApp/
+├── ui/                  # Jetpack Compose screens (auth, tracker, log, insights, settings, nav, coachmark, components)
+├── androidData/         # Room DAOs, entities, mappers, repository implementation, migrations
+├── di/                  # AppModule.kt — Koin DI wiring (singleton + session scope)
+├── services/            # PassphraseServiceAndroid, SaltStorage
+├── settings/            # AppSettings (DataStore preferences)
+├── session/             # SessionBus (logout event bus)
+└── reminders/           # ReminderScheduler, ReminderNotifier, WorkManager workers
 ```
 
 
@@ -155,7 +161,7 @@ navigation.
 
 ## ⚖️ License
 Released under the Apache License 2.0.
-See LICENSE.md
+See [`LICENSE`](LICENSE)
 
 © 2025 Veleda - RhythmWise™
 RhythmWise is a registered trademarks.

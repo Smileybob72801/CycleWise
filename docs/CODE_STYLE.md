@@ -3,7 +3,7 @@
 ## Kotlin
 - Use explicit types except for obvious locals.
 - Prefer `val` over `var`.
-- Group imports by module (`com.veleda.RhythmWise.*`).
+- Group imports by module (`com.veleda.cyclewise.*`).
 - Use `sealed class` and `data class` for models.
 
 ## Compose
@@ -22,5 +22,5 @@
 - 100 % coverage required for public utilities.
 
 ## Commits
-Follow [`git_commit_guide.md`](git_commit_guide.md).  
+Follow [`GIT_COMMIT_GUIDELINES.md`](GIT_COMMIT_GUIDELINES.md).  
 Each commit must pass tests and include DCO sign-off.

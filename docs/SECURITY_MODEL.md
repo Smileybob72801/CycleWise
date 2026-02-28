@@ -9,7 +9,7 @@
 ## Key Derivation
 - User passphrase → **Argon2id** key derivation
     - Salt: random 128-bit per-install
-    - Parameters: Memory 64 MB, Iterations 3, Parallelism 2
+    - Parameters: Memory 64 MB, Iterations 3, Parallelism 1
     - Output: 256-bit AES key
 
 ---
