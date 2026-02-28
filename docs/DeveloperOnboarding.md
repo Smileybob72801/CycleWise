@@ -474,8 +474,7 @@ PeriodTracker/
 │   │   └── DOCUMENTATION_GUIDELINES.md
 │   └── testing/
 │       ├── RUNNING_TESTS.md
-│       ├── TESTING_STRATEGY.md
-│       └── TEST_INVENTORY.md
+│       └── TESTING_STRATEGY.md
 │
 ├── shared/                          # KMP library module
 │   ├── build.gradle.kts
