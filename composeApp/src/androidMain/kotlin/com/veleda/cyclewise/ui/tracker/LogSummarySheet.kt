@@ -17,7 +17,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Mood
+import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,6 +40,8 @@ import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.models.CyclePhase
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.PeriodColor
+import com.veleda.cyclewise.domain.models.PeriodConsistency
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.utils.toLocalizedDateString
@@ -46,7 +50,8 @@ import kotlinx.datetime.LocalDate
 /**
  * Bottom-sheet content summarising a single day's log.
  *
- * Displays logged data in [InfoCard] rows with meaningful icons,
+ * Displays logged data in [InfoCard] rows with meaningful icons
+ * (phase, flow, color, consistency, mood, energy, libido, water, notes),
  * symptom/medication chips, and a "View Full Log" button at the bottom.
  *
  * @param log               The full daily log to display.
@@ -131,7 +136,37 @@ internal fun LogSummarySheetContent(
             InfoCard(
                 icon = Icons.Default.Opacity,
                 title = stringResource(R.string.tracker_flow_label),
-                value = it.name
+                value = it.name.lowercase().replaceFirstChar { c -> c.uppercase() }
+            )
+        }
+
+        log.periodLog?.periodColor?.let {
+            InfoCard(
+                icon = Icons.Default.Palette,
+                title = stringResource(R.string.tracker_color_label),
+                value = when (it) {
+                    PeriodColor.PINK -> stringResource(R.string.period_color_pink)
+                    PeriodColor.BRIGHT_RED -> stringResource(R.string.period_color_bright_red)
+                    PeriodColor.DARK_RED -> stringResource(R.string.period_color_dark_red)
+                    PeriodColor.BROWN -> stringResource(R.string.period_color_brown)
+                    PeriodColor.BLACK_OR_VERY_DARK -> stringResource(R.string.period_color_black)
+                    PeriodColor.UNUSUAL_COLOR -> stringResource(R.string.period_color_unusual)
+                }
+            )
+        }
+
+        log.periodLog?.periodConsistency?.let {
+            InfoCard(
+                icon = Icons.Default.Grain,
+                title = stringResource(R.string.tracker_consistency_label),
+                value = when (it) {
+                    PeriodConsistency.THIN -> stringResource(R.string.period_consistency_thin)
+                    PeriodConsistency.MODERATE -> stringResource(R.string.period_consistency_moderate)
+                    PeriodConsistency.THICK -> stringResource(R.string.period_consistency_thick)
+                    PeriodConsistency.STRINGY -> stringResource(R.string.period_consistency_stringy)
+                    PeriodConsistency.CLOTS_SMALL -> stringResource(R.string.period_consistency_clots_small)
+                    PeriodConsistency.CLOTS_LARGE -> stringResource(R.string.period_consistency_clots_large)
+                }
             )
         }
 
@@ -259,7 +294,7 @@ internal fun LogSummarySheetContent(
  * A card-styled info row with a leading icon, title, and trailing value.
  *
  * Used inside [LogSummarySheetContent] for each scalar data field
- * (phase, flow, mood, energy, libido, water, notes).
+ * (phase, flow, color, consistency, mood, energy, libido, water, notes).
  *
  * @param icon  The leading [ImageVector] icon.
  * @param title The label text displayed after the icon.

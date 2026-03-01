@@ -435,7 +435,7 @@ Contains the Jetpack Compose UI and all Android-specific implementations.
 | Package | Contents |
 |---------|----------|
 | `androidData/local/dao/` | 8 Room DAOs: `PeriodDao`, `DailyEntryDao`, `SymptomDao`, `MedicationDao`, `MedicationLogDao`, `SymptomLogDao`, `PeriodLogDao`, `WaterIntakeDao` |
-| `androidData/local/database/` | `PeriodDatabase` (Room + SQLCipher), `migrations/` (9 migration objects, v1 through v10) |
+| `androidData/local/database/` | `PeriodDatabase` (Room + SQLCipher), `migrations/` (10 migration objects, v1 through v11) |
 | `androidData/local/entities/` | 8 Room entities + `Converters` + `Mappers` |
 | `androidData/local/draft/` | `LockedWaterDraft` — persists water intake while locked |
 | `androidData/repository/` | `RoomPeriodRepository` — implements `PeriodRepository` |
@@ -536,7 +536,7 @@ PeriodTracker/
 │       │   │   ├── dao/                          # 8 Room DAOs
 │       │   │   ├── database/
 │       │   │   │   ├── PeriodDatabase.kt
-│       │   │   │   └── migrations/               # 9 migration objects (v1→v10)
+│       │   │   │   └── migrations/               # 10 migration objects (v1→v11)
 │       │   │   ├── entities/                     # 8 Room entities + Converters + Mappers
 │       │   │   └── draft/
 │       │   │       └── LockedWaterDraft.kt
@@ -1798,7 +1798,8 @@ reduce() checks: is March 15 inside any existing period?
 ### The `logPeriodDay()` State Machine
 
 `RoomPeriodRepository.logPeriodDay()` handles 4 scenarios inside a database
-transaction:
+transaction. After the scenario branch, it ensures a `PeriodLog` exists for the
+date with null `flowIntensity` if no log was already present:
 
 **Scenario 1: Already inside a period**
 ```
@@ -2018,6 +2019,12 @@ sealed interface DailyLogEvent {
 }
 ```
 
+> **PeriodLog lifecycle:** The `PeriodLog` is created (with null `flowIntensity`) by
+> `PeriodToggled` and deleted when the user toggles the period OFF. `FlowIntensityChanged`
+> only updates the flow field on an existing `PeriodLog` — it no longer creates or
+> deletes one. This allows users to log period attributes (color, consistency) without
+> first selecting a flow level.
+
 ### The Pure Reducer
 
 All `reduce()` branches are pure — they return updated state with no side effects.
@@ -2026,11 +2033,11 @@ launched in `onEvent()` after the state update.
 
 | Event | Pure state return? | Async side effect? |
 |-------|-------------------|-------------------|
-| `FlowIntensityChanged` | Yes | No |
+| `FlowIntensityChanged` | Yes — updates flow field on existing PeriodLog | No |
 | `MoodScoreChanged` | Yes | No |
 | `SymptomToggled` | Yes | No |
 | `CreateAndAddSymptom` | Returns `currentState` | Yes — creates symptom in library, then updates state |
-| `PeriodToggled` | Returns `currentState` | Yes — calls `logPeriodDay` or `unLogPeriodDay` |
+| `PeriodToggled` | Yes — creates PeriodLog (null flow) or deletes it | Yes — calls `logPeriodDay` or `unLogPeriodDay` |
 | `WaterIncrement` | Yes (optimistic) | Yes — upserts water intake to DB |
 
 ### Auto-Save

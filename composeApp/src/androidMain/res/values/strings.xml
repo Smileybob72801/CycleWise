@@ -72,6 +72,8 @@
     <string name="tracker_delete_period">Delete Period</string>
     <string name="tracker_phase_label">Phase</string>
     <string name="tracker_flow_label">Flow</string>
+    <string name="tracker_color_label">Color</string>
+    <string name="tracker_consistency_label">Consistency</string>
     <string name="tracker_mood_label">Mood</string>
     <string name="tracker_energy_label">Energy</string>
     <string name="tracker_libido_label">Libido</string>
