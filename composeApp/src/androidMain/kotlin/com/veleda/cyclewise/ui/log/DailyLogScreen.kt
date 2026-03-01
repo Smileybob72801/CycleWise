@@ -208,7 +208,7 @@ fun DailyLogScreen(
                 viewModel.onEvent(DailyLogEvent.ErrorDismissed)
             }
 
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize().imePadding()) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Header
                     Text(
