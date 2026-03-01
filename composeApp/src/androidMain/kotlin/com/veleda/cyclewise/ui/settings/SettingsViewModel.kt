@@ -4,18 +4,36 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
+import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.theme.ThemeMode
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.koin.core.component.KoinComponent
+
+/**
+ * One-shot side effects emitted by [SettingsViewModel] and consumed by the UI.
+ *
+ * Follows the same pattern as [PassphraseEffect] — uses `replay = 0` so effects
+ * are not replayed on recomposition or resubscription.
+ */
+sealed interface SettingsEffect {
+    /** All data has been deleted; the UI should navigate to the passphrase setup screen. */
+    data object DataDeleted : SettingsEffect
+}
 
 /**
  * UI state for the Settings pager screen.
@@ -53,7 +71,11 @@ import kotlinx.coroutines.launch
  * @property showPermissionRationale  Whether the notification permission rationale is shown.
  * @property showPrivacyPolicyDialog  Whether the Privacy Policy dialog is visible.
  * @property showTermsOfServiceDialog Whether the Terms of Service dialog is visible.
- * @property educationalArticles     Articles to display in the educational bottom sheet, or null when the sheet is hidden.
+ * @property educationalArticles           Articles to display in the educational bottom sheet, or null when the sheet is hidden.
+ * @property showDeleteFirstConfirmation  Whether the first "Delete All Data?" warning dialog is visible.
+ * @property showDeleteSecondConfirmation Whether the second "type DELETE" confirmation dialog is visible.
+ * @property deleteConfirmText            Current text in the second dialog's confirmation field.
+ * @property isDeletingData               Whether a data wipe is currently in progress.
  */
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -87,6 +109,10 @@ data class SettingsUiState(
     val showPrivacyPolicyDialog: Boolean = false,
     val showTermsOfServiceDialog: Boolean = false,
     val educationalArticles: List<EducationalArticle>? = null,
+    val showDeleteFirstConfirmation: Boolean = false,
+    val showDeleteSecondConfirmation: Boolean = false,
+    val deleteConfirmText: String = "",
+    val isDeletingData: Boolean = false,
 )
 
 /**
@@ -100,21 +126,32 @@ data class SettingsUiState(
  * Singleton-scoped (no database access needed). Session-specific operations
  * (Lock Now, Debug Seeder) are handled at the Screen level via Koin scope access.
  *
- * @param appSettings       The [AppSettings] for reading/writing preferences.
- * @param reminderScheduler The [ReminderScheduler] for notification scheduling.
- * @param hintPreferences   The [HintPreferences] for managing tutorial hint state.
+ * @param appSettings          The [AppSettings] for reading/writing preferences.
+ * @param reminderScheduler    The [ReminderScheduler] for notification scheduling.
+ * @param hintPreferences      The [HintPreferences] for managing tutorial hint state.
+ * @param deleteAllDataUseCase The [DeleteAllDataUseCase] for wiping all user data.
  */
 class SettingsViewModel(
     private val appSettings: AppSettings,
     private val reminderScheduler: ReminderScheduler,
     private val educationalContentProvider: EducationalContentProvider,
     private val hintPreferences: HintPreferences,
-) : ViewModel() {
+    private val deleteAllDataUseCase: DeleteAllDataUseCase,
+) : ViewModel(), KoinComponent {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
 
     /** Observable settings UI state. */
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    private val _effect = MutableSharedFlow<SettingsEffect>(replay = 0)
+
+    /**
+     * One-shot side effects consumed by the UI (navigation after data deletion).
+     *
+     * Uses `replay = 0` so effects are not replayed on recomposition or resubscription.
+     */
+    val effect: SharedFlow<SettingsEffect> = _effect.asSharedFlow()
 
     init {
         // Collect each AppSettings flow individually to populate state.
@@ -364,6 +401,17 @@ class SettingsViewModel(
                 _uiState.update { it.copy(educationalArticles = articles.ifEmpty { null }) }
             }
 
+            is SettingsEvent.DeleteAllDataConfirmed -> {
+                _uiState.update { it.copy(isDeletingData = true) }
+                viewModelScope.launch {
+                    withContext(Dispatchers.IO) {
+                        getKoin().getScopeOrNull("session")?.close()
+                        deleteAllDataUseCase()
+                    }
+                    _effect.emit(SettingsEffect.DataDeleted)
+                }
+            }
+
             // Dialog events are UI-only state changes — no side effects needed.
             is SettingsEvent.ShowAboutDialog,
             is SettingsEvent.DismissAboutDialog,
@@ -375,7 +423,11 @@ class SettingsViewModel(
             is SettingsEvent.DismissPrivacyPolicyDialog,
             is SettingsEvent.ShowTermsOfServiceDialog,
             is SettingsEvent.DismissTermsOfServiceDialog,
-            is SettingsEvent.DismissEducationalSheet -> { /* state-only */ }
+            is SettingsEvent.DismissEducationalSheet,
+            is SettingsEvent.DeleteAllDataRequested,
+            is SettingsEvent.DeleteAllDataCancelled,
+            is SettingsEvent.DeleteAllDataFirstConfirmed,
+            is SettingsEvent.DeleteConfirmTextChanged -> { /* state-only */ }
         }
     }
 
@@ -440,6 +492,23 @@ class SettingsViewModel(
             is SettingsEvent.DismissPrivacyPolicyDialog -> state.copy(showPrivacyPolicyDialog = false)
             is SettingsEvent.ShowTermsOfServiceDialog -> state.copy(showTermsOfServiceDialog = true)
             is SettingsEvent.DismissTermsOfServiceDialog -> state.copy(showTermsOfServiceDialog = false)
+
+            is SettingsEvent.DeleteAllDataRequested -> state.copy(showDeleteFirstConfirmation = true)
+            is SettingsEvent.DeleteAllDataCancelled -> state.copy(
+                showDeleteFirstConfirmation = false,
+                showDeleteSecondConfirmation = false,
+                deleteConfirmText = "",
+            )
+            is SettingsEvent.DeleteAllDataFirstConfirmed -> state.copy(
+                showDeleteFirstConfirmation = false,
+                showDeleteSecondConfirmation = true,
+                deleteConfirmText = "",
+            )
+            is SettingsEvent.DeleteConfirmTextChanged -> state.copy(deleteConfirmText = event.text)
+            is SettingsEvent.DeleteAllDataConfirmed -> state.copy(
+                showDeleteSecondConfirmation = false,
+                deleteConfirmText = "",
+            )
 
             is SettingsEvent.ShowEducationalSheet -> state
             is SettingsEvent.DismissEducationalSheet -> state.copy(educationalArticles = null)

@@ -26,6 +26,7 @@ import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
 import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
+import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import com.veleda.cyclewise.domain.usecases.TutorialSeederUseCase
 import org.koin.core.qualifier.named
@@ -133,11 +134,13 @@ val appModule = module {
 
     single { HintPreferences(androidContext()) }
 
+    single { DeleteAllDataUseCase(androidContext(), get(), get(), get(), get(), get()) }
+
     viewModel { WaterTrackerViewModel(lockedWaterDraft = get()) }
 
     viewModel { PassphraseViewModel(appSettings = get(), lockedWaterDraft = get()) }
 
-    viewModel { SettingsViewModel(appSettings = get(), reminderScheduler = get(), educationalContentProvider = get(), hintPreferences = get()) }
+    viewModel { SettingsViewModel(appSettings = get(), reminderScheduler = get(), educationalContentProvider = get(), hintPreferences = get(), deleteAllDataUseCase = get()) }
 
     scope(SESSION_SCOPE) {
         /*

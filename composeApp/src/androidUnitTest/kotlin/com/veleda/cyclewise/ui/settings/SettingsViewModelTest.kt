@@ -1,9 +1,11 @@
 package com.veleda.cyclewise.ui.settings
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import app.cash.turbine.test
 import com.veleda.cyclewise.domain.models.ArticleCategory
 import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
+import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
@@ -25,6 +27,9 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
+import org.koin.dsl.module
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -49,6 +54,7 @@ class SettingsViewModelTest {
     private lateinit var mockReminderScheduler: ReminderScheduler
     private lateinit var mockEducationalContentProvider: EducationalContentProvider
     private lateinit var mockHintPreferences: HintPreferences
+    private lateinit var mockDeleteAllDataUseCase: DeleteAllDataUseCase
 
     @Before
     fun setUp() {
@@ -58,6 +64,7 @@ class SettingsViewModelTest {
         mockReminderScheduler = mockk(relaxed = true)
         mockEducationalContentProvider = mockk(relaxed = true)
         mockHintPreferences = mockk(relaxed = true)
+        mockDeleteAllDataUseCase = mockk(relaxed = true)
 
         // Configure all AppSettings flows to return defaults.
         every { mockAppSettings.themeMode } returns flowOf("system")
@@ -84,10 +91,15 @@ class SettingsViewModelTest {
         every { mockAppSettings.reminderHydrationFrequencyHours } returns flowOf(3)
         every { mockAppSettings.reminderHydrationStartHour } returns flowOf(8)
         every { mockAppSettings.reminderHydrationEndHour } returns flowOf(20)
+
+        // Start Koin with an empty module so getKoin() does not crash
+        // when the delete flow accesses the Koin scope.
+        startKoin { modules(module { }) }
     }
 
     @After
     fun tearDown() {
+        stopKoin()
         Dispatchers.resetMain()
     }
 
@@ -97,6 +109,7 @@ class SettingsViewModelTest {
             reminderScheduler = mockReminderScheduler,
             educationalContentProvider = mockEducationalContentProvider,
             hintPreferences = mockHintPreferences,
+            deleteAllDataUseCase = mockDeleteAllDataUseCase,
         )
     }
 
@@ -559,5 +572,96 @@ class SettingsViewModelTest {
 
         // THEN — educationalArticles is null
         assertNull(viewModel.uiState.value.educationalArticles)
+    }
+
+    // ── Delete All Data ─────────────────────────────────────────────
+
+    @Test
+    fun `onEvent DeleteAllDataRequested THEN showsFirstConfirmation`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — delete all data requested
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+
+        // THEN — first confirmation dialog is shown
+        assertTrue(viewModel.uiState.value.showDeleteFirstConfirmation)
+        assertFalse(viewModel.uiState.value.showDeleteSecondConfirmation)
+    }
+
+    @Test
+    fun `onEvent DeleteAllDataCancelled THEN resetsAllConfirmationState`() = runTest {
+        // GIVEN — first confirmation dialog is showing
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+        assertTrue(viewModel.uiState.value.showDeleteFirstConfirmation)
+
+        // WHEN — user cancels
+        viewModel.onEvent(SettingsEvent.DeleteAllDataCancelled)
+
+        // THEN — all confirmation state is reset
+        val state = viewModel.uiState.value
+        assertFalse(state.showDeleteFirstConfirmation)
+        assertFalse(state.showDeleteSecondConfirmation)
+        assertEquals("", state.deleteConfirmText)
+    }
+
+    @Test
+    fun `onEvent DeleteAllDataFirstConfirmed THEN advancesToSecondConfirmation`() = runTest {
+        // GIVEN — first confirmation dialog is showing
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+
+        // WHEN — user confirms first dialog
+        viewModel.onEvent(SettingsEvent.DeleteAllDataFirstConfirmed)
+
+        // THEN — advances to second confirmation
+        val state = viewModel.uiState.value
+        assertFalse(state.showDeleteFirstConfirmation)
+        assertTrue(state.showDeleteSecondConfirmation)
+        assertEquals("", state.deleteConfirmText)
+    }
+
+    @Test
+    fun `onEvent DeleteConfirmTextChanged THEN updatesDeleteConfirmText`() = runTest {
+        // GIVEN — second confirmation dialog is showing
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+        viewModel.onEvent(SettingsEvent.DeleteAllDataFirstConfirmed)
+
+        // WHEN — user types in the confirmation field
+        viewModel.onEvent(SettingsEvent.DeleteConfirmTextChanged("DEL"))
+
+        // THEN — text is updated
+        assertEquals("DEL", viewModel.uiState.value.deleteConfirmText)
+    }
+
+    @Test
+    fun `onEvent DeleteAllDataConfirmed THEN setsIsDeletingAndInvokesUseCaseAndEmitsEffect`() = runTest {
+        // GIVEN — second confirmation completed
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+        viewModel.onEvent(SettingsEvent.DeleteAllDataFirstConfirmed)
+        viewModel.onEvent(SettingsEvent.DeleteConfirmTextChanged("DELETE"))
+
+        // WHEN — user confirms final deletion
+        viewModel.effect.test {
+            viewModel.onEvent(SettingsEvent.DeleteAllDataConfirmed)
+            advanceUntilIdle()
+
+            // THEN — use case was invoked and DataDeleted effect was emitted
+            coVerify(exactly = 1) { mockDeleteAllDataUseCase() }
+            assertEquals(SettingsEffect.DataDeleted, awaitItem())
+        }
+
+        // THEN — isDeletingData was set (state may have been reset after effect)
+        val state = viewModel.uiState.value
+        assertFalse(state.showDeleteSecondConfirmation)
+        assertEquals("", state.deleteConfirmText)
     }
 }

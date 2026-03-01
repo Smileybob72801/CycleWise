@@ -327,6 +327,11 @@ class AppSettings(private val context: Context) {
     suspend fun clearSeedManifest() {
         context.dataStore.edit { it.remove(SEED_MANIFEST_JSON) }
     }
+
+    /** Removes all preferences, restoring every setting to its default value. */
+    suspend fun clearAll() {
+        context.dataStore.edit { it.clear() }
+    }
 }
 
 /**

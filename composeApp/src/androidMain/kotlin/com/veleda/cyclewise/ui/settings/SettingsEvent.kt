@@ -131,6 +131,23 @@ sealed interface SettingsEvent {
     /** Permission rationale has been acknowledged or dismissed. */
     data object DismissPermissionRationale : SettingsEvent
 
+    // ── Data Management ───────────────────────────────────────────
+
+    /** User tapped "Delete All Data" to begin the deletion flow. */
+    data object DeleteAllDataRequested : SettingsEvent
+
+    /** User dismissed any delete confirmation dialog without proceeding. */
+    data object DeleteAllDataCancelled : SettingsEvent
+
+    /** User confirmed the first warning dialog and should see the second confirmation. */
+    data object DeleteAllDataFirstConfirmed : SettingsEvent
+
+    /** User updated the text field in the second confirmation dialog. */
+    data class DeleteConfirmTextChanged(val text: String) : SettingsEvent
+
+    /** User typed "DELETE" and tapped the final confirm button — execute the wipe. */
+    data object DeleteAllDataConfirmed : SettingsEvent
+
     // ── Legal ───────────────────────────────────────────────────────
 
     /** User tapped "Privacy Policy" to view the privacy policy dialog. */

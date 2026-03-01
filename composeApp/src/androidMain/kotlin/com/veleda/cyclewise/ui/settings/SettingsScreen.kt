@@ -20,16 +20,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SegmentedButton
@@ -91,6 +94,18 @@ fun SettingsScreen(navController: NavController) {
     val viewModel: SettingsViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val session = koin.getScopeOrNull("session")
+
+    LaunchedEffect(Unit) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                is SettingsEffect.DataDeleted -> {
+                    navController.navigate(NavRoute.Passphrase.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }
@@ -348,6 +363,111 @@ private fun GeneralPage(
                         Text(stringResource(R.string.legal_dialog_close))
                     }
                 }
+            )
+        }
+
+        // ── Data Management Card ────────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_section_data_management)) {
+            ListItem(
+                headlineContent = {
+                    Text(
+                        stringResource(R.string.settings_delete_all_data),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                },
+                supportingContent = {
+                    Text(stringResource(R.string.settings_delete_all_data_description))
+                },
+                leadingContent = {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                },
+                modifier = Modifier.clickable {
+                    onEvent(SettingsEvent.DeleteAllDataRequested)
+                }
+            )
+        }
+
+        // First confirmation dialog
+        if (uiState.showDeleteFirstConfirmation) {
+            AlertDialog(
+                onDismissRequest = { onEvent(SettingsEvent.DeleteAllDataCancelled) },
+                title = { Text(stringResource(R.string.settings_delete_first_title)) },
+                text = { Text(stringResource(R.string.settings_delete_first_body)) },
+                confirmButton = {
+                    Button(
+                        onClick = { onEvent(SettingsEvent.DeleteAllDataFirstConfirmed) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        ),
+                    ) {
+                        Text(stringResource(R.string.settings_delete_first_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { onEvent(SettingsEvent.DeleteAllDataCancelled) }) {
+                        Text(stringResource(R.string.settings_delete_first_cancel))
+                    }
+                }
+            )
+        }
+
+        // Second confirmation dialog with text input
+        if (uiState.showDeleteSecondConfirmation) {
+            AlertDialog(
+                onDismissRequest = { onEvent(SettingsEvent.DeleteAllDataCancelled) },
+                title = { Text(stringResource(R.string.settings_delete_second_title)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(dims.md)) {
+                        Text(stringResource(R.string.settings_delete_second_body))
+                        OutlinedTextField(
+                            value = uiState.deleteConfirmText,
+                            onValueChange = { onEvent(SettingsEvent.DeleteConfirmTextChanged(it)) },
+                            label = { Text(stringResource(R.string.settings_delete_second_field_label)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { onEvent(SettingsEvent.DeleteAllDataConfirmed) },
+                        enabled = uiState.deleteConfirmText == "DELETE",
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        ),
+                    ) {
+                        Text(stringResource(R.string.settings_delete_first_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { onEvent(SettingsEvent.DeleteAllDataCancelled) }) {
+                        Text(stringResource(R.string.settings_delete_first_cancel))
+                    }
+                }
+            )
+        }
+
+        // Progress dialog while deleting
+        if (uiState.isDeletingData) {
+            AlertDialog(
+                onDismissRequest = { /* non-dismissable */ },
+                title = { Text(stringResource(R.string.settings_delete_progress_title)) },
+                text = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(dims.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Text(stringResource(R.string.settings_delete_progress_body))
+                    }
+                },
+                confirmButton = { /* no buttons — non-dismissable */ }
             )
         }
 
