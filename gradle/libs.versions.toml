@@ -15,7 +15,6 @@ junit = "4.13.2"
 kotlin = "2.2.0"
 kotlinxCoroutinesCore = "1.10.2"
 kotlinxDatetime = "0.7.1"
-ktorVersion = "3.2.2"
 lifecycleViewmodelKtx = "2.9.2"
 koin = "4.1.0"
 orchestrator = "1.6.1"
@@ -56,11 +55,6 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 androidx-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "androidx-lifecycle" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
-ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktorVersion" }
-ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktorVersion" }
-ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktorVersion" }
-ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktorVersion" }
-ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktorVersion" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 koin-core-viewmodel = { module = "io.insert-koin:koin-core-viewmodel", version.ref = "koin" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
