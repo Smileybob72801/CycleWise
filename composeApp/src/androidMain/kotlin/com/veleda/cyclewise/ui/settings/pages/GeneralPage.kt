@@ -40,8 +40,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.ui.settings.GeneralSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
-import com.veleda.cyclewise.ui.settings.SettingsUiState
 import com.veleda.cyclewise.ui.settings.components.SettingsSectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import org.koin.core.scope.Scope
@@ -53,7 +53,7 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun GeneralPage(
-    uiState: SettingsUiState,
+    state: GeneralSettingsState,
     onEvent: (SettingsEvent) -> Unit,
     session: Scope?,
     onLockNow: () -> Unit,
@@ -90,7 +90,7 @@ internal fun GeneralPage(
                             count = options.size
                         ),
                         onClick = { onEvent(SettingsEvent.AutolockChanged(minutes)) },
-                        selected = uiState.autolockMinutes == minutes,
+                        selected = state.autolockMinutes == minutes,
                         label = { Text("$minutes ${stringResource(R.string.settings_autolock_minutes_unit)}") }
                     )
                 }
@@ -118,7 +118,7 @@ internal fun GeneralPage(
         // ── Insights Card ────────────────────────────────────────────
         SettingsSectionCard(title = stringResource(R.string.settings_insights_title)) {
             Text(
-                stringResource(R.string.settings_top_symptoms, uiState.topSymptomsCount),
+                stringResource(R.string.settings_top_symptoms, state.topSymptomsCount),
                 modifier = Modifier.padding(horizontal = dims.md)
             )
             Row(
@@ -131,11 +131,11 @@ internal fun GeneralPage(
                     Text(
                         text = value.toString(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (value == uiState.topSymptomsCount)
+                        color = if (value == state.topSymptomsCount)
                             MaterialTheme.colorScheme.primary
                         else
                             MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = if (value == uiState.topSymptomsCount)
+                        fontWeight = if (value == state.topSymptomsCount)
                             FontWeight.Bold
                         else
                             FontWeight.Normal
@@ -143,7 +143,7 @@ internal fun GeneralPage(
                 }
             }
             Slider(
-                value = uiState.topSymptomsCount.toFloat(),
+                value = state.topSymptomsCount.toFloat(),
                 onValueChange = { newValue ->
                     onEvent(SettingsEvent.TopSymptomsCountChanged(newValue.roundToInt()))
                 },
@@ -163,7 +163,7 @@ internal fun GeneralPage(
         }
 
         // Show a Toast when hints are successfully reset.
-        if (uiState.showHintResetConfirmation) {
+        if (state.showHintResetConfirmation) {
             val context = LocalContext.current
             val message = stringResource(R.string.settings_reset_hints_confirmation)
             LaunchedEffect(Unit) {
@@ -184,7 +184,7 @@ internal fun GeneralPage(
             )
         }
 
-        if (uiState.showPrivacyPolicyDialog) {
+        if (state.showPrivacyPolicyDialog) {
             AlertDialog(
                 onDismissRequest = { onEvent(SettingsEvent.DismissPrivacyPolicyDialog) },
                 title = { Text(stringResource(R.string.settings_legal_privacy_policy)) },
@@ -201,7 +201,7 @@ internal fun GeneralPage(
             )
         }
 
-        if (uiState.showTermsOfServiceDialog) {
+        if (state.showTermsOfServiceDialog) {
             AlertDialog(
                 onDismissRequest = { onEvent(SettingsEvent.DismissTermsOfServiceDialog) },
                 title = { Text(stringResource(R.string.settings_legal_terms_of_service)) },
@@ -244,7 +244,7 @@ internal fun GeneralPage(
         }
 
         // First confirmation dialog
-        if (uiState.showDeleteFirstConfirmation) {
+        if (state.showDeleteFirstConfirmation) {
             AlertDialog(
                 onDismissRequest = { onEvent(SettingsEvent.DeleteAllDataCancelled) },
                 title = { Text(stringResource(R.string.settings_delete_first_title)) },
@@ -269,7 +269,7 @@ internal fun GeneralPage(
         }
 
         // Second confirmation dialog with text input
-        if (uiState.showDeleteSecondConfirmation) {
+        if (state.showDeleteSecondConfirmation) {
             AlertDialog(
                 onDismissRequest = { onEvent(SettingsEvent.DeleteAllDataCancelled) },
                 title = { Text(stringResource(R.string.settings_delete_second_title)) },
@@ -277,7 +277,7 @@ internal fun GeneralPage(
                     Column(verticalArrangement = Arrangement.spacedBy(dims.md)) {
                         Text(stringResource(R.string.settings_delete_second_body))
                         OutlinedTextField(
-                            value = uiState.deleteConfirmText,
+                            value = state.deleteConfirmText,
                             onValueChange = { onEvent(SettingsEvent.DeleteConfirmTextChanged(it)) },
                             label = { Text(stringResource(R.string.settings_delete_second_field_label)) },
                             singleLine = true,
@@ -288,7 +288,7 @@ internal fun GeneralPage(
                 confirmButton = {
                     Button(
                         onClick = { onEvent(SettingsEvent.DeleteAllDataConfirmed) },
-                        enabled = uiState.deleteConfirmText == "DELETE",
+                        enabled = state.deleteConfirmText == "DELETE",
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,
                             contentColor = MaterialTheme.colorScheme.onError,
@@ -306,7 +306,7 @@ internal fun GeneralPage(
         }
 
         // Progress dialog while deleting
-        if (uiState.isDeletingData) {
+        if (state.isDeletingData) {
             AlertDialog(
                 onDismissRequest = { /* non-dismissable */ },
                 title = { Text(stringResource(R.string.settings_delete_progress_title)) },

@@ -33,8 +33,8 @@ import com.veleda.cyclewise.BuildConfig
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
 import com.veleda.cyclewise.ui.components.MedicalDisclaimer
+import com.veleda.cyclewise.ui.settings.AboutSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
-import com.veleda.cyclewise.ui.settings.SettingsUiState
 import com.veleda.cyclewise.ui.settings.components.SettingsSectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.launch
@@ -45,7 +45,7 @@ import org.koin.core.scope.Scope
  */
 @Composable
 internal fun AboutPage(
-    uiState: SettingsUiState,
+    state: AboutSettingsState,
     onEvent: (SettingsEvent) -> Unit,
     session: Scope?,
 ) {
@@ -74,7 +74,7 @@ internal fun AboutPage(
             )
         }
 
-        if (uiState.showAboutDialog) {
+        if (state.showAboutDialog) {
             AlertDialog(
                 onDismissRequest = { onEvent(SettingsEvent.DismissAboutDialog) },
                 title = { Text(stringResource(R.string.app_name)) },

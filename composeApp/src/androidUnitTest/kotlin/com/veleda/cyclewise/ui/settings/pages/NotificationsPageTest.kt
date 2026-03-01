@@ -6,8 +6,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.veleda.cyclewise.RobolectricTestApp
+import com.veleda.cyclewise.ui.settings.NotificationSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
-import com.veleda.cyclewise.ui.settings.SettingsUiState
 import com.veleda.cyclewise.ui.theme.Dimensions
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import org.junit.Rule
@@ -27,14 +27,14 @@ class NotificationsPageTest {
     val composeTestRule = createComposeRule()
 
     private fun setContent(
-        uiState: SettingsUiState = SettingsUiState(),
+        state: NotificationSettingsState = NotificationSettingsState(),
         onEvent: (SettingsEvent) -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalDimensions provides Dimensions()) {
                 MaterialTheme {
                     NotificationsPage(
-                        uiState = uiState,
+                        state = state,
                         onEvent = onEvent,
                     )
                 }
@@ -75,7 +75,7 @@ class NotificationsPageTest {
     @Test
     fun periodSubSection_WHEN_enabled_THEN_daysBeforeDisplayed() {
         setContent(
-            uiState = SettingsUiState(
+            state = NotificationSettingsState(
                 periodReminderEnabled = true,
                 periodPrivacyAccepted = true,
             ),
@@ -86,7 +86,7 @@ class NotificationsPageTest {
 
     @Test
     fun periodSubSection_WHEN_disabled_THEN_daysBeforeNotDisplayed() {
-        setContent(uiState = SettingsUiState(periodReminderEnabled = false))
+        setContent(state = NotificationSettingsState(periodReminderEnabled = false))
         composeTestRule.onNodeWithText("Days before", substring = true).assertDoesNotExist()
     }
 
@@ -96,13 +96,13 @@ class NotificationsPageTest {
 
     @Test
     fun medicationSubSection_WHEN_enabled_THEN_timeDisplayed() {
-        setContent(uiState = SettingsUiState(medicationReminderEnabled = true))
+        setContent(state = NotificationSettingsState(medicationReminderEnabled = true))
         composeTestRule.onNodeWithText("Reminder time", substring = true).assertIsDisplayed()
     }
 
     @Test
     fun medicationSubSection_WHEN_disabled_THEN_timeNotDisplayed() {
-        setContent(uiState = SettingsUiState(medicationReminderEnabled = false))
+        setContent(state = NotificationSettingsState(medicationReminderEnabled = false))
         composeTestRule.onNodeWithText("Reminder time", substring = true).assertDoesNotExist()
     }
 
@@ -112,13 +112,13 @@ class NotificationsPageTest {
 
     @Test
     fun hydrationSubSection_WHEN_enabled_THEN_goalDisplayed() {
-        setContent(uiState = SettingsUiState(hydrationReminderEnabled = true))
+        setContent(state = NotificationSettingsState(hydrationReminderEnabled = true))
         composeTestRule.onNodeWithText("Daily goal", substring = true).assertIsDisplayed()
     }
 
     @Test
     fun hydrationSubSection_WHEN_disabled_THEN_goalNotDisplayed() {
-        setContent(uiState = SettingsUiState(hydrationReminderEnabled = false))
+        setContent(state = NotificationSettingsState(hydrationReminderEnabled = false))
         composeTestRule.onNodeWithText("Daily goal", substring = true).assertDoesNotExist()
     }
 

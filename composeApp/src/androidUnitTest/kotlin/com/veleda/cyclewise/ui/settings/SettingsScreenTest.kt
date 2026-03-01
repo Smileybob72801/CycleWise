@@ -16,8 +16,8 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
 /**
  * Robolectric-based Compose UI tests for [SettingsContent].
  *
- * Tests the internal [SettingsContent] composable directly with a [SettingsUiState]
- * and event callback, bypassing the Koin-injected [SettingsScreen] wrapper.
+ * Tests the internal [SettingsContent] composable directly with the four sub-state
+ * objects and event callback, bypassing the Koin-injected [SettingsScreen] wrapper.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = com.veleda.cyclewise.RobolectricTestApp::class)
@@ -30,7 +30,10 @@ class SettingsScreenTest {
      * Helper that wraps [SettingsContent] with required composition locals.
      */
     private fun setSettingsContent(
-        uiState: SettingsUiState = SettingsUiState(),
+        generalState: GeneralSettingsState = GeneralSettingsState(),
+        appearanceState: AppearanceSettingsState = AppearanceSettingsState(),
+        notificationState: NotificationSettingsState = NotificationSettingsState(),
+        aboutState: AboutSettingsState = AboutSettingsState(),
         onEvent: (SettingsEvent) -> Unit = {},
         session: org.koin.core.scope.Scope? = null,
         onLockNow: () -> Unit = {},
@@ -41,7 +44,10 @@ class SettingsScreenTest {
             ) {
                 MaterialTheme {
                     SettingsContent(
-                        uiState = uiState,
+                        generalState = generalState,
+                        appearanceState = appearanceState,
+                        notificationState = notificationState,
+                        aboutState = aboutState,
                         onEvent = onEvent,
                         session = session,
                         onLockNow = onLockNow,

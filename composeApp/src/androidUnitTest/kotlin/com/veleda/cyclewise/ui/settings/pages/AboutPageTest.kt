@@ -8,8 +8,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.veleda.cyclewise.RobolectricTestApp
+import com.veleda.cyclewise.ui.settings.AboutSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
-import com.veleda.cyclewise.ui.settings.SettingsUiState
 import com.veleda.cyclewise.ui.theme.Dimensions
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import org.junit.Rule
@@ -30,7 +30,7 @@ class AboutPageTest {
     val composeTestRule = createComposeRule()
 
     private fun setContent(
-        uiState: SettingsUiState = SettingsUiState(),
+        state: AboutSettingsState = AboutSettingsState(),
         onEvent: (SettingsEvent) -> Unit = {},
         session: Scope? = null,
     ) {
@@ -38,7 +38,7 @@ class AboutPageTest {
             CompositionLocalProvider(LocalDimensions provides Dimensions()) {
                 MaterialTheme {
                     AboutPage(
-                        uiState = uiState,
+                        state = state,
                         onEvent = onEvent,
                         session = session,
                     )
@@ -86,7 +86,7 @@ class AboutPageTest {
     @Test
     fun aboutDialog_WHEN_showTrue_THEN_versionDisplayed() {
         // Given / When
-        setContent(uiState = SettingsUiState(showAboutDialog = true))
+        setContent(state = AboutSettingsState(showAboutDialog = true))
 
         // Then — dialog content with version should be visible
         composeTestRule.onNodeWithText("Version", substring = true, ignoreCase = true)
@@ -98,7 +98,7 @@ class AboutPageTest {
         // Given
         val events = mutableListOf<SettingsEvent>()
         setContent(
-            uiState = SettingsUiState(showAboutDialog = true),
+            state = AboutSettingsState(showAboutDialog = true),
             onEvent = { events.add(it) },
         )
 

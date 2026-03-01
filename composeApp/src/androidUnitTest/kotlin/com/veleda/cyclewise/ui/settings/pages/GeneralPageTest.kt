@@ -14,8 +14,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.veleda.cyclewise.RobolectricTestApp
+import com.veleda.cyclewise.ui.settings.GeneralSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
-import com.veleda.cyclewise.ui.settings.SettingsUiState
 import com.veleda.cyclewise.ui.theme.Dimensions
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import org.junit.Rule
@@ -36,7 +36,7 @@ class GeneralPageTest {
     val composeTestRule = createComposeRule()
 
     private fun setContent(
-        uiState: SettingsUiState = SettingsUiState(),
+        state: GeneralSettingsState = GeneralSettingsState(),
         onEvent: (SettingsEvent) -> Unit = {},
         session: Scope? = null,
         onLockNow: () -> Unit = {},
@@ -45,7 +45,7 @@ class GeneralPageTest {
             CompositionLocalProvider(LocalDimensions provides Dimensions()) {
                 MaterialTheme {
                     GeneralPage(
-                        uiState = uiState,
+                        state = state,
                         onEvent = onEvent,
                         session = session,
                         onLockNow = onLockNow,
@@ -75,7 +75,7 @@ class GeneralPageTest {
 
     @Test
     fun autolockOption_WHEN_selected_THEN_isSelectedState() {
-        setContent(uiState = SettingsUiState(autolockMinutes = 10))
+        setContent(state = GeneralSettingsState(autolockMinutes = 10))
         composeTestRule.onAllNodesWithText("10 min", substring = true)[0].assertIsSelected()
     }
 
@@ -178,14 +178,14 @@ class GeneralPageTest {
 
     @Test
     fun privacyPolicyDialog_WHEN_showTrue_THEN_isDisplayed() {
-        setContent(uiState = SettingsUiState(showPrivacyPolicyDialog = true))
+        setContent(state = GeneralSettingsState(showPrivacyPolicyDialog = true))
         composeTestRule.onNodeWithText("Close", substring = true, ignoreCase = true)
             .assertIsDisplayed()
     }
 
     @Test
     fun termsOfServiceDialog_WHEN_showTrue_THEN_isDisplayed() {
-        setContent(uiState = SettingsUiState(showTermsOfServiceDialog = true))
+        setContent(state = GeneralSettingsState(showTermsOfServiceDialog = true))
         composeTestRule.onNodeWithText("Close", substring = true, ignoreCase = true)
             .assertIsDisplayed()
     }
@@ -216,20 +216,20 @@ class GeneralPageTest {
 
     @Test
     fun firstConfirmDialog_WHEN_showTrue_THEN_isDisplayed() {
-        setContent(uiState = SettingsUiState(showDeleteFirstConfirmation = true))
+        setContent(state = GeneralSettingsState(showDeleteFirstConfirmation = true))
         composeTestRule.onAllNodesWithText("Cancel")[0].assertIsDisplayed()
     }
 
     @Test
     fun secondConfirmDialog_WHEN_showTrue_THEN_textFieldDisplayed() {
-        setContent(uiState = SettingsUiState(showDeleteSecondConfirmation = true))
+        setContent(state = GeneralSettingsState(showDeleteSecondConfirmation = true))
         composeTestRule.onNodeWithText("Type DELETE to confirm").assertIsDisplayed()
     }
 
     @Test
     fun secondConfirmDialog_WHEN_textNotDelete_THEN_confirmButtonDisabled() {
         setContent(
-            uiState = SettingsUiState(
+            state = GeneralSettingsState(
                 showDeleteSecondConfirmation = true,
                 deleteConfirmText = "DELE",
             ),
@@ -241,7 +241,7 @@ class GeneralPageTest {
 
     @Test
     fun deletingProgress_WHEN_isDeletingTrue_THEN_progressDisplayed() {
-        setContent(uiState = SettingsUiState(isDeletingData = true))
+        setContent(state = GeneralSettingsState(isDeletingData = true))
         composeTestRule.onNodeWithText("Deleting Data", substring = true, ignoreCase = true)
             .assertIsDisplayed()
     }

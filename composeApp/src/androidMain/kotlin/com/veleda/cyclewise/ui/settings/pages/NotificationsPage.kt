@@ -13,8 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.settings.ReminderSettings
+import com.veleda.cyclewise.ui.settings.NotificationSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
-import com.veleda.cyclewise.ui.settings.SettingsUiState
 import com.veleda.cyclewise.ui.settings.components.SettingsSectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 
@@ -23,7 +23,7 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
  */
 @Composable
 internal fun NotificationsPage(
-    uiState: SettingsUiState,
+    state: NotificationSettingsState,
     onEvent: (SettingsEvent) -> Unit,
 ) {
     val dims = LocalDimensions.current
@@ -40,19 +40,19 @@ internal fun NotificationsPage(
         // ── Notifications Card ───────────────────────────────────────
         SettingsSectionCard(title = stringResource(R.string.settings_section_notifications)) {
             ReminderSettings(
-                periodEnabled = uiState.periodReminderEnabled,
-                periodDaysBefore = uiState.periodDaysBefore,
-                periodPrivacyAccepted = uiState.periodPrivacyAccepted,
-                medicationEnabled = uiState.medicationReminderEnabled,
-                medicationHour = uiState.medicationHour,
-                medicationMinute = uiState.medicationMinute,
-                hydrationEnabled = uiState.hydrationReminderEnabled,
-                hydrationGoalCups = uiState.hydrationGoalCups,
-                hydrationFrequencyHours = uiState.hydrationFrequencyHours,
-                hydrationStartHour = uiState.hydrationStartHour,
-                hydrationEndHour = uiState.hydrationEndHour,
-                showPermissionRationale = uiState.showPermissionRationale,
-                showPrivacyDialog = uiState.showPrivacyDialog,
+                periodEnabled = state.periodReminderEnabled,
+                periodDaysBefore = state.periodDaysBefore,
+                periodPrivacyAccepted = state.periodPrivacyAccepted,
+                medicationEnabled = state.medicationReminderEnabled,
+                medicationHour = state.medicationHour,
+                medicationMinute = state.medicationMinute,
+                hydrationEnabled = state.hydrationReminderEnabled,
+                hydrationGoalCups = state.hydrationGoalCups,
+                hydrationFrequencyHours = state.hydrationFrequencyHours,
+                hydrationStartHour = state.hydrationStartHour,
+                hydrationEndHour = state.hydrationEndHour,
+                showPermissionRationale = state.showPermissionRationale,
+                showPrivacyDialog = state.showPrivacyDialog,
                 onEvent = onEvent,
                 showTitle = false,
             )

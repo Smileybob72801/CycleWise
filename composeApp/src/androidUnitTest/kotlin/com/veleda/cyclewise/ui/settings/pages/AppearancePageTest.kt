@@ -11,8 +11,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.veleda.cyclewise.RobolectricTestApp
+import com.veleda.cyclewise.ui.settings.AppearanceSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
-import com.veleda.cyclewise.ui.settings.SettingsUiState
 import com.veleda.cyclewise.ui.theme.Dimensions
 import com.veleda.cyclewise.ui.theme.LightCyclePhasePalette
 import com.veleda.cyclewise.ui.theme.LocalCyclePhasePalette
@@ -35,7 +35,7 @@ class AppearancePageTest {
     val composeTestRule = createComposeRule()
 
     private fun setContent(
-        uiState: SettingsUiState = SettingsUiState(),
+        state: AppearanceSettingsState = AppearanceSettingsState(),
         onEvent: (SettingsEvent) -> Unit = {},
     ) {
         composeTestRule.setContent {
@@ -45,7 +45,7 @@ class AppearancePageTest {
             ) {
                 MaterialTheme {
                     AppearancePage(
-                        uiState = uiState,
+                        state = state,
                         onEvent = onEvent,
                     )
                 }
@@ -71,7 +71,7 @@ class AppearancePageTest {
 
     @Test
     fun themeButton_WHEN_systemSelected_THEN_isSelected() {
-        setContent(uiState = SettingsUiState(themeMode = ThemeMode.SYSTEM))
+        setContent(state = AppearanceSettingsState(themeMode = ThemeMode.SYSTEM))
         composeTestRule.onAllNodesWithText("System")[0].assertIsSelected()
     }
 

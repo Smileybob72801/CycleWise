@@ -55,8 +55,8 @@ private const val AUTH_TRANSITION_DURATION_MS = 400
 @Preview
 fun CycleWiseAppUI() {
     val settingsViewModel: SettingsViewModel = koinViewModel()
-    val settingsState by settingsViewModel.uiState.collectAsState()
-    val darkTheme = when (settingsState.themeMode) {
+    val appearanceState by settingsViewModel.appearanceState.collectAsState()
+    val darkTheme = when (appearanceState.themeMode) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> isSystemInDarkTheme()

@@ -2165,20 +2165,28 @@ only on `AppSettings` and `ReminderScheduler`).
 
 ### Architecture
 
-- **State:** `SettingsUiState` — a `data class` with 26 properties covering autolock,
-  top symptoms count, summary toggles, phase visibility, phase colors, reminder
-  configuration, and dialog visibility flags.
+- **State:** Four focused sub-state data classes — one per pager page — each exposed
+  as a separate `StateFlow` to limit recomposition scope:
+  - `GeneralSettingsState` (9 fields) — autolock, top symptoms count, tutorial hint
+    reset, legal dialogs, and delete-all-data confirmation flow.
+  - `AppearanceSettingsState` (12 fields) — theme mode, summary toggles, phase visibility,
+    phase colors, and educational bottom sheet.
+  - `NotificationSettingsState` (13 fields) — period, medication, and hydration reminder
+    configuration plus permission rationale and privacy dialog.
+  - `AboutSettingsState` (1 field) — about dialog visibility.
 - **Events:** `SettingsEvent` — a `sealed interface` with 28+ event types covering
   every toggle, slider, color input, and dialog interaction.
-- **Reducer:** Pure `reduce()` function — returns new state with no side effects. Side
-  effects (DataStore writes, `ReminderScheduler` calls) are launched in `onEvent()`.
+- **Event routing:** `onEvent()` updates the relevant sub-state directly via
+  `_xState.update { it.copy(...) }` and launches side effects (DataStore writes,
+  `ReminderScheduler` calls) in `viewModelScope`.
 
 ### Initialization Pattern
 
 The init block uses 22 individual `Flow.onEach { }.launchIn(viewModelScope)` collectors
-— one for each `AppSettings` preference flow. This intentionally avoids `combine()`
-because Kotlin's `combine()` supports a maximum of 5 parameters without custom
-extensions, and there are 22+ settings flows to observe.
+— one for each `AppSettings` preference flow — routing each to the appropriate sub-state
+flow. This intentionally avoids `combine()` because Kotlin's `combine()` supports a
+maximum of 5 parameters without custom extensions, and there are 22+ settings flows to
+observe.
 
 ### 4-Page Swipeable Pager
 

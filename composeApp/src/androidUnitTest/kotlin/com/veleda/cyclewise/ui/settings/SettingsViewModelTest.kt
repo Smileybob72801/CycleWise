@@ -113,20 +113,40 @@ class SettingsViewModelTest {
         )
     }
 
-    // ── Init ─────────────────────────────────────────────────────────
+    // ── Init — General state defaults ────────────────────────────────
 
     @Test
-    fun `init WHEN created THEN uiStateHasDefaultValues`() = runTest {
+    fun `init WHEN created THEN generalStateHasDefaultValues`() = runTest {
         // GIVEN — default AppSettings flows
         // WHEN — ViewModel is created
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        // THEN — state matches defaults
-        val state = viewModel.uiState.value
-        assertEquals(ThemeMode.SYSTEM, state.themeMode)
+        // THEN — general state matches defaults
+        val state = viewModel.generalState.value
         assertEquals(10, state.autolockMinutes)
         assertEquals(3, state.topSymptomsCount)
+        assertFalse(state.showHintResetConfirmation)
+        assertFalse(state.showPrivacyPolicyDialog)
+        assertFalse(state.showTermsOfServiceDialog)
+        assertFalse(state.showDeleteFirstConfirmation)
+        assertFalse(state.showDeleteSecondConfirmation)
+        assertEquals("", state.deleteConfirmText)
+        assertFalse(state.isDeletingData)
+    }
+
+    // ── Init — Appearance state defaults ─────────────────────────────
+
+    @Test
+    fun `init WHEN created THEN appearanceStateHasDefaultValues`() = runTest {
+        // GIVEN — default AppSettings flows
+        // WHEN — ViewModel is created
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // THEN — appearance state matches defaults
+        val state = viewModel.appearanceState.value
+        assertEquals(ThemeMode.SYSTEM, state.themeMode)
         assertTrue(state.showMood)
         assertTrue(state.showEnergy)
         assertTrue(state.showLibido)
@@ -137,6 +157,20 @@ class SettingsViewModelTest {
         assertEquals(CyclePhaseColors.DEFAULT_FOLLICULAR_HEX, state.follicularColorHex)
         assertEquals(CyclePhaseColors.DEFAULT_OVULATION_HEX, state.ovulationColorHex)
         assertEquals(CyclePhaseColors.DEFAULT_LUTEAL_HEX, state.lutealColorHex)
+        assertNull(state.educationalArticles)
+    }
+
+    // ── Init — Notification state defaults ───────────────────────────
+
+    @Test
+    fun `init WHEN created THEN notificationStateHasDefaultValues`() = runTest {
+        // GIVEN — default AppSettings flows
+        // WHEN — ViewModel is created
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // THEN — notification state matches defaults
+        val state = viewModel.notificationState.value
         assertFalse(state.periodReminderEnabled)
         assertEquals(2, state.periodDaysBefore)
         assertFalse(state.periodPrivacyAccepted)
@@ -148,9 +182,21 @@ class SettingsViewModelTest {
         assertEquals(3, state.hydrationFrequencyHours)
         assertEquals(8, state.hydrationStartHour)
         assertEquals(20, state.hydrationEndHour)
-        assertFalse(state.showAboutDialog)
-        assertFalse(state.showPrivacyDialog)
         assertFalse(state.showPermissionRationale)
+        assertFalse(state.showPrivacyDialog)
+    }
+
+    // ── Init — About state defaults ──────────────────────────────────
+
+    @Test
+    fun `init WHEN created THEN aboutStateHasDefaultValues`() = runTest {
+        // GIVEN — default AppSettings flows
+        // WHEN — ViewModel is created
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // THEN — about state matches defaults
+        assertFalse(viewModel.aboutState.value.showAboutDialog)
     }
 
     // ── AutolockChanged ──────────────────────────────────────────────
@@ -166,7 +212,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertEquals(15, viewModel.uiState.value.autolockMinutes)
+        assertEquals(15, viewModel.generalState.value.autolockMinutes)
         coVerify(atLeast = 1) { mockAppSettings.setAutolockMinutes(15) }
     }
 
@@ -183,7 +229,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertEquals(5, viewModel.uiState.value.topSymptomsCount)
+        assertEquals(5, viewModel.generalState.value.topSymptomsCount)
         coVerify(atLeast = 1) { mockAppSettings.setTopSymptomsCount(5) }
     }
 
@@ -200,7 +246,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showMood)
+        assertFalse(viewModel.appearanceState.value.showMood)
         coVerify(atLeast = 1) { mockAppSettings.setShowMoodInSummary(false) }
     }
 
@@ -215,7 +261,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showEnergy)
+        assertFalse(viewModel.appearanceState.value.showEnergy)
         coVerify(atLeast = 1) { mockAppSettings.setShowEnergyInSummary(false) }
     }
 
@@ -230,7 +276,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showLibido)
+        assertFalse(viewModel.appearanceState.value.showLibido)
         coVerify(atLeast = 1) { mockAppSettings.setShowLibidoInSummary(false) }
     }
 
@@ -247,7 +293,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showFollicular)
+        assertFalse(viewModel.appearanceState.value.showFollicular)
         coVerify(atLeast = 1) { mockAppSettings.setShowFollicularPhase(false) }
     }
 
@@ -262,7 +308,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showOvulation)
+        assertFalse(viewModel.appearanceState.value.showOvulation)
         coVerify(atLeast = 1) { mockAppSettings.setShowOvulationPhase(false) }
     }
 
@@ -277,7 +323,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showLuteal)
+        assertFalse(viewModel.appearanceState.value.showLuteal)
         coVerify(atLeast = 1) { mockAppSettings.setShowLutealPhase(false) }
     }
 
@@ -294,7 +340,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertEquals("FF0000", viewModel.uiState.value.menstruationColorHex)
+        assertEquals("FF0000", viewModel.appearanceState.value.menstruationColorHex)
         coVerify(atLeast = 1) { mockAppSettings.setMenstruationColor("FF0000") }
     }
 
@@ -314,7 +360,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — all four colors reset to defaults and persistence called
-        val state = viewModel.uiState.value
+        val state = viewModel.appearanceState.value
         assertEquals(CyclePhaseColors.DEFAULT_MENSTRUATION_HEX, state.menstruationColorHex)
         assertEquals(CyclePhaseColors.DEFAULT_FOLLICULAR_HEX, state.follicularColorHex)
         assertEquals(CyclePhaseColors.DEFAULT_OVULATION_HEX, state.ovulationColorHex)
@@ -338,7 +384,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated, scheduler called, persistence called
-        assertTrue(viewModel.uiState.value.periodReminderEnabled)
+        assertTrue(viewModel.notificationState.value.periodReminderEnabled)
         coVerify(atLeast = 1) { mockAppSettings.setReminderPeriodEnabled(true) }
         verify(atLeast = 1) { mockReminderScheduler.schedulePeriodPrediction(true) }
     }
@@ -355,7 +401,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated, scheduler cancels, persistence called
-        assertFalse(viewModel.uiState.value.periodReminderEnabled)
+        assertFalse(viewModel.notificationState.value.periodReminderEnabled)
         coVerify(atLeast = 1) { mockAppSettings.setReminderPeriodEnabled(false) }
         verify(atLeast = 1) { mockReminderScheduler.schedulePeriodPrediction(false) }
     }
@@ -373,7 +419,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — scheduler called with current time, persistence called
-        assertTrue(viewModel.uiState.value.medicationReminderEnabled)
+        assertTrue(viewModel.notificationState.value.medicationReminderEnabled)
         coVerify(atLeast = 1) { mockAppSettings.setReminderMedicationEnabled(true) }
         verify(atLeast = 1) { mockReminderScheduler.scheduleMedication(true, 9, 0) }
     }
@@ -390,7 +436,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated, scheduler rescheduled with new hour
-        assertEquals(14, viewModel.uiState.value.medicationHour)
+        assertEquals(14, viewModel.notificationState.value.medicationHour)
         coVerify(atLeast = 1) { mockAppSettings.setReminderMedicationHour(14) }
         verify(atLeast = 1) { mockReminderScheduler.scheduleMedication(true, 14, 0) }
     }
@@ -408,7 +454,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — scheduler called with current frequency, persistence called
-        assertTrue(viewModel.uiState.value.hydrationReminderEnabled)
+        assertTrue(viewModel.notificationState.value.hydrationReminderEnabled)
         coVerify(atLeast = 1) { mockAppSettings.setReminderHydrationEnabled(true) }
         verify(atLeast = 1) { mockReminderScheduler.scheduleHydration(true, 3) }
     }
@@ -425,7 +471,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated, scheduler rescheduled with new frequency
-        assertEquals(2, viewModel.uiState.value.hydrationFrequencyHours)
+        assertEquals(2, viewModel.notificationState.value.hydrationFrequencyHours)
         coVerify(atLeast = 1) { mockAppSettings.setReminderHydrationFrequencyHours(2) }
         verify(atLeast = 1) { mockReminderScheduler.scheduleHydration(true, 2) }
     }
@@ -442,7 +488,7 @@ class SettingsViewModelTest {
         viewModel.onEvent(SettingsEvent.ShowAboutDialog)
 
         // THEN — dialog state is true
-        assertTrue(viewModel.uiState.value.showAboutDialog)
+        assertTrue(viewModel.aboutState.value.showAboutDialog)
     }
 
     @Test
@@ -451,13 +497,13 @@ class SettingsViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
         viewModel.onEvent(SettingsEvent.ShowAboutDialog)
-        assertTrue(viewModel.uiState.value.showAboutDialog)
+        assertTrue(viewModel.aboutState.value.showAboutDialog)
 
         // WHEN — dismiss about dialog dispatched
         viewModel.onEvent(SettingsEvent.DismissAboutDialog)
 
         // THEN — dialog state is false
-        assertFalse(viewModel.uiState.value.showAboutDialog)
+        assertFalse(viewModel.aboutState.value.showAboutDialog)
     }
 
     @Test
@@ -466,14 +512,14 @@ class SettingsViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
         viewModel.onEvent(SettingsEvent.ShowPrivacyDialog)
-        assertTrue(viewModel.uiState.value.showPrivacyDialog)
+        assertTrue(viewModel.notificationState.value.showPrivacyDialog)
 
         // WHEN — privacy accepted
         viewModel.onEvent(SettingsEvent.PeriodPrivacyAccepted)
         advanceUntilIdle()
 
         // THEN — privacy accepted, reminder enabled, dialog dismissed
-        val state = viewModel.uiState.value
+        val state = viewModel.notificationState.value
         assertTrue(state.periodPrivacyAccepted)
         assertTrue(state.periodReminderEnabled)
         assertFalse(state.showPrivacyDialog)
@@ -495,12 +541,12 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertEquals(ThemeMode.DARK, viewModel.uiState.value.themeMode)
+        assertEquals(ThemeMode.DARK, viewModel.appearanceState.value.themeMode)
         coVerify(atLeast = 1) { mockAppSettings.setThemeMode("dark") }
     }
 
     @Test
-    fun `init WHEN themeModeIsLight THEN uiStateReflectsLight`() = runTest {
+    fun `init WHEN themeModeIsLight THEN appearanceStateReflectsLight`() = runTest {
         // GIVEN — AppSettings returns "light" for themeMode
         every { mockAppSettings.themeMode } returns flowOf("light")
 
@@ -509,7 +555,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state reflects LIGHT mode
-        assertEquals(ThemeMode.LIGHT, viewModel.uiState.value.themeMode)
+        assertEquals(ThemeMode.LIGHT, viewModel.appearanceState.value.themeMode)
     }
 
     // ── Educational sheet tests ────────────────────────────────────
@@ -537,8 +583,8 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — educationalArticles is populated
-        assertNotNull(viewModel.uiState.value.educationalArticles)
-        assertEquals(1, viewModel.uiState.value.educationalArticles!!.size)
+        assertNotNull(viewModel.appearanceState.value.educationalArticles)
+        assertEquals(1, viewModel.appearanceState.value.educationalArticles!!.size)
     }
 
     @Test
@@ -553,7 +599,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — educationalArticles remains null
-        assertNull(viewModel.uiState.value.educationalArticles)
+        assertNull(viewModel.appearanceState.value.educationalArticles)
     }
 
     @Test
@@ -564,14 +610,14 @@ class SettingsViewModelTest {
         advanceUntilIdle()
         viewModel.onEvent(SettingsEvent.ShowEducationalSheet("CyclePhase.Colors"))
         advanceUntilIdle()
-        assertNotNull(viewModel.uiState.value.educationalArticles)
+        assertNotNull(viewModel.appearanceState.value.educationalArticles)
 
         // WHEN — dismiss educational sheet dispatched
         viewModel.onEvent(SettingsEvent.DismissEducationalSheet)
         advanceUntilIdle()
 
         // THEN — educationalArticles is null
-        assertNull(viewModel.uiState.value.educationalArticles)
+        assertNull(viewModel.appearanceState.value.educationalArticles)
     }
 
     // ── Delete All Data ─────────────────────────────────────────────
@@ -586,8 +632,8 @@ class SettingsViewModelTest {
         viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
 
         // THEN — first confirmation dialog is shown
-        assertTrue(viewModel.uiState.value.showDeleteFirstConfirmation)
-        assertFalse(viewModel.uiState.value.showDeleteSecondConfirmation)
+        assertTrue(viewModel.generalState.value.showDeleteFirstConfirmation)
+        assertFalse(viewModel.generalState.value.showDeleteSecondConfirmation)
     }
 
     @Test
@@ -596,13 +642,13 @@ class SettingsViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
         viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
-        assertTrue(viewModel.uiState.value.showDeleteFirstConfirmation)
+        assertTrue(viewModel.generalState.value.showDeleteFirstConfirmation)
 
         // WHEN — user cancels
         viewModel.onEvent(SettingsEvent.DeleteAllDataCancelled)
 
         // THEN — all confirmation state is reset
-        val state = viewModel.uiState.value
+        val state = viewModel.generalState.value
         assertFalse(state.showDeleteFirstConfirmation)
         assertFalse(state.showDeleteSecondConfirmation)
         assertEquals("", state.deleteConfirmText)
@@ -619,7 +665,7 @@ class SettingsViewModelTest {
         viewModel.onEvent(SettingsEvent.DeleteAllDataFirstConfirmed)
 
         // THEN — advances to second confirmation
-        val state = viewModel.uiState.value
+        val state = viewModel.generalState.value
         assertFalse(state.showDeleteFirstConfirmation)
         assertTrue(state.showDeleteSecondConfirmation)
         assertEquals("", state.deleteConfirmText)
@@ -637,7 +683,7 @@ class SettingsViewModelTest {
         viewModel.onEvent(SettingsEvent.DeleteConfirmTextChanged("DEL"))
 
         // THEN — text is updated
-        assertEquals("DEL", viewModel.uiState.value.deleteConfirmText)
+        assertEquals("DEL", viewModel.generalState.value.deleteConfirmText)
     }
 
     @Test
@@ -660,7 +706,7 @@ class SettingsViewModelTest {
         }
 
         // THEN — isDeletingData was set (state may have been reset after effect)
-        val state = viewModel.uiState.value
+        val state = viewModel.generalState.value
         assertFalse(state.showDeleteSecondConfirmation)
         assertEquals("", state.deleteConfirmText)
     }

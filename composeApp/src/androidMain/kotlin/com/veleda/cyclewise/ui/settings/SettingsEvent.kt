@@ -8,7 +8,7 @@ import com.veleda.cyclewise.ui.theme.ThemeMode
  * Covers every user interaction on the Settings pager: security changes, display
  * and phase visibility toggles, phase color customization, reminder configuration,
  * and dialog show/dismiss actions. Each event maps to a pure state transition in
- * [SettingsViewModel.reduce] plus optional side effects (DataStore writes,
+ * [SettingsViewModel.onEvent] plus optional side effects (DataStore writes,
  * [ReminderScheduler] calls).
  */
 sealed interface SettingsEvent {

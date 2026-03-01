@@ -55,7 +55,10 @@ private const val PAGE_ABOUT = 3
 fun SettingsScreen(navController: NavController) {
     val koin = getKoin()
     val viewModel: SettingsViewModel = koinViewModel()
-    val uiState by viewModel.uiState.collectAsState()
+    val generalState by viewModel.generalState.collectAsState()
+    val appearanceState by viewModel.appearanceState.collectAsState()
+    val notificationState by viewModel.notificationState.collectAsState()
+    val aboutState by viewModel.aboutState.collectAsState()
     val session = koin.getScopeOrNull("session")
 
     LaunchedEffect(Unit) {
@@ -74,7 +77,10 @@ fun SettingsScreen(navController: NavController) {
         topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }
     ) { padding ->
         SettingsContent(
-            uiState = uiState,
+            generalState = generalState,
+            appearanceState = appearanceState,
+            notificationState = notificationState,
+            aboutState = aboutState,
             onEvent = viewModel::onEvent,
             session = session,
             onLockNow = {
@@ -91,19 +97,25 @@ fun SettingsScreen(navController: NavController) {
 /**
  * Testable content composable that renders the settings UI as a 4-page [HorizontalPager].
  *
- * Accepts [SettingsUiState] and an event callback instead of direct dependencies,
+ * Accepts the four sub-state objects and an event callback instead of direct dependencies,
  * so it can be tested in isolation without navigation, DI, or ViewModel concerns.
  *
- * @param uiState    The current settings UI state from [SettingsViewModel].
- * @param onEvent    Event dispatcher for [SettingsEvent] variants.
- * @param session    The Koin session scope, or `null` when the app is locked.
- * @param onLockNow  Callback invoked when the user taps "Lock Now".
- * @param modifier   Modifier applied to the root column.
+ * @param generalState       The current General page state from [SettingsViewModel].
+ * @param appearanceState    The current Appearance page state from [SettingsViewModel].
+ * @param notificationState  The current Notifications page state from [SettingsViewModel].
+ * @param aboutState         The current About page state from [SettingsViewModel].
+ * @param onEvent            Event dispatcher for [SettingsEvent] variants.
+ * @param session            The Koin session scope, or `null` when the app is locked.
+ * @param onLockNow          Callback invoked when the user taps "Lock Now".
+ * @param modifier           Modifier applied to the root column.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsContent(
-    uiState: SettingsUiState,
+    generalState: GeneralSettingsState,
+    appearanceState: AppearanceSettingsState,
+    notificationState: NotificationSettingsState,
+    aboutState: AboutSettingsState,
     onEvent: (SettingsEvent) -> Unit,
     session: Scope?,
     onLockNow: () -> Unit,
@@ -157,10 +169,10 @@ internal fun SettingsContent(
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             when (page) {
-                PAGE_GENERAL -> GeneralPage(uiState, onEvent, session, onLockNow)
-                PAGE_APPEARANCE -> AppearancePage(uiState, onEvent)
-                PAGE_NOTIFICATIONS -> NotificationsPage(uiState, onEvent)
-                PAGE_ABOUT -> AboutPage(uiState, onEvent, session)
+                PAGE_GENERAL -> GeneralPage(generalState, onEvent, session, onLockNow)
+                PAGE_APPEARANCE -> AppearancePage(appearanceState, onEvent)
+                PAGE_NOTIFICATIONS -> NotificationsPage(notificationState, onEvent)
+                PAGE_ABOUT -> AboutPage(aboutState, onEvent, session)
             }
         }
     }

@@ -25,8 +25,8 @@ import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.components.EducationalBottomSheet
 import com.veleda.cyclewise.ui.settings.PhaseColorSettings
 import com.veleda.cyclewise.ui.settings.PhaseVisibilitySettings
+import com.veleda.cyclewise.ui.settings.AppearanceSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
-import com.veleda.cyclewise.ui.settings.SettingsUiState
 import com.veleda.cyclewise.ui.settings.components.SettingsSectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.theme.ThemeMode
@@ -37,7 +37,7 @@ import com.veleda.cyclewise.ui.theme.ThemeMode
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AppearancePage(
-    uiState: SettingsUiState,
+    state: AppearanceSettingsState,
     onEvent: (SettingsEvent) -> Unit,
 ) {
     val dims = LocalDimensions.current
@@ -66,7 +66,7 @@ internal fun AppearancePage(
                             count = modes.size
                         ),
                         onClick = { onEvent(SettingsEvent.ThemeModeChanged(mode)) },
-                        selected = uiState.themeMode == mode,
+                        selected = state.themeMode == mode,
                         label = {
                             Text(
                                 when (mode) {
@@ -88,7 +88,7 @@ internal fun AppearancePage(
                 supportingContent = { Text(stringResource(R.string.show_mood_description)) },
                 trailingContent = {
                     Switch(
-                        checked = uiState.showMood,
+                        checked = state.showMood,
                         onCheckedChange = { onEvent(SettingsEvent.ShowMoodToggled(it)) }
                     )
                 }
@@ -98,7 +98,7 @@ internal fun AppearancePage(
                 supportingContent = { Text(stringResource(R.string.show_energy_description)) },
                 trailingContent = {
                     Switch(
-                        checked = uiState.showEnergy,
+                        checked = state.showEnergy,
                         onCheckedChange = { onEvent(SettingsEvent.ShowEnergyToggled(it)) }
                     )
                 }
@@ -108,7 +108,7 @@ internal fun AppearancePage(
                 supportingContent = { Text(stringResource(R.string.show_libido_description)) },
                 trailingContent = {
                     Switch(
-                        checked = uiState.showLibido,
+                        checked = state.showLibido,
                         onCheckedChange = { onEvent(SettingsEvent.ShowLibidoToggled(it)) }
                     )
                 }
@@ -117,9 +117,9 @@ internal fun AppearancePage(
             HorizontalDivider(modifier = Modifier.padding(horizontal = dims.md))
 
             PhaseVisibilitySettings(
-                showFollicular = uiState.showFollicular,
-                showOvulation = uiState.showOvulation,
-                showLuteal = uiState.showLuteal,
+                showFollicular = state.showFollicular,
+                showOvulation = state.showOvulation,
+                showLuteal = state.showLuteal,
                 onFollicularToggled = { onEvent(SettingsEvent.ShowFollicularToggled(it)) },
                 onOvulationToggled = { onEvent(SettingsEvent.ShowOvulationToggled(it)) },
                 onLutealToggled = { onEvent(SettingsEvent.ShowLutealToggled(it)) },
@@ -133,10 +133,10 @@ internal fun AppearancePage(
             onInfoClick = { onEvent(SettingsEvent.ShowEducationalSheet("CyclePhase.Colors")) },
         ) {
             PhaseColorSettings(
-                menstruationHex = uiState.menstruationColorHex,
-                follicularHex = uiState.follicularColorHex,
-                ovulationHex = uiState.ovulationColorHex,
-                lutealHex = uiState.lutealColorHex,
+                menstruationHex = state.menstruationColorHex,
+                follicularHex = state.follicularColorHex,
+                ovulationHex = state.ovulationColorHex,
+                lutealHex = state.lutealColorHex,
                 onMenstruationColorChanged = { onEvent(SettingsEvent.MenstruationColorChanged(it)) },
                 onFollicularColorChanged = { onEvent(SettingsEvent.FollicularColorChanged(it)) },
                 onOvulationColorChanged = { onEvent(SettingsEvent.OvulationColorChanged(it)) },
@@ -149,7 +149,7 @@ internal fun AppearancePage(
         Spacer(Modifier.height(dims.xl))
     }
 
-    uiState.educationalArticles?.let { articles ->
+    state.educationalArticles?.let { articles ->
         EducationalBottomSheet(
             articles = articles,
             onDismiss = { onEvent(SettingsEvent.DismissEducationalSheet) },
