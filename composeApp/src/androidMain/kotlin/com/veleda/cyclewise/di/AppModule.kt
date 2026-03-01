@@ -26,9 +26,12 @@ import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
 import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
+import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
+import com.veleda.cyclewise.domain.usecases.TutorialSeederUseCase
 import org.koin.core.qualifier.named
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
 import com.veleda.cyclewise.session.SessionBus
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.auth.PassphraseViewModel
@@ -82,16 +85,23 @@ internal fun createDatabaseAndZeroizeKey(
 }
 
 /**
- * Root Koin module defining two DI lifetimes:
+ * Root Koin module defining two DI lifetimes for the application.
  *
  * **Singleton scope** (lives for the app process):
  * [SaltStorage], [AppSettings], [SessionBus], [PassphraseService], [LockedWaterDraft],
  * [ReminderScheduler], [InsightEngine], [WaterTrackerViewModel], [PassphraseViewModel],
- * [SettingsViewModel].
+ * [SettingsViewModel], [HintPreferences], [EducationalContentProvider].
  *
  * **Session scope** ([SESSION_SCOPE], created on unlock, destroyed on logout/autolock):
  * [PeriodDatabase], all DAOs, [PeriodRepository], use cases, library providers,
  * [TrackerViewModel], [DailyLogViewModel], [InsightsViewModel].
+ *
+ * **Key lifecycle:** On session creation the user's passphrase is passed to
+ * [createDatabaseAndZeroizeKey], which derives the AES-256 key via Argon2id and
+ * zeroizes the original key array immediately (the copy is consumed by SQLCipher).
+ * When the session scope is destroyed (logout or autolock), all scoped instances —
+ * including the [PeriodDatabase] — are released and the encryption key is no longer
+ * reachable in memory.
  */
 val appModule = module {
     single { SaltStorage(androidContext()) }
@@ -121,11 +131,13 @@ val appModule = module {
 
     single { EducationalContentProvider(EducationalContentLoader.load(androidContext())) }
 
+    single { HintPreferences(androidContext()) }
+
     viewModel { WaterTrackerViewModel(lockedWaterDraft = get()) }
 
     viewModel { PassphraseViewModel(appSettings = get(), lockedWaterDraft = get()) }
 
-    viewModel { SettingsViewModel(appSettings = get(), reminderScheduler = get(), educationalContentProvider = get()) }
+    viewModel { SettingsViewModel(appSettings = get(), reminderScheduler = get(), educationalContentProvider = get(), hintPreferences = get()) }
 
     scope(SESSION_SCOPE) {
         /*
@@ -187,6 +199,8 @@ val appModule = module {
         // Use Case Providers
         scoped { GetOrCreateDailyLogUseCase(get()) }
         scoped { DebugSeederUseCase(get()) }
+        scoped { TutorialSeederUseCase(get()) }
+        scoped { TutorialCleanupUseCase(get()) }
         scoped { AutoCloseOngoingPeriodUseCase(get()) }
         // ViewModel Providers
         viewModel {

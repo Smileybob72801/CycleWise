@@ -119,6 +119,49 @@
     <string name="daily_log_add_symptom">Add new symptom…</string>
     <string name="daily_log_create_symptom">Create and Add Symptom</string>
 
+    <!-- Coach Marks -->
+    <string name="coach_mark_next">Next</string>
+    <string name="coach_mark_got_it">Got it</string>
+    <string name="coach_mark_hold_to_skip">Hold to skip</string>
+    <string name="hint_daily_log_welcome_title">Welcome to Your Daily Log</string>
+    <string name="hint_daily_log_welcome_body">This is where you record how you are feeling each day. We have seeded a few demo cycles so your calendar and insights are not empty. Let us walk you through the features.</string>
+    <string name="hint_daily_log_mood_title">Track Your Mood</string>
+    <string name="hint_daily_log_mood_body">Tap a star to rate how you are feeling today. Mood data feeds into your Insights over time.</string>
+    <string name="hint_daily_log_energy_title">Log Your Energy</string>
+    <string name="hint_daily_log_energy_body">Rate your energy level from 1 to 5. Patterns often correlate with your cycle phase.</string>
+    <string name="hint_daily_log_water_title">Stay Hydrated</string>
+    <string name="hint_daily_log_water_body">Tap the plus button to log each cup of water. You can also log water from the lock screen.</string>
+    <string name="hint_daily_log_explore_tabs_title">Explore the Tabs</string>
+    <string name="hint_daily_log_explore_tabs_body">Each tab focuses on a different part of your day. Swipe or tap a tab to switch between them.</string>
+    <string name="hint_daily_log_period_tab_title">The Period Tab</string>
+    <string name="hint_daily_log_period_tab_body">This is where you log period flow, color, and consistency. Tap this tab to continue.</string>
+    <string name="hint_daily_log_period_toggle_title">Mark a Period Day</string>
+    <string name="hint_daily_log_period_toggle_body">Toggle this on when your period starts. The app creates and tracks your cycles automatically.</string>
+    <string name="hint_daily_log_symptoms_tab_title">The Symptoms Tab</string>
+    <string name="hint_daily_log_symptoms_tab_body">Log any symptoms you experience. Over time, Insights will show which symptoms recur in each cycle phase.</string>
+    <string name="hint_daily_log_medications_tab_title">The Medications Tab</string>
+    <string name="hint_daily_log_medications_tab_body">Track which medications you take each day. Create your own entries to build a personal library.</string>
+    <string name="hint_daily_log_notes_tab_title">Notes &amp; Tags</string>
+    <string name="hint_daily_log_notes_tab_body">Add freeform notes or quick tags. This is your private journal — write anything you want to remember.</string>
+    <string name="coach_mark_no_periods">I don\'t have periods</string>
+    <string name="coach_mark_no_periods_toast">No problem — you can still track mood, energy, symptoms, and more.</string>
+
+    <!-- Tracker Coach Marks -->
+    <string name="hint_tracker_welcome_title">Your Cycle Calendar</string>
+    <string name="hint_tracker_welcome_body">This calendar shows your periods, predicted phases, and logged data at a glance. We have seeded a few demo cycles so it is not empty.</string>
+    <string name="hint_tracker_nav_title">Navigate Months</string>
+    <string name="hint_tracker_nav_body">Use the arrows to move between months, or tap Today to jump back to the current month.</string>
+    <string name="hint_tracker_phase_legend_title">Phase Legend</string>
+    <string name="hint_tracker_phase_legend_body">These colors represent your cycle phases. You can customize them in Settings.</string>
+    <string name="hint_tracker_long_press_title">Mark a Period Day</string>
+    <string name="hint_tracker_long_press_body">Long-press any day to toggle it as a period day. The app merges adjacent days into one period automatically.</string>
+    <string name="hint_tracker_drag_title">Select a Range</string>
+    <string name="hint_tracker_drag_body">After long-pressing, drag across multiple days to mark or unmark an entire range at once.</string>
+    <string name="hint_tracker_adjust_title">Adjust Period Edges</string>
+    <string name="hint_tracker_adjust_body">Long-press the first or last day of a period and drag inward to shorten it, or outward to extend it.</string>
+    <string name="hint_tracker_tap_day_title">View Day Details</string>
+    <string name="hint_tracker_tap_day_body">Tap any day to see a summary of what you logged. From there you can open the full daily log to edit.</string>
+
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_autolock_title">Auto-lock timeout (minutes)</string>
@@ -154,6 +197,12 @@
     <string name="show_luteal_description">Show Luteal phase tint on the calendar</string>
     <string name="phase_color_presets_label">Presets</string>
     <string name="phase_color_preset_content_description">Select color %s</string>
+
+    <!-- Tutorial -->
+    <string name="settings_section_tutorial">Tutorial</string>
+    <string name="settings_reset_hints">Reset Tutorial Hints</string>
+    <string name="settings_reset_hints_description">Show the guided walkthrough again next time you open a screen</string>
+    <string name="settings_reset_hints_confirmation">Tutorial hints have been reset</string>
 
     <!-- Passphrase -->
     <string name="passphrase_unlocking">Unlocking…</string>

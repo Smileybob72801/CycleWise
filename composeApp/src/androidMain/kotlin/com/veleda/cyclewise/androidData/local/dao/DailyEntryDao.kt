@@ -28,6 +28,9 @@ interface DailyEntryDao {
     @Query("SELECT * FROM daily_entries")
     fun getAllEntries(): Flow<List<DailyEntryEntity>>
 
+    @Query("DELETE FROM daily_entries WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
+
     @Query("DELETE FROM daily_entries")
     suspend fun deleteAll()
 }

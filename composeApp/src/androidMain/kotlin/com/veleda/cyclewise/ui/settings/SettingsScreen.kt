@@ -42,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -283,6 +284,24 @@ private fun GeneralPage(
                 steps = 3,
                 modifier = Modifier.padding(horizontal = dims.md)
             )
+        }
+
+        // ── Tutorial Card ──────────────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_section_tutorial)) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_reset_hints)) },
+                supportingContent = { Text(stringResource(R.string.settings_reset_hints_description)) },
+                modifier = Modifier.clickable { onEvent(SettingsEvent.ResetTutorialHints) }
+            )
+        }
+
+        // Show a Toast when hints are successfully reset.
+        if (uiState.showHintResetConfirmation) {
+            val context = LocalContext.current
+            val message = stringResource(R.string.settings_reset_hints_confirmation)
+            LaunchedEffect(Unit) {
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
         }
 
         Spacer(Modifier.height(dims.xl))

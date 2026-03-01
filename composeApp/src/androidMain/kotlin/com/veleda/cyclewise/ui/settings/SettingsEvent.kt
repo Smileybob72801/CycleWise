@@ -67,6 +67,11 @@ sealed interface SettingsEvent {
     /** User tapped "Reset to Defaults" for all phase colors. */
     data object ResetPhaseColorsToDefaults : SettingsEvent
 
+    // ── Tutorial ──────────────────────────────────────────────────────
+
+    /** User tapped "Reset Tutorial Hints" to re-show guided walkthroughs. */
+    data object ResetTutorialHints : SettingsEvent
+
     // ── Period prediction reminder ───────────────────────────────────
 
     /** User toggled the period prediction reminder switch. */

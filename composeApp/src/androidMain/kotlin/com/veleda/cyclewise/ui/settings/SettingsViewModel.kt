@@ -6,6 +6,7 @@ import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.settings.AppSettings
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.theme.ThemeMode
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,6 +81,7 @@ data class SettingsUiState(
     val showAboutDialog: Boolean = false,
     val showPrivacyDialog: Boolean = false,
     val showPermissionRationale: Boolean = false,
+    val showHintResetConfirmation: Boolean = false,
     val educationalArticles: List<EducationalArticle>? = null,
 )
 
@@ -96,11 +98,13 @@ data class SettingsUiState(
  *
  * @param appSettings       The [AppSettings] for reading/writing preferences.
  * @param reminderScheduler The [ReminderScheduler] for notification scheduling.
+ * @param hintPreferences   The [HintPreferences] for managing tutorial hint state.
  */
 class SettingsViewModel(
     private val appSettings: AppSettings,
     private val reminderScheduler: ReminderScheduler,
     private val educationalContentProvider: EducationalContentProvider,
+    private val hintPreferences: HintPreferences,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -346,6 +350,11 @@ class SettingsViewModel(
                 appSettings.setReminderHydrationEndHour(event.hour)
             }
 
+            is SettingsEvent.ResetTutorialHints -> viewModelScope.launch {
+                hintPreferences.resetAll()
+                _uiState.update { it.copy(showHintResetConfirmation = true) }
+            }
+
             is SettingsEvent.ShowEducationalSheet -> {
                 val articles = educationalContentProvider.getByTag(event.contentTag)
                 _uiState.update { it.copy(educationalArticles = articles.ifEmpty { null }) }
@@ -410,6 +419,8 @@ class SettingsViewModel(
             is SettingsEvent.HydrationFrequencyChanged -> state.copy(hydrationFrequencyHours = event.hours)
             is SettingsEvent.HydrationStartHourChanged -> state.copy(hydrationStartHour = event.hour)
             is SettingsEvent.HydrationEndHourChanged -> state.copy(hydrationEndHour = event.hour)
+
+            is SettingsEvent.ResetTutorialHints -> state // Side effect handles confirmation flag
 
             is SettingsEvent.ShowAboutDialog -> state.copy(showAboutDialog = true)
             is SettingsEvent.DismissAboutDialog -> state.copy(showAboutDialog = false)

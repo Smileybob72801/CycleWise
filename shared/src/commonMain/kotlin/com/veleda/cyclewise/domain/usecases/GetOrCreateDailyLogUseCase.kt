@@ -11,21 +11,23 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
- * Retrieves an existing [FullDailyLog] for the given date, or creates a new blank one
- * if a parent period exists.
+ * Retrieves an existing [FullDailyLog] for the given date, or creates a new blank one.
  *
  * Parent period lookup: finds the first period (sorted by start date descending) whose
  * start date is on or before [date]. The [DailyEntry.dayInCycle] is calculated as
  * `parentPeriod.startDate.daysUntil(date) + 1` (1-based).
  *
- * @return the existing or newly created [FullDailyLog], or null if no parent period
- *         contains or precedes [date].
+ * When no parent period exists (e.g., fresh install with no period data), a blank
+ * [FullDailyLog] is still returned with [DailyEntry.dayInCycle] set to `0` — the
+ * sentinel value meaning "no parent period found at creation time."
+ *
+ * @return the existing or newly created [FullDailyLog]; never null.
  */
 @OptIn(ExperimentalTime::class)
 class GetOrCreateDailyLogUseCase(
     private val repository: PeriodRepository
 ) {
-    suspend operator fun invoke(date: LocalDate): FullDailyLog? {
+    suspend operator fun invoke(date: LocalDate): FullDailyLog {
         val existingLog = repository.getFullLogForDate(date)
         if (existingLog != null) {
             return existingLog
@@ -34,9 +36,7 @@ class GetOrCreateDailyLogUseCase(
         val parentPeriod = repository.getAllPeriods().first()
             .firstOrNull { it.startDate <= date }
 
-        parentPeriod ?: return null
-
-        val dayInCycle = parentPeriod.startDate.daysUntil(date) + 1
+        val dayInCycle = parentPeriod?.let { it.startDate.daysUntil(date) + 1 } ?: 0
         val newBlankEntry = DailyEntry(
             id = uuid4().toString(),
             entryDate = date,

@@ -15,7 +15,6 @@ import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.time.ExperimentalTime
 
 class GetOrCreateDailyLogUseCaseTest {
@@ -94,7 +93,7 @@ class GetOrCreateDailyLogUseCaseTest {
     }
 
     @Test
-    fun invoke_WHEN_dateBeforeFirstPeriod_THEN_returnsNull() = runTest {
+    fun invoke_WHEN_dateBeforeFirstPeriod_THEN_returnsDayInCycleZero() = runTest {
         // ARRANGE
         val testDate = LocalDate(2024, 12, 31)
         coEvery { mockRepository.getFullLogForDate(testDate) } returns null
@@ -103,11 +102,13 @@ class GetOrCreateDailyLogUseCaseTest {
         val result = useCase(testDate)
 
         // ASSERT
-        assertNull(result, "Should return null because no parent period exists for a date before the first logged period")
+        assertNotNull(result, "Should return a FullDailyLog even when no parent period precedes the date")
+        assertEquals(0, result.entry.dayInCycle, "dayInCycle should be 0 (sentinel) when no parent period exists")
+        assertEquals(testDate, result.entry.entryDate)
     }
 
     @Test
-    fun invoke_WHEN_noPeriodsExist_THEN_returnsNull() = runTest {
+    fun invoke_WHEN_noPeriodsExist_THEN_returnsDayInCycleZero() = runTest {
         // ARRANGE
         val testDate = LocalDate(2025, 1, 15)
         coEvery { mockRepository.getFullLogForDate(testDate) } returns null
@@ -117,6 +118,8 @@ class GetOrCreateDailyLogUseCaseTest {
         val result = useCase(testDate)
 
         // ASSERT
-        assertNull(result, "Should return null if the database is completely empty")
+        assertNotNull(result, "Should return a FullDailyLog even when the database is completely empty")
+        assertEquals(0, result.entry.dayInCycle, "dayInCycle should be 0 (sentinel) when no periods exist")
+        assertEquals(testDate, result.entry.entryDate)
     }
 }

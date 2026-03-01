@@ -45,7 +45,12 @@ fun Period.toEntity(): PeriodEntity =
         updatedAt = updatedAt
     )
 
-/** Convert DailyEntryEntity → shared domain model */
+/**
+ * Converts a [DailyEntryEntity] to the shared [DailyEntry] domain model.
+ *
+ * Deserializes [DailyEntryEntity.customTags] from its JSON string representation
+ * (e.g. `["tag1","tag2"]`) into a `List<String>` via kotlinx.serialization.
+ */
 @OptIn(ExperimentalTime::class)
 fun DailyEntryEntity.toDomain(): DailyEntry =
     DailyEntry(

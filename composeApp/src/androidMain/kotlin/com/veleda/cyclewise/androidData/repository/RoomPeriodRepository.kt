@@ -54,6 +54,10 @@ import com.veleda.cyclewise.androidData.local.entities.PeriodEntity
  * All data access is routed through SQLCipher-encrypted DAOs. This class lives inside
  * the session scope — it is created after passphrase unlock and destroyed on logout/autolock.
  *
+ * **Threading:** All `suspend` functions are safe to call from `Dispatchers.Main` —
+ * Room dispatches database work to its internal IO executor. [Flow]-returning methods
+ * emit on Room's query executor and are safe to collect from any dispatcher.
+ *
  * Key behaviors:
  * - [saveFullLog] uses delete-then-insert within a Room transaction for child records.
  * - [logPeriodDay] implements a 4-scenario state machine (see [PeriodRepository] KDoc).
@@ -72,12 +76,14 @@ class RoomPeriodRepository(
     private val periodLogDao: PeriodLogDao,
     private val waterIntakeDao: WaterIntakeDao,
 ) : PeriodRepository {
+    /** @see PeriodRepository.getAllPeriods */
     override fun getAllPeriods(): Flow<List<Period>> {
         return periodDao.getAllPeriods().map { entityList ->
             entityList.map { it.toDomain() }
         }
     }
 
+    /** @see PeriodRepository.getPeriodById */
     override suspend fun getPeriodById(periodId: String): Period {
         val entity = periodDao.getByUuid(periodId)
             ?: throw NoSuchElementException("Period $periodId not found")
@@ -113,6 +119,7 @@ class RoomPeriodRepository(
         return periodDao.getOngoingPeriod().firstOrNull()?.toDomain()
     }
 
+    /** @see PeriodRepository.getFullLogForDate */
     override suspend fun getFullLogForDate(date: LocalDate): FullDailyLog? {
         val entryEntity = dailyEntryDao.getEntryForDate(date).firstOrNull() ?: return null
         val periodLog = periodLogDao.getLogForEntry(entryEntity.id).firstOrNull()
@@ -126,6 +133,12 @@ class RoomPeriodRepository(
         )
     }
 
+    /**
+     * Persists a [FullDailyLog] within a Room transaction using delete-then-insert
+     * semantics for child records (period logs, symptom logs, medication logs).
+     *
+     * @see PeriodRepository.saveFullLog
+     */
     override suspend fun saveFullLog(log: FullDailyLog) {
         db.withTransaction {
             dailyEntryDao.insert(log.entry.toEntity())
@@ -181,6 +194,7 @@ class RoomPeriodRepository(
         return domainPeriod
     }
 
+    /** @see PeriodRepository.isDateRangeAvailable */
     override suspend fun isDateRangeAvailable(startDate: LocalDate, endDate: LocalDate): Boolean {
         val count = periodDao.getOverlappingPeriodsCount(startDate, endDate)
         return count == 0
@@ -200,6 +214,7 @@ class RoomPeriodRepository(
         return updated.toDomain()
     }
 
+    /** @see PeriodRepository.updatePeriodEndDate */
     override suspend fun updatePeriodEndDate(periodId: String, newEndDate: LocalDate?): Period? {
         val existing = periodDao.getByUuid(periodId) ?: return null
         val updated = existing.copy(endDate = newEndDate, updatedAt = Clock.System.now())
@@ -330,6 +345,24 @@ class RoomPeriodRepository(
         }
     }
 
+    /**
+     * Builds the calendar's consolidated day-detail map using a 3-pass algorithm:
+     *
+     * 1. **Period days** — iterates every period's date range (ongoing periods extend
+     *    through today), marking each day as [CyclePhase.MENSTRUATION].
+     * 2. **Log enrichment** — overlays symptom, medication, and note flags from
+     *    [getAllLogs]; computes [CyclePhase] for non-period logged days via
+     *    [CyclePhaseCalculator].
+     * 3. **Phase fill** — for every unlogged, non-period day between the earliest
+     *    tracked period and today, calculates the cycle phase so the calendar shows
+     *    phase colors even on days without explicit entries.
+     *
+     * This is the **single source of truth** for the calendar UI.
+     *
+     * @return a cold [Flow] emitting the complete [DayDetails] map whenever periods
+     *         or daily logs change.
+     * @see PeriodRepository.observeDayDetails
+     */
     override fun observeDayDetails(): Flow<Map<LocalDate, DayDetails>> {
         return combine(
             getAllPeriods(),
@@ -545,6 +578,30 @@ class RoomPeriodRepository(
         }
     }
 
+    override suspend fun deleteSeedData(
+        periodUuids: List<String>,
+        entryIds: List<String>,
+        waterDates: List<LocalDate>,
+    ) {
+        db.withTransaction {
+            // CASCADE on daily_entries automatically deletes
+            // period_logs, symptom_logs, medication_logs for these entries.
+            if (entryIds.isNotEmpty()) dailyEntryDao.deleteByIds(entryIds)
+            if (periodUuids.isNotEmpty()) periodDao.deleteByUuids(periodUuids)
+            if (waterDates.isNotEmpty()) {
+                waterIntakeDao.deleteByDates(waterDates.map { it.toString() })
+            }
+        }
+    }
+
+    /**
+     * Marks [date] as a period day inside a Room transaction.
+     *
+     * Implements the 4-scenario state machine defined in [PeriodRepository.logPeriodDay]:
+     * already-inside, bridge-merge, extend, or island-create.
+     *
+     * @see PeriodRepository.logPeriodDay
+     */
     override suspend fun logPeriodDay(date: LocalDate) {
         db.withTransaction {
             val periodBefore = getPeriodForDate(date.minus(1, DateTimeUnit.DAY))
@@ -591,6 +648,15 @@ class RoomPeriodRepository(
         }
     }
 
+    /**
+     * Unmarks [date] as a period day inside a Room transaction.
+     *
+     * Implements the 4-scenario state machine defined in [PeriodRepository.unLogPeriodDay]:
+     * single-day delete, adjust-start, adjust-end, or middle-day split.
+     * Also deletes any [PeriodLog] for the date.
+     *
+     * @see PeriodRepository.unLogPeriodDay
+     */
     override suspend fun unLogPeriodDay(date: LocalDate) {
         db.withTransaction {
             val periodToModify = getPeriodForDate(date)

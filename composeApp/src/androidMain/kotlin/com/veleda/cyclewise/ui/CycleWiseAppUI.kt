@@ -50,6 +50,7 @@ private const val DETAIL_TRANSITION_DURATION_MS = 300
 /** Duration (ms) for the passphrase authentication gate fade transition. */
 private const val AUTH_TRANSITION_DURATION_MS = 400
 
+/** Root composable that wires up theming, navigation host, bottom nav bar, and session logout handling. */
 @Composable
 @Preview
 fun CycleWiseAppUI() {
@@ -100,7 +101,16 @@ fun CycleWiseAppUI() {
                 }
                 composable(NavRoute.DailyLogHome.route) {
                     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
-                    DailyLogScreen(date = today)
+                    DailyLogScreen(
+                        date = today,
+                        onNavigateToTracker = {
+                            navController.navigate(NavRoute.Tracker.route) {
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                    )
                 }
                 composable(NavRoute.Tracker.route) {
                     TrackerScreen(navController)

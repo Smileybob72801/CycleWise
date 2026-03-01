@@ -62,9 +62,15 @@ import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.veleda.cyclewise.domain.models.CyclePhase
 import com.veleda.cyclewise.settings.AppSettings
+import com.veleda.cyclewise.ui.coachmark.CoachMarkOverlay
+import com.veleda.cyclewise.ui.coachmark.CoachMarkState
+import com.veleda.cyclewise.ui.coachmark.HintKey
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
+import com.veleda.cyclewise.ui.coachmark.coachMarkTarget
 import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.components.EducationalBottomSheet
 import com.veleda.cyclewise.ui.components.InfoButton
+import kotlinx.coroutines.flow.first
 import com.veleda.cyclewise.ui.theme.CyclePhasePalette
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.theme.buildCyclePhasePalette
@@ -79,6 +85,8 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
+import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
+import com.veleda.cyclewise.settings.parseSeedManifest
 import org.koin.compose.getKoin
 import org.koin.compose.koinInject
 import kotlin.time.Clock
@@ -95,7 +103,45 @@ fun TrackerScreen(navController: NavController) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
-    val appSettings: AppSettings = getKoin().get()
+    // Coach mark system
+    val koin = getKoin()
+    val hintPreferences: HintPreferences = koin.get()
+    val coachMarkState = remember { CoachMarkState(hintPreferences, coroutineScope) }
+
+    val activeHint by coachMarkState.active.collectAsState()
+    val pendingKey by coachMarkState.pendingHintKey.collectAsState()
+
+    // Tracks whether the Tracker walkthrough was started this composition.
+    var trackerWalkthroughActive by remember { mutableStateOf(false) }
+
+    // Start the Tracker walkthrough if the user hasn't seen it yet.
+    LaunchedEffect(Unit) {
+        val seen = hintPreferences.isHintSeen(HintKey.TRACKER_WELCOME).first()
+        if (!seen) {
+            trackerWalkthroughActive = true
+            TRACKER_HINTS[HintKey.TRACKER_WELCOME]?.let { coachMarkState.showHint(it) }
+        }
+    }
+
+    val appSettings: AppSettings = koin.get()
+
+    // Detect Tracker walkthrough completion (normal advance past last hint, or skipAll)
+    // and clean up seed data.
+    LaunchedEffect(activeHint, pendingKey, trackerWalkthroughActive) {
+        if (trackerWalkthroughActive && activeHint == null && pendingKey == null) {
+            trackerWalkthroughActive = false
+            val manifestJson = appSettings.seedManifestJson.first()
+            if (manifestJson.isNotEmpty()) {
+                val manifest = parseSeedManifest(manifestJson)
+                if (manifest != null) {
+                    val sessionScope = koin.getScope("session")
+                    val cleanup: TutorialCleanupUseCase = sessionScope.get()
+                    cleanup(manifest)
+                }
+                appSettings.clearSeedManifest()
+            }
+        }
+    }
     val showMood by appSettings.showMoodInSummary.collectAsState(initial = true)
     val showEnergy by appSettings.showEnergyInSummary.collectAsState(initial = true)
     val showLibido by appSettings.showLibidoInSummary.collectAsState(initial = true)
@@ -224,14 +270,16 @@ fun TrackerScreen(navController: NavController) {
     }
 
     Scaffold { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = dims.md),
+                    .padding(horizontal = dims.md)
+                    .coachMarkTarget(HintKey.TRACKER_NAV, coachMarkState),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -283,7 +331,8 @@ fun TrackerScreen(navController: NavController) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(end = dims.sm),
+                    .padding(end = dims.sm)
+                    .coachMarkTarget(HintKey.TRACKER_PHASE_LEGEND, coachMarkState),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 PhaseLegend(
@@ -299,8 +348,15 @@ fun TrackerScreen(navController: NavController) {
             Box(
                 modifier = Modifier
                     .weight(1f)
+                    .coachMarkTarget(HintKey.TRACKER_WELCOME, coachMarkState)
+                    .coachMarkTarget(HintKey.TRACKER_LONG_PRESS, coachMarkState)
+                    .coachMarkTarget(HintKey.TRACKER_DRAG, coachMarkState)
+                    .coachMarkTarget(HintKey.TRACKER_ADJUST, coachMarkState)
+                    .coachMarkTarget(HintKey.TRACKER_TAP_DAY, coachMarkState)
                     .onGloballyPositioned { calendarBoxCoords = it }
-                    .pointerInput(Unit) {
+                    .pointerInput(activeHint, pendingKey) {
+                        // Disable long-press/drag gestures while the coach mark walkthrough is active.
+                        if (activeHint != null || pendingKey != null) return@pointerInput
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             val rootPos = calendarBoxCoords
@@ -449,6 +505,10 @@ fun TrackerScreen(navController: NavController) {
                 )
             }
             Spacer(Modifier.height(dims.md))
+        }
+
+        // Coach mark overlay draws on top of all screen content.
+        CoachMarkOverlay(state = coachMarkState, allDefs = TRACKER_HINTS)
         }
     }
 }

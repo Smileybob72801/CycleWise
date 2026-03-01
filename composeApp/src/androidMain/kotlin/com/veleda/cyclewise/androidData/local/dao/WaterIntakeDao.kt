@@ -23,4 +23,7 @@ interface WaterIntakeDao {
 
     @Query("SELECT * FROM water_intake WHERE date IN (:dates)")
     suspend fun getForDates(dates: List<String>): List<WaterIntakeEntity>
+
+    @Query("DELETE FROM water_intake WHERE date IN (:dates)")
+    suspend fun deleteByDates(dates: List<String>)
 }

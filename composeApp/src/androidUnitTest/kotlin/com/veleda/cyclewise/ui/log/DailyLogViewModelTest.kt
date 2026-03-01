@@ -95,6 +95,31 @@ class DailyLogViewModelTest {
         )
     }
 
+    // ── Log loading tests ────────────────────────────────────────────
+
+    @Test
+    fun `init WHEN noPeriodsExistAndUseCaseReturnsLog THEN noErrorAndLogIsSet`() = runTest {
+        // GIVEN — use case returns a log with dayInCycle = 0 (no parent period)
+        val noPeriodEntry = DailyEntry(
+            id = "entry-no-period",
+            entryDate = testDate,
+            dayInCycle = 0,
+            createdAt = testInstant,
+            updatedAt = testInstant,
+        )
+        val noPeriodLog = FullDailyLog(entry = noPeriodEntry)
+        coEvery { mockGetOrCreateDailyLog(any()) } returns noPeriodLog
+
+        // WHEN — ViewModel is created
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // THEN — error is null and log is set
+        assertNull(vm.uiState.value.error, "error should be null even when no periods exist")
+        assertNotNull(vm.uiState.value.log, "log should be non-null after loading")
+        assertEquals(0, vm.uiState.value.log!!.entry.dayInCycle, "dayInCycle should be 0 for no parent period")
+    }
+
     // ── isPeriodDay init tests ───────────────────────────────────────
 
     @Test

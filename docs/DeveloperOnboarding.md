@@ -57,6 +57,9 @@ content from these companion documents:
   - [2.8 InsightsScreen and InsightsViewModel](#28-insightsscreen-and-insightsviewmodel)
   - [2.9 SettingsScreen and SettingsViewModel](#29-settingsscreen-and-settingsviewmodel)
   - [2.10 LockedWaterDraft — Pre-Authentication Water Tracking](#210-lockedwaterdraft--pre-authentication-water-tracking)
+  - [2.11 Coach Mark / Tutorial System](#211-coach-mark--tutorial-system)
+  - [2.12 Educational Content System](#212-educational-content-system)
+  - [2.13 Reusable UI Components](#213-reusable-ui-components)
 - [Phase 3 — Code Organization and Design Principles](#phase-3--code-organization-and-design-principles)
   - [3.1 Why Interfaces Live in Shared Module](#31-why-interfaces-live-in-shared-module)
   - [3.2 Why Platform Implementations Live in composeApp](#32-why-platform-implementations-live-in-composeapp)
@@ -136,7 +139,7 @@ shared/src/commonMain/kotlin/com/veleda/cyclewise/domain/
 |------|-------------|
 | `composeApp/.../CycleWiseApp.kt` | Top-level `@Composable` — sets up theme, navigation host, and session-aware scaffold |
 | `composeApp/.../MainActivity.kt` | Android `Activity` entry point — initializes Koin and hosts `CycleWiseApp` |
-| `composeApp/.../ui/nav/NavRoutes.kt` | Defines the 5 navigation routes and the bottom navigation bar |
+| `composeApp/.../ui/nav/NavRoutes.kt` | Defines the navigation routes and the four-tab bottom navigation bar |
 
 For the full directory tree, see [1.2 Module Structure](#12-module-structure).
 
@@ -417,12 +420,12 @@ Contains platform-agnostic domain logic. Zero Android dependencies in `commonMai
 
 | Package | Contents |
 |---------|----------|
-| `domain/models/` | `Period`, `DailyEntry`, `FullDailyLog`, `Symptom`, `Medication`, `PeriodLog`, `SymptomLog`, `MedicationLog`, `WaterIntake`, `DayDetails`, `CyclePhase`, enums (`FlowIntensity`, `PeriodColor`, `PeriodConsistency`, `SymptomCategory`) |
+| `domain/models/` | `Period`, `DailyEntry`, `FullDailyLog`, `Symptom`, `Medication`, `PeriodLog`, `SymptomLog`, `MedicationLog`, `WaterIntake`, `DayDetails`, `CyclePhase`, `EducationalArticle`, enums (`FlowIntensity`, `PeriodColor`, `PeriodConsistency`, `SymptomCategory`, `ArticleCategory`) |
 | `domain/repository/` | `PeriodRepository` interface — the single data access contract |
-| `domain/usecases/` | `StartNewPeriodUseCase`, `EndPeriodUseCase`, `GetOrCreateDailyLogUseCase`, `AutoCloseOngoingPeriodUseCase`, `DebugSeederUseCase` |
+| `domain/usecases/` | `StartNewPeriodUseCase`, `EndPeriodUseCase`, `GetOrCreateDailyLogUseCase`, `AutoCloseOngoingPeriodUseCase`, `DebugSeederUseCase`, `TutorialSeederUseCase`, `TutorialCleanupUseCase`, `SeedManifest` |
 | `domain/insights/` | `InsightEngine`, `Insight` sealed interface, `InsightGenerator` interface |
 | `domain/insights/generators/` | 6 generators: `CycleLengthAverageGenerator`, `NextPeriodPredictionGenerator`, `SymptomRecurrenceGenerator`, `MoodPhasePatternGenerator`, `CycleLengthTrendGenerator`, `SymptomPhasePatternGenerator` |
-| `domain/providers/` | `SymptomLibraryProvider`, `MedicationLibraryProvider` |
+| `domain/providers/` | `SymptomLibraryProvider`, `MedicationLibraryProvider`, `EducationalContentProvider` |
 | `domain/services/` | `PassphraseService` interface |
 
 ### `composeApp/` — Android Application
@@ -441,9 +444,12 @@ Contains the Jetpack Compose UI and all Android-specific implementations.
 | `ui/log/` | `DailyLogScreen`, `DailyLogViewModel`, `DailyLogEvent` |
 | `ui/insights/` | `InsightsScreen`, `InsightsViewModel` |
 | `ui/settings/` | `SettingsScreen`, `SettingsViewModel`, `SettingsEvent`, `PhaseColorSettings`, `PhaseVisibilitySettings`, `ReminderSettings`, `PeriodPrivacyDialog` |
+| `ui/coachmark/` | `CoachMarkDef`, `CoachMarkOverlay`, `CoachMarkState`, `HintPreferences` — post-login tutorial overlay system |
+| `ui/components/` | `EducationalBottomSheet`, `InfoButton`, `MarkdownText`, `MedicalDisclaimer`, `SourceAttribution` — reusable UI components |
 | `ui/nav/` | `NavRoutes`, `BottomNavBar`, `CycleWiseAppUI` (NavHost + bottom navigation) |
 | `ui/theme/` | `Color.kt`, `CyclePhasePalette.kt`, `Dimensions.kt`, `Shape.kt`, `Theme.kt`, `Type.kt` |
 | `ui/utils/` | `DateFormatter.kt` — platform-specific date formatting |
+| `androidData/local/` | `EducationalContentLoader` — loads educational articles from `res/raw/educational_content.json` |
 | `di/` | `AppModule.kt` — all Koin DI wiring |
 | `services/` | `PassphraseServiceAndroid`, `SaltStorage` |
 | `session/` | `SessionBus` |
@@ -468,8 +474,7 @@ PeriodTracker/
 │   │   └── DOCUMENTATION_GUIDELINES.md
 │   └── testing/
 │       ├── RUNNING_TESTS.md
-│       ├── TESTING_STRATEGY.md
-│       └── TEST_INVENTORY.md
+│       └── TESTING_STRATEGY.md
 │
 ├── shared/                          # KMP library module
 │   ├── build.gradle.kts
@@ -489,6 +494,7 @@ PeriodTracker/
 │       │       │   ├── WaterIntake.kt
 │       │       │   ├── DayDetails.kt
 │       │       │   ├── CyclePhase.kt
+│       │       │   ├── EducationalArticle.kt      # EducationalArticle + ArticleCategory enum
 │       │       │   └── Enums.kt                  # FlowIntensity, PeriodColor, PeriodConsistency, SymptomCategory
 │       │       ├── repository/
 │       │       │   └── PeriodRepository.kt       # The single data access contract
@@ -497,14 +503,18 @@ PeriodTracker/
 │       │       │   ├── EndPeriodUseCase.kt
 │       │       │   ├── GetOrCreateDailyLogUseCase.kt
 │       │       │   ├── AutoCloseOngoingPeriodUseCase.kt
-│       │       │   └── DebugSeederUseCase.kt
+│       │       │   ├── DebugSeederUseCase.kt
+│       │       │   ├── TutorialSeederUseCase.kt   # Seeds demo data for post-login walkthrough
+│       │       │   ├── TutorialCleanupUseCase.kt  # Deletes demo data after walkthrough
+│       │       │   └── SeedManifest.kt            # Tracks IDs of seeded tutorial data
 │       │       ├── insights/
 │       │       │   ├── InsightEngine.kt
 │       │       │   ├── Insight.kt
 │       │       │   └── generators/               # 6 insight generators
 │       │       ├── providers/
 │       │       │   ├── SymptomLibraryProvider.kt
-│       │       │   └── MedicationLibraryProvider.kt
+│       │       │   ├── MedicationLibraryProvider.kt
+│       │       │   └── EducationalContentProvider.kt  # Interface for educational articles
 │       │       └── services/
 │       │           └── PassPhraseService.kt      # Interface
 │       ├── androidMain/kotlin/com/veleda/cyclewise/
@@ -522,6 +532,7 @@ PeriodTracker/
 │       │   └── AppModule.kt                      # All Koin DI wiring
 │       ├── androidData/
 │       │   ├── local/
+│       │   │   ├── EducationalContentLoader.kt   # Loads articles from res/raw JSON
 │       │   │   ├── dao/                          # 8 Room DAOs
 │       │   │   ├── database/
 │       │   │   │   ├── PeriodDatabase.kt
@@ -537,6 +548,17 @@ PeriodTracker/
 │       │   │   ├── PassphraseViewModel.kt
 │       │   │   ├── WaterTrackerViewModel.kt
 │       │   │   └── WaterDraftSyncer.kt
+│       │   ├── coachmark/
+│       │   │   ├── CoachMarkDef.kt               # Hint definitions (key, message, nextKey)
+│       │   │   ├── CoachMarkOverlay.kt           # Full-screen overlay with spotlight cutout
+│       │   │   ├── CoachMarkState.kt             # State machine driving the hint chain
+│       │   │   └── HintPreferences.kt            # DataStore tracking which hints are seen
+│       │   ├── components/
+│       │   │   ├── EducationalBottomSheet.kt     # Bottom sheet for educational articles
+│       │   │   ├── InfoButton.kt                 # Tappable info icon triggering articles
+│       │   │   ├── MarkdownText.kt               # Renders markdown text in Compose
+│       │   │   ├── MedicalDisclaimer.kt          # Standard medical disclaimer banner
+│       │   │   └── SourceAttribution.kt          # Source citation for educational content
 │       │   ├── tracker/
 │       │   │   ├── TrackerScreen.kt
 │       │   │   ├── TrackerViewModel.kt
@@ -766,9 +788,12 @@ database is successfully opened. They are all destroyed together when the sessio
 | `RoomPeriodRepository` | Implements `PeriodRepository` with Room |
 | `SymptomLibraryProvider` | Reactive stream of symptom library |
 | `MedicationLibraryProvider` | Reactive stream of medication library |
+| `EducationalContentProvider` | Educational articles for info buttons |
 | `GetOrCreateDailyLogUseCase` | Retrieves or creates blank daily log |
 | `DebugSeederUseCase` | Seeds database with test data |
 | `AutoCloseOngoingPeriodUseCase` | Auto-closes stale ongoing periods |
+| `TutorialSeederUseCase` | Seeds demo data for post-login walkthrough |
+| `TutorialCleanupUseCase` | Deletes demo data after walkthrough completes |
 | `TrackerViewModel` | Calendar/tracker screen state |
 | `DailyLogViewModel` | Daily log editing state |
 | `InsightsViewModel` | Insights screen state |
@@ -1049,13 +1074,14 @@ data class TrackerUiState(
     val dayDetails: Map<LocalDate, CalendarDayInfo> = emptyMap(),
     val showDeleteConfirmation: Boolean = false,
     val periodIdToDelete: String? = null,
-    val waterCupsForSheet: Int? = null
+    val waterCupsForSheet: Int? = null,
+    val educationalArticles: List<EducationalArticle>? = null,
 ) {
     val ongoingPeriod: Period? = periods.find { it.endDate == null }
 }
 ```
 
-**Events** (9 types defined in `ui/tracker/TrackerEvent.kt`):
+**Events** (defined in `ui/tracker/TrackerEvent.kt`):
 1. `ScreenEntered` — Triggers auto-close of stale periods
 2. `DayTapped(date)` — Tap a day to view or create a log
 3. `PeriodMarkDay(date)` — Long-press to toggle period day
@@ -1065,6 +1091,8 @@ data class TrackerUiState(
 7. `DeletePeriodRequested(periodId)` — Show delete confirmation
 8. `DeletePeriodConfirmed(periodId)` — Execute deletion
 9. `DeletePeriodDismissed` — Cancel deletion
+10. `ShowEducationalSheet(contentTag)` — Open educational content bottom sheet
+11. `DismissEducationalSheet` — Close educational content bottom sheet
 
 **Dispatch:**
 ```kotlin
@@ -1134,7 +1162,7 @@ a file, etc.).
 interface PeriodRepository {
     fun getAllPeriods(): Flow<List<Period>>
     suspend fun logPeriodDay(date: LocalDate)
-    // ...27 methods total
+    // ...28 methods total
 }
 
 // In composeApp/ (data layer) — one possible implementation
@@ -1199,7 +1227,7 @@ val uiState: StateFlow<TrackerUiState>
 ### The Contract
 
 `PeriodRepository` (`shared/.../domain/repository/PeriodRepository.kt`) is the single
-data access contract for the entire app. It defines 27 methods grouped into:
+data access contract for the entire app. It defines 28 methods grouped into:
 
 - **Period CRUD** (9 methods) — `getAllPeriods()`, `getPeriodById()`, `startNewPeriod()`,
   `updatePeriodEndDate()`, `endPeriod()`, `getCurrentlyOngoingPeriod()`,
@@ -1212,6 +1240,7 @@ data access contract for the entire app. It defines 27 methods grouped into:
 - **Medication library** (3 methods) — `getMedicationLibrary()`, `createOrGetMedicationInLibrary()`,
   `getAllMedicationLogs()`
 - **Water intake** (2 methods) — `upsertWaterIntake()`, `getWaterIntakeForDates()`
+- **Tutorial cleanup** (1 method) — `deleteSeedData()` (deletes tutorial demo data by exact IDs)
 - **Debug** (1 method) — `seedDatabaseForDebug()`
 
 ### Data Flow Diagram
@@ -1280,7 +1309,7 @@ RhythmWise is a **single-activity** Compose application. The launch sequence:
 
 3. **`CycleWiseAppUI`** (`ui/nav/CycleWiseAppUI.kt`) — The root composable:
    - Wraps the app in `RhythmWiseTheme` for Material 3 theming (light/dark)
-   - Sets up the Compose `NavHost` with 5 routes and animated transitions
+   - Sets up the Compose `NavHost` with 6 routes and animated transitions
    - Start destination: `NavRoute.Passphrase`
    - **Bottom navigation is hidden on PassphraseScreen** — only shown after unlock:
      ```kotlin
@@ -1289,10 +1318,10 @@ RhythmWise is a **single-activity** Compose application. The launch sequence:
      }
      ```
    - Handles `WindowInsets.systemBars` padding so content doesn't overlap system UI
-   - On successful unlock, navigates to Tracker and pops Passphrase from the backstack:
+   - On successful unlock, navigates to DailyLogHome and pops Passphrase from the backstack:
      ```kotlin
      PassphraseScreen {
-         navController.navigate(NavRoute.Tracker.route) {
+         navController.navigate(NavRoute.DailyLogHome.route) {
              popUpTo(NavRoute.Passphrase.route) { inclusive = true }
          }
      }
@@ -1310,6 +1339,13 @@ sealed class NavRoute(
     val unselectedIcon: ImageVector? = null,
 ) {
     object Passphrase : NavRoute("passphrase", "Pass Phrase")
+
+    object DailyLogHome : NavRoute(
+        route = "daily_log_home",
+        label = "Daily Log",
+        selectedIcon = Icons.Filled.EditNote,
+        unselectedIcon = Icons.Outlined.EditNote,
+    )
 
     object Tracker : NavRoute(
         route = "tracker",
@@ -1332,45 +1368,44 @@ sealed class NavRoute(
         unselectedIcon = Icons.Outlined.Settings,
     )
 
-    object DailyLog : NavRoute("log/{date}?isPeriodDay={isPeriodDay}", "Daily Log") {
-        fun createRoute(date: LocalDate, isPeriodDay: Boolean = false) =
-            "log/$date?isPeriodDay=$isPeriodDay"
+    object DailyLog : NavRoute("log/{date}", "Daily Log") {
+        fun createRoute(date: LocalDate) = "log/$date"
     }
 
     companion object {
         val all: List<NavRoute>
-            get() = listOf(Tracker, Insights, Settings)  // Bottom nav items
+            get() = listOf(DailyLogHome, Tracker, Insights, Settings)
     }
 }
 ```
 
-Bottom navigation shows three tabs: **Tracker**, **Insights**, **Settings**. Each tab
-route carries `selectedIcon` (filled variant, shown when active) and `unselectedIcon`
-(outlined variant, shown when inactive) for visual feedback in the navigation bar.
+Bottom navigation shows four tabs: **Daily Log** (home), **Tracker**, **Insights**,
+**Settings**. Each tab route carries `selectedIcon` (filled variant, shown when active)
+and `unselectedIcon` (outlined variant, shown when inactive) for visual feedback in the
+navigation bar.
 
 ### DailyLog Navigation Parameters
 
-The `DailyLog` route takes two parameters parsed from the URL:
+The `DailyLog` route takes a single `date` path parameter:
 
 ```kotlin
 composable(
     route = NavRoute.DailyLog.route,
     arguments = listOf(
         navArgument("date") { type = NavType.StringType },          // ISO-8601 date
-        navArgument("isPeriodDay") { type = NavType.BoolType; defaultValue = false }
     )
 ) { backStackEntry ->
     val dateString = backStackEntry.arguments?.getString("date")
-    val isPeriodDay = backStackEntry.arguments?.getBoolean("isPeriodDay") ?: false
     DailyLogScreen(
         date = LocalDate.parse(dateString),
         onSaveComplete = { navController.popBackStack() },
-        isPeriodDay = isPeriodDay
     )
 }
 ```
 
-`TrackerViewModel` constructs this route via `NavRoute.DailyLog.createRoute(date, isPeriodDay)`.
+`TrackerViewModel` constructs this route via `NavRoute.DailyLog.createRoute(date)`.
+The `DailyLogViewModel` self-determines `isPeriodDay` from the repository during init
+rather than receiving it as a navigation parameter.
 
 ---
 
@@ -1470,11 +1505,12 @@ rules:
 - **Synced dates are cleared** from the draft store
 - **Individual failures are logged** but don't abort the remaining sync
 
-**10. Navigate to Tracker**
+**10. Navigate to DailyLogHome**
 ```kotlin
 _effect.emit(PassphraseEffect.NavigateToTracker)
 ```
-The UI observes this effect and navigates, popping Passphrase from the backstack.
+The UI observes this effect and navigates to `NavRoute.DailyLogHome`, popping Passphrase
+from the backstack. (The effect name retains `Tracker` for historical reasons.)
 
 ### Error Path
 
@@ -1631,9 +1667,9 @@ component to observe logout signals by collecting `sessionBus.logout`.
 
 ### Initialization
 
-`TrackerViewModel` (`ui/tracker/TrackerViewModel.kt`) takes 5 constructor parameters:
+`TrackerViewModel` (`ui/tracker/TrackerViewModel.kt`) takes 6 constructor parameters:
 `periodRepository`, `symptomLibraryProvider`, `medicationLibraryProvider`,
-`autoClosePeriodUseCase`, and `appSettings`.
+`autoClosePeriodUseCase`, `appSettings`, and `educationalContentProvider`.
 
 It starts 4 Flow collectors in its `init` block:
 
@@ -1853,10 +1889,12 @@ operation rolls back.
 │  │  GetOrCreateDaily...     domain/insights/                │   │
 │  │  AutoCloseOngoing...     InsightEngine                   │   │
 │  │  DebugSeederUseCase      6 generators                    │   │
+│  │  TutorialSeeder/Cleanup                                  │   │
 │  │                                                          │   │
 │  │  domain/providers/       Platform.kt                     │   │
 │  │  SymptomLibraryProvider  expect fun getPlatform()        │   │
 │  │  MedicationLibProvider   expect val num                  │   │
+│  │  EducationalContent...                                   │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
 │ ═══════════════════ PLATFORM BOUNDARY ═════════════════════════ │
@@ -2213,6 +2251,157 @@ Key details:
 
 ---
 
+## 2.11 Coach Mark / Tutorial System
+
+RhythmWise includes a post-login guided walkthrough that highlights UI elements with
+spotlight overlays and tooltip-style hints. The system lives in `ui/coachmark/` and
+coordinates with two domain use cases.
+
+### Architecture
+
+```
+HintKey (enum, 17 entries)
+    │
+    ▼
+CoachMarkDef (data class)
+├── key: HintKey
+├── titleRes / bodyRes (string resources)
+├── nextKey: HintKey?          ← links to the next step in the chain
+├── skipTargetKey: HintKey?    ← optional jump-ahead target
+└── skipToastRes: Int?
+    │
+    ▼
+CoachMarkState (composition-scoped state holder)
+├── registerTarget(key, bounds)  ← target composables report screen position
+├── showHint(def)                ← activate a hint (immediate or pending)
+├── advanceOrDismiss(allDefs)    ← mark seen, resolve nextKey, show next or clear
+├── skipToKey(targetKey, allDefs)← walk chain marking intermediates seen
+└── skipAll(allDefs)             ← mark everything seen and clear overlay
+    │
+    ▼
+HintPreferences (DataStore)
+├── isHintSeen(key): Flow<Boolean>
+├── markHintSeen(key)
+└── resetAll()
+```
+
+### Hint Chain
+
+Each `CoachMarkDef` carries a `nextKey: HintKey?` that points to the next step.
+When the user taps "Next", `CoachMarkState.advanceOrDismiss()` resolves `nextKey`
+against the full definition map, marks the current hint as seen via
+`HintPreferences.markHintSeen()`, and activates the next hint.
+
+The 17 hints are split across two screens:
+- **Daily Log walkthrough** (10 steps): `DAILY_LOG_WELCOME` → `DAILY_LOG_MOOD` →
+  `DAILY_LOG_ENERGY` → `DAILY_LOG_WATER` → `DAILY_LOG_EXPLORE_TABS` →
+  `DAILY_LOG_PERIOD_TAB` → `DAILY_LOG_PERIOD_TOGGLE` → `DAILY_LOG_SYMPTOMS_TAB` →
+  `DAILY_LOG_MEDICATIONS_TAB` → `DAILY_LOG_NOTES_TAB`
+- **Tracker walkthrough** (7 steps): `TRACKER_WELCOME` → `TRACKER_NAV` →
+  `TRACKER_PHASE_LEGEND` → `TRACKER_LONG_PRESS` → `TRACKER_DRAG` →
+  `TRACKER_ADJUST` → `TRACKER_TAP_DAY`
+
+### Tutorial Seed Data
+
+Two domain use cases support the walkthrough:
+
+- **`TutorialSeederUseCase`** — seeds demo periods, daily entries, symptoms, and water
+  intake so the walkthrough has data to highlight. Returns a `SeedManifest` tracking
+  exact IDs of all seeded records.
+- **`TutorialCleanupUseCase`** — deletes all seeded data by exact IDs from the
+  `SeedManifest` after the walkthrough completes, so the user starts with a clean slate.
+
+Both use cases live in `shared/src/commonMain/.../domain/usecases/` and operate through
+`PeriodRepository.deleteSeedData()`.
+
+### Integration Points
+
+- `DailyLogScreen` and `TrackerScreen` each define their walkthrough hints as local
+  `CoachMarkDef` lists and register target composables with `CoachMarkState`.
+- `CoachMarkOverlay` renders the full-screen dimmed overlay with a spotlight cutout
+  around the target bounds and a tooltip with title, body, and action buttons.
+- `HintPreferences` is a singleton (separate DataStore from `AppSettings`) so hint
+  state persists across sessions.
+
+---
+
+## 2.12 Educational Content System
+
+RhythmWise provides in-app educational articles about cycle health, symptoms, and
+wellness. The content is bundled as a JSON asset and displayed via bottom sheets.
+
+### Data Flow
+
+```
+res/raw/educational_content.json
+        │
+        ▼
+EducationalContentLoader (composeApp — Android object)
+├── load(context): List<EducationalArticle>
+└── parseJson(jsonText): List<EducationalArticle>
+        │
+        ▼
+EducationalContentProvider (shared — interface)
+├── getByCategory(category: ArticleCategory)
+├── getByTag(tag: String)
+└── getById(id: String)
+        │
+        ▼
+TrackerViewModel.educationalContentProvider
+        │
+        ▼
+TrackerUiState.educationalArticles
+        │
+        ▼
+InfoButton → ShowEducationalSheet(contentTag) → EducationalBottomSheet
+```
+
+### Domain Model
+
+`EducationalArticle` (`shared/.../domain/models/EducationalArticle.kt`) is a
+`@Serializable` data class:
+
+```kotlin
+data class EducationalArticle(
+    val id: String,
+    val title: String,
+    val body: String,
+    val category: ArticleCategory,
+    val contentTags: List<String>,
+    val sourceName: String,
+    val sourceUrl: String,
+    val sortOrder: Int,
+)
+```
+
+`ArticleCategory` has four values: `CYCLE_BASICS`, `SYMPTOMS`, `WELLNESS`,
+`WHEN_TO_SEE_A_DOCTOR`.
+
+### UI Components
+
+- **`InfoButton`** — A tappable info icon that dispatches `ShowEducationalSheet(contentTag)`.
+- **`EducationalBottomSheet`** — Renders the article body using `MarkdownText`,
+  with `SourceAttribution` and `MedicalDisclaimer` at the bottom.
+
+---
+
+## 2.13 Reusable UI Components
+
+The `ui/components/` package contains shared composables used across multiple screens:
+
+| Component | Purpose |
+|-----------|---------|
+| `EducationalBottomSheet` | Modal bottom sheet for displaying educational articles |
+| `InfoButton` | Small info icon button that triggers educational content display |
+| `MarkdownText` | Renders markdown-formatted text in Compose (used for article bodies) |
+| `MedicalDisclaimer` | Standard disclaimer banner: "This is not medical advice" |
+| `SourceAttribution` | Displays source name and URL for educational content |
+
+These components follow the project convention of one `@Composable` per UI
+responsibility and use `stringResource()` for all user-visible text.
+
+---
+
 # Phase 3 — Code Organization and Design Principles
 
 ## 3.1 Why Interfaces Live in Shared Module
@@ -2356,12 +2545,12 @@ The `iosApp/` directory already contains a skeleton Xcode project with
 ### What Already Compiles for iOS
 
 Everything in `shared/src/commonMain/`:
-- All domain models (`Period`, `DailyEntry`, `FullDailyLog`, `CyclePhase`, enums, etc.)
+- All domain models (`Period`, `DailyEntry`, `FullDailyLog`, `CyclePhase`, `EducationalArticle`, enums, etc.)
 - `PeriodRepository` interface
 - `PassphraseService` interface
-- All 5 use cases
+- All use cases (`StartNewPeriod`, `EndPeriod`, `GetOrCreateDailyLog`, `AutoCloseOngoingPeriod`, `DebugSeeder`, `TutorialSeeder`, `TutorialCleanup`, `SeedManifest`)
 - `InsightEngine` and all 6 generators
-- `SymptomLibraryProvider` and `MedicationLibraryProvider`
+- `SymptomLibraryProvider`, `MedicationLibraryProvider`, and `EducationalContentProvider`
 
 ### What an iOS App Would Need to Build
 
@@ -2485,8 +2674,9 @@ Key architectural details:
 **File:** `composeApp/src/androidMain/kotlin/com/veleda/cyclewise/ui/tracker/TrackerViewModel.kt`
 
 Key architectural details:
-- **Constructor takes 5 parameters:** `periodRepository`, `symptomLibraryProvider`,
-  `medicationLibraryProvider`, `autoClosePeriodUseCase`, `appSettings`
+- **Constructor takes 6 parameters:** `periodRepository`, `symptomLibraryProvider`,
+  `medicationLibraryProvider`, `autoClosePeriodUseCase`, `appSettings`,
+  `educationalContentProvider`
 - **`init` block:** 4 collectors demonstrate the reactive data flow pattern. Each
   collector transforms domain data into UI models. The periods collector also triggers
   `updatePredictionCache()` for reminder worker support.
@@ -2993,12 +3183,12 @@ directory contains a skeleton Xcode project with placeholder Swift files.
 ### What's Already Shared
 
 All domain logic compiles for iOS out of the box:
-- All models in `domain/models/` (including `CyclePhase`)
+- All models in `domain/models/` (including `CyclePhase` and `EducationalArticle`)
 - `PeriodRepository` interface
 - `PassphraseService` interface
-- All 5 use cases
+- All use cases (8 total, including tutorial seeder/cleanup)
 - `InsightEngine` and all 6 generators
-- `SymptomLibraryProvider` and `MedicationLibraryProvider`
+- `SymptomLibraryProvider`, `MedicationLibraryProvider`, and `EducationalContentProvider`
 
 ---
 
@@ -3176,10 +3366,13 @@ dependencies globally within the same scope ID.
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                    DOMAIN LAYER                             │  │
 │  │  Use Cases: StartNewPeriod, EndPeriod, GetOrCreateDailyLog,│  │
-│  │    AutoCloseOngoingPeriod, DebugSeeder                     │  │
+│  │    AutoCloseOngoingPeriod, DebugSeeder, TutorialSeeder,    │  │
+│  │    TutorialCleanup, SeedManifest                           │  │
 │  │  InsightEngine + 6 generators                              │  │
-│  │  Providers: SymptomLibraryProvider, MedicationLibProvider  │  │
-│  │  Models: Period, DailyEntry, FullDailyLog, CyclePhase, etc.│  │
+│  │  Providers: SymptomLibrary, MedicationLibrary,             │  │
+│  │    EducationalContent                                      │  │
+│  │  Models: Period, DailyEntry, FullDailyLog, CyclePhase,     │  │
+│  │    EducationalArticle, etc.                                │  │
 │  │  Interfaces: PeriodRepository, PassphraseService           │  │
 │  └──────────────────────────┬─────────────────────────────────┘  │
 │                             │ implements interfaces              │

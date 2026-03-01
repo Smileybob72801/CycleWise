@@ -6,8 +6,11 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.veleda.cyclewise.domain.usecases.SeedManifest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
+import org.json.JSONObject
 
 private val Context.dataStore by preferencesDataStore("app_settings")
 private val AUTOLOCK_MIN = intPreferencesKey("autolock_min")
@@ -37,6 +40,7 @@ private val REMINDER_HYDRATION_START_HOUR = intPreferencesKey("reminder_hydratio
 private val REMINDER_HYDRATION_END_HOUR = intPreferencesKey("reminder_hydration_end_hour")
 private val CACHED_PREDICTED_PERIOD_DATE = stringPreferencesKey("cached_predicted_period_date")
 private val THEME_MODE = stringPreferencesKey("theme_mode")
+private val SEED_MANIFEST_JSON = stringPreferencesKey("seed_manifest_json")
 
 /**
  * DataStore-backed wrapper for user-configurable app preferences.
@@ -306,5 +310,53 @@ class AppSettings(private val context: Context) {
     /** Persists the user's selected theme mode. */
     suspend fun setThemeMode(mode: String) {
         context.dataStore.edit { it[THEME_MODE] = mode }
+    }
+
+    // ── Seed manifest (tutorial cleanup) ──────────────────────────────
+
+    /** JSON-serialised [SeedManifest] for tutorial seed data cleanup (empty = none). */
+    val seedManifestJson: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[SEED_MANIFEST_JSON] ?: "" }
+
+    /** Persists the serialised seed manifest after the tutorial seeder runs. */
+    suspend fun setSeedManifestJson(json: String) {
+        context.dataStore.edit { it[SEED_MANIFEST_JSON] = json }
+    }
+
+    /** Removes the seed manifest preference after cleanup completes. */
+    suspend fun clearSeedManifest() {
+        context.dataStore.edit { it.remove(SEED_MANIFEST_JSON) }
+    }
+}
+
+/**
+ * Serialises a [SeedManifest] to a compact JSON string for DataStore persistence.
+ *
+ * Format: `{"periodUuids":["…"],"dailyEntryIds":["…"],"waterIntakeDates":["…"]}`
+ */
+fun SeedManifest.toJson(): String {
+    val obj = JSONObject()
+    obj.put("periodUuids", JSONArray(periodUuids))
+    obj.put("dailyEntryIds", JSONArray(dailyEntryIds))
+    obj.put("waterIntakeDates", JSONArray(waterIntakeDates))
+    return obj.toString()
+}
+
+/**
+ * Deserialises a JSON string produced by [SeedManifest.toJson] back into a
+ * [SeedManifest], or returns `null` if the string is blank or malformed.
+ */
+fun parseSeedManifest(json: String): SeedManifest? {
+    if (json.isBlank()) return null
+    return try {
+        val obj = JSONObject(json)
+        fun JSONArray.toStringList(): List<String> = (0 until length()).map { getString(it) }
+        SeedManifest(
+            periodUuids = obj.getJSONArray("periodUuids").toStringList(),
+            dailyEntryIds = obj.getJSONArray("dailyEntryIds").toStringList(),
+            waterIntakeDates = obj.getJSONArray("waterIntakeDates").toStringList(),
+        )
+    } catch (_: Exception) {
+        null
     }
 }

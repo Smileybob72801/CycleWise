@@ -265,7 +265,7 @@ class DailyLogViewModel(
                     log = event.log,
                     symptomLibrary = event.initialSymptoms,
                     medicationLibrary = event.initialMedications,
-                    error = if (event.log == null) "Could not find a parent cycle for this date." else null
+                    error = null
                 )
                 is DailyLogEvent.LibraryUpdated -> currentState.copy(
                     symptomLibrary = event.symptoms,
