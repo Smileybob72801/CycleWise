@@ -39,7 +39,7 @@ fun buildDailyEntry(
 fun buildPeriodLog(
     id: String = uuid4().toString(),
     entryId: String = "entry-1",
-    flowIntensity: FlowIntensity = FlowIntensity.MEDIUM,
+    flowIntensity: FlowIntensity? = FlowIntensity.MEDIUM,
     periodColor: PeriodColor? = null,
     periodConsistency: PeriodConsistency? = null,
     createdAt: Instant = TestData.INSTANT,

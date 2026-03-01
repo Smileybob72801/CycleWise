@@ -598,7 +598,9 @@ class RoomPeriodRepository(
      * Marks [date] as a period day inside a Room transaction.
      *
      * Implements the 4-scenario state machine defined in [PeriodRepository.logPeriodDay]:
-     * already-inside, bridge-merge, extend, or island-create.
+     * already-inside, bridge-merge, extend, or island-create. After the scenario branch,
+     * ensures a [PeriodLog] exists for the date with null [FlowIntensity] if no log was
+     * already present.
      *
      * @see PeriodRepository.logPeriodDay
      */
@@ -613,16 +615,6 @@ class RoomPeriodRepository(
                 periodContaining != null -> {
                     if (periodContaining.endDate != null && periodContaining.endDate!! < date) {
                         updatePeriodEndDate(periodContaining.id, null)
-                    }
-                    val entry = dailyEntryDao.getEntryForDate(date).firstOrNull()?.toDomain()
-                    entry?.let {
-                        periodLogDao.insert(PeriodLog(
-                            id = uuid4().toString(),
-                            entryId = it.id,
-                            flowIntensity = FlowIntensity.MEDIUM,
-                            createdAt = Clock.System.now(),
-                            updatedAt = Clock.System.now()
-                        ).toEntity())
                     }
                 }
 
@@ -643,6 +635,20 @@ class RoomPeriodRepository(
                 // Scenario 4: Day is an island (CREATE)
                 else -> {
                     createCompletedPeriod(date, date)
+                }
+            }
+
+            // Ensure a PeriodLog exists for this date across all scenarios.
+            val entry = dailyEntryDao.getEntryForDate(date).firstOrNull()?.toDomain()
+            if (entry != null) {
+                val existingLog = periodLogDao.getLogForEntry(entry.id).firstOrNull()
+                if (existingLog == null) {
+                    periodLogDao.insert(PeriodLog(
+                        id = uuid4().toString(),
+                        entryId = entry.id,
+                        createdAt = Clock.System.now(),
+                        updatedAt = Clock.System.now()
+                    ).toEntity())
                 }
             }
         }

@@ -185,6 +185,27 @@ class PeriodLogDaoTest : KoinTest {
         assertTrue(logs.isEmpty())
     }
 
+    // --- Tests for nullable flowIntensity ---
+
+    @Test
+    fun insert_WHEN_flowIntensityIsNull_THEN_persists() = runTest {
+        // ARRANGE
+        val log = buildPeriodLogEntity(
+            id = "plog-null-flow",
+            entryId = "entry-1",
+            flowIntensity = null
+        )
+
+        // ACT
+        periodLogDao.insert(log)
+        val retrieved = periodLogDao.getLogForEntry("entry-1").first()
+
+        // ASSERT
+        assertNotNull(retrieved)
+        assertEquals("plog-null-flow", retrieved.id)
+        assertNull(retrieved.flowIntensity)
+    }
+
     // --- Tests for REPLACE conflict strategy ---
 
     @Test

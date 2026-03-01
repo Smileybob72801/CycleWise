@@ -75,7 +75,7 @@ fun buildMedicationLogEntity(
 fun buildPeriodLogEntity(
     id: String = "plog-${uuid4()}",
     entryId: String = "entry-1",
-    flowIntensity: FlowIntensity = FlowIntensity.MEDIUM,
+    flowIntensity: FlowIntensity? = FlowIntensity.MEDIUM,
     periodColor: PeriodColor? = null,
     periodConsistency: PeriodConsistency? = null,
     createdAt: Instant = TestData.INSTANT,

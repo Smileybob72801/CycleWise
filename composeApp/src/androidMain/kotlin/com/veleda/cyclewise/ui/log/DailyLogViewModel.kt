@@ -64,10 +64,13 @@ data class DailyLogUiState(
  * during typing.
  *
  * **Period toggle:** The ViewModel self-determines [DailyLogUiState.isPeriodDay] by
- * querying the repository during init. The [DailyLogEvent.PeriodToggled] event calls
- * [PeriodRepository.logPeriodDay] or [PeriodRepository.unLogPeriodDay] — the same
- * repository methods used by the Tracker's long-press mark/unmark, ensuring consistent
- * period-splitting and merging behavior across both screens.
+ * querying the repository during init. The [DailyLogEvent.PeriodToggled] event
+ * creates or deletes the [PeriodLog] in the reducer, then calls
+ * [PeriodRepository.logPeriodDay] or [PeriodRepository.unLogPeriodDay] as a side
+ * effect — the same repository methods used by the Tracker's long-press mark/unmark,
+ * ensuring consistent period-splitting and merging behavior across both screens.
+ * [DailyLogEvent.FlowIntensityChanged] only updates the flow field on an existing
+ * PeriodLog — it no longer creates or deletes one.
  *
  * **Two-phase init:**
  * 1. Fetches the initial log, symptom library, medication library, water intake, and
@@ -107,8 +110,28 @@ class DailyLogViewModel(
                 entryDate >= period.startDate && (end == null || entryDate <= end)
             }
 
-            onEvent(DailyLogEvent.LogLoaded(result, initialSymptoms, initialMedications))
+            // Backfill a PeriodLog if the day is a period day but no PeriodLog exists
+            // (covers tracker-marked days that were never opened in the daily log editor).
+            val loadedLog = if (isPeriodDay && result.periodLog == null) {
+                val now = Clock.System.now()
+                val backfilledPeriodLog = PeriodLog(
+                    id = uuid4().toString(),
+                    entryId = result.entry.id,
+                    createdAt = now,
+                    updatedAt = now
+                )
+                result.copy(periodLog = backfilledPeriodLog)
+            } else {
+                result
+            }
+
+            onEvent(DailyLogEvent.LogLoaded(loadedLog, initialSymptoms, initialMedications))
             _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0, isPeriodDay = isPeriodDay) }
+
+            // Persist the backfilled PeriodLog immediately.
+            if (isPeriodDay && result.periodLog == null) {
+                autoSave()
+            }
         }
 
         // 2. Subsequent library changes also dispatch events instead of mutating state directly.
@@ -189,13 +212,16 @@ class DailyLogViewModel(
                 }
             }
 
-            is DailyLogEvent.PeriodToggled -> viewModelScope.launch {
-                if (event.isOnPeriod) {
-                    periodRepository.logPeriodDay(entryDate)
-                } else {
-                    periodRepository.unLogPeriodDay(entryDate)
+            is DailyLogEvent.PeriodToggled -> {
+                viewModelScope.launch {
+                    if (event.isOnPeriod) {
+                        periodRepository.logPeriodDay(entryDate)
+                    } else {
+                        periodRepository.unLogPeriodDay(entryDate)
+                    }
+                    _uiState.update { it.copy(isPeriodDay = event.isOnPeriod) }
                 }
-                _uiState.update { it.copy(isPeriodDay = event.isOnPeriod) }
+                autoSave()
             }
 
             is DailyLogEvent.WaterIncrement -> viewModelScope.launch {
@@ -254,6 +280,10 @@ class DailyLogViewModel(
      *
      * Contains no side effects — all repository writes, library creation, and water
      * persistence are handled in [onEvent] after the state has been updated.
+     *
+     * [DailyLogEvent.PeriodToggled] creates or deletes the [PeriodLog] (with null
+     * [FlowIntensity]). [DailyLogEvent.FlowIntensityChanged] only updates the flow
+     * field on an existing PeriodLog — it does not create or delete one.
      */
     private fun reduce(currentState: DailyLogUiState, event: DailyLogEvent): DailyLogUiState {
         // The log must exist for almost all events.
@@ -276,21 +306,16 @@ class DailyLogViewModel(
 
         return when (event) {
             is DailyLogEvent.FlowIntensityChanged -> {
-                val newPeriodLog = if (event.intensity != null) {
-                    val existingLog = log.periodLog
-                    val now = Clock.System.now()
-                    existingLog?.copy(flowIntensity = event.intensity, updatedAt = now)
-                        ?: PeriodLog(
-                            id = uuid4().toString(),
-                            entryId = log.entry.id,
+                val existingLog = log.periodLog ?: return currentState
+                val now = Clock.System.now()
+                currentState.copy(
+                    log = log.copy(
+                        periodLog = existingLog.copy(
                             flowIntensity = event.intensity,
-                            createdAt = now,
                             updatedAt = now
                         )
-                } else {
-                    null
-                }
-                currentState.copy(log = log.copy(periodLog = newPeriodLog))
+                    )
+                )
             }
             is DailyLogEvent.MoodScoreChanged -> {
                 val updatedEntry = log.entry.copy(moodScore = event.score)
@@ -351,7 +376,20 @@ class DailyLogViewModel(
                 currentState.copy(log = log.copy(medicationLogs = newLogs))
             }
             is DailyLogEvent.MedicationCreatedAndAdded -> currentState
-            is DailyLogEvent.PeriodToggled -> currentState
+            is DailyLogEvent.PeriodToggled -> {
+                if (event.isOnPeriod) {
+                    val now = Clock.System.now()
+                    val newPeriodLog = log.periodLog ?: PeriodLog(
+                        id = uuid4().toString(),
+                        entryId = log.entry.id,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                    currentState.copy(log = log.copy(periodLog = newPeriodLog))
+                } else {
+                    currentState.copy(log = log.copy(periodLog = null))
+                }
+            }
             is DailyLogEvent.WaterIncrement -> {
                 currentState.copy(waterCups = currentState.waterCups + 1)
             }
