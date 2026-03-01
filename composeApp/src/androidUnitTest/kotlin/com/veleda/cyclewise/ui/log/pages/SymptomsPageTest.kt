@@ -1,0 +1,193 @@
+package com.veleda.cyclewise.ui.log.pages
+
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import com.veleda.cyclewise.RobolectricTestApp
+import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.testutil.TestData
+import com.veleda.cyclewise.testutil.buildSymptom
+import com.veleda.cyclewise.testutil.buildSymptomLog
+import com.veleda.cyclewise.ui.theme.Dimensions
+import com.veleda.cyclewise.ui.theme.LocalDimensions
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/**
+ * Robolectric-based Compose UI tests for [SymptomsPage].
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(application = RobolectricTestApp::class)
+class SymptomsPageTest {
+
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    private val headache = buildSymptom(id = "s1", name = "Headache")
+    private val cramps = buildSymptom(id = "s2", name = "Cramps")
+    private val fatigue = buildSymptom(id = "s3", name = "Fatigue")
+
+    private val library = listOf(headache, cramps, fatigue)
+
+    private fun setContent(
+        loggedSymptoms: List<SymptomLog> = emptyList(),
+        symptomLibrary: List<Symptom> = library,
+        onToggleSymptom: (Symptom) -> Unit = {},
+        onCreateAndAddSymptom: (String) -> Unit = {},
+        onShowEducationalSheet: (String) -> Unit = {},
+    ) {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalDimensions provides Dimensions()) {
+                MaterialTheme {
+                    SymptomsPage(
+                        loggedSymptoms = loggedSymptoms,
+                        symptomLibrary = symptomLibrary,
+                        onToggleSymptom = onToggleSymptom,
+                        onCreateAndAddSymptom = onCreateAndAddSymptom,
+                        onShowEducationalSheet = onShowEducationalSheet,
+                    )
+                }
+            }
+        }
+    }
+
+    // region Count text
+
+    @Test
+    fun countText_WHEN_noLoggedSymptoms_THEN_notDisplayed() {
+        // Given / When
+        setContent(loggedSymptoms = emptyList())
+
+        // Then — the count text "X symptoms logged" should not appear
+        composeTestRule.onNodeWithText("symptoms logged", substring = true, ignoreCase = true)
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun countText_WHEN_symptomsLogged_THEN_displayed() {
+        // Given
+        val logged = listOf(buildSymptomLog(symptomId = "s1"))
+
+        // When
+        setContent(loggedSymptoms = logged)
+
+        // Then
+        composeTestRule.onNodeWithText("1", substring = true).assertIsDisplayed()
+    }
+
+    // endregion
+
+    // region Chip rendering
+
+    @Test
+    fun symptomChips_WHEN_libraryProvided_THEN_allChipsRendered() {
+        // Given / When
+        setContent()
+
+        // Then
+        composeTestRule.onNodeWithTag("chip-HEADACHE").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("chip-CRAMPS").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("chip-FATIGUE").assertIsDisplayed()
+    }
+
+    @Test
+    fun symptomChip_WHEN_logged_THEN_isSelected() {
+        // Given
+        val logged = listOf(buildSymptomLog(symptomId = "s1"))
+
+        // When
+        setContent(loggedSymptoms = logged)
+
+        // Then
+        composeTestRule.onNodeWithTag("chip-HEADACHE").assertIsSelected()
+    }
+
+    @Test
+    fun symptomChip_WHEN_notLogged_THEN_isNotSelected() {
+        // Given / When
+        setContent(loggedSymptoms = emptyList())
+
+        // Then
+        composeTestRule.onNodeWithTag("chip-HEADACHE").assertIsNotSelected()
+    }
+
+    // endregion
+
+    // region Chip toggle callback
+
+    @Test
+    fun symptomChip_WHEN_tapped_THEN_invokesToggleCallback() {
+        // Given
+        var captured: Symptom? = null
+        setContent(onToggleSymptom = { captured = it })
+
+        // When
+        composeTestRule.onNodeWithTag("chip-HEADACHE").performClick()
+
+        // Then
+        assert(captured == headache) { "Expected Headache symptom, got $captured" }
+    }
+
+    // endregion
+
+    // region Create symptom
+
+    @Test
+    fun createSymptomField_WHEN_rendered_THEN_hasTestTag() {
+        // Given / When
+        setContent()
+
+        // Then
+        composeTestRule.onNodeWithTag("create-symptom-textbox").assertIsDisplayed()
+    }
+
+    @Test
+    fun createSymptomButton_WHEN_fieldBlank_THEN_isDisabled() {
+        // Given / When
+        setContent()
+
+        // Then
+        composeTestRule.onNodeWithTag("create-symptom-button").assertIsNotEnabled()
+    }
+
+    @Test
+    fun createSymptomButton_WHEN_fieldHasText_THEN_isEnabled() {
+        // Given
+        setContent()
+
+        // When
+        composeTestRule.onNodeWithTag("create-symptom-textbox").performTextInput("Nausea")
+
+        // Then
+        composeTestRule.onNodeWithTag("create-symptom-button").assertIsEnabled()
+    }
+
+    @Test
+    fun createSymptomButton_WHEN_tapped_THEN_invokesCallback() {
+        // Given
+        var captured: String? = null
+        setContent(onCreateAndAddSymptom = { captured = it })
+        composeTestRule.onNodeWithTag("create-symptom-textbox").performTextInput("Nausea")
+
+        // When
+        composeTestRule.onNodeWithTag("create-symptom-button").performClick()
+
+        // Then
+        assert(captured == "Nausea") { "Expected 'Nausea', got '$captured'" }
+    }
+
+    // endregion
+}

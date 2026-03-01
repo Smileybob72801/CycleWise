@@ -108,7 +108,7 @@ fun PassphraseScreen(
  * A semi-transparent loading overlay prevents interaction during unlock.
  */
 @Composable
-private fun UnlockScreen(
+internal fun UnlockScreen(
     uiState: PassphraseUiState,
     onEvent: (PassphraseEvent) -> Unit,
     effect: SharedFlow<PassphraseEffect>,
