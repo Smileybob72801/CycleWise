@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.tracker
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -92,6 +93,13 @@ fun TrackerScreen(navController: NavController) {
 
     // Tracks whether the Tracker walkthrough was started this composition.
     var trackerWalkthroughActive by remember { mutableStateOf(false) }
+
+    // Predictive back: dismiss the coach mark walkthrough instead of navigating away.
+    // When no walkthrough is active, the handler is disabled and back navigates normally.
+    BackHandler(enabled = activeHint != null || pendingKey != null) {
+        coachMarkState.skipAll(TRACKER_HINTS)
+        trackerWalkthroughActive = false
+    }
 
     // Start the Tracker walkthrough if the user hasn't seen it yet.
     LaunchedEffect(Unit) {

@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.auth
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -77,6 +78,14 @@ fun SetupScreen(
     val dims = LocalDimensions.current
     val pagerState = rememberPagerState(pageCount = { SETUP_PAGE_COUNT })
     val coroutineScope = rememberCoroutineScope()
+
+    // Predictive back: navigate to the previous pager page instead of exiting the app.
+    // Disabled on page 0 so the system handles back normally (minimize/exit).
+    BackHandler(enabled = pagerState.currentPage > 0) {
+        coroutineScope.launch {
+            pagerState.animateScrollToPage(pagerState.currentPage - 1)
+        }
+    }
 
     Box(
         modifier = Modifier

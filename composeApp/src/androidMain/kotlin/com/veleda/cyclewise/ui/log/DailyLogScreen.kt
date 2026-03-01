@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.log
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -175,6 +176,22 @@ fun DailyLogScreen(
 
     val activeHint by coachMarkState.active.collectAsState()
     val pendingKey by coachMarkState.pendingHintKey.collectAsState()
+
+    // Predictive back: step to the previous pager page before navigating out.
+    // Disabled on the first page (Wellness) so the system handles back normally.
+    // Declared before the walkthrough handler so the walkthrough one (last in
+    // composition order) takes priority when enabled.
+    BackHandler(enabled = pagerState.currentPage > 0 && activeHint == null && pendingKey == null) {
+        coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+    }
+
+    // Predictive back: dismiss the coach mark walkthrough instead of navigating away.
+    // When no walkthrough is active, the handler is disabled and back navigates normally.
+    // Declared last so it takes priority over the pager handler when a walkthrough is active.
+    BackHandler(enabled = activeHint != null || pendingKey != null) {
+        coachMarkState.skipAll(DAILY_LOG_HINTS)
+        walkthroughActive = false
+    }
 
     // Detect walkthrough completion: the Daily Log walkthrough ended (NOTES_TAB seen)
     // and the Tracker walkthrough hasn't started yet → navigate to Tracker.

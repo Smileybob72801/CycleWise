@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -111,6 +112,14 @@ internal fun SettingsContent(
     val dims = LocalDimensions.current
     val pagerState = rememberPagerState(pageCount = { PAGE_COUNT })
     val coroutineScope = rememberCoroutineScope()
+
+    // Predictive back: return to the General page from any sub-tab.
+    // Disabled on the General page so the system handles back normally (navigate out).
+    BackHandler(enabled = pagerState.currentPage > 0) {
+        coroutineScope.launch {
+            pagerState.animateScrollToPage(PAGE_GENERAL)
+        }
+    }
 
     val pageLabels = listOf(
         stringResource(R.string.settings_page_general),
