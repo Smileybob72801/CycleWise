@@ -1,7 +1,6 @@
 package com.veleda.cyclewise.ui.tracker
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,24 +10,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -42,24 +33,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
-import androidx.compose.foundation.gestures.drag
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import kotlinx.datetime.LocalDate
 import com.veleda.cyclewise.R
 import androidx.navigation.NavController
-import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
-import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.veleda.cyclewise.domain.models.CyclePhase
 import com.veleda.cyclewise.settings.AppSettings
@@ -72,19 +52,12 @@ import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.components.EducationalBottomSheet
 import com.veleda.cyclewise.ui.components.InfoButton
 import kotlinx.coroutines.flow.first
-import com.veleda.cyclewise.ui.theme.CyclePhasePalette
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.theme.buildCyclePhasePalette
 import com.veleda.cyclewise.ui.utils.toLocalizedDateString
 import com.veleda.cyclewise.ui.utils.toLocalizedMonthYearString
 import kotlinx.coroutines.launch
-import kotlinx.datetime.toKotlinLocalDate
-import java.time.format.TextStyle
-import java.util.Locale
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.minus
-import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import com.veleda.cyclewise.settings.parseSeedManifest
@@ -208,60 +181,22 @@ fun TrackerScreen(navController: NavController) {
     var dragCurrent by remember { mutableStateOf<LocalDate?>(null) }
     var isDragging by remember { mutableStateOf(false) }
 
-    val anchorPeriod = if (isDragging && dragAnchor != null) {
-        uiState.periods.find { dragAnchor!! in (it.startDate..(it.endDate ?: today)) }
-    } else null
-
     // Coordinates of the calendar container Box for pointer mapping.
     var calendarBoxCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
-    if (uiState.logForSheet != null) {
-        ModalBottomSheet(
-            onDismissRequest = { viewModel.onEvent(TrackerEvent.DismissLogSheet) },
-            sheetState = sheetState
-        ) {
-            val sheetPhase = uiState.logForSheet?.let { log ->
-                uiState.dayDetails[log.entry.entryDate]?.cyclePhase
-            }
-            LogSummarySheetContent(
-                log = uiState.logForSheet!!,
-                periodId = uiState.periodIdForSheet,
-                cyclePhase = sheetPhase,
-                symptomLibrary = uiState.symptomLibrary,
-                medicationLibrary = uiState.medicationLibrary,
-                waterCups = uiState.waterCupsForSheet,
-                showMood = showMood,
-                showEnergy = showEnergy,
-                showLibido = showLibido,
-                onEditClick = { date -> viewModel.onEvent(TrackerEvent.EditLogClicked(date)) },
-                onDeleteClick = { periodId -> viewModel.onEvent(TrackerEvent.DeletePeriodRequested(periodId)) },
-                onViewFullLogClick = { date -> viewModel.onEvent(TrackerEvent.EditLogClicked(date)) }
-            )
-        }
-    }
+    DayDetailSheet(
+        uiState = uiState,
+        showMood = showMood,
+        showEnergy = showEnergy,
+        showLibido = showLibido,
+        sheetState = sheetState,
+        onEvent = viewModel::onEvent,
+    )
 
-    if (uiState.showDeleteConfirmation && uiState.periodIdToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { viewModel.onEvent(TrackerEvent.DeletePeriodDismissed) },
-            title = { Text(stringResource(R.string.tracker_delete_title)) },
-            text = { Text(stringResource(R.string.tracker_delete_message)) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.onEvent(TrackerEvent.DeletePeriodConfirmed(uiState.periodIdToDelete!!))
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text(stringResource(R.string.tracker_delete_confirm))
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { viewModel.onEvent(TrackerEvent.DeletePeriodDismissed) }) {
-                    Text(stringResource(R.string.tracker_cancel))
-                }
-            }
-        )
-    }
+    DeletePeriodConfirmationDialog(
+        uiState = uiState,
+        onEvent = viewModel::onEvent,
+    )
 
     uiState.educationalArticles?.let { articles ->
         EducationalBottomSheet(
@@ -346,146 +281,30 @@ fun TrackerScreen(navController: NavController) {
                     contentDescription = stringResource(R.string.educational_info_button_cd, stringResource(R.string.tracker_phase_label)),
                 )
             }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .coachMarkTarget(HintKey.TRACKER_WELCOME, coachMarkState)
-                    .coachMarkTarget(HintKey.TRACKER_LONG_PRESS, coachMarkState)
-                    .coachMarkTarget(HintKey.TRACKER_DRAG, coachMarkState)
-                    .coachMarkTarget(HintKey.TRACKER_ADJUST, coachMarkState)
-                    .coachMarkTarget(HintKey.TRACKER_TAP_DAY, coachMarkState)
-                    .onGloballyPositioned { calendarBoxCoords = it }
-                    .pointerInput(activeHint, pendingKey) {
-                        // Disable long-press/drag gestures while the coach mark walkthrough is active.
-                        if (activeHint != null || pendingKey != null) return@pointerInput
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            val rootPos = calendarBoxCoords
-                                ?.localToRoot(down.position)
-                                ?: return@awaitEachGesture
-                            val anchorDate = boundsRegistry.dateAt(rootPos)
-                                ?: return@awaitEachGesture
 
-                            val longPress = awaitLongPressOrCancellation(down.id)
-                            if (longPress == null) {
-                                // Cancelled before long-press threshold — let other gestures handle.
-                                return@awaitEachGesture
-                            }
-
-                            dragAnchor = anchorDate
-                            dragCurrent = anchorDate
-                            isDragging = true
-
-                            var dragged = false
-                            drag(longPress.id) { change ->
-                                dragged = true
-                                val dragRootPos = calendarBoxCoords
-                                    ?.localToRoot(change.position)
-                                if (dragRootPos != null) {
-                                    val hoveredDate = boundsRegistry.dateAt(dragRootPos)
-                                    if (hoveredDate != null) {
-                                        dragCurrent = hoveredDate
-                                    }
-                                }
-                                change.consume()
-                            }
-
-                            // Gesture ended — emit the appropriate event.
-                            val anchor = dragAnchor
-                            val current = dragCurrent
-                            if (anchor != null && current != null) {
-                                if (dragged && anchor != current) {
-                                    viewModel.onEvent(
-                                        TrackerEvent.PeriodRangeDragged(anchor, current)
-                                    )
-                                } else {
-                                    viewModel.onEvent(TrackerEvent.PeriodMarkDay(anchor))
-                                }
-                            }
-
-                            // Reset drag state.
-                            dragAnchor = null
-                            dragCurrent = null
-                            isDragging = false
-                        }
-                    }
-            ) {
-                HorizontalCalendar(
-                    state = calendarState,
-                    userScrollEnabled = !isDragging,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("calendar-root"),
-                    dayContent = { day ->
-                        val date = day.date.toKotlinLocalDate()
-                        val cycleForDate = uiState.periods.find { date in (it.startDate..(it.endDate ?: today)) }
-                        val dayInfo = uiState.dayDetails[date]
-
-                        // Effective display phase (null for period days — they keep their own color).
-                        // Also null when the user has toggled the phase off in settings.
-                        val rawPhase = if (dayInfo?.isPeriodDay == true) null else dayInfo?.cyclePhase
-                        val displayPhase = rawPhase?.takeIf { phaseVisible[it] != false }
-                        val prevInfo = uiState.dayDetails[date.minus(1, DateTimeUnit.DAY)]
-                        val nextInfo = uiState.dayDetails[date.plus(1, DateTimeUnit.DAY)]
-                        val prevRaw = if (prevInfo?.isPeriodDay == true) null else prevInfo?.cyclePhase
-                        val nextRaw = if (nextInfo?.isPeriodDay == true) null else nextInfo?.cyclePhase
-                        val prevDisplayPhase = prevRaw?.takeIf { phaseVisible[it] != false }
-                        val nextDisplayPhase = nextRaw?.takeIf { phaseVisible[it] != false }
-
-                        val dayIsNotTappable = day.position != DayPosition.MonthDate
-
-                        val handleTap: (() -> Unit)? = if (dayIsNotTappable) null else {
-                            { viewModel.onEvent(TrackerEvent.DayTapped(date)) }
-                        }
-
-                        val inSelectionRange = isDragging && dragAnchor != null && dragCurrent != null && run {
-                            val selStart = minOf(dragAnchor!!, dragCurrent!!)
-                            val selEnd = maxOf(dragAnchor!!, dragCurrent!!)
-                            date in selStart..selEnd
-                        }
-
-                        val isInRemovalRange = isDragging && dragAnchor != null && dragCurrent != null
-                            && anchorPeriod != null && run {
-                            val periodEnd = anchorPeriod.endDate ?: today
-                            when {
-                                // Shrink from start: anchor at start, dragging right into period
-                                dragAnchor == anchorPeriod.startDate
-                                    && dragAnchor != periodEnd
-                                    && dragCurrent!! > dragAnchor!!
-                                    && dragCurrent!! <= periodEnd ->
-                                    date >= dragAnchor!! && date < dragCurrent!!
-
-                                // Shrink from end: anchor at end, dragging left into period
-                                dragAnchor == periodEnd
-                                    && dragAnchor != anchorPeriod.startDate
-                                    && dragCurrent!! < dragAnchor!!
-                                    && dragCurrent!! >= anchorPeriod.startDate ->
-                                    date > dragCurrent!! && date <= dragAnchor!!
-
-                                else -> false
-                            }
-                        }
-
-                        CalendarDayCell(
-                            day = day,
-                            dayInfo = dayInfo,
-                            isToday = date == today,
-                            isStartDate = cycleForDate?.startDate == date,
-                            isEndDate = cycleForDate?.endDate == date,
-                            isInExistingRange = cycleForDate != null,
-                            isInSelectionRange = inSelectionRange,
-                            isInRemovalRange = isInRemovalRange,
-                            isDragging = isDragging,
-                            isPhaseStart = displayPhase != null && displayPhase != prevDisplayPhase,
-                            isPhaseEnd = displayPhase != null && displayPhase != nextDisplayPhase,
-                            palette = palette,
-                            displayPhase = displayPhase,
-                            onTap = handleTap,
-                            boundsRegistry = boundsRegistry
-                        )
-                    }
-                )
-            }
+            CalendarGrid(
+                uiState = uiState,
+                calendarState = calendarState,
+                palette = palette,
+                phaseVisible = phaseVisible,
+                today = today,
+                boundsRegistry = boundsRegistry,
+                isDragging = isDragging,
+                dragAnchor = dragAnchor,
+                dragCurrent = dragCurrent,
+                activeHint = activeHint,
+                pendingKey = pendingKey,
+                coachMarkState = coachMarkState,
+                calendarBoxCoords = calendarBoxCoords,
+                onCalendarBoxPositioned = { calendarBoxCoords = it },
+                onDragStateChanged = { anchor, current, dragging ->
+                    dragAnchor = anchor
+                    dragCurrent = current
+                    isDragging = dragging
+                },
+                onEvent = viewModel::onEvent,
+                modifier = Modifier.weight(1f),
+            )
 
             Spacer(Modifier.height(dims.md))
 
@@ -510,100 +329,6 @@ fun TrackerScreen(navController: NavController) {
 
         // Coach mark overlay draws on top of all screen content.
         CoachMarkOverlay(state = coachMarkState, allDefs = TRACKER_HINTS)
-        }
-    }
-}
-
-@Composable
-private fun DaysOfWeekTitle(daysOfWeek: List<JavaDayOfWeek>) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        for (dayOfWeek in daysOfWeek) {
-            Text(
-                modifier = Modifier.weight(1f),
-                textAlign = TextAlign.Center,
-                text = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-    }
-}
-
-/**
- * Horizontal legend showing cycle-phase colours as compact chip-style entries.
- *
- * Placed between the day-of-week header and the calendar grid so users
- * can identify what each background tint represents. Only visible phases
- * (as configured in settings) are shown; Period is always displayed.
- *
- * @param palette      The current [CyclePhasePalette] providing per-phase dot colors.
- * @param phaseVisible Map of each [CyclePhase] to its visibility flag.
- */
-@Composable
-private fun PhaseLegend(
-    palette: CyclePhasePalette,
-    phaseVisible: Map<CyclePhase, Boolean> = emptyMap(),
-    modifier: Modifier = Modifier,
-) {
-    val dims = LocalDimensions.current
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = dims.md, vertical = dims.xs),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        LegendChip(
-            color = palette.menstruation.dot,
-            label = stringResource(R.string.phase_color_period_label)
-        )
-        if (phaseVisible[CyclePhase.FOLLICULAR] != false) {
-            LegendChip(
-                color = palette.follicular.dot,
-                label = stringResource(R.string.phase_color_follicular_label)
-            )
-        }
-        if (phaseVisible[CyclePhase.OVULATION] != false) {
-            LegendChip(
-                color = palette.ovulation.dot,
-                label = stringResource(R.string.phase_color_ovulation_label)
-            )
-        }
-        if (phaseVisible[CyclePhase.LUTEAL] != false) {
-            LegendChip(
-                color = palette.luteal.dot,
-                label = stringResource(R.string.phase_color_luteal_label)
-            )
-        }
-    }
-}
-
-/**
- * Single legend entry rendered as a compact chip: a small coloured swatch
- * followed by a label, wrapped in a [Surface] with `surfaceVariant` background.
- *
- * @param color The fill colour for the swatch.
- * @param label The text displayed next to the swatch.
- */
-@Composable
-private fun LegendChip(color: Color, label: String) {
-    val dims = LocalDimensions.current
-
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.semantics(mergeDescendants = true) { }
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = dims.sm, vertical = dims.xs),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(dims.xs)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(dims.sm)
-                    .background(color, RoundedCornerShape(dims.xs))
-            )
-            Text(text = label, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
