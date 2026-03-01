@@ -191,8 +191,10 @@ private fun UnlockScreen(
             OutlinedTextField(
                 value = passphrase,
                 onValueChange = {
-                    passphrase = it
-                    errorMessage = null
+                    if (it.length <= MAX_PASSPHRASE_LENGTH) {
+                        passphrase = it
+                        errorMessage = null
+                    }
                 },
                 label = { Text(stringResource(R.string.passphrase_label)) },
                 visualTransformation = if (passwordVisible) {

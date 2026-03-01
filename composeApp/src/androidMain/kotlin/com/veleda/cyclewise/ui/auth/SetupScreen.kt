@@ -316,7 +316,7 @@ private fun CreatePassphrasePage(
         // Create passphrase field
         OutlinedTextField(
             value = passphrase,
-            onValueChange = { passphrase = it },
+            onValueChange = { if (it.length <= MAX_PASSPHRASE_LENGTH) passphrase = it },
             label = { Text(stringResource(R.string.setup_passphrase_label)) },
             visualTransformation = if (passphraseVisible) {
                 VisualTransformation.None
@@ -357,7 +357,7 @@ private fun CreatePassphrasePage(
         // Confirm passphrase field
         OutlinedTextField(
             value = confirmation,
-            onValueChange = { confirmation = it },
+            onValueChange = { if (it.length <= MAX_PASSPHRASE_LENGTH) confirmation = it },
             label = { Text(stringResource(R.string.setup_confirm_label)) },
             visualTransformation = if (confirmVisible) {
                 VisualTransformation.None

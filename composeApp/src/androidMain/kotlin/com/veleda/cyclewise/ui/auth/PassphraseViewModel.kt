@@ -18,6 +18,9 @@ import org.koin.core.parameter.parametersOf
 /** Minimum passphrase length enforced during first-time setup. */
 internal const val MIN_PASSPHRASE_LENGTH = 8
 
+/** Maximum passphrase length accepted by the input fields. */
+internal const val MAX_PASSPHRASE_LENGTH = 256
+
 /**
  * UI state for the passphrase screen.
  *

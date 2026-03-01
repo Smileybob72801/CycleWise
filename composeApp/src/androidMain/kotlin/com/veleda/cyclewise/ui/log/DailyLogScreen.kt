@@ -70,6 +70,13 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
 import org.koin.core.parameter.parametersOf
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
+
+/** Maximum characters for medication, symptom, and tag name inputs. */
+private const val MAX_NAME_LENGTH = 100
+
+/** Maximum characters for the notes field. */
+private const val MAX_NOTE_LENGTH = 2000
 
 /** Number of pages in the daily log pager. */
 private const val PAGE_COUNT = 5
@@ -950,7 +957,7 @@ private fun MedicationLogger(
 
         OutlinedTextField(
             value = newMedicationName,
-            onValueChange = { newMedicationName = it },
+            onValueChange = { if (it.length <= MAX_NAME_LENGTH) newMedicationName = it },
             label = { Text(stringResource(R.string.daily_log_add_medication)) },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -984,7 +991,7 @@ private fun CustomTagLogger(
     Column(verticalArrangement = Arrangement.spacedBy(LocalDimensions.current.sm)) {
         OutlinedTextField(
             value = text,
-            onValueChange = { text = it },
+            onValueChange = { if (it.length <= MAX_NAME_LENGTH) text = it },
             label = { Text(stringResource(R.string.daily_log_add_tag)) },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -1028,12 +1035,20 @@ private fun NoteEditor(
 ) {
     OutlinedTextField(
         value = note,
-        onValueChange = onNoteChanged,
+        onValueChange = { if (it.length <= MAX_NOTE_LENGTH) onNoteChanged(it) },
         label = { Text(stringResource(R.string.daily_log_add_notes)) },
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = LocalDimensions.current.xl * 4),
-        placeholder = { Text(stringResource(R.string.daily_log_notes_placeholder)) }
+        placeholder = { Text(stringResource(R.string.daily_log_notes_placeholder)) },
+        supportingText = {
+            Text(
+                text = stringResource(R.string.daily_log_notes_char_count, note.length, MAX_NOTE_LENGTH),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.End,
+            )
+        },
     )
 }
 
@@ -1067,7 +1082,7 @@ private fun SymptomLogger(
 
         OutlinedTextField(
             value = newSymptomName,
-            onValueChange = { newSymptomName = it },
+            onValueChange = { if (it.length <= MAX_NAME_LENGTH) newSymptomName = it },
             label = { Text(stringResource(R.string.daily_log_add_symptom)) },
             modifier = Modifier
                 .testTag("create-symptom-textbox")
