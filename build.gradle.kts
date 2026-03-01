@@ -14,6 +14,22 @@ plugins {
     alias(libs.plugins.composeMultiplatform) apply false
     alias(libs.plugins.composeCompiler) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
+    alias(libs.plugins.detekt)
+}
+
+detekt {
+    config.setFrom(files("$rootDir/detekt.yml"))
+    baseline = file("$rootDir/detekt-baseline.xml")
+    source.setFrom(
+        files(
+            "shared/src/commonMain/kotlin",
+            "shared/src/androidMain/kotlin",
+            "composeApp/src/commonMain/kotlin",
+            "composeApp/src/androidMain/kotlin"
+        )
+    )
+    parallel = true
+    autoCorrect = false
 }
 
 abstract class ExportProjectAsMarkdown : DefaultTask() {

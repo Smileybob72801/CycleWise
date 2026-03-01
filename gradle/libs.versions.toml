@@ -38,6 +38,7 @@ androidx-test-core = "1.7.0"
 encoding = "2.4.0"
 compose-bom = "2025.09.00"
 androidx-test = "1.7.0"
+detekt = "1.23.8"
 
 [libraries]
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleViewmodelKtx" }
@@ -105,3 +106,4 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
 ksp = { id = "com.google.devtools.ksp", version = "2.2.0-2.0.2" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 room = { id = "androidx.room", version.ref = "room" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

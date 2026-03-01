@@ -79,6 +79,7 @@ content from these companion documents:
   - [4.7 How to Avoid Leaking Secrets](#47-how-to-avoid-leaking-secrets)
   - [4.8 Common Architectural Mistakes](#48-common-architectural-mistakes)
   - [4.9 Database Migrations](#49-database-migrations)
+  - [4.10 Static Analysis (Lint and Detekt)](#410-static-analysis-lint-and-detekt)
 - [Phase 5 — Future-Proofing](#phase-5--future-proofing)
   - [5.1 Planned iOS Module](#51-planned-ios-module)
   - [5.2 Insight Engine Overview](#52-insight-engine-overview)
@@ -3165,6 +3166,63 @@ CREATE TABLE IF NOT EXISTS new_table (
 -- Create an index
 CREATE INDEX IF NOT EXISTS index_name ON table_name (column_name)
 ```
+
+---
+
+## 4.10 Static Analysis (Lint and Detekt)
+
+RhythmWise uses two static analysis tools to catch issues before they reach code review.
+
+### Android Lint
+
+**What it does:** Checks Android-specific concerns — missing permissions, unused resources, accessibility issues, API compatibility, and security anti-patterns.
+
+**Scope:** `composeApp` module only (Android-specific code).
+
+```bash
+./gradlew :composeApp:lintDebug
+```
+
+**Configuration:** The `lint` block in `composeApp/build.gradle.kts` sets:
+- `abortOnError = true` — the build fails on new errors
+- `checkDependencies = true` — also checks library code
+- `baseline = file("lint-baseline.xml")` — filters out pre-existing findings
+
+**Baseline:** `composeApp/lint-baseline.xml`. To regenerate, delete the file and re-run lint.
+
+### Detekt
+
+**What it does:** Kotlin-specific static analysis — complexity metrics, naming conventions, code style, coroutine anti-patterns, and unused code.
+
+**Scope:** All Kotlin source sets in both `shared` and `composeApp` modules.
+
+```bash
+# Run analysis
+./gradlew detekt
+
+# Regenerate baseline
+./gradlew detektBaseline
+```
+
+**Configuration files:**
+| File | Location | Purpose |
+|------|----------|---------|
+| `detekt.yml` | Project root | Rule configuration |
+| `detekt-baseline.xml` | Project root | Pre-existing findings |
+| `.editorconfig` | Project root | Formatting baseline (max line length, indent) |
+
+### Key Conventions Enforced
+
+- **Compose functions:** `FunctionNaming` ignores `@Composable` (PascalCase is allowed)
+- **Long parameter lists:** Relaxed for `@Composable` functions and data classes
+- **Forbidden imports:** `kotlinx.datetime.Clock` — use `kotlin.time.Clock` instead
+- **Max line length:** 120 characters
+- **Magic numbers:** Excluded from test code
+- **Coroutines:** `GlobalCoroutineUsage`, `SleepInsteadOfDelay`, and `SuspendFunSwallowedCancellation` are active
+
+### Kotlin Version Compatibility
+
+Detekt 1.23.8 was built against Kotlin 2.0.21. This project uses Kotlin 2.2.0. The basic `detekt` task (PSI parsing, no type resolution) works correctly. The type-resolution tasks (`detektMain`, `detektTest`) may produce false positives — only the plain `detekt` task should be used until Detekt 2.0 stable ships with Kotlin 2.2+ support.
 
 ---
 

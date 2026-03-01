@@ -1,0 +1,147 @@
+# Detekt configuration for RhythmWise
+# Tailored for Kotlin Multiplatform + Jetpack Compose patterns.
+#
+# NOTE: Detekt 1.23.8 was built against Kotlin 2.0.21; this project uses
+# Kotlin 2.2.0. The basic `detekt` task (PSI parsing, no type resolution)
+# works correctly. Type-resolution tasks (detektMain, detektTest) may
+# produce false positives — only the plain `detekt` task should be used
+# until Detekt 2.0 stable ships with Kotlin 2.2+ support.
+
+config:
+  validation: true
+
+complexity:
+  ComplexInterface:
+    active: true
+    threshold: 15
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 20
+  LargeClass:
+    active: true
+    threshold: 600
+  LongMethod:
+    active: true
+    threshold: 60
+  LongParameterList:
+    active: true
+    functionThreshold: 8
+    constructorThreshold: 10
+    ignoreAnnotated:
+      - 'Composable'
+    ignoreDataClasses: true
+    ignoreDefaultParameters: true
+  NestedBlockDepth:
+    active: true
+    threshold: 5
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 25
+    thresholdInClasses: 20
+    thresholdInInterfaces: 15
+    thresholdInObjects: 15
+    thresholdInEnums: 10
+    ignoreAnnotated:
+      - 'Preview'
+
+coroutines:
+  GlobalCoroutineUsage:
+    active: true
+  SleepInsteadOfDelay:
+    active: true
+  SuspendFunSwallowedCancellation:
+    active: true
+
+empty-blocks:
+  EmptyClassBlock:
+    active: false  # Sealed subclasses often have empty bodies
+
+exceptions:
+  ThrowingExceptionsWithoutMessageOrCause:
+    active: true
+    excludes:
+      - '**/test/**'
+      - '**/androidUnitTest/**'
+      - '**/commonTest/**'
+
+naming:
+  FunctionNaming:
+    active: true
+    ignoreAnnotated:
+      - 'Composable'
+    excludes:
+      - '**/test/**'
+      - '**/androidUnitTest/**'
+      - '**/commonTest/**'
+  NonBooleanPropertyPrefixedWithIs:
+    active: false  # Project uses isPeriodDay and similar patterns
+  TopLevelPropertyNaming:
+    active: true
+    constantPattern: '[A-Z][_A-Z0-9]*'
+  VariableNaming:
+    active: true
+    privateVariablePattern: '(_)?[a-z][A-Za-z0-9]*'
+
+performance:
+  SpreadOperator:
+    active: true
+    excludes:
+      - '**/test/**'
+      - '**/androidUnitTest/**'
+      - '**/commonTest/**'
+
+style:
+  ForbiddenImport:
+    active: true
+    imports:
+      - value: 'kotlinx.datetime.Clock'
+        reason: 'Use kotlin.time.Clock instead — kotlinx.datetime.Clock is deprecated in this project.'
+  MagicNumber:
+    active: true
+    excludes:
+      - '**/test/**'
+      - '**/androidUnitTest/**'
+      - '**/commonTest/**'
+    ignoreNumbers:
+      - '-1'
+      - '0'
+      - '1'
+      - '2'
+    ignoreHashCodeFunction: true
+    ignorePropertyDeclaration: true
+    ignoreLocalVariableDeclaration: true
+    ignoreConstantDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreAnnotation: true
+    ignoreNamedArgument: true
+    ignoreEnums: true
+    ignoreAnnotated:
+      - 'Composable'
+  MaxLineLength:
+    active: true
+    maxLineLength: 120
+    excludeCommentStatements: true
+    excludeRawStrings: true
+    excludePackageStatements: true
+    excludeImportStatements: true
+  RedundantExplicitType:
+    active: false  # Project prefers explicit types
+  RedundantVisibilityModifierRule:
+    active: false  # Project prefers explicit visibility
+  UnnecessaryBackticks:
+    active: false  # Test method names use backticks
+  ReturnCount:
+    active: true
+    max: 4
+    excludeReturnFromLambda: true
+    excludeGuardClauses: true
+  UnusedImports:
+    active: true
+  UnusedPrivateMember:
+    active: true
+    allowedNames: '(_|ignored|expected|serialVersionUID)'
+  WildcardImport:
+    active: true
+    excludeImports:
+      - 'java.util.*'
+      - 'kotlinx.coroutines.*'

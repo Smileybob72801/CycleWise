@@ -1,0 +1,154 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexInterface:PeriodRepository.kt$PeriodRepository</ID>
+    <ID>CyclomaticComplexMethod:CalendarDay.kt$@Composable internal fun CalendarDayCell( day: CalendarDay, dayInfo: CalendarDayInfo?, isToday: Boolean, isStartDate: Boolean, isEndDate: Boolean, isInExistingRange: Boolean, isInSelectionRange: Boolean, isInRemovalRange: Boolean = false, isDragging: Boolean = false, isPhaseStart: Boolean = true, isPhaseEnd: Boolean = true, palette: CyclePhasePalette, displayPhase: CyclePhase? = null, onTap: (() -&gt; Unit)?, boundsRegistry: DayBoundsRegistry? = null )</ID>
+    <ID>CyclomaticComplexMethod:CalendarGrid.kt$@Composable internal fun CalendarGrid( uiState: TrackerUiState, calendarState: CalendarState, palette: CyclePhasePalette, phaseVisible: Map&lt;CyclePhase, Boolean&gt;, today: LocalDate, boundsRegistry: DayBoundsRegistry, isDragging: Boolean, dragAnchor: LocalDate?, dragCurrent: LocalDate?, activeHint: ActiveCoachMark?, pendingKey: HintKey?, coachMarkState: CoachMarkState, calendarBoxCoords: LayoutCoordinates?, onCalendarBoxPositioned: (LayoutCoordinates) -&gt; Unit, onDragStateChanged: (anchor: LocalDate?, current: LocalDate?, dragging: Boolean) -&gt; Unit, onEvent: (TrackerEvent) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>CyclomaticComplexMethod:CyclePhaseCalculator.kt$CyclePhaseCalculator$fun calculatePhase( date: LocalDate, periods: List&lt;Period&gt;, averageCycleLength: Double? ): CyclePhase?</ID>
+    <ID>CyclomaticComplexMethod:DailyLogScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun DailyLogScreen( date: LocalDate, onNavigateToTracker: () -&gt; Unit = {}, )</ID>
+    <ID>CyclomaticComplexMethod:DailyLogViewModel.kt$DailyLogViewModel$private fun reduce(currentState: DailyLogUiState, event: DailyLogEvent): DailyLogUiState</ID>
+    <ID>CyclomaticComplexMethod:LogSummarySheet.kt$@Composable internal fun LogSummarySheetContent( log: FullDailyLog, periodId: String?, cyclePhase: CyclePhase? = null, symptomLibrary: List&lt;Symptom&gt;, medicationLibrary: List&lt;Medication&gt;, waterCups: Int?, showMood: Boolean, showEnergy: Boolean, showLibido: Boolean, onEditClick: (LocalDate) -&gt; Unit, onDeleteClick: (String) -&gt; Unit, onViewFullLogClick: (LocalDate) -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:MoodPhasePatternGenerator.kt$MoodPhasePatternGenerator$override fun generate(data: InsightData): List&lt;Insight&gt;</ID>
+    <ID>CyclomaticComplexMethod:RoomPeriodRepository.kt$RoomPeriodRepository$override suspend fun seedDatabaseForDebug()</ID>
+    <ID>CyclomaticComplexMethod:SettingsViewModel.kt$SettingsViewModel$fun onEvent(event: SettingsEvent)</ID>
+    <ID>CyclomaticComplexMethod:SettingsViewModel.kt$SettingsViewModel$private fun reduce(state: SettingsUiState, event: SettingsEvent): SettingsUiState</ID>
+    <ID>CyclomaticComplexMethod:SymptomPhasePatternGenerator.kt$SymptomPhasePatternGenerator$@OptIn(ExperimentalTime::class) override fun generate(data: InsightData): List&lt;Insight&gt;</ID>
+    <ID>CyclomaticComplexMethod:TrackerScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TrackerScreen(navController: NavController)</ID>
+    <ID>CyclomaticComplexMethod:TrackerViewModel.kt$TrackerViewModel$fun onEvent(event: TrackerEvent)</ID>
+    <ID>LongMethod:AboutPage.kt$@Composable internal fun AboutPage( uiState: SettingsUiState, onEvent: (SettingsEvent) -&gt; Unit, session: Scope?, )</ID>
+    <ID>LongMethod:AppearancePage.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun AppearancePage( uiState: SettingsUiState, onEvent: (SettingsEvent) -&gt; Unit, )</ID>
+    <ID>LongMethod:CalendarDay.kt$@Composable internal fun CalendarDayCell( day: CalendarDay, dayInfo: CalendarDayInfo?, isToday: Boolean, isStartDate: Boolean, isEndDate: Boolean, isInExistingRange: Boolean, isInSelectionRange: Boolean, isInRemovalRange: Boolean = false, isDragging: Boolean = false, isPhaseStart: Boolean = true, isPhaseEnd: Boolean = true, palette: CyclePhasePalette, displayPhase: CyclePhase? = null, onTap: (() -&gt; Unit)?, boundsRegistry: DayBoundsRegistry? = null )</ID>
+    <ID>LongMethod:CalendarGrid.kt$@Composable internal fun CalendarGrid( uiState: TrackerUiState, calendarState: CalendarState, palette: CyclePhasePalette, phaseVisible: Map&lt;CyclePhase, Boolean&gt;, today: LocalDate, boundsRegistry: DayBoundsRegistry, isDragging: Boolean, dragAnchor: LocalDate?, dragCurrent: LocalDate?, activeHint: ActiveCoachMark?, pendingKey: HintKey?, coachMarkState: CoachMarkState, calendarBoxCoords: LayoutCoordinates?, onCalendarBoxPositioned: (LayoutCoordinates) -&gt; Unit, onDragStateChanged: (anchor: LocalDate?, current: LocalDate?, dragging: Boolean) -&gt; Unit, onEvent: (TrackerEvent) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:CoachMarkOverlay.kt$@Composable fun CoachMarkOverlay( state: CoachMarkState, allDefs: Map&lt;HintKey, CoachMarkDef&gt;, )</ID>
+    <ID>LongMethod:CycleWiseAppUI.kt$@Composable @Preview fun CycleWiseAppUI()</ID>
+    <ID>LongMethod:DailyLogScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun DailyLogScreen( date: LocalDate, onNavigateToTracker: () -&gt; Unit = {}, )</ID>
+    <ID>LongMethod:DailyLogViewModel.kt$DailyLogViewModel$fun onEvent(event: DailyLogEvent)</ID>
+    <ID>LongMethod:DailyLogViewModel.kt$DailyLogViewModel$private fun reduce(currentState: DailyLogUiState, event: DailyLogEvent): DailyLogUiState</ID>
+    <ID>LongMethod:GeneralPage.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun GeneralPage( uiState: SettingsUiState, onEvent: (SettingsEvent) -&gt; Unit, session: Scope?, onLockNow: () -&gt; Unit, )</ID>
+    <ID>LongMethod:InsightsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun InsightsContent( uiState: InsightsUiState, onRefresh: () -&gt; Unit, onEvent: (InsightsEvent) -&gt; Unit, modifier: Modifier = Modifier )</ID>
+    <ID>LongMethod:LogSummarySheet.kt$@Composable internal fun LogSummarySheetContent( log: FullDailyLog, periodId: String?, cyclePhase: CyclePhase? = null, symptomLibrary: List&lt;Symptom&gt;, medicationLibrary: List&lt;Medication&gt;, waterCups: Int?, showMood: Boolean, showEnergy: Boolean, showLibido: Boolean, onEditClick: (LocalDate) -&gt; Unit, onDeleteClick: (String) -&gt; Unit, onViewFullLogClick: (LocalDate) -&gt; Unit )</ID>
+    <ID>LongMethod:PassPhraseScreen.kt$@Composable private fun UnlockScreen( uiState: PassphraseUiState, onEvent: (PassphraseEvent) -&gt; Unit, effect: SharedFlow&lt;PassphraseEffect&gt;, )</ID>
+    <ID>LongMethod:PeriodPage.kt$@Composable internal fun PeriodPage( isPeriodDay: Boolean, flowIntensity: FlowIntensity?, periodColor: PeriodColor?, periodConsistency: PeriodConsistency?, onPeriodToggled: (Boolean) -&gt; Unit, onFlowChanged: (FlowIntensity?) -&gt; Unit, onColorChanged: (PeriodColor?) -&gt; Unit, onConsistencyChanged: (PeriodConsistency?) -&gt; Unit, onShowEducationalSheet: (String) -&gt; Unit, coachMarkState: CoachMarkState? = null, )</ID>
+    <ID>LongMethod:PhaseColorSettings.kt$@Composable fun PhaseColorSettings( menstruationHex: String, follicularHex: String, ovulationHex: String, lutealHex: String, onMenstruationColorChanged: (String) -&gt; Unit, onFollicularColorChanged: (String) -&gt; Unit, onOvulationColorChanged: (String) -&gt; Unit, onLutealColorChanged: (String) -&gt; Unit, onResetDefaults: () -&gt; Unit, showTitle: Boolean = true, )</ID>
+    <ID>LongMethod:ReminderSettings.kt$@Composable fun ReminderSettings( periodEnabled: Boolean, periodDaysBefore: Int, periodPrivacyAccepted: Boolean, medicationEnabled: Boolean, medicationHour: Int, medicationMinute: Int, hydrationEnabled: Boolean, hydrationGoalCups: Int, hydrationFrequencyHours: Int, hydrationStartHour: Int, hydrationEndHour: Int, showPermissionRationale: Boolean, showPrivacyDialog: Boolean, onEvent: (SettingsEvent) -&gt; Unit, showTitle: Boolean = true, )</ID>
+    <ID>LongMethod:RoomPeriodRepository.kt$RoomPeriodRepository$override suspend fun seedDatabaseForDebug()</ID>
+    <ID>LongMethod:SettingsViewModel.kt$SettingsViewModel$fun onEvent(event: SettingsEvent)</ID>
+    <ID>LongMethod:SettingsViewModel.kt$SettingsViewModel$private fun reduce(state: SettingsUiState, event: SettingsEvent): SettingsUiState</ID>
+    <ID>LongMethod:SetupScreen.kt$@Composable fun SetupScreen( uiState: PassphraseUiState, onEvent: (PassphraseEvent) -&gt; Unit, )</ID>
+    <ID>LongMethod:SetupScreen.kt$@Composable private fun CreatePassphrasePage( uiState: PassphraseUiState, onEvent: (PassphraseEvent) -&gt; Unit, )</ID>
+    <ID>LongMethod:SymptomPhasePatternGenerator.kt$SymptomPhasePatternGenerator$@OptIn(ExperimentalTime::class) override fun generate(data: InsightData): List&lt;Insight&gt;</ID>
+    <ID>LongMethod:TrackerScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TrackerScreen(navController: NavController)</ID>
+    <ID>LongMethod:TrackerViewModel.kt$TrackerViewModel$fun onEvent(event: TrackerEvent)</ID>
+    <ID>LongMethod:TutorialSeederUseCase.kt$TutorialSeederUseCase$suspend operator fun invoke(): SeedManifest?</ID>
+    <ID>LongMethod:WellnessPage.kt$@Composable internal fun WellnessPage( moodScore: Int?, energyLevel: Int?, libidoScore: Int?, waterCups: Int, onMoodChanged: (Int) -&gt; Unit, onEnergyChanged: (Int) -&gt; Unit, onLibidoChanged: (Int) -&gt; Unit, onWaterIncrement: () -&gt; Unit, onWaterDecrement: () -&gt; Unit, onShowEducationalSheet: (String) -&gt; Unit, coachMarkState: CoachMarkState? = null, )</ID>
+    <ID>MagicNumber:CycleLengthTrendGenerator.kt$CycleLengthTrendGenerator$3</ID>
+    <ID>MagicNumber:CyclePhaseColors.kt$0x00FFFFFF</ID>
+    <ID>MagicNumber:CyclePhaseColors.kt$0xFF000000</ID>
+    <ID>MagicNumber:Migration_10_11.kt$Migration_10_11$10</ID>
+    <ID>MagicNumber:Migration_10_11.kt$Migration_10_11$11</ID>
+    <ID>MagicNumber:Migration_2_3.kt$Migration_2_3$3</ID>
+    <ID>MagicNumber:Migration_3_4.kt$Migration_3_4$3</ID>
+    <ID>MagicNumber:Migration_3_4.kt$Migration_3_4$4</ID>
+    <ID>MagicNumber:Migration_4_5.kt$Migration_4_5$4</ID>
+    <ID>MagicNumber:Migration_4_5.kt$Migration_4_5$5</ID>
+    <ID>MagicNumber:Migration_5_6.kt$Migration_5_6$5</ID>
+    <ID>MagicNumber:Migration_5_6.kt$Migration_5_6$6</ID>
+    <ID>MagicNumber:Migration_6_7.kt$Migration_6_7$6</ID>
+    <ID>MagicNumber:Migration_6_7.kt$Migration_6_7$7</ID>
+    <ID>MagicNumber:Migration_7_8.kt$Migration_7_8$7</ID>
+    <ID>MagicNumber:Migration_7_8.kt$Migration_7_8$8</ID>
+    <ID>MagicNumber:Migration_8_9.kt$Migration_8_9$8</ID>
+    <ID>MagicNumber:Migration_8_9.kt$Migration_8_9$9</ID>
+    <ID>MagicNumber:Migration_9_10.kt$Migration_9_10$10</ID>
+    <ID>MagicNumber:Migration_9_10.kt$Migration_9_10$9</ID>
+    <ID>MagicNumber:MoodPhasePatternGenerator.kt$MoodPhasePatternGenerator$3</ID>
+    <ID>MagicNumber:MoodPhasePatternGenerator.kt$MoodPhasePatternGenerator$8</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$0.15f</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$0.1f</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$0.5f</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$0.6f</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$0.80f</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$0.8f</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$0.90f</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$10</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$18</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$3</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$4</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$5</ID>
+    <ID>MagicNumber:RoomPeriodRepository.kt$RoomPeriodRepository$6</ID>
+    <ID>MagicNumber:SymptomPhasePatternGenerator.kt$SymptomPhasePatternGenerator$0.70</ID>
+    <ID>MagicNumber:SymptomPhasePatternGenerator.kt$SymptomPhasePatternGenerator$0.85</ID>
+    <ID>MagicNumber:SymptomPhasePatternGenerator.kt$SymptomPhasePatternGenerator$8</ID>
+    <ID>MagicNumber:SymptomRecurrenceGenerator.kt$SymptomRecurrenceGenerator$3</ID>
+    <ID>MagicNumber:TutorialSeederUseCase.kt$TutorialSeederUseCase$3</ID>
+    <ID>MagicNumber:TutorialSeederUseCase.kt$TutorialSeederUseCase$4</ID>
+    <ID>MagicNumber:TutorialSeederUseCase.kt$TutorialSeederUseCase$5</ID>
+    <ID>MaxLineLength:AppModule.kt$viewModel { SettingsViewModel(appSettings = get(), reminderScheduler = get(), educationalContentProvider = get(), hintPreferences = get(), deleteAllDataUseCase = get()) }</ID>
+    <ID>MaxLineLength:DailyLogEvent.kt$DailyLogEvent.LogLoaded$data</ID>
+    <ID>MaxLineLength:DailyLogScreen.kt$PAGE_MEDICATIONS -&gt; Modifier.coachMarkTarget(HintKey.DAILY_LOG_MEDICATIONS_TAB, coachMarkState)</ID>
+    <ID>MaxLineLength:DailyLogScreen.kt$PAGE_PERIOD -&gt; Modifier.coachMarkTarget(HintKey.DAILY_LOG_PERIOD_TAB, coachMarkState)</ID>
+    <ID>MaxLineLength:DailyLogScreen.kt$PAGE_SYMPTOMS -&gt; Modifier.coachMarkTarget(HintKey.DAILY_LOG_SYMPTOMS_TAB, coachMarkState)</ID>
+    <ID>MaxLineLength:DailyLogScreen.kt$onConsistencyChanged = { viewModel.onEvent(DailyLogEvent.PeriodConsistencyChanged(it)) }</ID>
+    <ID>MaxLineLength:DailyLogScreen.kt$onCreateAndAddMedication = { viewModel.onEvent(DailyLogEvent.MedicationCreatedAndAdded(it)) }</ID>
+    <ID>MaxLineLength:DailyLogScreen.kt$onShowEducationalSheet = { tag -&gt; viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) }</ID>
+    <ID>MaxLineLength:DailyLogViewModel.kt$DailyLogViewModel$is DailyLogEvent.LogLoaded, is DailyLogEvent.LibraryUpdated, is DailyLogEvent.SymptomNameChanged -&gt; currentState</ID>
+    <ID>MaxLineLength:DailyLogViewModel.kt$DailyLogViewModel$log.medicationLogs + MedicationLog(uuid4().toString(), log.entry.id, event.medication.id, Clock.System.now())</ID>
+    <ID>MaxLineLength:DailyLogViewModel.kt$DailyLogViewModel$log.symptomLogs + SymptomLog(uuid4().toString(), log.entry.id, event.symptom.id, 3, Clock.System.now())</ID>
+    <ID>MaxLineLength:Insight.kt$CycleLengthAverage$override val description: String = "Based on completed cycles, your average cycle length is ${averageDays.roundToInt()} days."</ID>
+    <ID>MaxLineLength:Insight.kt$MoodPhasePattern$val baseDescription = "You've logged a '$moodType' mood $phaseDescription in $recurrenceRate of your recent cycles."</ID>
+    <ID>MaxLineLength:Mappers.kt$fun</ID>
+    <ID>MaxLineLength:Migration_4_5.kt$Migration_4_5$db.execSQL("CREATE INDEX IF NOT EXISTS `index_medication_logs_medication_id` ON `medication_logs` (`medication_id`)")</ID>
+    <ID>MaxLineLength:Migration_5_6.kt$Migration_5_6$db.execSQL("INSERT INTO symptom_library (id, name, category, created_at) VALUES (?, ?, ?, ?)", arrayOf(newUuid, name, "OTHER", now))</ID>
+    <ID>MaxLineLength:Migration_5_6.kt$Migration_5_6$db.execSQL("INSERT INTO symptom_logs (id, entry_id, symptom_id, severity, created_at) VALUES (?, ?, ?, ?, ?)", arrayOf(logId, entryId, symptomUuid, severity, now))</ID>
+    <ID>MaxLineLength:Migration_7_8.kt$Migration_7_8$db</ID>
+    <ID>MaxLineLength:Migration_7_8.kt$Migration_7_8$db.query("SELECT id, flow_intensity, created_at, updated_at FROM daily_entries WHERE flow_intensity IS NOT NULL")</ID>
+    <ID>MaxLineLength:NotesTagsPage.kt$Icon(Icons.Default.Close, contentDescription = stringResource(R.string.daily_log_remove_tag, tag))</ID>
+    <ID>MaxLineLength:NotesTagsPage.kt$IconButton</ID>
+    <ID>MaxLineLength:RoomPeriodRepository.kt$RoomPeriodRepository$if</ID>
+    <ID>MaxLineLength:RoomPeriodRepository.kt$RoomPeriodRepository$if (log.medicationLogs.isNotEmpty()) medicationLogDao.insertAll(log.medicationLogs.map { it.toEntity() })</ID>
+    <ID>MaxLineLength:RoomPeriodRepository.kt$RoomPeriodRepository$periodToModify.startDate == periodToModify.endDate || periodToModify.startDate == date &amp;&amp; periodToModify.endDate == null</ID>
+    <ID>MaxLineLength:RoomPeriodRepository.kt$RoomPeriodRepository$return periodDao.getAllPeriods().firstOrNull()?.find { date in (it.startDate..(it.endDate ?: today)) }?.toDomain()</ID>
+    <ID>MaxLineLength:RoomPeriodRepository.kt$RoomPeriodRepository$symptomLogs.add(SymptomLog(uuid4().toString(), entryId, anxiety.id, Random.nextInt(2, 5), Clock.System.now()))</ID>
+    <ID>MaxLineLength:RoomPeriodRepository.kt$RoomPeriodRepository$symptomLogs.add(SymptomLog(uuid4().toString(), entryId, bloating.id, Random.nextInt(2, 5), Clock.System.now()))</ID>
+    <ID>MaxLineLength:RoomPeriodRepository.kt$RoomPeriodRepository$symptomLogs.add(SymptomLog(uuid4().toString(), entryId, cramps.id, Random.nextInt(2, 5), Clock.System.now()))</ID>
+    <ID>MaxLineLength:RoomPeriodRepository.kt$RoomPeriodRepository$symptomLogs.add(SymptomLog(uuid4().toString(), entryId, headache.id, Random.nextInt(1, 4), Clock.System.now()))</ID>
+    <ID>MaxLineLength:RoomPeriodRepository.kt$RoomPeriodRepository$val allMedicationLogs = medicationLogDao.getLogsForEntries(entryIds).firstOrNull()?.groupBy { it.entryId } ?: emptyMap()</ID>
+    <ID>MaxLineLength:RoomPeriodRepository.kt$RoomPeriodRepository$val allSymptomLogs = symptomLogDao.getLogsForEntries(entryIds).firstOrNull()?.groupBy { it.entryId } ?: emptyMap()</ID>
+    <ID>MaxLineLength:SymptomPhasePatternGenerator.kt$SymptomPhasePatternGenerator$val avgPeriodLength = periods.mapNotNull { it.endDate?.let { endDate -&gt; it.startDate.daysUntil(endDate) } }.average().toInt()</ID>
+    <ID>MaxLineLength:SymptomPhasePatternGenerator.kt$SymptomPhasePatternGenerator$val predictedCycleStart = nextPeriodPrediction.predictedDate.plus(-(data.averageCycleLength?.toInt() ?: 28), DateTimeUnit.DAY)</ID>
+    <ID>MaxLineLength:SymptomPhasePatternGenerator.kt$SymptomPhasePatternGenerator$val recurrenceCount = group.mapNotNull { day -&gt; significantPatterns[Pair(symptomId, day)] }.minOrNull() ?: 0</ID>
+    <ID>MaxLineLength:TrackerScreen.kt$contentDescription = stringResource(R.string.educational_info_button_cd, stringResource(R.string.tracker_phase_label))</ID>
+    <ID>MaxLineLength:TrackerScreen.kt$val menstruationHex by appSettings.menstruationColor.collectAsState(initial = CyclePhaseColors.DEFAULT_MENSTRUATION_HEX)</ID>
+    <ID>MaxLineLength:TutorialSeederUseCase.kt$TutorialSeederUseCase$val c1Flows = listOf(FlowIntensity.MEDIUM, FlowIntensity.HEAVY, FlowIntensity.HEAVY, FlowIntensity.MEDIUM, FlowIntensity.LIGHT)</ID>
+    <ID>MaxLineLength:TutorialSeederUseCase.kt$TutorialSeederUseCase$val c3Flows = listOf(FlowIntensity.MEDIUM, FlowIntensity.HEAVY, FlowIntensity.HEAVY, FlowIntensity.MEDIUM, FlowIntensity.LIGHT)</ID>
+    <ID>NestedBlockDepth:SymptomPhasePatternGenerator.kt$SymptomPhasePatternGenerator$@OptIn(ExperimentalTime::class) override fun generate(data: InsightData): List&lt;Insight&gt;</ID>
+    <ID>ReturnCount:CyclePhaseCalculator.kt$CyclePhaseCalculator$fun calculatePhase( date: LocalDate, periods: List&lt;Period&gt;, averageCycleLength: Double? ): CyclePhase?</ID>
+    <ID>ReturnCount:DailyLogViewModel.kt$DailyLogViewModel$private fun reduce(currentState: DailyLogUiState, event: DailyLogEvent): DailyLogUiState</ID>
+    <ID>TooManyFunctions:AppSettings.kt$AppSettings</ID>
+    <ID>TooManyFunctions:PeriodRepository.kt$PeriodRepository</ID>
+    <ID>TooManyFunctions:RoomPeriodRepository.kt$RoomPeriodRepository : PeriodRepository</ID>
+    <ID>UnusedImports:AppearancePage.kt$import androidx.compose.material3.MaterialTheme</ID>
+    <ID>UnusedImports:AutoCloseOngoingPeriodUseCase.kt$import kotlinx.datetime.LocalDate</ID>
+    <ID>UnusedImports:DailyEntryEntity.kt$import androidx.room.ForeignKey</ID>
+    <ID>UnusedImports:Insight.kt$import kotlin.time.Clock</ID>
+    <ID>UnusedImports:Insight.kt$import kotlinx.datetime.TimeZone</ID>
+    <ID>UnusedImports:Insight.kt$import kotlinx.datetime.daysUntil</ID>
+    <ID>UnusedImports:Insight.kt$import kotlinx.datetime.todayIn</ID>
+    <ID>UnusedImports:MedicationDao.kt$import com.veleda.cyclewise.androidData.local.entities.MedicationLogEntity</ID>
+    <ID>UnusedImports:Migration_4_5.kt$import com.benasher44.uuid.uuid4</ID>
+    <ID>UnusedImports:Migration_7_8.kt$import kotlin.time.Clock</ID>
+    <ID>UnusedImports:RoomPeriodRepository.kt$import com.veleda.cyclewise.androidData.local.entities.PeriodEntity</ID>
+    <ID>UnusedImports:SymptomEntity.kt$import androidx.room.ForeignKey</ID>
+    <ID>VariableNaming:AppSettings.kt$AppSettings$private val IS_PREPOPULATED = booleanPreferencesKey("is_prepopulated")</ID>
+    <ID>VariableNaming:RoomPeriodRepository.kt$RoomPeriodRepository$val LATEST_PERIOD_START_DAYS_AGO = 28</ID>
+    <ID>WildcardImport:AppModule.kt$import org.koin.core.module.dsl.*</ID>
+    <ID>WildcardImport:DailyEntryDao.kt$import androidx.room.*</ID>
+    <ID>WildcardImport:PeriodDao.kt$import androidx.room.*</ID>
+    <ID>WildcardImport:PeriodEntity.kt$import androidx.room.*</ID>
+    <ID>WildcardImport:RoomPeriodRepository.kt$import kotlinx.datetime.*</ID>
+    <ID>WildcardImport:SymptomEntity.kt$import androidx.room.*</ID>
+    <ID>WildcardImport:SymptomLogDao.kt$import androidx.room.*</ID>
+    <ID>WildcardImport:SymptomLogEntity.kt$import androidx.room.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

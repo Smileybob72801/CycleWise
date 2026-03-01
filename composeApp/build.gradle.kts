@@ -138,6 +138,13 @@ android {
         }
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
+
+    lint {
+        baseline = file("lint-baseline.xml")
+        abortOnError = true
+        warningsAsErrors = false
+        checkDependencies = true
+    }
 }
 
 extensions.configure<RoomExtension> {
