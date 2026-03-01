@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -90,7 +91,7 @@ internal fun SymptomLogger(
     onToggleSymptom: (Symptom) -> Unit,
     onCreateAndAddSymptom: (String) -> Unit
 ) {
-    var newSymptomName by remember { mutableStateOf("") }
+    var newSymptomName by rememberSaveable { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(LocalDimensions.current.md)) {
         if (symptomLibrary.isNotEmpty()) {

@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,7 +103,7 @@ fun DailyLogScreen(
 
     // Tracks whether the walkthrough has been started this session, used to detect
     // completion and navigate to the Tracker screen.
-    var walkthroughActive by remember { mutableStateOf(false) }
+    var walkthroughActive by rememberSaveable { mutableStateOf(false) }
 
     // Start the walkthrough (and seed demo data) when the log finishes loading.
     // Also acts as a safety net: if a seed manifest exists from a previous
