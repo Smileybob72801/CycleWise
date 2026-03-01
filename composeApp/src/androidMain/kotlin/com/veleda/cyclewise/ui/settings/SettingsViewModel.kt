@@ -51,6 +51,8 @@ import kotlinx.coroutines.launch
  * @property showAboutDialog          Whether the About dialog is visible.
  * @property showPrivacyDialog        Whether the period privacy dialog is visible.
  * @property showPermissionRationale  Whether the notification permission rationale is shown.
+ * @property showPrivacyPolicyDialog  Whether the Privacy Policy dialog is visible.
+ * @property showTermsOfServiceDialog Whether the Terms of Service dialog is visible.
  * @property educationalArticles     Articles to display in the educational bottom sheet, or null when the sheet is hidden.
  */
 data class SettingsUiState(
@@ -82,6 +84,8 @@ data class SettingsUiState(
     val showPrivacyDialog: Boolean = false,
     val showPermissionRationale: Boolean = false,
     val showHintResetConfirmation: Boolean = false,
+    val showPrivacyPolicyDialog: Boolean = false,
+    val showTermsOfServiceDialog: Boolean = false,
     val educationalArticles: List<EducationalArticle>? = null,
 )
 
@@ -367,6 +371,10 @@ class SettingsViewModel(
             is SettingsEvent.DismissPrivacyDialog,
             is SettingsEvent.ShowPermissionRationale,
             is SettingsEvent.DismissPermissionRationale,
+            is SettingsEvent.ShowPrivacyPolicyDialog,
+            is SettingsEvent.DismissPrivacyPolicyDialog,
+            is SettingsEvent.ShowTermsOfServiceDialog,
+            is SettingsEvent.DismissTermsOfServiceDialog,
             is SettingsEvent.DismissEducationalSheet -> { /* state-only */ }
         }
     }
@@ -428,6 +436,10 @@ class SettingsViewModel(
             is SettingsEvent.DismissPrivacyDialog -> state.copy(showPrivacyDialog = false)
             is SettingsEvent.ShowPermissionRationale -> state.copy(showPermissionRationale = true)
             is SettingsEvent.DismissPermissionRationale -> state.copy(showPermissionRationale = false)
+            is SettingsEvent.ShowPrivacyPolicyDialog -> state.copy(showPrivacyPolicyDialog = true)
+            is SettingsEvent.DismissPrivacyPolicyDialog -> state.copy(showPrivacyPolicyDialog = false)
+            is SettingsEvent.ShowTermsOfServiceDialog -> state.copy(showTermsOfServiceDialog = true)
+            is SettingsEvent.DismissTermsOfServiceDialog -> state.copy(showTermsOfServiceDialog = false)
 
             is SettingsEvent.ShowEducationalSheet -> state
             is SettingsEvent.DismissEducationalSheet -> state.copy(educationalArticles = null)

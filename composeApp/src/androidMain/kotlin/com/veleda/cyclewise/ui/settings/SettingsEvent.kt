@@ -131,6 +131,20 @@ sealed interface SettingsEvent {
     /** Permission rationale has been acknowledged or dismissed. */
     data object DismissPermissionRationale : SettingsEvent
 
+    // ── Legal ───────────────────────────────────────────────────────
+
+    /** User tapped "Privacy Policy" to view the privacy policy dialog. */
+    data object ShowPrivacyPolicyDialog : SettingsEvent
+
+    /** User dismissed the privacy policy dialog. */
+    data object DismissPrivacyPolicyDialog : SettingsEvent
+
+    /** User tapped "Terms of Service" to view the terms dialog. */
+    data object ShowTermsOfServiceDialog : SettingsEvent
+
+    /** User dismissed the terms of service dialog. */
+    data object DismissTermsOfServiceDialog : SettingsEvent
+
     // ── Educational ──────────────────────────────────────────────────
 
     /** The user tapped an info button to view educational content for the given [contentTag]. */

@@ -304,6 +304,53 @@ private fun GeneralPage(
             }
         }
 
+        // ── Legal Card ───────────────────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_section_legal)) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_legal_privacy_policy)) },
+                modifier = Modifier.clickable { onEvent(SettingsEvent.ShowPrivacyPolicyDialog) }
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = dims.md))
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_legal_terms_of_service)) },
+                modifier = Modifier.clickable { onEvent(SettingsEvent.ShowTermsOfServiceDialog) }
+            )
+        }
+
+        if (uiState.showPrivacyPolicyDialog) {
+            AlertDialog(
+                onDismissRequest = { onEvent(SettingsEvent.DismissPrivacyPolicyDialog) },
+                title = { Text(stringResource(R.string.settings_legal_privacy_policy)) },
+                text = {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        Text(stringResource(R.string.legal_privacy_policy_body))
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { onEvent(SettingsEvent.DismissPrivacyPolicyDialog) }) {
+                        Text(stringResource(R.string.legal_dialog_close))
+                    }
+                }
+            )
+        }
+
+        if (uiState.showTermsOfServiceDialog) {
+            AlertDialog(
+                onDismissRequest = { onEvent(SettingsEvent.DismissTermsOfServiceDialog) },
+                title = { Text(stringResource(R.string.settings_legal_terms_of_service)) },
+                text = {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        Text(stringResource(R.string.legal_terms_of_service_body))
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { onEvent(SettingsEvent.DismissTermsOfServiceDialog) }) {
+                        Text(stringResource(R.string.legal_dialog_close))
+                    }
+                }
+            )
+        }
+
         Spacer(Modifier.height(dims.xl))
     }
 }
