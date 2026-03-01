@@ -252,7 +252,7 @@
     <string name="reminder_minute_label">Minute</string>
 
     <!-- Educational Content -->
-    <string name="medical_disclaimer_text">This information is for educational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider with questions about your health.</string>
+    <string name="medical_disclaimer_text">This app is not a medical device and does not diagnose, treat, cure, or prevent any medical condition. Always consult a qualified healthcare provider for medical advice, diagnosis, or treatment.</string>
     <string name="source_attribution_prefix">Source: %1$s</string>
     <string name="source_public_domain_notice">Content adapted from U.S. government public domain materials.</string>
     <string name="settings_about_health_content_header">About Health Content</string>

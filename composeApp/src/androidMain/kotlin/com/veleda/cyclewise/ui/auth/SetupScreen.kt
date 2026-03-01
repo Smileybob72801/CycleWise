@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.components.MarkdownText
+import com.veleda.cyclewise.ui.components.MedicalDisclaimer
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.launch
 
@@ -98,6 +99,11 @@ fun SetupScreen(
                     0 -> InfoPage(
                         title = stringResource(R.string.setup_page1_title),
                         body = stringResource(R.string.setup_page1_body),
+                        trailingContent = {
+                            MedicalDisclaimer(
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        },
                     )
                     1 -> InfoPage(
                         title = stringResource(R.string.setup_page2_title),
@@ -214,13 +220,16 @@ private fun PageIndicator(
  * Displays a title and body text. The body is rendered via [MarkdownText] to
  * support `**bold**` and bullet list formatting.
  *
- * @param title page title displayed as a headline.
- * @param body  Markdown-formatted body text.
+ * @param title           page title displayed as a headline.
+ * @param body            Markdown-formatted body text.
+ * @param trailingContent optional composable rendered below the body text,
+ *                        e.g. a [MedicalDisclaimer] banner on the first page.
  */
 @Composable
 private fun InfoPage(
     title: String,
     body: String,
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     val dims = LocalDimensions.current
     Column(
@@ -238,6 +247,10 @@ private fun InfoPage(
             text = body,
             style = MaterialTheme.typography.bodyMedium,
         )
+        if (trailingContent != null) {
+            Spacer(Modifier.height(dims.md))
+            trailingContent()
+        }
     }
 }
 
