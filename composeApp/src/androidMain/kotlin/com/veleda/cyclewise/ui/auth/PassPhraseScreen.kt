@@ -240,7 +240,7 @@ private fun UnlockScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Lock,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_passphrase_unlock),
                     modifier = Modifier.size(dims.md)
                 )
                 Spacer(Modifier.size(dims.sm))

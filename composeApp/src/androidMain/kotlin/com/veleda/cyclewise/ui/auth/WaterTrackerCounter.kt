@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -56,7 +57,7 @@ fun WaterTrackerCounter(
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             ) {
-                Text("\u2212", style = MaterialTheme.typography.titleLarge)
+                Icon(Icons.Default.Remove, contentDescription = stringResource(R.string.cd_water_remove))
             }
             Text(
                 text = stringResource(R.string.water_cups_count, cups),
@@ -73,7 +74,7 @@ fun WaterTrackerCounter(
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             ) {
-                Icon(Icons.Default.Add, contentDescription = null)
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_water_add))
             }
         }
         if (yesterdayCupsForPrompt != null) {

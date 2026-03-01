@@ -292,6 +292,12 @@
     <string name="settings_delete_progress_title">Deleting Data</string>
     <string name="settings_delete_progress_body">Erasing all data…</string>
 
+    <!-- Accessibility -->
+    <string name="cd_water_add">Add one cup of water</string>
+    <string name="cd_water_remove">Remove one cup of water</string>
+    <string name="cd_passphrase_unlock">Unlock</string>
+    <string name="cd_medical_disclaimer">Medical disclaimer information</string>
+
     <!-- About -->
     <string name="about_title">About</string>
     <string name="about_description">Privacy-first cycle tracking</string>

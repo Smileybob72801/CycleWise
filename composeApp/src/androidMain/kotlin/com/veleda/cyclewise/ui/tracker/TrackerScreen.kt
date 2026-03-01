@@ -52,6 +52,7 @@ import androidx.compose.foundation.gestures.drag
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.LocalDate
 import com.veleda.cyclewise.R
@@ -589,7 +590,8 @@ private fun LegendChip(color: Color, label: String) {
 
     Surface(
         shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceVariant
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.semantics(mergeDescendants = true) { }
     ) {
         Row(
             modifier = Modifier.padding(horizontal = dims.sm, vertical = dims.xs),
