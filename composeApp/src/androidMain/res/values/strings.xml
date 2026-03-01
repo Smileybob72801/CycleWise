@@ -59,6 +59,15 @@
     <string name="reminder_notification_body">Time to check your app</string>
     <string name="reminder_permission_rationale">Notification permission is needed to send reminders.</string>
 
+    <!-- Daily Log Wellness empty state -->
+    <string name="daily_log_wellness_empty_prompt">Start by rating your mood or energy, or log your water intake.</string>
+    <string name="daily_log_wellness_empty_icon_cd">Get started prompt</string>
+
+    <!-- Tracker calendar empty state -->
+    <string name="tracker_empty_title">No Periods Logged Yet</string>
+    <string name="tracker_empty_body">Long-press a day to mark it as a period day, or use the Daily Log to get started.</string>
+    <string name="tracker_empty_icon_cd">No periods tracked</string>
+
     <!-- Tracker -->
     <string name="tracker_delete_title">Confirm Deletion</string>
     <string name="tracker_delete_message">Are you sure you want to permanently delete this period and all its associated flow logs? This action cannot be undone.</string>

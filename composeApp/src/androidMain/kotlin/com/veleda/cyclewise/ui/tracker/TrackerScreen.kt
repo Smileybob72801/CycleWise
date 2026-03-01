@@ -1,6 +1,8 @@
 package com.veleda.cyclewise.ui.tracker
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,9 +12,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -61,6 +65,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import com.veleda.cyclewise.settings.parseSeedManifest
+import com.veleda.cyclewise.settings.toJson
 import org.koin.compose.getKoin
 import org.koin.compose.koinInject
 import kotlin.time.Clock
@@ -116,6 +121,30 @@ fun TrackerScreen(navController: NavController) {
             }
         }
     }
+
+    // Track periods created by user during the Tracker walkthrough (long-press/drag).
+    LaunchedEffect(trackerWalkthroughActive) {
+        if (!trackerWalkthroughActive) return@LaunchedEffect
+        val manifestJson = appSettings.seedManifestJson.first()
+        if (manifestJson.isEmpty()) return@LaunchedEffect
+        val initialManifest = parseSeedManifest(manifestJson) ?: return@LaunchedEffect
+        val trackedIds = initialManifest.periodUuids.toMutableSet()
+
+        viewModel.uiState.collect { state ->
+            val newIds = state.periods.map { it.id }.filter { it !in trackedIds }
+            if (newIds.isNotEmpty()) {
+                trackedIds.addAll(newIds)
+                val latest = parseSeedManifest(
+                    appSettings.seedManifestJson.first()
+                ) ?: return@collect
+                val updated = latest.copy(
+                    periodUuids = (latest.periodUuids.toSet() + newIds).toList()
+                )
+                appSettings.setSeedManifestJson(updated.toJson())
+            }
+        }
+    }
+
     val showMood by appSettings.showMoodInSummary.collectAsState(initial = true)
     val showEnergy by appSettings.showEnergyInSummary.collectAsState(initial = true)
     val showLibido by appSettings.showLibidoInSummary.collectAsState(initial = true)
@@ -308,7 +337,40 @@ fun TrackerScreen(navController: NavController) {
 
             Spacer(Modifier.height(dims.md))
 
-            AnimatedVisibility(visible = uiState.ongoingPeriod != null) {
+            AnimatedVisibility(
+                visible = uiState.periods.isEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = dims.md),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(dims.sm),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.CalendarMonth,
+                        contentDescription = stringResource(R.string.tracker_empty_icon_cd),
+                        modifier = Modifier.size(dims.iconLg),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = stringResource(R.string.tracker_empty_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(R.string.tracker_empty_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+            AnimatedVisibility(
+                visible = uiState.periods.isNotEmpty() && uiState.ongoingPeriod != null,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
                 val ongoingStartDate = uiState.ongoingPeriod?.startDate?.toLocalizedDateString() ?: ""
                 Text(
                     stringResource(R.string.tracker_ongoing_period, ongoingStartDate),
@@ -317,7 +379,11 @@ fun TrackerScreen(navController: NavController) {
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            AnimatedVisibility(visible = uiState.ongoingPeriod == null) {
+            AnimatedVisibility(
+                visible = uiState.periods.isNotEmpty() && uiState.ongoingPeriod == null,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
                 Text(
                     stringResource(R.string.tracker_instructions_drag),
                     style = MaterialTheme.typography.bodyMedium,

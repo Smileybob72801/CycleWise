@@ -1,5 +1,8 @@
 package com.veleda.cyclewise.ui.log.pages
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material.icons.outlined.Star as StarOutlined
@@ -21,9 +25,12 @@ import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.auth.WaterTrackerCounter
 import com.veleda.cyclewise.ui.coachmark.CoachMarkState
@@ -56,6 +63,36 @@ internal fun WellnessPage(
         verticalArrangement = Arrangement.spacedBy(dims.md),
     ) {
         Spacer(Modifier.height(dims.sm))
+
+        val hasNoWellnessData =
+            moodScore == null && energyLevel == null && libidoScore == null && waterCups == 0
+
+        AnimatedVisibility(
+            visible = hasNoWellnessData,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = dims.sm),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(dims.sm),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.EditNote,
+                    contentDescription = stringResource(R.string.daily_log_wellness_empty_icon_cd),
+                    modifier = Modifier.size(dims.iconMd),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.daily_log_wellness_empty_prompt),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
 
         SectionCard(
             title = stringResource(R.string.daily_log_mood_title),

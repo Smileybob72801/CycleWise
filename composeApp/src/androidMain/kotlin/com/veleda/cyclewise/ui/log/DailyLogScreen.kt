@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import com.veleda.cyclewise.domain.usecases.TutorialSeederUseCase
 import com.veleda.cyclewise.settings.AppSettings
@@ -48,6 +49,7 @@ import com.veleda.cyclewise.ui.log.pages.SymptomsPage
 import com.veleda.cyclewise.ui.log.pages.WellnessPage
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.utils.toLocalizedDateString
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
@@ -70,6 +72,9 @@ private const val PAGE_PERIOD = 1
 private const val PAGE_SYMPTOMS = 2
 private const val PAGE_MEDICATIONS = 3
 private const val PAGE_NOTES = 4
+
+/** Delay after pager scroll to let [ScrollableTabRow] finish scrolling to the selected tab. */
+private const val TAB_ROW_SETTLE_MS = 300L
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -122,10 +127,48 @@ fun DailyLogScreen(
                 val seeder: TutorialSeederUseCase = sessionScope.get()
                 val manifest = seeder()
                 if (manifest != null) {
-                    appSettings.setSeedManifestJson(manifest.toJson())
+                    // Augment manifest with today's entry (created by DailyLogViewModel.init
+                    // before the seeder ran). Ensures cleanup wipes all tutorial-modified data
+                    // (mood, energy, PeriodLog, water) for today.
+                    val todayEntryId = uiState.log?.entry?.id
+                    val augmented = if (todayEntryId != null && todayEntryId !in manifest.dailyEntryIds) {
+                        manifest.copy(
+                            dailyEntryIds = manifest.dailyEntryIds + todayEntryId,
+                            waterIntakeDates = manifest.waterIntakeDates + date.toString(),
+                        )
+                    } else {
+                        manifest
+                    }
+                    appSettings.setSeedManifestJson(augmented.toJson())
                 }
                 walkthroughActive = true
                 DAILY_LOG_HINTS[HintKey.DAILY_LOG_WELCOME]?.let { coachMarkState.showHint(it) }
+            }
+        }
+    }
+
+    // Track periods created by user during the walkthrough (e.g. period toggle).
+    LaunchedEffect(walkthroughActive) {
+        if (!walkthroughActive) return@LaunchedEffect
+        val appSettings: AppSettings = koin.get()
+        val manifestJson = appSettings.seedManifestJson.first()
+        if (manifestJson.isEmpty()) return@LaunchedEffect
+        val initialManifest = parseSeedManifest(manifestJson) ?: return@LaunchedEffect
+        val trackedIds = initialManifest.periodUuids.toMutableSet()
+
+        val repo: PeriodRepository = sessionScope.get()
+        repo.getAllPeriods().collect { periods ->
+            val newIds = periods.map { it.id }.filter { it !in trackedIds }
+            if (newIds.isNotEmpty()) {
+                trackedIds.addAll(newIds)
+                // Re-read manifest to merge with any concurrent updates
+                val latest = parseSeedManifest(
+                    appSettings.seedManifestJson.first()
+                ) ?: return@collect
+                val updated = latest.copy(
+                    periodUuids = (latest.periodUuids.toSet() + newIds).toList()
+                )
+                appSettings.setSeedManifestJson(updated.toJson())
             }
         }
     }
@@ -161,6 +204,7 @@ fun DailyLogScreen(
             coachMarkState.hold()
             try {
                 pagerState.animateScrollToPage(targetPage)
+                delay(TAB_ROW_SETTLE_MS)
             } finally {
                 coachMarkState.release()
             }
