@@ -120,6 +120,8 @@
     <string name="daily_log_notes_placeholder">How are you feeling? Any observations?</string>
     <string name="daily_log_add_symptom">Add new symptom…</string>
     <string name="daily_log_create_symptom">Create and Add Symptom</string>
+    <string name="daily_log_symptom_save_error">Failed to save symptom. Please try again.</string>
+    <string name="daily_log_medication_save_error">Failed to save medication. Please try again.</string>
 
     <!-- Coach Marks -->
     <string name="coach_mark_next">Next</string>

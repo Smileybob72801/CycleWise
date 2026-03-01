@@ -200,6 +200,13 @@ fun DailyLogScreen(
         }
         uiState.log != null -> {
             val log = uiState.log!!
+            val snackbarHostState = remember { SnackbarHostState() }
+
+            LaunchedEffect(uiState.errorMessage) {
+                val message = uiState.errorMessage ?: return@LaunchedEffect
+                snackbarHostState.showSnackbar(message)
+                viewModel.onEvent(DailyLogEvent.ErrorDismissed)
+            }
 
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -326,6 +333,11 @@ fun DailyLogScreen(
                         )
                     }
                 }
+
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
 
                 // Coach mark overlay draws on top of all screen content.
                 CoachMarkOverlay(state = coachMarkState, allDefs = DAILY_LOG_HINTS)

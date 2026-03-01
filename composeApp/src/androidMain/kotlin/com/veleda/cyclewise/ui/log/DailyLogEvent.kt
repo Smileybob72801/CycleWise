@@ -87,4 +87,7 @@ sealed interface DailyLogEvent {
 
     /** The user dismissed the educational bottom sheet. */
     data object DismissEducationalSheet : DailyLogEvent
+
+    /** The user dismissed the transient error message (e.g. Snackbar auto-dismissed). */
+    data object ErrorDismissed : DailyLogEvent
 }

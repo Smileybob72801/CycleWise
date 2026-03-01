@@ -15,10 +15,13 @@ import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
 import com.veleda.cyclewise.testutil.TestData
+import android.util.Log
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.mockkStatic
 import io.mockk.mockk
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
@@ -68,6 +71,8 @@ class DailyLogViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        mockkStatic(Log::class)
+        every { Log.w(any<String>(), any<String>(), any()) } returns 0
 
         mockRepository = mockk(relaxed = true)
         mockGetOrCreateDailyLog = mockk(relaxed = true)
@@ -85,6 +90,7 @@ class DailyLogViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        unmockkStatic(Log::class)
     }
 
     private fun createViewModel(entryDate: LocalDate = testDate): DailyLogViewModel {
@@ -375,6 +381,46 @@ class DailyLogViewModelTest {
 
         // THEN
         assertNull(vm.uiState.value.educationalArticles)
+    }
+
+    // ── Error handling tests ──────────────────────────────────────────
+
+    @Test
+    fun `onEvent CreateAndAddSymptom WHEN repositoryThrows THEN errorMessageIsEmitted`() = runTest {
+        // GIVEN — repository throws when creating a symptom
+        coEvery { mockRepository.createOrGetSymptomInLibrary(any(), any()) } throws RuntimeException("DB error")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user creates a new symptom
+        vm.onEvent(DailyLogEvent.CreateAndAddSymptom("Headache"))
+        advanceUntilIdle()
+
+        // THEN — errorMessage is set
+        assertNotNull(vm.uiState.value.errorMessage, "errorMessage should be non-null when symptom save fails")
+        assertTrue(
+            vm.uiState.value.errorMessage!!.contains("symptom", ignoreCase = true),
+            "errorMessage should mention symptom"
+        )
+    }
+
+    @Test
+    fun `onEvent MedicationCreatedAndAdded WHEN repositoryThrows THEN errorMessageIsEmitted`() = runTest {
+        // GIVEN — repository throws when creating a medication
+        coEvery { mockRepository.createOrGetMedicationInLibrary(any()) } throws RuntimeException("DB error")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user creates a new medication
+        vm.onEvent(DailyLogEvent.MedicationCreatedAndAdded("Ibuprofen"))
+        advanceUntilIdle()
+
+        // THEN — errorMessage is set
+        assertNotNull(vm.uiState.value.errorMessage, "errorMessage should be non-null when medication save fails")
+        assertTrue(
+            vm.uiState.value.errorMessage!!.contains("medication", ignoreCase = true),
+            "errorMessage should mention medication"
+        )
     }
 
     @Test

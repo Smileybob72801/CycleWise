@@ -387,6 +387,20 @@ class CycleViewModelTest {
         coVerify(exactly = 1) { mockRepository.logPeriodDay(LocalDate(2025, 6, 18)) }
     }
 
+    // --- Effect emission safety tests ---
+
+    @Test
+    fun onEvent_DayTapped_WHEN_noLogAndEffectNotCollected_THEN_noCrash() = runTest {
+        // GIVEN — no log exists for the date and no collector is active on the effect flow
+        coEvery { mockRepository.getFullLogForDate(pastDate) } returns null
+
+        // WHEN — DayTapped is dispatched with no active effect collector
+        viewModel.onEvent(TrackerEvent.DayTapped(pastDate))
+        advanceUntilIdle()
+
+        // THEN — no crash occurs (tryEmit succeeds due to extraBufferCapacity = 1)
+    }
+
     // --- Educational sheet tests ---
 
     private val testArticle = EducationalArticle(
