@@ -5,6 +5,12 @@ Update this document whenever the listing is revised.
 
 ---
 
+## App Title (30 characters max)
+
+RhythmWise
+
+---
+
 ## Category
 
 **Health & Fitness**
@@ -54,3 +60,26 @@ Privacy and Security:
 - Delete all data at any time from Settings.
 
 RhythmWise is free, open-source (Apache 2.0), and contains no ads or in-app purchases.
+
+---
+
+## Content Rating Notes
+
+Notes for completing the IARC content rating questionnaire on Google Play Console.
+
+- **Health information:** Yes — the app displays menstrual health information, cycle
+  predictions, and educational articles sourced from U.S. government public health agencies.
+- **Violence:** None.
+- **Sexual content:** None.
+- **Gambling:** None.
+- **Substance use references:** None — medication tracking covers general medications and
+  supplements only, with no references to controlled substances or substance abuse.
+- **User-generated content:** None — all data is local to the device with no sharing,
+  social features, or community content.
+- **Location data:** Not collected — the app has no location permissions.
+- **Personal data shared with third parties:** None — the app has zero internet
+  permissions and cannot transmit data.
+- **Ads:** None.
+- **In-app purchases:** None.
+
+**Expected IARC rating:** Everyone.
