@@ -46,7 +46,7 @@ object EducationalContentLoader {
     /**
      * Parses a JSON string into a list of [EducationalArticle].
      *
-     * Exposed as `internal` for unit testing without Android context.
+     * Exposed as `internal` for unit testing (under Robolectric).
      *
      * @param jsonText The raw JSON string to parse.
      * @return Parsed articles, or an empty list on parse failure.
@@ -55,8 +55,7 @@ object EducationalContentLoader {
         return try {
             json.decodeFromString<List<EducationalArticle>>(jsonText)
         } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            // Log.e is not available in plain unit tests; use stderr for testability.
-            System.err.println("$TAG: Failed to parse educational content JSON: ${e.message}")
+            Log.e(TAG, "Failed to parse educational content JSON: ${e.message}")
             emptyList()
         }
     }

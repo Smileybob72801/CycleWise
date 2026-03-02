@@ -7,6 +7,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.veleda.cyclewise.BuildConfig
 import com.veleda.cyclewise.di.appModule
 import com.veleda.cyclewise.reminders.ReminderNotifier
 import com.veleda.cyclewise.settings.AppSettings
@@ -16,9 +17,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.android.ext.koin.androidContext
+import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import org.koin.core.logger.Level
 import androidx.core.content.edit
 import com.veleda.cyclewise.session.SessionBus
 
@@ -55,7 +58,7 @@ class CycleWiseApp :
         super.onCreate()
 
         startKoin {
-            printLogger()
+            androidLogger(if (BuildConfig.DEBUG) Level.INFO else Level.ERROR)
             androidContext(this@CycleWiseApp)
             modules(appModule)
             allowOverride(false)
