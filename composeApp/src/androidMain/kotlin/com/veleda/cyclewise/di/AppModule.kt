@@ -2,6 +2,7 @@ package com.veleda.cyclewise.di
 
 import com.veleda.cyclewise.androidData.local.draft.LockedWaterDraft
 import android.content.Context
+import android.util.Log
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.services.SaltStorage
 import com.veleda.cyclewise.ui.auth.WaterTrackerViewModel
@@ -52,7 +53,66 @@ import org.koin.core.qualifier.Qualifier
 val SESSION_SCOPE: Qualifier = named("UnlockedSessionScope")
 
 /**
+ * Transparently re-encrypts a legacy zero-key database with the correct passphrase-derived key.
+ *
+ * ## Background
+ *
+ * Before the `key.copyOf()` fix (commit `0a9406c`), [createDatabaseAndZeroizeKey] passed the
+ * Argon2-derived key **by reference** to [SupportFactory], then immediately zeroized it. Because
+ * [SupportFactory] stores the reference (not a copy), SQLCipher read an all-zeros array when the
+ * database was actually opened. This means **all databases created before the fix are encrypted
+ * with a 32-byte zero key, regardless of the user's passphrase.**
+ *
+ * This function detects and fixes that situation by:
+ * 1. Checking whether the database file exists (no-op if it doesn't).
+ * 2. Attempting to open the file with a 32-byte zero key via raw SQLCipher.
+ * 3. If it opens: executing `PRAGMA rekey` to re-encrypt with the real derived key.
+ * 4. If the zero-key open fails: the database is already properly encrypted — skip silently.
+ *
+ * After migration the zero-key open will fail on subsequent unlocks, so the overhead is a single
+ * failed SQLCipher open (~50 ms) per unlock — negligible compared to the 1–3 s Argon2 derivation.
+ *
+ * @param context    application context for resolving the database file path.
+ * @param correctKey a **copy** of the real passphrase-derived key (will be zeroized by this
+ *                   method in its `finally` block).
+ */
+internal fun migrateLegacyZeroKeyIfNeeded(context: Context, correctKey: ByteArray) {
+    val dbFile = context.getDatabasePath("cyclewise.db")
+    if (!dbFile.exists()) {
+        correctKey.fill(0)
+        return
+    }
+
+    val zeroHex = ByteArray(32).joinToString("") { "%02x".format(it) }
+    try {
+        net.sqlcipher.database.SQLiteDatabase.loadLibs(context)
+        val db = net.sqlcipher.database.SQLiteDatabase.openDatabase(
+            dbFile.absolutePath,
+            "x'$zeroHex'",
+            null,   // cursor factory
+            net.sqlcipher.database.SQLiteDatabase.OPEN_READWRITE,
+        )
+        try {
+            val correctHex = correctKey.joinToString("") { "%02x".format(it) }
+            db.execSQL("PRAGMA rekey = \"x'$correctHex'\"")
+            Log.i("ZeroKeyMigration", "Legacy zero-key database re-encrypted successfully.")
+        } finally {
+            db.close()
+        }
+    } catch (_: Exception) {
+        // Database is not zero-keyed — this is the expected path for properly encrypted
+        // databases and for every unlock after a successful migration.
+    } finally {
+        correctKey.fill(0)
+    }
+}
+
+/**
  * Creates the encrypted [PeriodDatabase] and zeroizes the derived key immediately afterward.
+ *
+ * **Legacy migration:** Before creating the Room database, calls [migrateLegacyZeroKeyIfNeeded]
+ * to transparently re-encrypt any database that was created with the all-zeros-key bug
+ * (pre-`copyOf()` fix). See that function's KDoc for details.
  *
  * **Why `copyOf()`?** [PeriodDatabase.create] passes the key to SQLCipher's [SupportFactory],
  * which stores a **reference** (not a copy). `Room.databaseBuilder().build()` returns
@@ -79,6 +139,7 @@ internal fun createDatabaseAndZeroizeKey(
 ): PeriodDatabase {
     val key = passphraseService.deriveKey(passphrase)
     return try {
+        migrateLegacyZeroKeyIfNeeded(context, key.copyOf())
         PeriodDatabase.create(context, key.copyOf())
     } finally {
         key.fill(0)

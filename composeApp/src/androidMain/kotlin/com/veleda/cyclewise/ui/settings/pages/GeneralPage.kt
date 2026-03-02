@@ -33,11 +33,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.settings.GeneralSettingsState
@@ -98,6 +104,16 @@ internal fun GeneralPage(
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = dims.md))
 
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_change_passphrase)) },
+                supportingContent = { Text(stringResource(R.string.settings_change_passphrase_description)) },
+                modifier = Modifier.clickable(enabled = session != null) {
+                    onEvent(SettingsEvent.ChangePassphraseRequested)
+                }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = dims.md))
+
             Button(
                 enabled = session != null,
                 onClick = onLockNow,
@@ -113,6 +129,11 @@ internal fun GeneralPage(
                     modifier = Modifier.padding(horizontal = dims.md)
                 )
             }
+        }
+
+        // Change Passphrase dialog
+        if (state.showChangePassphraseDialog) {
+            ChangePassphraseDialog(state = state, onEvent = onEvent)
         }
 
         // ── Insights Card ────────────────────────────────────────────
@@ -324,5 +345,165 @@ internal fun GeneralPage(
         }
 
         Spacer(Modifier.height(dims.xl))
+    }
+}
+
+/**
+ * A password text field with visibility toggle, used within the change passphrase dialog.
+ */
+@Composable
+private fun PasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    visible: Boolean,
+    onToggleVisibility: () -> Unit,
+    isError: Boolean,
+    errorText: String?,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        visualTransformation = if (visible) VisualTransformation.None
+        else PasswordVisualTransformation(),
+        trailingIcon = {
+            TextButton(onClick = onToggleVisibility) {
+                Text(
+                    stringResource(if (visible) R.string.passphrase_hide else R.string.passphrase_show),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+        },
+        isError = isError,
+        supportingText = if (errorText != null) {
+            { Text(errorText, color = MaterialTheme.colorScheme.error) }
+        } else {
+            null
+        },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/**
+ * Dialog for changing the database encryption passphrase.
+ *
+ * Passphrase text values are stored in local `remember` state (not in the ViewModel)
+ * so they are never persisted and are discarded when the dialog is dismissed.
+ *
+ * Error feedback from the ViewModel is shown inline on the relevant field via
+ * [GeneralSettingsState.changePassphraseError].
+ */
+@Composable
+private fun ChangePassphraseDialog(
+    state: GeneralSettingsState,
+    onEvent: (SettingsEvent) -> Unit,
+) {
+    var current by remember { mutableStateOf("") }
+    var newPassphrase by remember { mutableStateOf("") }
+    var confirmation by remember { mutableStateOf("") }
+
+    val submitEnabled = current.isNotBlank()
+            && newPassphrase.length >= 8
+            && confirmation.isNotBlank()
+            && !state.isChangingPassphrase
+
+    AlertDialog(
+        onDismissRequest = {
+            if (!state.isChangingPassphrase) onEvent(SettingsEvent.ChangePassphraseDismissed)
+        },
+        title = { Text(stringResource(R.string.settings_change_passphrase_title)) },
+        text = {
+            ChangePassphraseFields(
+                state = state,
+                current = current,
+                onCurrentChange = { current = it },
+                newPassphrase = newPassphrase,
+                onNewPassphraseChange = { newPassphrase = it },
+                confirmation = confirmation,
+                onConfirmationChange = { confirmation = it },
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onEvent(
+                        SettingsEvent.ChangePassphraseSubmitted(current, newPassphrase, confirmation)
+                    )
+                },
+                enabled = submitEnabled,
+            ) {
+                Text(stringResource(R.string.settings_change_passphrase_submit))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = { onEvent(SettingsEvent.ChangePassphraseDismissed) },
+                enabled = !state.isChangingPassphrase,
+            ) {
+                Text(stringResource(R.string.settings_delete_first_cancel))
+            }
+        }
+    )
+}
+
+/** The three password fields and optional progress indicator inside [ChangePassphraseDialog]. */
+@Composable
+private fun ChangePassphraseFields(
+    state: GeneralSettingsState,
+    current: String,
+    onCurrentChange: (String) -> Unit,
+    newPassphrase: String,
+    onNewPassphraseChange: (String) -> Unit,
+    confirmation: String,
+    onConfirmationChange: (String) -> Unit,
+) {
+    val dims = LocalDimensions.current
+    val error = state.changePassphraseError
+    var currentVisible by remember { mutableStateOf(false) }
+    var newVisible by remember { mutableStateOf(false) }
+    var confirmVisible by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(dims.sm)) {
+        PasswordField(
+            value = current,
+            onValueChange = onCurrentChange,
+            label = stringResource(R.string.settings_change_passphrase_current_label),
+            visible = currentVisible,
+            onToggleVisibility = { currentVisible = !currentVisible },
+            isError = error == "wrong_current",
+            errorText = if (error == "wrong_current")
+                stringResource(R.string.settings_change_passphrase_error_wrong_current) else null,
+        )
+        PasswordField(
+            value = newPassphrase,
+            onValueChange = onNewPassphraseChange,
+            label = stringResource(R.string.settings_change_passphrase_new_label),
+            visible = newVisible,
+            onToggleVisibility = { newVisible = !newVisible },
+            isError = error == "too_short",
+            errorText = if (error == "too_short")
+                stringResource(R.string.settings_change_passphrase_error_too_short) else null,
+        )
+        PasswordField(
+            value = confirmation,
+            onValueChange = onConfirmationChange,
+            label = stringResource(R.string.settings_change_passphrase_confirm_label),
+            visible = confirmVisible,
+            onToggleVisibility = { confirmVisible = !confirmVisible },
+            isError = error == "mismatch",
+            errorText = if (error == "mismatch")
+                stringResource(R.string.settings_change_passphrase_error_mismatch) else null,
+        )
+        if (state.isChangingPassphrase) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(dims.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Text(stringResource(R.string.passphrase_unlocking))
+            }
+        }
     }
 }

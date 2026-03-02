@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.settings
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +21,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.veleda.cyclewise.R
@@ -61,6 +63,8 @@ fun SettingsScreen(navController: NavController) {
     val notificationState by viewModel.notificationState.collectAsState()
     val aboutState by viewModel.aboutState.collectAsState()
     val session = koin.getScopeOrNull("session")
+    val context = LocalContext.current
+    val passphraseChangedMessage = stringResource(R.string.settings_change_passphrase_success)
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -69,6 +73,10 @@ fun SettingsScreen(navController: NavController) {
                     navController.navigate(NavRoute.Passphrase.route) {
                         popUpTo(0) { inclusive = true }
                     }
+                }
+
+                is SettingsEffect.PassphraseChanged -> {
+                    Toast.makeText(context, passphraseChangedMessage, Toast.LENGTH_SHORT).show()
                 }
             }
         }

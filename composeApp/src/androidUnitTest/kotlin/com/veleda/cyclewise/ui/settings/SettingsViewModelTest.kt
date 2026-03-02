@@ -129,6 +129,9 @@ class SettingsViewModelTest {
         assertFalse(state.showHintResetConfirmation)
         assertFalse(state.showPrivacyPolicyDialog)
         assertFalse(state.showTermsOfServiceDialog)
+        assertFalse(state.showChangePassphraseDialog)
+        assertNull(state.changePassphraseError)
+        assertFalse(state.isChangingPassphrase)
         assertFalse(state.showDeleteFirstConfirmation)
         assertFalse(state.showDeleteSecondConfirmation)
         assertEquals("", state.deleteConfirmText)
@@ -709,5 +712,116 @@ class SettingsViewModelTest {
         val state = viewModel.generalState.value
         assertFalse(state.showDeleteSecondConfirmation)
         assertEquals("", state.deleteConfirmText)
+    }
+
+    // ── Change Passphrase ───────────────────────────────────────────
+
+    @Test
+    fun `onEvent ChangePassphraseRequested THEN showsDialog`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — change passphrase requested
+        viewModel.onEvent(SettingsEvent.ChangePassphraseRequested)
+
+        // THEN — dialog is shown
+        assertTrue(viewModel.generalState.value.showChangePassphraseDialog)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseDismissed THEN closesDialogAndClearsError`() = runTest {
+        // GIVEN — dialog is open with an error
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.ChangePassphraseRequested)
+        // Trigger a validation error first
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "old",
+                newPassphrase = "short",
+                confirmation = "short",
+            )
+        )
+        assertNotNull(viewModel.generalState.value.changePassphraseError)
+
+        // WHEN — user dismisses
+        viewModel.onEvent(SettingsEvent.ChangePassphraseDismissed)
+
+        // THEN — dialog is hidden and error is cleared
+        val state = viewModel.generalState.value
+        assertFalse(state.showChangePassphraseDialog)
+        assertNull(state.changePassphraseError)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN newTooShort THEN setsErrorTooShort`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — submitted with new passphrase shorter than 8 chars
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "currentpass",
+                newPassphrase = "short",
+                confirmation = "short",
+            )
+        )
+
+        // THEN — error is "too_short"
+        assertEquals("too_short", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN confirmationMismatch THEN setsErrorMismatch`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — submitted with mismatching confirmation
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "currentpass",
+                newPassphrase = "newpassphrase",
+                confirmation = "differentconfirm",
+            )
+        )
+
+        // THEN — error is "mismatch"
+        assertEquals("mismatch", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN shortThenMismatch THEN errorChanges`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — first submit with too-short passphrase
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "old",
+                newPassphrase = "short",
+                confirmation = "short",
+            )
+        )
+
+        // THEN — error is "too_short"
+        assertEquals("too_short", viewModel.generalState.value.changePassphraseError)
+
+        // WHEN — second submit with mismatching confirmation (but valid length)
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "currentpass",
+                newPassphrase = "newpassphrase",
+                confirmation = "differentconfirm",
+            )
+        )
+
+        // THEN — error changes to "mismatch"
+        assertEquals("mismatch", viewModel.generalState.value.changePassphraseError)
     }
 }

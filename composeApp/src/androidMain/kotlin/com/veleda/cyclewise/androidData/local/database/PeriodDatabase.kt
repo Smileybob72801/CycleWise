@@ -85,6 +85,30 @@ abstract class PeriodDatabase : RoomDatabase() {
     /** Returns the [WaterIntakeDao] for CRUD operations on the `water_intake` table. */
     abstract fun waterIntakeDao(): WaterIntakeDao
 
+    /**
+     * Re-encrypts the database with a new passphrase-derived key using SQLCipher's `PRAGMA rekey`.
+     *
+     * The database must already be open (via [openHelper.writableDatabase]) before calling this
+     * method. The rekey operation replaces the encryption key in-place without closing or
+     * re-creating the database file.
+     *
+     * **Security:** The [newKey] array is zeroized in a `finally` block after the PRAGMA
+     * executes, regardless of success or failure. The caller should also zeroize any copies
+     * of the key it holds.
+     *
+     * @param newKey 32-byte AES key derived from the new passphrase.
+     *               **Consumed and zeroized by this method** — do not reuse after calling.
+     * @throws android.database.SQLException if the rekey operation fails.
+     */
+    fun changeEncryptionKey(newKey: ByteArray) {
+        val hex = newKey.joinToString("") { "%02x".format(it) }
+        try {
+            openHelper.writableDatabase.execSQL("PRAGMA rekey = \"x'$hex'\"")
+        } finally {
+            newKey.fill(0)
+        }
+    }
+
     companion object {
         /**
          * Creates (or opens) the encrypted database backed by SQLCipher.

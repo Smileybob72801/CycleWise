@@ -18,6 +18,28 @@ sealed interface SettingsEvent {
     /** User selected a new auto-lock timeout from the segmented button row. */
     data class AutolockChanged(val minutes: Int) : SettingsEvent
 
+    /** User tapped "Change Passphrase" to open the change passphrase dialog. */
+    data object ChangePassphraseRequested : SettingsEvent
+
+    /** User dismissed the change passphrase dialog without submitting. */
+    data object ChangePassphraseDismissed : SettingsEvent
+
+    /**
+     * User submitted the change passphrase form.
+     *
+     * The ViewModel validates the inputs, verifies the current passphrase against the
+     * encrypted database, and re-keys the database with the new passphrase-derived key.
+     *
+     * @property current       the user's current passphrase for verification.
+     * @property newPassphrase the desired new passphrase (must be >= 8 characters).
+     * @property confirmation  re-entry of the new passphrase (must match [newPassphrase]).
+     */
+    data class ChangePassphraseSubmitted(
+        val current: String,
+        val newPassphrase: String,
+        val confirmation: String,
+    ) : SettingsEvent
+
     // ── Insights ─────────────────────────────────────────────────────
 
     /** User adjusted the "top symptoms" slider (1-5). */

@@ -1,12 +1,16 @@
 package com.veleda.cyclewise.ui.settings
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
+import com.veleda.cyclewise.domain.services.PassphraseService
 import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.reminders.ReminderScheduler
 import com.veleda.cyclewise.settings.AppSettings
+import com.veleda.cyclewise.ui.auth.MIN_PASSPHRASE_LENGTH
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.theme.ThemeMode
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
@@ -33,6 +37,9 @@ import org.koin.core.component.KoinComponent
 sealed interface SettingsEffect {
     /** All data has been deleted; the UI should navigate to the passphrase setup screen. */
     data object DataDeleted : SettingsEffect
+
+    /** The passphrase was changed successfully; the UI should show a confirmation toast. */
+    data object PassphraseChanged : SettingsEffect
 }
 
 /**
@@ -46,6 +53,10 @@ sealed interface SettingsEffect {
  * @property showHintResetConfirmation    Whether the hint-reset confirmation toast should show.
  * @property showPrivacyPolicyDialog      Whether the Privacy Policy dialog is visible.
  * @property showTermsOfServiceDialog     Whether the Terms of Service dialog is visible.
+ * @property showChangePassphraseDialog   Whether the Change Passphrase dialog is visible.
+ * @property changePassphraseError        Error key for the change passphrase dialog (`"wrong_current"`,
+ *                                        `"too_short"`, `"mismatch"`, or `null`).
+ * @property isChangingPassphrase         Whether a passphrase change is currently in progress.
  * @property showDeleteFirstConfirmation  Whether the first "Delete All Data?" warning dialog is visible.
  * @property showDeleteSecondConfirmation Whether the second "type DELETE" confirmation dialog is visible.
  * @property deleteConfirmText            Current text in the second dialog's confirmation field.
@@ -57,6 +68,9 @@ data class GeneralSettingsState(
     val showHintResetConfirmation: Boolean = false,
     val showPrivacyPolicyDialog: Boolean = false,
     val showTermsOfServiceDialog: Boolean = false,
+    val showChangePassphraseDialog: Boolean = false,
+    val changePassphraseError: String? = null,
+    val isChangingPassphrase: Boolean = false,
     val showDeleteFirstConfirmation: Boolean = false,
     val showDeleteSecondConfirmation: Boolean = false,
     val deleteConfirmText: String = "",
@@ -313,6 +327,17 @@ class SettingsViewModel(
                 _generalState.update { it.copy(autolockMinutes = event.minutes) }
                 viewModelScope.launch { appSettings.setAutolockMinutes(event.minutes) }
             }
+
+            is SettingsEvent.ChangePassphraseRequested ->
+                _generalState.update { it.copy(showChangePassphraseDialog = true) }
+
+            is SettingsEvent.ChangePassphraseDismissed ->
+                _generalState.update {
+                    it.copy(showChangePassphraseDialog = false, changePassphraseError = null)
+                }
+
+            is SettingsEvent.ChangePassphraseSubmitted ->
+                handleChangePassphrase(event)
 
             is SettingsEvent.TopSymptomsCountChanged -> {
                 _generalState.update { it.copy(topSymptomsCount = event.count) }
@@ -571,5 +596,97 @@ class SettingsViewModel(
             is SettingsEvent.DismissAboutDialog ->
                 _aboutState.update { it.copy(showAboutDialog = false) }
         }
+    }
+
+    /**
+     * Validates inputs and orchestrates the passphrase change on the IO dispatcher.
+     *
+     * ## Validation (synchronous, before any IO)
+     * 1. New passphrase must be >= [MIN_PASSPHRASE_LENGTH] characters.
+     * 2. Confirmation must match the new passphrase exactly.
+     *
+     * ## Passphrase change (IO dispatcher)
+     * 1. Derives the current key via [PassphraseService] and opens a raw SQLCipher
+     *    connection to verify the current passphrase.
+     * 2. Derives the new key and calls [PeriodDatabase.changeEncryptionKey] (PRAGMA rekey)
+     *    on the active session database.
+     * 3. Emits [SettingsEffect.PassphraseChanged] on success.
+     *
+     * On any failure, sets [GeneralSettingsState.changePassphraseError] and clears the
+     * loading state.
+     */
+    private fun handleChangePassphrase(event: SettingsEvent.ChangePassphraseSubmitted) {
+        if (event.newPassphrase.length < MIN_PASSPHRASE_LENGTH) {
+            _generalState.update { it.copy(changePassphraseError = "too_short") }
+            return
+        }
+        if (event.newPassphrase != event.confirmation) {
+            _generalState.update { it.copy(changePassphraseError = "mismatch") }
+            return
+        }
+
+        _generalState.update { it.copy(isChangingPassphrase = true, changePassphraseError = null) }
+
+        viewModelScope.launch {
+            val errorKey: String? = try {
+                withContext(Dispatchers.IO) { executePassphraseChange(event) }
+            } catch (e: Exception) {
+                Log.e("SettingsVM", "Change passphrase failed: ${e.message}")
+                "failed"
+            }
+
+            if (errorKey != null) {
+                _generalState.update {
+                    it.copy(changePassphraseError = errorKey, isChangingPassphrase = false)
+                }
+            } else {
+                _generalState.update {
+                    it.copy(
+                        showChangePassphraseDialog = false,
+                        isChangingPassphrase = false,
+                        changePassphraseError = null,
+                    )
+                }
+                _effect.emit(SettingsEffect.PassphraseChanged)
+            }
+        }
+    }
+
+    /** Performs the IO-bound passphrase change: verifies current, then rekeys the database. */
+    private suspend fun executePassphraseChange(
+        event: SettingsEvent.ChangePassphraseSubmitted,
+    ): String? {
+        val passphraseService = getKoin().get<PassphraseService>()
+        val context = getKoin().get<android.app.Application>()
+        val dbFile = context.getDatabasePath("cyclewise.db")
+
+        val currentKey = passphraseService.deriveKey(event.current)
+        val currentValid = try {
+            val currentHex = currentKey.joinToString("") { "%02x".format(it) }
+            net.sqlcipher.database.SQLiteDatabase.loadLibs(context)
+            val testDb = net.sqlcipher.database.SQLiteDatabase.openDatabase(
+                dbFile.absolutePath, "x'$currentHex'", null,
+                net.sqlcipher.database.SQLiteDatabase.OPEN_READONLY,
+            )
+            testDb.close()
+            true
+        } catch (_: Exception) {
+            false
+        } finally {
+            currentKey.fill(0)
+        }
+
+        if (!currentValid) return "wrong_current"
+
+        val newKey = passphraseService.deriveKey(event.newPassphrase)
+        try {
+            val db = getKoin().getScopeOrNull("session")?.get<PeriodDatabase>()
+                ?: error("No active session")
+            db.changeEncryptionKey(newKey.copyOf())
+        } finally {
+            newKey.fill(0)
+        }
+
+        return null
     }
 }

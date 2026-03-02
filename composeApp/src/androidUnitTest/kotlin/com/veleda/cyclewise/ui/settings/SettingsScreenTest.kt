@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -80,7 +81,7 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText("10 min").assertIsDisplayed()
         composeTestRule.onNodeWithText("15 min").assertIsDisplayed()
         composeTestRule.onNodeWithText("30 min").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Insight Settings").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Insight Settings").performScrollTo().assertIsDisplayed()
     }
 
     @Test

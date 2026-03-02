@@ -18,6 +18,7 @@ import com.veleda.cyclewise.ui.settings.GeneralSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
 import com.veleda.cyclewise.ui.theme.Dimensions
 import com.veleda.cyclewise.ui.theme.LocalDimensions
+import io.mockk.mockk
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -116,8 +117,8 @@ class GeneralPageTest {
     @Test
     fun topSymptomsCount_WHEN_rendered_THEN_valueLabelsDisplayed() {
         setContent()
-        composeTestRule.onAllNodesWithText("1")[0].assertIsDisplayed()
-        composeTestRule.onAllNodesWithText("5")[0].assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("1")[0].performScrollTo().assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("5")[0].performScrollTo().assertIsDisplayed()
     }
 
     // endregion
@@ -243,6 +244,93 @@ class GeneralPageTest {
     fun deletingProgress_WHEN_isDeletingTrue_THEN_progressDisplayed() {
         setContent(state = GeneralSettingsState(isDeletingData = true))
         composeTestRule.onNodeWithText("Deleting Data", substring = true, ignoreCase = true)
+            .assertIsDisplayed()
+    }
+
+    // endregion
+
+    // region Change Passphrase section
+
+    @Test
+    fun changePassphrase_WHEN_rendered_THEN_displayed() {
+        setContent()
+        composeTestRule.onNodeWithText("Change Passphrase")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun changePassphrase_WHEN_sessionActive_THEN_dispatchesEvent() {
+        val events = mutableListOf<SettingsEvent>()
+        setContent(session = mockk(relaxed = true), onEvent = { events.add(it) })
+        composeTestRule.onNodeWithText("Change Passphrase")
+            .performScrollTo()
+            .performClick()
+        assert(events.any { it is SettingsEvent.ChangePassphraseRequested }) {
+            "Expected ChangePassphraseRequested event"
+        }
+    }
+
+    @Test
+    fun changePassphraseDialog_WHEN_showTrue_THEN_fieldsDisplayed() {
+        setContent(state = GeneralSettingsState(showChangePassphraseDialog = true))
+        composeTestRule.onNodeWithText("Current passphrase").assertIsDisplayed()
+        composeTestRule.onNodeWithText("New passphrase").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Confirm new passphrase").assertIsDisplayed()
+    }
+
+    @Test
+    fun changePassphraseDialog_WHEN_showTrue_THEN_submitButtonDisplayed() {
+        setContent(state = GeneralSettingsState(showChangePassphraseDialog = true))
+        // The dialog title contains "Change Passphrase" — verifying the dialog rendered
+        composeTestRule.onNodeWithText("Cancel").assertIsDisplayed()
+    }
+
+    @Test
+    fun changePassphraseDialog_WHEN_errorWrongCurrent_THEN_errorDisplayed() {
+        setContent(
+            state = GeneralSettingsState(
+                showChangePassphraseDialog = true,
+                changePassphraseError = "wrong_current",
+            ),
+        )
+        composeTestRule.onNodeWithText("Current passphrase is incorrect", substring = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun changePassphraseDialog_WHEN_errorTooShort_THEN_errorDisplayed() {
+        setContent(
+            state = GeneralSettingsState(
+                showChangePassphraseDialog = true,
+                changePassphraseError = "too_short",
+            ),
+        )
+        composeTestRule.onNodeWithText("at least 8 characters", substring = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun changePassphraseDialog_WHEN_errorMismatch_THEN_errorDisplayed() {
+        setContent(
+            state = GeneralSettingsState(
+                showChangePassphraseDialog = true,
+                changePassphraseError = "mismatch",
+            ),
+        )
+        composeTestRule.onNodeWithText("do not match", substring = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun changePassphraseDialog_WHEN_isChanging_THEN_progressDisplayed() {
+        setContent(
+            state = GeneralSettingsState(
+                showChangePassphraseDialog = true,
+                isChangingPassphrase = true,
+            ),
+        )
+        composeTestRule.onNodeWithText("Unlocking", substring = true, ignoreCase = true)
             .assertIsDisplayed()
     }
 
