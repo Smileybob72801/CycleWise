@@ -13,15 +13,18 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 
 /**
- * Shared card wrapper with a colored left-border accent for visual differentiation.
+ * Shared card wrapper with a colored leading-edge accent for visual differentiation.
  *
  * All insight cards use this wrapper for consistent styling: medium-rounded card shape,
- * `surfaceVariant` background, and a 4.dp accent bar drawn on the left edge.
+ * `surfaceVariant` background, and a 4.dp accent bar drawn on the leading edge (left in
+ * LTR layouts, right in RTL layouts).
  *
- * @param accentColor Color for the left-border accent.
+ * @param accentColor Color for the leading-edge accent.
  * @param modifier    Modifier applied to the outer [Card].
  * @param content     Card body content.
  */
@@ -33,14 +36,16 @@ internal fun AccentedInsightCard(
 ) {
     val dims = LocalDimensions.current
     val accentWidth = dims.xs
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     Card(
         modifier = modifier
             .fillMaxWidth()
             .drawBehind {
+                val barX = if (isRtl) size.width - accentWidth.toPx() else 0f
                 drawRect(
                     color = accentColor,
-                    topLeft = Offset.Zero,
+                    topLeft = Offset(barX, 0f),
                     size = Size(accentWidth.toPx(), size.height)
                 )
             },
