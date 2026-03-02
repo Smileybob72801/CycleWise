@@ -10,6 +10,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * indicates that the day is a period day, without requiring the user to select a
  * flow level. SQLite lacks ALTER COLUMN, so the table is rebuilt without the
  * NOT NULL constraint on `flow_intensity`.
+ *
+ * The INSERT uses `COALESCE` on `created_at` and `updated_at` to handle legacy
+ * rows where these columns may be NULL (pre-zero-key-fix databases). A fallback
+ * of `0` (epoch) satisfies the NOT NULL constraint without losing any data.
  */
 object Migration_10_11 : Migration(10, 11) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -27,7 +31,12 @@ object Migration_10_11 : Migration(10, 11) {
                     ON UPDATE NO ACTION ON DELETE CASCADE
             )
         """)
-        db.execSQL("INSERT INTO `period_logs_new` SELECT * FROM `period_logs`")
+        db.execSQL("""
+            INSERT INTO `period_logs_new`
+            SELECT `id`, `entry_id`, `flow_intensity`, `period_color`, `period_consistency`,
+                   COALESCE(`created_at`, 0), COALESCE(`updated_at`, 0)
+            FROM `period_logs`
+        """)
         db.execSQL("DROP TABLE `period_logs`")
         db.execSQL("ALTER TABLE `period_logs_new` RENAME TO `period_logs`")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_period_logs_entry_id` ON `period_logs`(`entry_id`)")

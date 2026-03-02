@@ -29,7 +29,11 @@ class Migration_10_11_Test {
                 it.contains("`flow_intensity` TEXT") &&
                 !it.contains("`flow_intensity` TEXT NOT NULL")
             })
-            db.execSQL(match { it.contains("INSERT INTO `period_logs_new` SELECT * FROM `period_logs`") })
+            db.execSQL(match {
+                it.contains("INSERT INTO `period_logs_new`") &&
+                it.contains("COALESCE(`created_at`, 0)") &&
+                it.contains("COALESCE(`updated_at`, 0)")
+            })
             db.execSQL(match { it.contains("DROP TABLE `period_logs`") })
             db.execSQL(match { it.contains("ALTER TABLE `period_logs_new` RENAME TO `period_logs`") })
             db.execSQL(match { it.contains("CREATE INDEX") && it.contains("index_period_logs_entry_id") })
