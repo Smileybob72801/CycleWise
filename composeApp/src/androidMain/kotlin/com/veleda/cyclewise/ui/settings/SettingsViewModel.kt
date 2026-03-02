@@ -4,11 +4,13 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
+import com.veleda.cyclewise.di.SESSION_SCOPE
 import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.services.PassphraseService
 import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.reminders.ReminderScheduler
+import com.veleda.cyclewise.session.KeyFingerprintHolder
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.auth.MIN_PASSPHRASE_LENGTH
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
@@ -606,11 +608,12 @@ class SettingsViewModel(
      * 2. Confirmation must match the new passphrase exactly.
      *
      * ## Passphrase change (IO dispatcher)
-     * 1. Derives the current key via [PassphraseService] and opens a raw SQLCipher
-     *    connection to verify the current passphrase.
+     * 1. Derives the current key via [PassphraseService] and verifies it against the
+     *    session-scoped [KeyFingerprintHolder] (SHA-256 fingerprint comparison).
      * 2. Derives the new key and calls [PeriodDatabase.changeEncryptionKey] (PRAGMA rekey)
      *    on the active session database.
-     * 3. Emits [SettingsEffect.PassphraseChanged] on success.
+     * 3. Updates the fingerprint holder with the new key so subsequent changes work.
+     * 4. Emits [SettingsEffect.PassphraseChanged] on success.
      *
      * On any failure, sets [GeneralSettingsState.changePassphraseError] and clears the
      * loading state.
@@ -652,26 +655,25 @@ class SettingsViewModel(
         }
     }
 
-    /** Performs the IO-bound passphrase change: verifies current, then rekeys the database. */
+    /**
+     * Performs the IO-bound passphrase change: verifies current via fingerprint, then rekeys.
+     *
+     * Uses the session-scoped [KeyFingerprintHolder] to verify the current passphrase instead
+     * of opening a second raw SQLCipher connection (which would conflict with the Room-held
+     * database file). After a successful rekey, updates the fingerprint so subsequent changes
+     * in the same session work correctly.
+     */
     private suspend fun executePassphraseChange(
         event: SettingsEvent.ChangePassphraseSubmitted,
     ): String? {
         val passphraseService = getKoin().get<PassphraseService>()
-        val context = getKoin().get<android.app.Application>()
-        val dbFile = context.getDatabasePath("cyclewise.db")
+        val sessionScope = getKoin().getScopeOrNull("session")
+            ?: error("No active session")
+        val fingerprintHolder = sessionScope.get<KeyFingerprintHolder>()
 
         val currentKey = passphraseService.deriveKey(event.current)
         val currentValid = try {
-            val currentHex = currentKey.joinToString("") { "%02x".format(it) }
-            net.sqlcipher.database.SQLiteDatabase.loadLibs(context)
-            val testDb = net.sqlcipher.database.SQLiteDatabase.openDatabase(
-                dbFile.absolutePath, "x'$currentHex'", null,
-                net.sqlcipher.database.SQLiteDatabase.OPEN_READONLY,
-            )
-            testDb.close()
-            true
-        } catch (_: Exception) {
-            false
+            fingerprintHolder.matches(currentKey)
         } finally {
             currentKey.fill(0)
         }
@@ -680,9 +682,9 @@ class SettingsViewModel(
 
         val newKey = passphraseService.deriveKey(event.newPassphrase)
         try {
-            val db = getKoin().getScopeOrNull("session")?.get<PeriodDatabase>()
-                ?: error("No active session")
+            val db = sessionScope.get<PeriodDatabase>()
             db.changeEncryptionKey(newKey.copyOf())
+            fingerprintHolder.store(newKey)
         } finally {
             newKey.fill(0)
         }

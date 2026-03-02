@@ -90,7 +90,8 @@ abstract class PeriodDatabase : RoomDatabase() {
      *
      * The database must already be open (via [openHelper.writableDatabase]) before calling this
      * method. The rekey operation replaces the encryption key in-place without closing or
-     * re-creating the database file.
+     * re-creating the database file. Uses `query()` instead of `execSQL()` because SQLCipher
+     * classifies `PRAGMA` as a query-type statement and rejects it from `execSQL()`.
      *
      * **Security:** The [newKey] array is zeroized in a `finally` block after the PRAGMA
      * executes, regardless of success or failure. The caller should also zeroize any copies
@@ -103,7 +104,9 @@ abstract class PeriodDatabase : RoomDatabase() {
     fun changeEncryptionKey(newKey: ByteArray) {
         val hex = newKey.joinToString("") { "%02x".format(it) }
         try {
-            openHelper.writableDatabase.execSQL("PRAGMA rekey = \"x'$hex'\"")
+            openHelper.writableDatabase.query("PRAGMA rekey = \"x'$hex'\"").use { cursor ->
+                cursor.moveToFirst()
+            }
         } finally {
             newKey.fill(0)
         }

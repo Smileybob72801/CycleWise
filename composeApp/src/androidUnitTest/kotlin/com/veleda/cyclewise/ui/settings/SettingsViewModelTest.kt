@@ -2,18 +2,23 @@ package com.veleda.cyclewise.ui.settings
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import app.cash.turbine.test
+import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.domain.models.ArticleCategory
 import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
+import com.veleda.cyclewise.domain.services.PassphraseService
 import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.reminders.ReminderScheduler
+import com.veleda.cyclewise.session.KeyFingerprintHolder
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.theme.ThemeMode
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -29,7 +34,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import org.koin.java.KoinJavaComponent.getKoin
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -823,5 +830,155 @@ class SettingsViewModelTest {
 
         // THEN — error changes to "mismatch"
         assertEquals("mismatch", viewModel.generalState.value.changePassphraseError)
+    }
+
+    // ── Change Passphrase — IO path (fingerprint verification) ──────
+
+    /**
+     * Creates a Koin environment with a "session" scope containing a mock
+     * [KeyFingerprintHolder], [PassphraseService], and [PeriodDatabase], then
+     * returns a ViewModel wired to that scope.
+     */
+    private fun createViewModelWithSessionScope(
+        fingerprintHolder: KeyFingerprintHolder,
+        passphraseService: PassphraseService,
+        periodDatabase: PeriodDatabase,
+    ): SettingsViewModel {
+        // Stop the default empty Koin from setUp()
+        stopKoin()
+        startKoin {
+            modules(
+                module {
+                    single<PassphraseService> { passphraseService }
+
+                    scope(named("UnlockedSessionScope")) {
+                        scoped { fingerprintHolder }
+                        scoped { periodDatabase }
+                    }
+                }
+            )
+        }
+        // Create and open the session scope so getKoin().getScopeOrNull("session") finds it
+        getKoin().createScope("session", named("UnlockedSessionScope"))
+
+        return createViewModel()
+    }
+
+    /**
+     * Waits for the IO-dispatched passphrase change coroutine to complete.
+     *
+     * `handleChangePassphrase` uses `withContext(Dispatchers.IO)`, which dispatches to the
+     * real IO thread pool. `advanceUntilIdle()` only drains the test scheduler, not real
+     * dispatchers. Since all services are mocked (near-instant), a brief poll is sufficient
+     * to let the IO coroutine finish and post its result back to Main (UnconfinedTestDispatcher).
+     */
+    private fun awaitPassphraseChangeCompletion(viewModel: SettingsViewModel, timeoutMs: Long = 2000) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (viewModel.generalState.value.isChangingPassphrase && System.currentTimeMillis() < deadline) {
+            Thread.sleep(10)
+        }
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN wrongCurrentPassphrase THEN setsWrongCurrentError`() = runTest {
+        // GIVEN — a session scope where the fingerprint does not match the entered "current" passphrase
+        val realHolder = KeyFingerprintHolder()
+        val correctKey = "correct-passphrase-derived-key!!".toByteArray()
+        realHolder.store(correctKey)
+
+        val mockPassphraseService = mockk<PassphraseService>()
+        every { mockPassphraseService.deriveKey("wrong-current") } returns "wrong-key-not-matching-at-all!!!".toByteArray()
+
+        val mockDb = mockk<PeriodDatabase>(relaxed = true)
+        val viewModel = createViewModelWithSessionScope(realHolder, mockPassphraseService, mockDb)
+        advanceUntilIdle()
+
+        // WHEN — submitted with wrong current passphrase
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "wrong-current",
+                newPassphrase = "newpassphrase123",
+                confirmation = "newpassphrase123",
+            )
+        )
+        awaitPassphraseChangeCompletion(viewModel)
+
+        // THEN — error is "wrong_current"
+        assertEquals("wrong_current", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN correctCurrentPassphrase THEN rekeysAndEmitsEffect`() = runTest {
+        // GIVEN — a session scope where the fingerprint matches the entered "current" passphrase
+        val realHolder = KeyFingerprintHolder()
+        val correctKey = "correct-passphrase-derived-key!!".toByteArray()
+        realHolder.store(correctKey)
+
+        val mockPassphraseService = mockk<PassphraseService>()
+        every { mockPassphraseService.deriveKey("correct-current") } returns "correct-passphrase-derived-key!!".toByteArray()
+        every { mockPassphraseService.deriveKey("newpassphrase123") } returns "new-passphrase-derived-key-here!".toByteArray()
+
+        val mockDb = mockk<PeriodDatabase>(relaxed = true)
+        every { mockDb.changeEncryptionKey(any()) } just runs
+
+        val viewModel = createViewModelWithSessionScope(realHolder, mockPassphraseService, mockDb)
+        advanceUntilIdle()
+
+        // WHEN — submitted with correct current passphrase
+        viewModel.effect.test {
+            viewModel.onEvent(
+                SettingsEvent.ChangePassphraseSubmitted(
+                    current = "correct-current",
+                    newPassphrase = "newpassphrase123",
+                    confirmation = "newpassphrase123",
+                )
+            )
+            awaitPassphraseChangeCompletion(viewModel)
+
+            // THEN — PassphraseChanged effect is emitted
+            assertEquals(SettingsEffect.PassphraseChanged, awaitItem())
+        }
+
+        // THEN — dialog is dismissed, no error, not loading
+        val state = viewModel.generalState.value
+        assertFalse(state.showChangePassphraseDialog)
+        assertNull(state.changePassphraseError)
+        assertFalse(state.isChangingPassphrase)
+
+        // THEN — the database rekey was called
+        verify(exactly = 1) { mockDb.changeEncryptionKey(any()) }
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN successfulRekey THEN fingerprintUpdatedForSubsequentChange`() = runTest {
+        // GIVEN — a successful passphrase change updates the fingerprint
+        val realHolder = KeyFingerprintHolder()
+        val correctKey = "correct-passphrase-derived-key!!".toByteArray()
+        realHolder.store(correctKey)
+
+        val mockPassphraseService = mockk<PassphraseService>()
+        every { mockPassphraseService.deriveKey("correct-current") } returns "correct-passphrase-derived-key!!".toByteArray()
+        every { mockPassphraseService.deriveKey("newpassphrase123") } returns "new-passphrase-derived-key-here!".toByteArray()
+
+        val mockDb = mockk<PeriodDatabase>(relaxed = true)
+        every { mockDb.changeEncryptionKey(any()) } just runs
+
+        val viewModel = createViewModelWithSessionScope(realHolder, mockPassphraseService, mockDb)
+        advanceUntilIdle()
+
+        // WHEN — first passphrase change succeeds
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "correct-current",
+                newPassphrase = "newpassphrase123",
+                confirmation = "newpassphrase123",
+            )
+        )
+        awaitPassphraseChangeCompletion(viewModel)
+
+        // THEN — the fingerprint now matches the new key (not the old one)
+        assertTrue(realHolder.matches("new-passphrase-derived-key-here!".toByteArray()))
+        assertFalse(realHolder.matches("correct-passphrase-derived-key!!".toByteArray()))
     }
 }

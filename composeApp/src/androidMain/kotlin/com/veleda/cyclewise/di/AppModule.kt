@@ -32,6 +32,7 @@ import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import com.veleda.cyclewise.domain.usecases.TutorialSeederUseCase
 import org.koin.core.qualifier.named
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
+import com.veleda.cyclewise.session.KeyFingerprintHolder
 import com.veleda.cyclewise.session.SessionBus
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
@@ -94,7 +95,9 @@ internal fun migrateLegacyZeroKeyIfNeeded(context: Context, correctKey: ByteArra
         )
         try {
             val correctHex = correctKey.joinToString("") { "%02x".format(it) }
-            db.execSQL("PRAGMA rekey = \"x'$correctHex'\"")
+            db.rawQuery("PRAGMA rekey = \"x'$correctHex'\"", null).use { cursor ->
+                cursor.moveToFirst()
+            }
             Log.i("ZeroKeyMigration", "Legacy zero-key database re-encrypted successfully.")
         } finally {
             db.close()
@@ -126,19 +129,23 @@ internal fun migrateLegacyZeroKeyIfNeeded(context: Context, correctKey: ByteArra
  * if [PeriodDatabase.create] throws, fulfilling the security contract documented at
  * [PeriodDatabase.create].
  *
- * @param context          application context for Room.
- * @param passphraseService service that derives the 32-byte AES key.
- * @param passphrase       the user-entered secret.
+ * @param context              application context for Room.
+ * @param passphraseService    service that derives the 32-byte AES key.
+ * @param passphrase           the user-entered secret.
+ * @param keyFingerprintHolder session-scoped holder that stores a SHA-256 fingerprint of the
+ *                             derived key for later verification during passphrase changes.
  * @return the [PeriodDatabase]; caller must call [db.openHelper.writableDatabase] to
  *         force-open with the real key before using DAOs.
  */
 internal fun createDatabaseAndZeroizeKey(
     context: Context,
     passphraseService: PassphraseService,
-    passphrase: String
+    passphrase: String,
+    keyFingerprintHolder: KeyFingerprintHolder,
 ): PeriodDatabase {
     val key = passphraseService.deriveKey(passphrase)
     return try {
+        keyFingerprintHolder.store(key)
         migrateLegacyZeroKeyIfNeeded(context, key.copyOf())
         PeriodDatabase.create(context, key.copyOf())
     } finally {
@@ -205,15 +212,25 @@ val appModule = module {
 
     scope(SESSION_SCOPE) {
         /*
+         * --- Key Fingerprint Holder ---
+         *
+         * Session-scoped holder for a SHA-256 fingerprint of the derived encryption key.
+         * Used to verify the current passphrase during the "Change Passphrase" flow
+         * without opening a second raw SQLCipher connection.
+         */
+        scoped { KeyFingerprintHolder() }
+
+        /*
          * --- Encrypted Database Provider ---
          *
          * The `passphrase: String` parameter is supplied by the ViewModel via
          * `parametersOf(passphrase)` when it resolves `PeriodDatabase` from this scope.
          *
-         * `createDatabaseAndZeroizeKey` derives the 32-byte AES key, passes
-         * `key.copyOf()` to `SupportFactory` (so the factory has its own array),
-         * and zeros the original immediately. See `createDatabaseAndZeroizeKey` KDoc
-         * for the full rationale on `copyOf()`.
+         * `createDatabaseAndZeroizeKey` derives the 32-byte AES key, stores its
+         * SHA-256 fingerprint in the [KeyFingerprintHolder], passes `key.copyOf()`
+         * to `SupportFactory` (so the factory has its own array), and zeros the
+         * original immediately. See `createDatabaseAndZeroizeKey` KDoc for the full
+         * rationale on `copyOf()`.
          *
          * IMPORTANT: The returned database is NOT yet opened — `Room.build()` defers
          * the file open. The caller (`PassphraseViewModel.unlock()`) MUST call
@@ -221,7 +238,7 @@ val appModule = module {
          * consumes the real key and validates the passphrase.
          */
         scoped { (passphrase: String) ->
-            createDatabaseAndZeroizeKey(androidContext(), get(), passphrase)
+            createDatabaseAndZeroizeKey(androidContext(), get(), passphrase, get())
         }
 
         /*
