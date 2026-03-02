@@ -27,6 +27,7 @@ import com.veleda.cyclewise.domain.insights.MoodPhasePattern
 import com.veleda.cyclewise.domain.insights.NextPeriodPrediction
 import com.veleda.cyclewise.domain.insights.SymptomPhasePattern
 import com.veleda.cyclewise.domain.insights.TopSymptomsInsight
+import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.components.MedicalDisclaimer
 import com.veleda.cyclewise.ui.insights.cards.CycleLengthCard
 import com.veleda.cyclewise.ui.insights.cards.MoodPatternCard
@@ -91,62 +92,62 @@ internal fun InsightsContent(
     val dims = LocalDimensions.current
     val hasContent = uiState.insights.isNotEmpty() || uiState.allArticles.isNotEmpty()
 
-    Box(
-        modifier = modifier.fillMaxSize()
-    ) {
-        when {
-            uiState.isLoading -> {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            }
-            !hasContent -> {
-                InsightsEmptyState(modifier = Modifier.align(Alignment.Center))
-            }
-            else -> {
-                PullToRefreshBox(
-                    isRefreshing = uiState.isRefreshing,
-                    onRefresh = onRefresh,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(dims.md),
-                        verticalArrangement = Arrangement.spacedBy(dims.md)
+    ContentContainer(modifier = modifier) {
+        Box(Modifier.fillMaxSize()) {
+            when {
+                uiState.isLoading -> {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                }
+                !hasContent -> {
+                    InsightsEmptyState(modifier = Modifier.align(Alignment.Center))
+                }
+                else -> {
+                    PullToRefreshBox(
+                        isRefreshing = uiState.isRefreshing,
+                        onRefresh = onRefresh,
+                        modifier = Modifier.fillMaxSize()
                     ) {
-                        items(uiState.insights, key = { it.id }) { insight ->
-                            InsightCardDispatcher(insight = insight)
-                        }
-
-                        if (uiState.allArticles.isNotEmpty()) {
-                            item(key = "learn-header") {
-                                LearnSectionHeader()
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(dims.md),
+                            verticalArrangement = Arrangement.spacedBy(dims.md)
+                        ) {
+                            items(uiState.insights, key = { it.id }) { insight ->
+                                InsightCardDispatcher(insight = insight)
                             }
 
-                            item(key = "learn-chips") {
-                                LearnCategoryChips(
-                                    selectedCategory = uiState.selectedCategory,
-                                    onCategorySelected = { category ->
-                                        onEvent(InsightsEvent.FilterArticles(category))
-                                    },
-                                )
-                            }
+                            if (uiState.allArticles.isNotEmpty()) {
+                                item(key = "learn-header") {
+                                    LearnSectionHeader()
+                                }
 
-                            items(
-                                uiState.filteredArticles,
-                                key = { "article-${it.id}" }
-                            ) { article ->
-                                LearnArticleCard(
-                                    article = article,
-                                    isExpanded = article.id in uiState.expandedArticleIds,
-                                    onToggle = {
-                                        onEvent(InsightsEvent.ToggleArticleExpanded(article.id))
-                                    },
-                                )
-                            }
+                                item(key = "learn-chips") {
+                                    LearnCategoryChips(
+                                        selectedCategory = uiState.selectedCategory,
+                                        onCategorySelected = { category ->
+                                            onEvent(InsightsEvent.FilterArticles(category))
+                                        },
+                                    )
+                                }
 
-                            item(key = "learn-disclaimer") {
-                                MedicalDisclaimer(
-                                    modifier = Modifier.padding(top = dims.sm)
-                                )
+                                items(
+                                    uiState.filteredArticles,
+                                    key = { "article-${it.id}" }
+                                ) { article ->
+                                    LearnArticleCard(
+                                        article = article,
+                                        isExpanded = article.id in uiState.expandedArticleIds,
+                                        onToggle = {
+                                            onEvent(InsightsEvent.ToggleArticleExpanded(article.id))
+                                        },
+                                    )
+                                }
+
+                                item(key = "learn-disclaimer") {
+                                    MedicalDisclaimer(
+                                        modifier = Modifier.padding(top = dims.sm)
+                                    )
+                                }
                             }
                         }
                     }

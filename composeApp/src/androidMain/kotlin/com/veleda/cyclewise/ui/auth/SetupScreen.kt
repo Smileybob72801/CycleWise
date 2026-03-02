@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.components.MarkdownText
 import com.veleda.cyclewise.ui.components.MedicalDisclaimer
 import com.veleda.cyclewise.ui.theme.LocalDimensions
@@ -94,6 +95,7 @@ fun SetupScreen(
             .background(MaterialTheme.colorScheme.surface)
             .imePadding()
     ) {
+        ContentContainer(maxWidth = dims.authMaxWidth) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -178,6 +180,7 @@ fun SetupScreen(
                     Spacer(Modifier.width(dims.buttonMin))
                 }
             }
+        }
         }
 
         // Loading overlay (same pattern as unlock screen)

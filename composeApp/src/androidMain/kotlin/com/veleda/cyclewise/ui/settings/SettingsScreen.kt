@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.settings.pages.AboutPage
 import com.veleda.cyclewise.ui.settings.pages.AppearancePage
@@ -140,39 +141,41 @@ internal fun SettingsContent(
         stringResource(R.string.settings_page_about),
     )
 
-    Column(modifier = modifier.fillMaxSize()) {
-        // Page indicator tabs
-        ScrollableTabRow(
-            selectedTabIndex = pagerState.currentPage,
-            edgePadding = dims.md,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            pageLabels.forEachIndexed { index, label ->
-                Tab(
-                    selected = pagerState.currentPage == index,
-                    onClick = {
-                        coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                    },
-                    text = {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    },
-                )
+    ContentContainer(modifier = modifier) {
+        Column(Modifier.fillMaxSize()) {
+            // Page indicator tabs
+            ScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                edgePadding = dims.md,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                pageLabels.forEachIndexed { index, label ->
+                    Tab(
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                        },
+                        text = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        },
+                    )
+                }
             }
-        }
 
-        // Pager
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-        ) { page ->
-            when (page) {
-                PAGE_GENERAL -> GeneralPage(generalState, onEvent, session, onLockNow)
-                PAGE_APPEARANCE -> AppearancePage(appearanceState, onEvent)
-                PAGE_NOTIFICATIONS -> NotificationsPage(notificationState, onEvent)
-                PAGE_ABOUT -> AboutPage(aboutState, onEvent, session)
+            // Pager
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                when (page) {
+                    PAGE_GENERAL -> GeneralPage(generalState, onEvent, session, onLockNow)
+                    PAGE_APPEARANCE -> AppearancePage(appearanceState, onEvent)
+                    PAGE_NOTIFICATIONS -> NotificationsPage(notificationState, onEvent)
+                    PAGE_ABOUT -> AboutPage(aboutState, onEvent, session)
+                }
             }
         }
     }

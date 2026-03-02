@@ -4,10 +4,11 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.gestures.drag
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -32,6 +33,10 @@ import kotlinx.datetime.toKotlinLocalDate
  *
  * Encapsulates the [HorizontalCalendar] widget and the pointer-input gesture
  * detector that drives the drag-to-mark-period interaction.
+ *
+ * Uses [BoxWithConstraints] to compute a responsive cell aspect ratio. On devices
+ * where square cells would exceed the available height (e.g. landscape tablets),
+ * the ratio is widened so all six possible calendar rows fit without compression.
  *
  * @param uiState            Current tracker UI state with periods, dayDetails, etc.
  * @param calendarState       Calendar library state for month scrolling.
@@ -75,7 +80,7 @@ internal fun CalendarGrid(
         uiState.periods.find { dragAnchor in (it.startDate..(it.endDate ?: today)) }
     } else null
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .coachMarkTarget(HintKey.TRACKER_WELCOME, coachMarkState)
             .coachMarkTarget(HintKey.TRACKER_LONG_PRESS, coachMarkState)
@@ -131,6 +136,15 @@ internal fun CalendarGrid(
                 }
             }
     ) {
+        val maxRows = 6
+        val cellWidth = maxWidth / 7
+        val availableRowHeight = maxHeight / maxRows
+        val cellAspectRatio = if (availableRowHeight > 0.dp) {
+            (cellWidth / availableRowHeight).coerceAtLeast(1f)
+        } else {
+            1f
+        }
+
         HorizontalCalendar(
             state = calendarState,
             userScrollEnabled = !isDragging,
@@ -202,7 +216,8 @@ internal fun CalendarGrid(
                     palette = palette,
                     displayPhase = displayPhase,
                     onTap = handleTap,
-                    boundsRegistry = boundsRegistry
+                    boundsRegistry = boundsRegistry,
+                    cellAspectRatio = cellAspectRatio,
                 )
             }
         )

@@ -54,6 +54,7 @@ import com.veleda.cyclewise.ui.coachmark.HintKey
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.coachmark.coachMarkTarget
 import com.veleda.cyclewise.ui.nav.NavRoute
+import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.components.EducationalBottomSheet
 import com.veleda.cyclewise.ui.components.InfoButton
 import kotlinx.coroutines.flow.first
@@ -244,6 +245,7 @@ fun TrackerScreen(navController: NavController) {
 
     Scaffold { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        ContentContainer(maxWidth = dims.gridMaxWidth) {
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -399,6 +401,7 @@ fun TrackerScreen(navController: NavController) {
                 )
             }
             Spacer(Modifier.height(dims.md))
+        }
         }
 
         // Coach mark overlay draws on top of all screen content.

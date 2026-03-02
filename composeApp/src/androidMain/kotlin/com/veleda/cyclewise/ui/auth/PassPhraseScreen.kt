@@ -44,6 +44,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.flow.SharedFlow
 import org.koin.androidx.compose.koinViewModel
@@ -156,6 +157,7 @@ internal fun UnlockScreen(
             .background(MaterialTheme.colorScheme.surface)
             .imePadding()
     ) {
+        ContentContainer(maxWidth = dims.authMaxWidth) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -266,6 +268,7 @@ internal fun UnlockScreen(
                     yesterdayCupsForPrompt = waterState.yesterdayCupsForPrompt
                 )
             }
+        }
         }
 
         // Loading overlay

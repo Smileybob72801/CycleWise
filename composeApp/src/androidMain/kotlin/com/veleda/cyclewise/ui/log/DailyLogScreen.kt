@@ -43,6 +43,7 @@ import com.veleda.cyclewise.ui.coachmark.CoachMarkState
 import com.veleda.cyclewise.ui.coachmark.HintKey
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.coachmark.coachMarkTarget
+import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.components.EducationalBottomSheet
 import com.veleda.cyclewise.ui.log.pages.MedicationsPage
 import com.veleda.cyclewise.ui.log.pages.NotesTagsPage
@@ -261,6 +262,7 @@ fun DailyLogScreen(
             }
 
             Box(modifier = Modifier.fillMaxSize().imePadding()) {
+                ContentContainer {
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Header
                     Text(
@@ -384,6 +386,7 @@ fun DailyLogScreen(
                             onDismiss = { viewModel.onEvent(DailyLogEvent.DismissEducationalSheet) },
                         )
                     }
+                }
                 }
 
                 SnackbarHost(
