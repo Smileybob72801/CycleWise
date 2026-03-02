@@ -3,6 +3,7 @@ package com.veleda.cyclewise.ui.settings
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import app.cash.turbine.test
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
+import com.veleda.cyclewise.androidData.local.database.RekeyVerificationFailedException
 import com.veleda.cyclewise.domain.models.ArticleCategory
 import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
@@ -14,11 +15,15 @@ import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.theme.ThemeMode
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
+import android.content.Context
+import android.util.Log
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import io.mockk.runs
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -99,6 +104,12 @@ class SettingsViewModelTest {
         every { mockAppSettings.reminderHydrationStartHour } returns flowOf(8)
         every { mockAppSettings.reminderHydrationEndHour } returns flowOf(20)
 
+        // Stub android.util.Log so Log.e() returns 0 instead of throwing
+        // "Method e in android.util.Log not mocked" in non-Robolectric tests.
+        mockkStatic(Log::class)
+        every { Log.e(any(), any()) } returns 0
+        every { Log.e(any(), any(), any()) } returns 0
+
         // Start Koin with an empty module so getKoin() does not crash
         // when the delete flow accesses the Koin scope.
         startKoin { modules(module { }) }
@@ -108,6 +119,7 @@ class SettingsViewModelTest {
     fun tearDown() {
         stopKoin()
         Dispatchers.resetMain()
+        unmockkStatic(Log::class)
     }
 
     private fun createViewModel(): SettingsViewModel {
@@ -139,6 +151,7 @@ class SettingsViewModelTest {
         assertFalse(state.showChangePassphraseDialog)
         assertNull(state.changePassphraseError)
         assertFalse(state.isChangingPassphrase)
+        assertFalse(state.showPassphraseSuccessDialog)
         assertFalse(state.showDeleteFirstConfirmation)
         assertFalse(state.showDeleteSecondConfirmation)
         assertEquals("", state.deleteConfirmText)
@@ -850,6 +863,7 @@ class SettingsViewModelTest {
             modules(
                 module {
                     single<PassphraseService> { passphraseService }
+                    single<Context> { mockk(relaxed = true) }
 
                     scope(named("UnlockedSessionScope")) {
                         scoped { fingerprintHolder }
@@ -909,7 +923,7 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `onEvent ChangePassphraseSubmitted WHEN correctCurrentPassphrase THEN rekeysAndEmitsEffect`() = runTest {
+    fun `onEvent ChangePassphraseSubmitted WHEN correctCurrentPassphrase THEN rekeysAndShowsSuccessDialog`() = runTest {
         // GIVEN — a session scope where the fingerprint matches the entered "current" passphrase
         val realHolder = KeyFingerprintHolder()
         val correctKey = "correct-passphrase-derived-key!!".toByteArray()
@@ -920,34 +934,33 @@ class SettingsViewModelTest {
         every { mockPassphraseService.deriveKey("newpassphrase123") } returns "new-passphrase-derived-key-here!".toByteArray()
 
         val mockDb = mockk<PeriodDatabase>(relaxed = true)
-        every { mockDb.changeEncryptionKey(any()) } just runs
+        every { mockDb.changeEncryptionKey(any(), any(), any()) } just runs
 
         val viewModel = createViewModelWithSessionScope(realHolder, mockPassphraseService, mockDb)
         advanceUntilIdle()
 
+        // Open the dialog first so showChangePassphraseDialog is true
+        viewModel.onEvent(SettingsEvent.ChangePassphraseRequested)
+
         // WHEN — submitted with correct current passphrase
-        viewModel.effect.test {
-            viewModel.onEvent(
-                SettingsEvent.ChangePassphraseSubmitted(
-                    current = "correct-current",
-                    newPassphrase = "newpassphrase123",
-                    confirmation = "newpassphrase123",
-                )
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "correct-current",
+                newPassphrase = "newpassphrase123",
+                confirmation = "newpassphrase123",
             )
-            awaitPassphraseChangeCompletion(viewModel)
+        )
+        awaitPassphraseChangeCompletion(viewModel)
 
-            // THEN — PassphraseChanged effect is emitted
-            assertEquals(SettingsEffect.PassphraseChanged, awaitItem())
-        }
-
-        // THEN — dialog is dismissed, no error, not loading
+        // THEN — success dialog shown, change dialog stays open, no error, not loading
         val state = viewModel.generalState.value
-        assertFalse(state.showChangePassphraseDialog)
+        assertTrue(state.showPassphraseSuccessDialog)
+        assertTrue(state.showChangePassphraseDialog)
         assertNull(state.changePassphraseError)
         assertFalse(state.isChangingPassphrase)
 
-        // THEN — the database rekey was called
-        verify(exactly = 1) { mockDb.changeEncryptionKey(any()) }
+        // THEN — the database rekey was called with context, old key, and new key
+        verify(exactly = 1) { mockDb.changeEncryptionKey(any(), any(), any()) }
     }
 
     @Test
@@ -962,7 +975,7 @@ class SettingsViewModelTest {
         every { mockPassphraseService.deriveKey("newpassphrase123") } returns "new-passphrase-derived-key-here!".toByteArray()
 
         val mockDb = mockk<PeriodDatabase>(relaxed = true)
-        every { mockDb.changeEncryptionKey(any()) } just runs
+        every { mockDb.changeEncryptionKey(any(), any(), any()) } just runs
 
         val viewModel = createViewModelWithSessionScope(realHolder, mockPassphraseService, mockDb)
         advanceUntilIdle()
@@ -980,5 +993,112 @@ class SettingsViewModelTest {
         // THEN — the fingerprint now matches the new key (not the old one)
         assertTrue(realHolder.matches("new-passphrase-derived-key-here!".toByteArray()))
         assertFalse(realHolder.matches("correct-passphrase-derived-key!!".toByteArray()))
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSuccessAcknowledged THEN closesDialogsAndEmitsEffect`() = runTest {
+        // GIVEN — a successful passphrase change (success dialog showing)
+        val realHolder = KeyFingerprintHolder()
+        realHolder.store("correct-passphrase-derived-key!!".toByteArray())
+
+        val mockPassphraseService = mockk<PassphraseService>()
+        every { mockPassphraseService.deriveKey("correct-current") } returns "correct-passphrase-derived-key!!".toByteArray()
+        every { mockPassphraseService.deriveKey("newpassphrase123") } returns "new-passphrase-derived-key-here!".toByteArray()
+
+        val mockDb = mockk<PeriodDatabase>(relaxed = true)
+        every { mockDb.changeEncryptionKey(any(), any(), any()) } just runs
+
+        val viewModel = createViewModelWithSessionScope(realHolder, mockPassphraseService, mockDb)
+        advanceUntilIdle()
+
+        viewModel.onEvent(SettingsEvent.ChangePassphraseRequested)
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "correct-current",
+                newPassphrase = "newpassphrase123",
+                confirmation = "newpassphrase123",
+            )
+        )
+        awaitPassphraseChangeCompletion(viewModel)
+        assertTrue(viewModel.generalState.value.showPassphraseSuccessDialog)
+
+        // WHEN — user acknowledges the success dialog
+        viewModel.effect.test {
+            viewModel.onEvent(SettingsEvent.ChangePassphraseSuccessAcknowledged)
+            advanceUntilIdle()
+
+            // THEN — PassphraseChanged effect is emitted
+            assertEquals(SettingsEffect.PassphraseChanged, awaitItem())
+        }
+
+        // THEN — both dialogs are closed
+        val state = viewModel.generalState.value
+        assertFalse(state.showChangePassphraseDialog)
+        assertFalse(state.showPassphraseSuccessDialog)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN rekeyVerificationFails THEN setsVerificationFailedError`() = runTest {
+        // GIVEN — a session scope where rekey throws RekeyVerificationFailedException
+        val realHolder = KeyFingerprintHolder()
+        realHolder.store("correct-passphrase-derived-key!!".toByteArray())
+
+        val mockPassphraseService = mockk<PassphraseService>()
+        every { mockPassphraseService.deriveKey("correct-current") } returns "correct-passphrase-derived-key!!".toByteArray()
+        every { mockPassphraseService.deriveKey("newpassphrase123") } returns "new-passphrase-derived-key-here!".toByteArray()
+
+        val mockDb = mockk<PeriodDatabase>(relaxed = true)
+        every { mockDb.changeEncryptionKey(any(), any(), any()) } throws
+                RekeyVerificationFailedException("Rekey verification failed; rolled back to old key")
+
+        val viewModel = createViewModelWithSessionScope(realHolder, mockPassphraseService, mockDb)
+        advanceUntilIdle()
+
+        // WHEN — submitted with correct current passphrase but rekey verification fails
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "correct-current",
+                newPassphrase = "newpassphrase123",
+                confirmation = "newpassphrase123",
+            )
+        )
+        awaitPassphraseChangeCompletion(viewModel)
+
+        // THEN — error is "verification_failed"
+        assertEquals("verification_failed", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+        assertFalse(viewModel.generalState.value.showPassphraseSuccessDialog)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN genericExceptionThrown THEN setsFailedError`() = runTest {
+        // GIVEN — a session scope where rekey throws a generic RuntimeException
+        val realHolder = KeyFingerprintHolder()
+        realHolder.store("correct-passphrase-derived-key!!".toByteArray())
+
+        val mockPassphraseService = mockk<PassphraseService>()
+        every { mockPassphraseService.deriveKey("correct-current") } returns "correct-passphrase-derived-key!!".toByteArray()
+        every { mockPassphraseService.deriveKey("newpassphrase123") } returns "new-passphrase-derived-key-here!".toByteArray()
+
+        val mockDb = mockk<PeriodDatabase>(relaxed = true)
+        every { mockDb.changeEncryptionKey(any(), any(), any()) } throws RuntimeException("unexpected error")
+
+        val viewModel = createViewModelWithSessionScope(realHolder, mockPassphraseService, mockDb)
+        advanceUntilIdle()
+
+        // WHEN — submitted with correct current passphrase but rekey throws generic exception
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "correct-current",
+                newPassphrase = "newpassphrase123",
+                confirmation = "newpassphrase123",
+            )
+        )
+        awaitPassphraseChangeCompletion(viewModel)
+
+        // THEN — error is "failed"
+        assertEquals("failed", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+        assertFalse(viewModel.generalState.value.showPassphraseSuccessDialog)
     }
 }

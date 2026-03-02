@@ -303,6 +303,22 @@
     <string name="settings_change_passphrase_success">Passphrase changed successfully</string>
     <string name="settings_change_passphrase_submit">Change Passphrase</string>
 
+    <!-- Change Passphrase — Confirmation step -->
+    <string name="settings_change_passphrase_confirm_title">Confirm Passphrase Change</string>
+    <string name="settings_change_passphrase_confirm_body">Are you sure you want to change your passphrase?\n\nThis will re-encrypt your entire database with a new key. If you forget your new passphrase, your data will be permanently inaccessible. There is no recovery mechanism.</string>
+    <string name="settings_change_passphrase_confirm_button">Yes, Change It</string>
+    <string name="settings_change_passphrase_back">Go Back</string>
+    <string name="settings_change_passphrase_progress">Changing passphrase\u2026</string>
+
+    <!-- Change Passphrase — Success dialog -->
+    <string name="settings_change_passphrase_success_title">Passphrase Changed</string>
+    <string name="settings_change_passphrase_success_warning">This is your last chance to write down or memorize your new passphrase. Once you dismiss this dialog, it cannot be shown again.\n\nThere is no passphrase recovery.</string>
+    <string name="settings_change_passphrase_success_acknowledge">I\'ve Saved My Passphrase</string>
+
+    <!-- Change Passphrase — Error messages -->
+    <string name="settings_change_passphrase_error_failed">Something went wrong. Your data is still protected by your current passphrase. Please try again.</string>
+    <string name="settings_change_passphrase_error_verification_failed">The change could not be verified and was rolled back. Your current passphrase still works. Please try again.</string>
+
     <!-- Data Management -->
     <string name="settings_section_data_management">Data Management</string>
     <string name="settings_delete_all_data">Delete All Data</string>

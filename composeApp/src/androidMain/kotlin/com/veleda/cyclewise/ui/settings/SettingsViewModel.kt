@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
+import com.veleda.cyclewise.androidData.local.database.RekeyVerificationFailedException
 import com.veleda.cyclewise.di.SESSION_SCOPE
 import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
@@ -59,6 +60,7 @@ sealed interface SettingsEffect {
  * @property changePassphraseError        Error key for the change passphrase dialog (`"wrong_current"`,
  *                                        `"too_short"`, `"mismatch"`, or `null`).
  * @property isChangingPassphrase         Whether a passphrase change is currently in progress.
+ * @property showPassphraseSuccessDialog Whether the post-change success dialog is visible.
  * @property showDeleteFirstConfirmation  Whether the first "Delete All Data?" warning dialog is visible.
  * @property showDeleteSecondConfirmation Whether the second "type DELETE" confirmation dialog is visible.
  * @property deleteConfirmText            Current text in the second dialog's confirmation field.
@@ -73,6 +75,7 @@ data class GeneralSettingsState(
     val showChangePassphraseDialog: Boolean = false,
     val changePassphraseError: String? = null,
     val isChangingPassphrase: Boolean = false,
+    val showPassphraseSuccessDialog: Boolean = false,
     val showDeleteFirstConfirmation: Boolean = false,
     val showDeleteSecondConfirmation: Boolean = false,
     val deleteConfirmText: String = "",
@@ -335,11 +338,28 @@ class SettingsViewModel(
 
             is SettingsEvent.ChangePassphraseDismissed ->
                 _generalState.update {
-                    it.copy(showChangePassphraseDialog = false, changePassphraseError = null)
+                    it.copy(
+                        showChangePassphraseDialog = false,
+                        changePassphraseError = null,
+                        showPassphraseSuccessDialog = false,
+                    )
                 }
 
             is SettingsEvent.ChangePassphraseSubmitted ->
                 handleChangePassphrase(event)
+
+            is SettingsEvent.ChangePassphraseSuccessAcknowledged -> {
+                _generalState.update {
+                    it.copy(
+                        showChangePassphraseDialog = false,
+                        showPassphraseSuccessDialog = false,
+                    )
+                }
+                viewModelScope.launch {
+                    getKoin().getScopeOrNull("session")?.close()
+                    _effect.emit(SettingsEffect.PassphraseChanged)
+                }
+            }
 
             is SettingsEvent.TopSymptomsCountChanged -> {
                 _generalState.update { it.copy(topSymptomsCount = event.count) }
@@ -633,6 +653,9 @@ class SettingsViewModel(
         viewModelScope.launch {
             val errorKey: String? = try {
                 withContext(Dispatchers.IO) { executePassphraseChange(event) }
+            } catch (e: RekeyVerificationFailedException) {
+                Log.e("SettingsVM", "Change passphrase verification failed: ${e.message}")
+                "verification_failed"
             } catch (e: Exception) {
                 Log.e("SettingsVM", "Change passphrase failed: ${e.message}")
                 "failed"
@@ -645,12 +668,11 @@ class SettingsViewModel(
             } else {
                 _generalState.update {
                     it.copy(
-                        showChangePassphraseDialog = false,
                         isChangingPassphrase = false,
                         changePassphraseError = null,
+                        showPassphraseSuccessDialog = true,
                     )
                 }
-                _effect.emit(SettingsEffect.PassphraseChanged)
             }
         }
     }
@@ -662,6 +684,10 @@ class SettingsViewModel(
      * of opening a second raw SQLCipher connection (which would conflict with the Room-held
      * database file). After a successful rekey, updates the fingerprint so subsequent changes
      * in the same session work correctly.
+     *
+     * Both the old and new keys are passed to [PeriodDatabase.changeEncryptionKey] so it can
+     * attempt a rollback if post-rekey verification fails. The fingerprint is updated only
+     * **after** verified success.
      */
     private suspend fun executePassphraseChange(
         event: SettingsEvent.ChangePassphraseSubmitted,
@@ -674,20 +700,27 @@ class SettingsViewModel(
         val currentKey = passphraseService.deriveKey(event.current)
         val currentValid = try {
             fingerprintHolder.matches(currentKey)
-        } finally {
+        } catch (e: Exception) {
             currentKey.fill(0)
+            throw e
         }
 
-        if (!currentValid) return "wrong_current"
+        if (!currentValid) {
+            currentKey.fill(0)
+            return "wrong_current"
+        }
 
+        // currentKey is kept alive for rollback inside changeEncryptionKey
         val newKey = passphraseService.deriveKey(event.newPassphrase)
-        try {
-            val db = sessionScope.get<PeriodDatabase>()
-            db.changeEncryptionKey(newKey.copyOf())
-            fingerprintHolder.store(newKey)
-        } finally {
-            newKey.fill(0)
-        }
+        val context = getKoin().get<android.content.Context>()
+        val db = sessionScope.get<PeriodDatabase>()
+        // changeEncryptionKey zeroizes both key copies in its finally block
+        db.changeEncryptionKey(context, currentKey.copyOf(), newKey.copyOf())
+
+        // Rekey verified — update fingerprint with the new key
+        fingerprintHolder.store(newKey)
+        newKey.fill(0)
+        currentKey.fill(0)
 
         return null
     }

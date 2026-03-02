@@ -386,8 +386,15 @@ private fun PasswordField(
     )
 }
 
+/** Steps in the change-passphrase dialog flow. */
+private enum class PassphraseDialogStep { INPUT, CONFIRM, SUCCESS }
+
 /**
- * Dialog for changing the database encryption passphrase.
+ * Three-step dialog for changing the database encryption passphrase.
+ *
+ * 1. **INPUT** — Three password fields with local validation.
+ * 2. **CONFIRM** — "Are you sure?" warning before executing the rekey.
+ * 3. **SUCCESS** — Non-dismissable confirmation showing the new passphrase one last time.
  *
  * Passphrase text values are stored in local `remember` state (not in the ViewModel)
  * so they are never persisted and are discarded when the dialog is dismissed.
@@ -403,52 +410,165 @@ private fun ChangePassphraseDialog(
     var current by remember { mutableStateOf("") }
     var newPassphrase by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
+    var step by remember { mutableStateOf(PassphraseDialogStep.INPUT) }
 
-    val submitEnabled = current.isNotBlank()
-            && newPassphrase.length >= 8
-            && confirmation.isNotBlank()
-            && !state.isChangingPassphrase
+    // If the ViewModel reports an error while on the CONFIRM step, reset to INPUT
+    LaunchedEffect(state.changePassphraseError) {
+        if (state.changePassphraseError != null && step == PassphraseDialogStep.CONFIRM) {
+            step = PassphraseDialogStep.INPUT
+        }
+    }
 
-    AlertDialog(
-        onDismissRequest = {
-            if (!state.isChangingPassphrase) onEvent(SettingsEvent.ChangePassphraseDismissed)
-        },
-        title = { Text(stringResource(R.string.settings_change_passphrase_title)) },
-        text = {
-            ChangePassphraseFields(
-                state = state,
-                current = current,
-                onCurrentChange = { current = it },
-                newPassphrase = newPassphrase,
-                onNewPassphraseChange = { newPassphrase = it },
-                confirmation = confirmation,
-                onConfirmationChange = { confirmation = it },
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onEvent(
-                        SettingsEvent.ChangePassphraseSubmitted(current, newPassphrase, confirmation)
+    // Transition to SUCCESS when the ViewModel signals verified success
+    LaunchedEffect(state.showPassphraseSuccessDialog) {
+        if (state.showPassphraseSuccessDialog) {
+            step = PassphraseDialogStep.SUCCESS
+        }
+    }
+
+    when (step) {
+        PassphraseDialogStep.INPUT -> {
+            val submitEnabled = current.isNotBlank()
+                    && newPassphrase.length >= 8
+                    && confirmation.isNotBlank()
+                    && !state.isChangingPassphrase
+
+            AlertDialog(
+                onDismissRequest = {
+                    if (!state.isChangingPassphrase) onEvent(SettingsEvent.ChangePassphraseDismissed)
+                },
+                title = { Text(stringResource(R.string.settings_change_passphrase_title)) },
+                text = {
+                    ChangePassphraseFields(
+                        state = state,
+                        current = current,
+                        onCurrentChange = { current = it },
+                        newPassphrase = newPassphrase,
+                        onNewPassphraseChange = { newPassphrase = it },
+                        confirmation = confirmation,
+                        onConfirmationChange = { confirmation = it },
                     )
                 },
-                enabled = submitEnabled,
-            ) {
-                Text(stringResource(R.string.settings_change_passphrase_submit))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = { onEvent(SettingsEvent.ChangePassphraseDismissed) },
-                enabled = !state.isChangingPassphrase,
-            ) {
-                Text(stringResource(R.string.settings_delete_first_cancel))
-            }
+                confirmButton = {
+                    Button(
+                        onClick = { step = PassphraseDialogStep.CONFIRM },
+                        enabled = submitEnabled,
+                    ) {
+                        Text(stringResource(R.string.settings_change_passphrase_submit))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { onEvent(SettingsEvent.ChangePassphraseDismissed) },
+                        enabled = !state.isChangingPassphrase,
+                    ) {
+                        Text(stringResource(R.string.settings_delete_first_cancel))
+                    }
+                }
+            )
         }
-    )
+
+        PassphraseDialogStep.CONFIRM -> {
+            AlertDialog(
+                onDismissRequest = {
+                    if (!state.isChangingPassphrase) step = PassphraseDialogStep.INPUT
+                },
+                title = { Text(stringResource(R.string.settings_change_passphrase_confirm_title)) },
+                text = {
+                    val dims = LocalDimensions.current
+                    Column(verticalArrangement = Arrangement.spacedBy(dims.md)) {
+                        Text(stringResource(R.string.settings_change_passphrase_confirm_body))
+                        if (state.isChangingPassphrase) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(dims.md),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                Text(stringResource(R.string.settings_change_passphrase_progress))
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onEvent(
+                                SettingsEvent.ChangePassphraseSubmitted(
+                                    current, newPassphrase, confirmation,
+                                )
+                            )
+                        },
+                        enabled = !state.isChangingPassphrase,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        ),
+                    ) {
+                        Text(stringResource(R.string.settings_change_passphrase_confirm_button))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { step = PassphraseDialogStep.INPUT },
+                        enabled = !state.isChangingPassphrase,
+                    ) {
+                        Text(stringResource(R.string.settings_change_passphrase_back))
+                    }
+                }
+            )
+        }
+
+        PassphraseDialogStep.SUCCESS -> {
+            var passphraseVisible by remember { mutableStateOf(false) }
+
+            AlertDialog(
+                onDismissRequest = { /* non-dismissable */ },
+                title = { Text(stringResource(R.string.settings_change_passphrase_success_title)) },
+                text = {
+                    val dims = LocalDimensions.current
+                    Column(verticalArrangement = Arrangement.spacedBy(dims.md)) {
+                        Text(
+                            stringResource(R.string.settings_change_passphrase_success_warning),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        OutlinedTextField(
+                            value = newPassphrase,
+                            onValueChange = { /* read-only */ },
+                            readOnly = true,
+                            label = { Text(stringResource(R.string.settings_change_passphrase_new_label)) },
+                            visualTransformation = if (passphraseVisible) VisualTransformation.None
+                            else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                TextButton(onClick = { passphraseVisible = !passphraseVisible }) {
+                                    Text(
+                                        stringResource(
+                                            if (passphraseVisible) R.string.passphrase_hide
+                                            else R.string.passphrase_show
+                                        ),
+                                        style = MaterialTheme.typography.labelMedium,
+                                    )
+                                }
+                            },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onEvent(SettingsEvent.ChangePassphraseSuccessAcknowledged)
+                        },
+                    ) {
+                        Text(stringResource(R.string.settings_change_passphrase_success_acknowledge))
+                    }
+                },
+            )
+        }
+    }
 }
 
-/** The three password fields and optional progress indicator inside [ChangePassphraseDialog]. */
+/** The three password fields, general error display, and optional progress indicator. */
 @Composable
 private fun ChangePassphraseFields(
     state: GeneralSettingsState,
@@ -496,13 +616,30 @@ private fun ChangePassphraseFields(
             errorText = if (error == "mismatch")
                 stringResource(R.string.settings_change_passphrase_error_mismatch) else null,
         )
+
+        // General (non-field-specific) errors
+        if (error == "failed") {
+            Text(
+                stringResource(R.string.settings_change_passphrase_error_failed),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        if (error == "verification_failed") {
+            Text(
+                stringResource(R.string.settings_change_passphrase_error_verification_failed),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+
         if (state.isChangingPassphrase) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(dims.md),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                Text(stringResource(R.string.passphrase_unlocking))
+                Text(stringResource(R.string.settings_change_passphrase_progress))
             }
         }
     }

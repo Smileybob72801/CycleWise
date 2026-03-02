@@ -84,20 +84,21 @@ internal fun migrateLegacyZeroKeyIfNeeded(context: Context, correctKey: ByteArra
         return
     }
 
-    val zeroHex = ByteArray(32).joinToString("") { "%02x".format(it) }
+    val zeroKey = ByteArray(32)
     try {
         net.sqlcipher.database.SQLiteDatabase.loadLibs(context)
         val db = net.sqlcipher.database.SQLiteDatabase.openDatabase(
             dbFile.absolutePath,
-            "x'$zeroHex'",
+            zeroKey,
             null,   // cursor factory
             net.sqlcipher.database.SQLiteDatabase.OPEN_READWRITE,
+            null,   // hook
+            null,   // errorHandler
         )
         try {
-            val correctHex = correctKey.joinToString("") { "%02x".format(it) }
-            db.rawQuery("PRAGMA rekey = \"x'$correctHex'\"", null).use { cursor ->
-                cursor.moveToFirst()
-            }
+            val rekeyMethod = db.javaClass.getDeclaredMethod("rekey", ByteArray::class.java)
+            rekeyMethod.isAccessible = true
+            rekeyMethod.invoke(db, correctKey)
             Log.i("ZeroKeyMigration", "Legacy zero-key database re-encrypted successfully.")
         } finally {
             db.close()

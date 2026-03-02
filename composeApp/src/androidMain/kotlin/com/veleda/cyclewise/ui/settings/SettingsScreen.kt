@@ -77,6 +77,9 @@ fun SettingsScreen(navController: NavController) {
 
                 is SettingsEffect.PassphraseChanged -> {
                     Toast.makeText(context, passphraseChangedMessage, Toast.LENGTH_SHORT).show()
+                    navController.navigate(NavRoute.Passphrase.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             }
         }

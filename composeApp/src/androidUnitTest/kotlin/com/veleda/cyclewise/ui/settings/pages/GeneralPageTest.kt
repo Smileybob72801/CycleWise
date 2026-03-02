@@ -330,8 +330,63 @@ class GeneralPageTest {
                 isChangingPassphrase = true,
             ),
         )
-        composeTestRule.onNodeWithText("Unlocking", substring = true, ignoreCase = true)
+        composeTestRule.onNodeWithText("Changing passphrase", substring = true, ignoreCase = true)
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun changePassphraseDialog_WHEN_errorFailed_THEN_generalErrorDisplayed() {
+        setContent(
+            state = GeneralSettingsState(
+                showChangePassphraseDialog = true,
+                changePassphraseError = "failed",
+            ),
+        )
+        composeTestRule.onNodeWithText("Something went wrong", substring = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun changePassphraseDialog_WHEN_errorVerificationFailed_THEN_generalErrorDisplayed() {
+        setContent(
+            state = GeneralSettingsState(
+                showChangePassphraseDialog = true,
+                changePassphraseError = "verification_failed",
+            ),
+        )
+        composeTestRule.onNodeWithText("could not be verified", substring = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun changePassphraseSuccessDialog_WHEN_showTrue_THEN_warningAndAcknowledgeDisplayed() {
+        setContent(
+            state = GeneralSettingsState(
+                showChangePassphraseDialog = true,
+                showPassphraseSuccessDialog = true,
+            ),
+        )
+        composeTestRule.onNodeWithText("last chance", substring = true, ignoreCase = true)
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("I've Saved My Passphrase", substring = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun changePassphraseSuccessDialog_WHEN_acknowledged_THEN_dispatchesEvent() {
+        val events = mutableListOf<SettingsEvent>()
+        setContent(
+            state = GeneralSettingsState(
+                showChangePassphraseDialog = true,
+                showPassphraseSuccessDialog = true,
+            ),
+            onEvent = { events.add(it) },
+        )
+        composeTestRule.onNodeWithText("I've Saved My Passphrase", substring = true)
+            .performClick()
+        assert(events.any { it is SettingsEvent.ChangePassphraseSuccessAcknowledged }) {
+            "Expected ChangePassphraseSuccessAcknowledged event"
+        }
     }
 
     // endregion

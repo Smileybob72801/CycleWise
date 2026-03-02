@@ -40,6 +40,9 @@ sealed interface SettingsEvent {
         val confirmation: String,
     ) : SettingsEvent
 
+    /** User acknowledged the passphrase change success dialog and confirmed they saved the new passphrase. */
+    data object ChangePassphraseSuccessAcknowledged : SettingsEvent
+
     // ── Insights ─────────────────────────────────────────────────────
 
     /** User adjusted the "top symptoms" slider (1-5). */

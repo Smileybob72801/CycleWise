@@ -86,28 +86,80 @@ abstract class PeriodDatabase : RoomDatabase() {
     abstract fun waterIntakeDao(): WaterIntakeDao
 
     /**
-     * Re-encrypts the database with a new passphrase-derived key using SQLCipher's `PRAGMA rekey`.
+     * Re-encrypts the database with a new passphrase-derived key using raw SQLCipher's
+     * native `rekey(byte[])` method.
      *
-     * The database must already be open (via [openHelper.writableDatabase]) before calling this
-     * method. The rekey operation replaces the encryption key in-place without closing or
-     * re-creating the database file. Uses `query()` instead of `execSQL()` because SQLCipher
-     * classifies `PRAGMA` as a query-type statement and rejects it from `execSQL()`.
+     * This method **closes** the Room database first to release the file lock, then opens
+     * a raw SQLCipher connection with [oldKey] via the `byte[]` overload of `openDatabase`
+     * (which passes the bytes to `sqlite3_key()` — SQLCipher applies PBKDF2 since the key
+     * is 32 bytes and does not match the hex literal format). It then calls `rekey(byte[])`
+     * via reflection (the method is private in SQLCipher 4.5.x but calls `sqlite3_rekey()`
+     * with identical byte-array semantics as `sqlite3_key()`), ensuring PBKDF2 is applied
+     * consistently for both open and rekey operations.
      *
-     * **Security:** The [newKey] array is zeroized in a `finally` block after the PRAGMA
-     * executes, regardless of success or failure. The caller should also zeroize any copies
-     * of the key it holds.
+     * **Why reflection?** SQLCipher 4.5.4 exposes `changePassword(String)` and
+     * `changePassword(char[])` publicly, but both convert through modified UTF-8 encoding
+     * (`key_mutf8`), which differs from the raw `byte[]` path used by [SupportFactory].
+     * Only the private `native void rekey(byte[])` matches the `native void key(byte[])`
+     * path that [SupportFactory] triggers, guaranteeing the same PBKDF2 derivation.
      *
-     * @param newKey 32-byte AES key derived from the new passphrase.
-     *               **Consumed and zeroized by this method** — do not reuse after calling.
-     * @throws android.database.SQLException if the rekey operation fails.
+     * **Important:** After this method returns, the Room [PeriodDatabase] instance is
+     * **closed and stale**. The caller must recreate the session (close the Koin session
+     * scope and force re-authentication) so that a fresh [PeriodDatabase] is opened with
+     * the new key via [SupportFactory].
+     *
+     * **Security:** Both [oldKey] and [newKey] arrays are zeroized in a `finally` block after
+     * the operation completes, regardless of success or failure. The caller should also zeroize
+     * any copies of the keys it holds.
+     *
+     * @param context application context for resolving the database file path and loading
+     *                SQLCipher native libraries.
+     * @param oldKey  32-byte AES key derived from the current passphrase (needed for opening
+     *                the raw connection and for rollback).
+     *                **Consumed and zeroized by this method** — do not reuse after calling.
+     * @param newKey  32-byte AES key derived from the new passphrase.
+     *                **Consumed and zeroized by this method** — do not reuse after calling.
+     * @throws RekeyVerificationFailedException if the post-rekey verification fails (with or
+     *         without successful rollback).
      */
-    fun changeEncryptionKey(newKey: ByteArray) {
-        val hex = newKey.joinToString("") { "%02x".format(it) }
+    fun changeEncryptionKey(context: Context, oldKey: ByteArray, newKey: ByteArray) {
+        val dbFile = context.getDatabasePath("cyclewise.db")
         try {
-            openHelper.writableDatabase.query("PRAGMA rekey = \"x'$hex'\"").use { cursor ->
-                cursor.moveToFirst()
+            // Close Room's connection to release the file lock
+            close()
+
+            net.sqlcipher.database.SQLiteDatabase.loadLibs(context)
+            val rawDb = net.sqlcipher.database.SQLiteDatabase.openDatabase(
+                dbFile.absolutePath,
+                oldKey,
+                null,
+                net.sqlcipher.database.SQLiteDatabase.OPEN_READWRITE,
+                null,   // hook
+                null,   // errorHandler
+            )
+            try {
+                rekeyRaw(rawDb, newKey)
+                // Verify the new key works
+                rawDb.rawQuery("SELECT count(*) FROM sqlite_master", null)
+                    .use { it.moveToFirst() }
+            } catch (e: Exception) {
+                try {
+                    rekeyRaw(rawDb, oldKey)
+                } catch (rollback: Exception) {
+                    throw RekeyVerificationFailedException(
+                        "Rekey failed and rollback also failed",
+                        e,
+                    )
+                }
+                throw RekeyVerificationFailedException(
+                    "Rekey failed; rolled back to old key",
+                    e,
+                )
+            } finally {
+                rawDb.close()
             }
         } finally {
+            oldKey.fill(0)
             newKey.fill(0)
         }
     }
@@ -176,3 +228,34 @@ abstract class PeriodDatabase : RoomDatabase() {
         }
     }
 }
+
+/**
+ * Calls SQLCipher's private `native void rekey(byte[])` via reflection.
+ *
+ * This is the only way to pass a raw `byte[]` key to `sqlite3_rekey()` in SQLCipher
+ * 4.5.x, which does not expose a public `changePassword(byte[])` method. The public
+ * `changePassword(String)` and `changePassword(char[])` use modified UTF-8 encoding
+ * (`key_mutf8`), which differs from the raw `byte[]` path used by [SupportFactory]
+ * via `key(byte[])`. Using the wrong encoding produces a different derived key, locking
+ * the user out on next login.
+ *
+ * @param db     an open [net.sqlcipher.database.SQLiteDatabase] instance.
+ * @param newKey the new 32-byte key to pass to `sqlite3_rekey()`.
+ * @throws IllegalStateException if the `rekey(byte[])` method is not found (API change).
+ */
+private fun rekeyRaw(db: net.sqlcipher.database.SQLiteDatabase, newKey: ByteArray) {
+    val rekeyMethod = db.javaClass.getDeclaredMethod("rekey", ByteArray::class.java)
+    rekeyMethod.isAccessible = true
+    rekeyMethod.invoke(db, newKey)
+}
+
+/**
+ * Thrown when the post-rekey verification query fails after re-encryption.
+ *
+ * The message indicates whether a rollback to the old key succeeded. If rollback also
+ * failed, the database may be in an indeterminate encryption state.
+ */
+class RekeyVerificationFailedException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
