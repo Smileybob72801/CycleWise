@@ -128,7 +128,7 @@ The repository has two Gradle modules:
 shared/src/commonMain/kotlin/com/veleda/cyclewise/domain/
 ├── models/        # Period, DailyEntry, Symptom, enums
 ├── usecases/      # StartNewPeriodUseCase, EndPeriodUseCase, etc.
-├── insights/      # InsightEngine + 6 generators
+├── insights/      # InsightEngine + generators
 ├── repository/    # PeriodRepository interface
 ├── providers/     # SymptomLibraryProvider, MedicationLibraryProvider
 └── services/      # PassphraseService (abstract)
@@ -142,7 +142,7 @@ shared/src/commonMain/kotlin/com/veleda/cyclewise/domain/
 | `composeApp/.../MainActivity.kt` | Android `Activity` entry point — initializes Koin and hosts `CycleWiseApp` |
 | `composeApp/.../ui/nav/NavRoutes.kt` | Defines the navigation routes and the four-tab bottom navigation bar |
 
-For the full directory tree, see [1.2 Module Structure](#12-module-structure).
+For the module breakdown, see [1.2 Module Structure](#12-module-structure).
 
 ## 0.3 How Do I Build and Run It?
 
@@ -196,10 +196,8 @@ For detailed run instructions, see [4.1 How to Run the Project](#41-how-to-run-t
 
 ## 0.4 Can I Just Get an APK?
 
-Not yet — the project is in early development and there is no pre-built binary or app
-store listing at this stage. An app store release is planned for the future.
-
-For now, you need to build from source. If you followed
+The project is preparing for its initial Play Store release. Until it is published,
+you need to build from source. If you followed
 [0.3](#03-how-do-i-build-and-run-it), you already have an APK sitting in
 `composeApp/build/outputs/apk/debug/`.
 
@@ -234,7 +232,7 @@ will never see a hardcoded version string in a `build.gradle.kts` file.
 | Library | What it does | Why it is here |
 |---------|-------------|----------------|
 | Jetpack Compose | Declarative UI toolkit | All screens are `@Composable` functions |
-| Room | SQLite ORM with compile-time query verification | Type-safe database access for 8 tables |
+| Room | SQLite ORM with compile-time query verification | Type-safe database access |
 | SQLCipher | Transparent AES-256 encryption for SQLite | Encrypts the entire database at rest |
 | Koin | Lightweight dependency injection | Wires all layers together; supports session scoping |
 | BouncyCastle + Argon2id | Cryptographic key derivation | Derives the database key from the user's passphrase |
@@ -419,205 +417,40 @@ include(":shared")
 
 Contains platform-agnostic domain logic. Zero Android dependencies in `commonMain`.
 
-| Package | Contents |
-|---------|----------|
-| `domain/models/` | `Period`, `DailyEntry`, `FullDailyLog`, `Symptom`, `Medication`, `PeriodLog`, `SymptomLog`, `MedicationLog`, `WaterIntake`, `DayDetails`, `CyclePhase`, `EducationalArticle`, enums (`FlowIntensity`, `PeriodColor`, `PeriodConsistency`, `SymptomCategory`, `ArticleCategory`) |
+| Package | What lives here |
+|---------|-----------------|
+| `domain/models/` | Domain data classes (e.g., `Period`, `DailyEntry`, `FullDailyLog`) and enums (e.g., `FlowIntensity`, `SymptomCategory`) |
 | `domain/repository/` | `PeriodRepository` interface — the single data access contract |
-| `domain/usecases/` | `StartNewPeriodUseCase`, `EndPeriodUseCase`, `GetOrCreateDailyLogUseCase`, `AutoCloseOngoingPeriodUseCase`, `DebugSeederUseCase`, `TutorialSeederUseCase`, `TutorialCleanupUseCase`, `SeedManifest` |
-| `domain/insights/` | `InsightEngine`, `Insight` sealed interface, `InsightGenerator` interface |
-| `domain/insights/generators/` | 6 generators: `CycleLengthAverageGenerator`, `NextPeriodPredictionGenerator`, `SymptomRecurrenceGenerator`, `MoodPhasePatternGenerator`, `CycleLengthTrendGenerator`, `SymptomPhasePatternGenerator` |
-| `domain/providers/` | `SymptomLibraryProvider`, `MedicationLibraryProvider`, `EducationalContentProvider` |
-| `domain/services/` | `PassphraseService` interface |
+| `domain/usecases/` | One class per business operation (e.g., `StartNewPeriodUseCase`, `AutoCloseOngoingPeriodUseCase`, `TutorialSeederUseCase`) |
+| `domain/insights/` | `InsightEngine` orchestrator, `Insight` sealed interface, and a `generators/` subdirectory with one generator per insight type |
+| `domain/providers/` | Reactive library providers (e.g., `SymptomLibraryProvider`, `EducationalContentProvider`) |
+| `domain/services/` | `PassphraseService` interface (abstract KDF contract) |
 
 ### `composeApp/` — Android Application
 
 Contains the Jetpack Compose UI and all Android-specific implementations.
 
-| Package | Contents |
-|---------|----------|
-| `androidData/local/dao/` | 8 Room DAOs: `PeriodDao`, `DailyEntryDao`, `SymptomDao`, `MedicationDao`, `MedicationLogDao`, `SymptomLogDao`, `PeriodLogDao`, `WaterIntakeDao` |
-| `androidData/local/database/` | `PeriodDatabase` (Room + SQLCipher), `migrations/` (10 migration objects, v1 through v11) |
-| `androidData/local/entities/` | 8 Room entities + `Converters` + `Mappers` |
-| `androidData/local/draft/` | `LockedWaterDraft` — persists water intake while locked |
-| `androidData/repository/` | `RoomPeriodRepository` — implements `PeriodRepository` |
-| `ui/auth/` | `PassphraseScreen`, `PassphraseViewModel`, `WaterTrackerViewModel`, `WaterDraftSyncer` |
-| `ui/tracker/` | `TrackerScreen`, `TrackerViewModel`, `TrackerEvent`, `CalendarDayInfo`, `CalendarDay`, `DayBoundsRegistry`, `CyclePhaseColors`, `LogSummarySheet` |
-| `ui/log/` | `DailyLogScreen`, `DailyLogViewModel`, `DailyLogEvent` |
-| `ui/insights/` | `InsightsScreen`, `InsightsViewModel` |
-| `ui/settings/` | `SettingsScreen`, `SettingsViewModel`, `SettingsEvent`, `PhaseColorSettings`, `PhaseVisibilitySettings`, `ReminderSettings`, `PeriodPrivacyDialog` |
-| `ui/coachmark/` | `CoachMarkDef`, `CoachMarkOverlay`, `CoachMarkState`, `HintPreferences` — post-login tutorial overlay system |
-| `ui/components/` | `EducationalBottomSheet`, `InfoButton`, `MarkdownText`, `MedicalDisclaimer`, `SourceAttribution` — reusable UI components |
-| `ui/nav/` | `NavRoutes`, `BottomNavBar`, `CycleWiseAppUI` (NavHost + bottom navigation) |
-| `ui/theme/` | `Color.kt`, `CyclePhasePalette.kt`, `Dimensions.kt`, `Shape.kt`, `Theme.kt`, `Type.kt` |
-| `ui/utils/` | `DateFormatter.kt` — platform-specific date formatting |
-| `androidData/local/` | `EducationalContentLoader` — loads educational articles from `res/raw/educational_content.json` |
+| Package | What lives here |
+|---------|-----------------|
+| `androidData/local/dao/` | Room DAOs — one per database table (e.g., `PeriodDao`, `DailyEntryDao`) |
+| `androidData/local/database/` | `PeriodDatabase` (Room + SQLCipher) and `migrations/` directory with one migration object per schema version step |
+| `androidData/local/entities/` | Room `@Entity` classes, `Converters` (type converters), and `Mappers` (entity ↔ domain) |
+| `androidData/local/draft/` | `LockedWaterDraft` — persists water intake while the DB is locked |
+| `androidData/repository/` | `RoomPeriodRepository` — implements `PeriodRepository` with Room |
+| `ui/auth/` | Passphrase/unlock screen, `WaterTrackerViewModel`, `WaterDraftSyncer` |
+| `ui/tracker/` | Calendar screen — `TrackerScreen`, `TrackerViewModel`, `TrackerEvent`, and supporting composables |
+| `ui/log/` | Daily log screen — `DailyLogScreen`, `DailyLogViewModel`, `DailyLogEvent` |
+| `ui/insights/` | Insights screen — `InsightsScreen`, `InsightsViewModel` |
+| `ui/settings/` | Settings screen — `SettingsScreen`, `SettingsViewModel`, `SettingsEvent`, and sub-page composables |
+| `ui/coachmark/` | Post-login tutorial overlay system — `CoachMarkDef`, `CoachMarkOverlay`, `CoachMarkState`, `HintPreferences` |
+| `ui/components/` | Reusable UI components (e.g., `EducationalBottomSheet`, `InfoButton`, `MarkdownText`) |
+| `ui/nav/` | Navigation routes, bottom nav bar, and `NavHost` wiring |
+| `ui/theme/` | Theme definitions — colors, shapes, typography, dimensions |
 | `di/` | `AppModule.kt` — all Koin DI wiring |
-| `services/` | `PassphraseServiceAndroid`, `SaltStorage` |
-| `session/` | `SessionBus` |
-| `settings/` | `AppSettings` |
-| `reminders/` | `ReminderScheduler`, `ReminderNotifier`, `workers/` (3 WorkManager workers) |
-
-### Full Directory Tree
-
-```
-PeriodTracker/
-├── settings.gradle.kts              # Module declarations
-├── gradle/
-│   └── libs.versions.toml           # Version catalog
-├── docs/                            # All documentation
-│   ├── DeveloperOnboarding.md       # This file
-│   ├── ARCHITECTURE.md
-│   ├── CODE_STYLE.md
-│   ├── GIT_COMMIT_GUIDELINES.md
-│   ├── SECURITY_MODEL.md
-│   ├── ISSUE_WRITING_GUIDE.md
-│   ├── architecture/
-│   │   └── DOCUMENTATION_GUIDELINES.md
-│   └── testing/
-│       ├── RUNNING_TESTS.md
-│       └── TESTING_STRATEGY.md
-│
-├── shared/                          # KMP library module
-│   ├── build.gradle.kts
-│   └── src/
-│       ├── commonMain/kotlin/com/veleda/cyclewise/
-│       │   ├── Platform.kt                       # expect declarations
-│       │   └── domain/
-│       │       ├── models/
-│       │       │   ├── Period.kt
-│       │       │   ├── DailyEntry.kt
-│       │       │   ├── FullDailyLog.kt
-│       │       │   ├── Symptom.kt
-│       │       │   ├── Medication.kt
-│       │       │   ├── PeriodLog.kt
-│       │       │   ├── SymptomLog.kt
-│       │       │   ├── MedicationLog.kt
-│       │       │   ├── WaterIntake.kt
-│       │       │   ├── DayDetails.kt
-│       │       │   ├── CyclePhase.kt
-│       │       │   ├── EducationalArticle.kt      # EducationalArticle + ArticleCategory enum
-│       │       │   └── Enums.kt                  # FlowIntensity, PeriodColor, PeriodConsistency, SymptomCategory
-│       │       ├── repository/
-│       │       │   └── PeriodRepository.kt       # The single data access contract
-│       │       ├── usecases/
-│       │       │   ├── StartNewPeriodUseCase.kt
-│       │       │   ├── EndPeriodUseCase.kt
-│       │       │   ├── GetOrCreateDailyLogUseCase.kt
-│       │       │   ├── AutoCloseOngoingPeriodUseCase.kt
-│       │       │   ├── DebugSeederUseCase.kt
-│       │       │   ├── TutorialSeederUseCase.kt   # Seeds demo data for post-login walkthrough
-│       │       │   ├── TutorialCleanupUseCase.kt  # Deletes demo data after walkthrough
-│       │       │   └── SeedManifest.kt            # Tracks IDs of seeded tutorial data
-│       │       ├── insights/
-│       │       │   ├── InsightEngine.kt
-│       │       │   ├── Insight.kt
-│       │       │   └── generators/               # 6 insight generators
-│       │       ├── providers/
-│       │       │   ├── SymptomLibraryProvider.kt
-│       │       │   ├── MedicationLibraryProvider.kt
-│       │       │   └── EducationalContentProvider.kt  # Interface for educational articles
-│       │       └── services/
-│       │           └── PassPhraseService.kt      # Interface
-│       ├── androidMain/kotlin/com/veleda/cyclewise/
-│       │   └── Platform.android.kt               # actual for Android
-│       └── iosMain/kotlin/com/veleda/cyclewise/
-│           └── Platform.ios.kt                   # actual for iOS
-│
-├── composeApp/                      # Android application module
-│   ├── build.gradle.kts
-│   ├── schemas/                     # Room schema exports (JSON)
-│   └── src/androidMain/kotlin/com/veleda/cyclewise/
-│       ├── CycleWiseApp.kt                       # Application class + lifecycle observer
-│       ├── MainActivity.kt
-│       ├── di/
-│       │   └── AppModule.kt                      # All Koin DI wiring
-│       ├── androidData/
-│       │   ├── local/
-│       │   │   ├── EducationalContentLoader.kt   # Loads articles from res/raw JSON
-│       │   │   ├── dao/                          # 8 Room DAOs
-│       │   │   ├── database/
-│       │   │   │   ├── PeriodDatabase.kt
-│       │   │   │   └── migrations/               # 10 migration objects (v1→v11)
-│       │   │   ├── entities/                     # 8 Room entities + Converters + Mappers
-│       │   │   └── draft/
-│       │   │       └── LockedWaterDraft.kt
-│       │   └── repository/
-│       │       └── RoomPeriodRepository.kt
-│       ├── ui/
-│       │   ├── auth/
-│       │   │   ├── PassphraseScreen.kt
-│       │   │   ├── PassphraseViewModel.kt
-│       │   │   ├── WaterTrackerViewModel.kt
-│       │   │   └── WaterDraftSyncer.kt
-│       │   ├── coachmark/
-│       │   │   ├── CoachMarkDef.kt               # Hint definitions (key, message, nextKey)
-│       │   │   ├── CoachMarkOverlay.kt           # Full-screen overlay with spotlight cutout
-│       │   │   ├── CoachMarkState.kt             # State machine driving the hint chain
-│       │   │   └── HintPreferences.kt            # DataStore tracking which hints are seen
-│       │   ├── components/
-│       │   │   ├── EducationalBottomSheet.kt     # Bottom sheet for educational articles
-│       │   │   ├── InfoButton.kt                 # Tappable info icon triggering articles
-│       │   │   ├── MarkdownText.kt               # Renders markdown text in Compose
-│       │   │   ├── MedicalDisclaimer.kt          # Standard medical disclaimer banner
-│       │   │   └── SourceAttribution.kt          # Source citation for educational content
-│       │   ├── tracker/
-│       │   │   ├── TrackerScreen.kt
-│       │   │   ├── TrackerViewModel.kt
-│       │   │   ├── TrackerEvent.kt
-│       │   │   ├── CalendarDayInfo.kt
-│       │   │   ├── CalendarDay.kt
-│       │   │   ├── DayBoundsRegistry.kt
-│       │   │   ├── CyclePhaseColors.kt
-│       │   │   └── LogSummarySheet.kt
-│       │   ├── log/
-│       │   │   ├── DailyLogScreen.kt
-│       │   │   ├── DailyLogViewModel.kt
-│       │   │   └── DailyLogEvent.kt
-│       │   ├── insights/
-│       │   │   ├── InsightsScreen.kt
-│       │   │   └── InsightsViewModel.kt
-│       │   ├── settings/
-│       │   │   ├── SettingsScreen.kt
-│       │   │   ├── SettingsViewModel.kt
-│       │   │   ├── SettingsEvent.kt
-│       │   │   ├── PhaseColorSettings.kt
-│       │   │   ├── PhaseVisibilitySettings.kt
-│       │   │   ├── ReminderSettings.kt
-│       │   │   └── PeriodPrivacyDialog.kt
-│       │   ├── nav/
-│       │   │   ├── NavRoutes.kt
-│       │   │   ├── BottomNavBar.kt
-│       │   │   └── CycleWiseAppUI.kt             # NavHost + bottom navigation
-│       │   ├── theme/
-│       │   │   ├── Color.kt
-│       │   │   ├── CyclePhasePalette.kt
-│       │   │   ├── Dimensions.kt
-│       │   │   ├── Shape.kt
-│       │   │   ├── Theme.kt
-│       │   │   └── Type.kt
-│       │   └── utils/
-│       │       └── DateFormatter.kt
-│       ├── services/
-│       │   ├── PassphraseServiceAndroid.kt
-│       │   └── SaltStorage.kt
-│       ├── session/
-│       │   └── SessionBus.kt
-│       ├── settings/
-│       │   └── AppSettings.kt
-│       └── reminders/
-│           ├── ReminderScheduler.kt
-│           ├── ReminderNotifier.kt
-│           └── workers/
-│               ├── HydrationReminderWorker.kt
-│               ├── MedicationReminderWorker.kt
-│               └── PeriodPredictionWorker.kt
-│
-└── iosApp/                          # Xcode project (placeholder)
-    ├── iosApp.xcodeproj/
-    └── iosApp/
-        ├── ContentView.swift
-        └── iOSApp.swift
-```
+| `services/` | `PassphraseServiceAndroid` (Argon2 impl), `SaltStorage` |
+| `session/` | `SessionBus` — logout event bus |
+| `settings/` | `AppSettings` — DataStore preferences wrapper |
+| `reminders/` | `ReminderScheduler`, `ReminderNotifier`, and WorkManager workers |
 
 ---
 
@@ -625,21 +458,24 @@ PeriodTracker/
 
 ### Version Catalog
 
-All dependency versions are centralized in `gradle/libs.versions.toml`. Key versions:
+All dependency versions are centralized in `gradle/libs.versions.toml` — you will
+never see a hardcoded version string in a `build.gradle.kts` file. Key libraries:
 
-| Dependency | Version | Purpose |
-|-----------|---------|---------|
-| Kotlin | 2.2.0 | Language and compiler |
-| Compose Multiplatform | 1.8.2 | UI framework |
-| Room | 2.7.2 | Database ORM |
-| SQLCipher | 4.5.4 | AES-256 database encryption |
-| Koin | 4.1.0 | Dependency injection |
-| BouncyCastle | 1.81 | Argon2id KDF implementation |
-| kotlinx-datetime | 0.7.1 | Cross-platform date/time |
-| kotlinx-coroutines | 1.10.2 | Asynchronous programming |
-| MockK | 1.14.5 | Mocking in tests |
-| Turbine | 1.2.1 | Flow testing |
-| Robolectric | 4.16 | Android unit tests without device |
+| Library | Purpose |
+|---------|---------|
+| Kotlin | Language and compiler |
+| Compose Multiplatform | UI framework |
+| Room | Database ORM |
+| SQLCipher | AES-256 database encryption |
+| Koin | Dependency injection |
+| BouncyCastle | Argon2id KDF implementation |
+| kotlinx-datetime | Cross-platform date/time |
+| kotlinx-coroutines | Asynchronous programming |
+| MockK | Mocking in tests |
+| Turbine | Flow testing |
+| Robolectric | Android unit tests without device |
+
+> All versions are defined in [`gradle/libs.versions.toml`](../gradle/libs.versions.toml).
 
 ### Build Plugins
 
@@ -762,42 +598,33 @@ lifetimes with fundamentally different lifecycles:
 #### 1. Singleton Scope (lives for the app process)
 
 These objects are created once when the app starts and never destroyed until the
-process dies:
+process dies. Representative examples:
 
 | Component | Purpose |
 |-----------|---------|
 | `SaltStorage` | Persists 16-byte encryption salt in SharedPreferences |
-| `AppSettings` | DataStore-backed user preferences (autolock, top symptoms count) |
+| `AppSettings` | DataStore-backed user preferences |
 | `SessionBus` | SharedFlow event bus for logout/lock signals |
 | `PassphraseService` | Argon2id key derivation interface (bound to `PassphraseServiceAndroid`) |
-| `LockedWaterDraft` | Persists water intake edits while the DB is locked |
 | `InsightEngine` | Orchestrates insight generators (registered as `factory`, not `single` — a fresh instance is created each call, so no stale state accumulates) |
-| `ReminderScheduler` | Schedules medication, hydration, and prediction reminder workers |
-| `PassphraseViewModel` | Manages unlock flow (survives screen rotation) |
-| `WaterTrackerViewModel` | Manages water tracker on lock screen |
-| `SettingsViewModel` | Settings screen state (no DB access — depends only on `AppSettings` + `ReminderScheduler`) |
+
+See `di/AppModule.kt` for the full list of singleton registrations.
 
 #### 2. Session Scope (created on unlock, destroyed on logout/autolock)
 
 These objects are created _after_ the user enters the correct passphrase and the
-database is successfully opened. They are all destroyed together when the session ends:
+database is successfully opened. They are all destroyed together when the session ends.
+Representative examples:
 
 | Component | Purpose |
 |-----------|---------|
 | `PeriodDatabase` | SQLCipher-encrypted Room database |
-| 8 DAOs | `PeriodDao`, `DailyEntryDao`, `SymptomDao`, `MedicationDao`, `MedicationLogDao`, `SymptomLogDao`, `PeriodLogDao`, `WaterIntakeDao` |
+| DAOs (one per table) | e.g., `PeriodDao`, `DailyEntryDao`, `SymptomDao` |
 | `RoomPeriodRepository` | Implements `PeriodRepository` with Room |
-| `SymptomLibraryProvider` | Reactive stream of symptom library |
-| `MedicationLibraryProvider` | Reactive stream of medication library |
-| `EducationalContentProvider` | Educational articles for info buttons |
-| `GetOrCreateDailyLogUseCase` | Retrieves or creates blank daily log |
-| `DebugSeederUseCase` | Seeds database with test data |
-| `AutoCloseOngoingPeriodUseCase` | Auto-closes stale ongoing periods |
-| `TutorialSeederUseCase` | Seeds demo data for post-login walkthrough |
-| `TutorialCleanupUseCase` | Deletes demo data after walkthrough completes |
-| `TrackerViewModel` | Calendar/tracker screen state |
-| `DailyLogViewModel` | Daily log editing state |
-| `InsightsViewModel` | Insights screen state |
+| Use cases | e.g., `GetOrCreateDailyLogUseCase`, `AutoCloseOngoingPeriodUseCase` |
+| Session-scoped ViewModels | e.g., `TrackerViewModel`, `DailyLogViewModel`, `InsightsViewModel` |
+
+See `di/AppModule.kt`'s `scope(SESSION_SCOPE) { ... }` block for the full list.
 
 ### The SESSION_SCOPE Qualifier
 
@@ -816,7 +643,7 @@ scope(SESSION_SCOPE) {
     }
 
     scoped { get<PeriodDatabase>().periodDao() }
-    // ... 7 more DAOs ...
+    // ... remaining DAOs ...
 
     scoped<PeriodRepository> {
         RoomPeriodRepository(
@@ -1064,36 +891,25 @@ top of MVVM components:
 
 `TrackerViewModel` (`ui/tracker/TrackerViewModel.kt`) manages the calendar screen:
 
-**State:**
+**State** (see `ui/tracker/TrackerViewModel.kt` for the full definition):
 ```kotlin
 data class TrackerUiState(
     val periods: List<Period> = emptyList(),
-    val logForSheet: FullDailyLog? = null,
-    val periodIdForSheet: String? = null,
-    val symptomLibrary: List<Symptom> = emptyList(),
-    val medicationLibrary: List<Medication> = emptyList(),
     val dayDetails: Map<LocalDate, CalendarDayInfo> = emptyMap(),
     val showDeleteConfirmation: Boolean = false,
-    val periodIdToDelete: String? = null,
-    val waterCupsForSheet: Int? = null,
-    val educationalArticles: List<EducationalArticle>? = null,
+    // ... additional UI fields for sheets, libraries, etc.
 ) {
     val ongoingPeriod: Period? = periods.find { it.endDate == null }
 }
 ```
 
-**Events** (defined in `ui/tracker/TrackerEvent.kt`):
-1. `ScreenEntered` — Triggers auto-close of stale periods
-2. `DayTapped(date)` — Tap a day to view or create a log
-3. `PeriodMarkDay(date)` — Long-press to toggle period day
-4. `PeriodRangeDragged(anchorDate, releaseDate)` — Long-press-and-drag to mark/shrink a period range
-5. `DismissLogSheet` — Close the log summary bottom sheet
-6. `EditLogClicked(date)` — Navigate to edit the daily log
-7. `DeletePeriodRequested(periodId)` — Show delete confirmation
-8. `DeletePeriodConfirmed(periodId)` — Execute deletion
-9. `DeletePeriodDismissed` — Cancel deletion
-10. `ShowEducationalSheet(contentTag)` — Open educational content bottom sheet
-11. `DismissEducationalSheet` — Close educational content bottom sheet
+**Events** (see `ui/tracker/TrackerEvent.kt` for the full sealed interface):
+- `ScreenEntered` — Triggers auto-close of stale periods
+- `DayTapped(date)` — Tap a day to view or create a log
+- `PeriodMarkDay(date)` — Long-press to toggle period day
+- `PeriodRangeDragged(anchorDate, releaseDate)` — Long-press-and-drag to mark/shrink a period range
+- `DeletePeriodRequested(periodId)` / `DeletePeriodConfirmed` / `DeletePeriodDismissed` — Delete confirmation flow
+- ... and additional events for sheet dismissal, educational content, etc.
 
 **Dispatch:**
 ```kotlin
@@ -1163,14 +979,14 @@ a file, etc.).
 interface PeriodRepository {
     fun getAllPeriods(): Flow<List<Period>>
     suspend fun logPeriodDay(date: LocalDate)
-    // ...28 methods total
+    // ... see PeriodRepository.kt for the full contract
 }
 
 // In composeApp/ (data layer) — one possible implementation
 class RoomPeriodRepository(
     private val db: PeriodDatabase,
     private val periodDao: PeriodDao,
-    // ...7 more DAOs
+    // ... remaining DAOs
 ) : PeriodRepository {
     override fun getAllPeriods(): Flow<List<Period>> = // Room query
     override suspend fun logPeriodDay(date: LocalDate) = // Room transaction
@@ -1228,21 +1044,18 @@ val uiState: StateFlow<TrackerUiState>
 ### The Contract
 
 `PeriodRepository` (`shared/.../domain/repository/PeriodRepository.kt`) is the single
-data access contract for the entire app. It defines 28 methods grouped into:
+data access contract for the entire app. Its methods are grouped by domain concern:
 
-- **Period CRUD** (9 methods) — `getAllPeriods()`, `getPeriodById()`, `startNewPeriod()`,
-  `updatePeriodEndDate()`, `endPeriod()`, `getCurrentlyOngoingPeriod()`,
-  `createCompletedPeriod()`, `isDateRangeAvailable()`, `deletePeriod()`
-- **Period day marking** (2 methods) — `logPeriodDay()`, `unLogPeriodDay()` (4-scenario state machines)
-- **Daily log access** (4 methods) — `getFullLogForDate()`, `saveFullLog()`, `getLogsForMonth()`, `getAllLogs()`
-- **Calendar observation** (2 methods) — `observeAllPeriodDays()`, `observeDayDetails()`
-- **Symptom library** (4 methods) — `getSymptomLibrary()`, `createOrGetSymptomInLibrary()`,
-  `prepopulateSymptomLibrary()`, `getAllSymptomLogs()`
-- **Medication library** (3 methods) — `getMedicationLibrary()`, `createOrGetMedicationInLibrary()`,
-  `getAllMedicationLogs()`
-- **Water intake** (2 methods) — `upsertWaterIntake()`, `getWaterIntakeForDates()`
-- **Tutorial cleanup** (1 method) — `deleteSeedData()` (deletes tutorial demo data by exact IDs)
-- **Debug** (1 method) — `seedDatabaseForDebug()`
+- **Period CRUD** — e.g., `getAllPeriods()`, `startNewPeriod()`, `deletePeriod()`
+- **Period day marking** — `logPeriodDay()`, `unLogPeriodDay()` (4-scenario state machines)
+- **Daily log access** — e.g., `getFullLogForDate()`, `saveFullLog()`
+- **Calendar observation** — e.g., `observeAllPeriodDays()`, `observeDayDetails()`
+- **Symptom library** — e.g., `getSymptomLibrary()`, `createOrGetSymptomInLibrary()`
+- **Medication library** — e.g., `getMedicationLibrary()`, `createOrGetMedicationInLibrary()`
+- **Water intake** — `upsertWaterIntake()`, `getWaterIntakeForDates()`
+- **Tutorial / Debug** — `deleteSeedData()`, `seedDatabaseForDebug()`
+
+See the interface source for the complete method list.
 
 ### Data Flow Diagram
 
@@ -1268,7 +1081,7 @@ data access contract for the entire app. It defines 28 methods grouped into:
 │                         │                                        │
 │              ┌──────────┼──────────┐                             │
 │              │          │          │                              │
-│          PeriodDao  DailyEntryDao  ... (8 DAOs total)            │
+│          PeriodDao  DailyEntryDao  ... (one DAO per table)       │
 │              │          │          │                              │
 ├──────────────┼──────────┼──────────┼─────────────────────────────┤
 │                    Infrastructure                                 │
@@ -1553,7 +1366,7 @@ created and destroyed is essential.
 │  │  Koin Session Scope     │              .close()  │            │
 │  │  CREATED                │                  │     │            │
 │  │  ├─ PeriodDatabase      │                  │     │            │
-│  │  ├─ 8 DAOs              │                  │     │            │
+│  │  ├─ DAOs (one per table)│                  │     │            │
 │  │  ├─ Repository          │                  │     │            │
 │  │  ├─ Use Cases           │                  │     │            │
 │  │  └─ ViewModels          │                  │     │            │
@@ -1890,7 +1703,7 @@ operation rolls back.
 │  │  EndPeriodUseCase                                        │   │
 │  │  GetOrCreateDaily...     domain/insights/                │   │
 │  │  AutoCloseOngoing...     InsightEngine                   │   │
-│  │  DebugSeederUseCase      6 generators                    │   │
+│  │  DebugSeederUseCase      generators/                     │   │
 │  │  TutorialSeeder/Cleanup                                  │   │
 │  │                                                          │   │
 │  │  domain/providers/       Platform.kt                     │   │
@@ -1909,14 +1722,14 @@ operation rolls back.
 │  │  RoomPeriodRepository         TrackerScreen              │   │
 │  │                               DailyLogScreen             │   │
 │  │  androidData/local/dao/       InsightsScreen             │   │
-│  │  8 Room DAOs                  SettingsScreen             │   │
+│  │  Room DAOs (one per table)    SettingsScreen             │   │
 │  │                               PassphraseScreen           │   │
 │  │  androidData/local/database/                             │   │
 │  │  PeriodDatabase               di/AppModule.kt            │   │
-│  │  9 migrations                                            │   │
+│  │  migrations/                                              │   │
 │  │                               services/                  │   │
 │  │  androidData/local/entities/  PassphraseServiceAndroid    │   │
-│  │  8 Room entities              SaltStorage                │   │
+│  │  Room entities (one per table) SaltStorage               │   │
 │  │  Converters, Mappers                                     │   │
 │  │                               reminders/                 │   │
 │  │  ui/theme/                    ReminderScheduler           │   │
@@ -1992,33 +1805,14 @@ initialization. Library updates arrive as events, making the data flow auditable
 The ViewModel self-determines `isPeriodDay` by querying the repository during init,
 rather than relying on a navigation parameter.
 
-### The 20 Event Types
+### Event Types
 
-All events are defined in `ui/log/DailyLogEvent.kt` as a sealed interface:
-
-```kotlin
-sealed interface DailyLogEvent {
-    data class LogLoaded(...) : DailyLogEvent
-    data class LibraryUpdated(...) : DailyLogEvent
-    data class FlowIntensityChanged(val intensity: FlowIntensity?) : DailyLogEvent
-    data class MoodScoreChanged(val score: Int) : DailyLogEvent
-    data class EnergyLevelChanged(val level: Int) : DailyLogEvent
-    data class LibidoScoreChanged(val score: Int) : DailyLogEvent
-    data class PeriodColorChanged(val color: PeriodColor?) : DailyLogEvent
-    data class PeriodConsistencyChanged(val consistency: PeriodConsistency?) : DailyLogEvent
-    data class NoteChanged(val text: String) : DailyLogEvent
-    data class TagAdded(val tag: String) : DailyLogEvent
-    data class TagRemoved(val tag: String) : DailyLogEvent
-    data class SymptomToggled(val symptom: Symptom) : DailyLogEvent
-    data class SymptomNameChanged(val name: String) : DailyLogEvent
-    data class CreateAndAddSymptom(val name: String) : DailyLogEvent
-    data class MedicationToggled(val medication: Medication) : DailyLogEvent
-    data class MedicationCreatedAndAdded(val name: String) : DailyLogEvent
-    data class PeriodToggled(val isOnPeriod: Boolean) : DailyLogEvent
-    object WaterIncrement : DailyLogEvent
-    object WaterDecrement : DailyLogEvent
-}
-```
+All events are defined in `ui/log/DailyLogEvent.kt` as a sealed interface. Each event
+corresponds to a single user action in the daily log — field changes (e.g.,
+`FlowIntensityChanged`, `MoodScoreChanged`), library interactions (e.g.,
+`SymptomToggled`, `CreateAndAddSymptom`), period toggling (`PeriodToggled`), water
+tracking (`WaterIncrement` / `WaterDecrement`), and initialization events (`LogLoaded`,
+`LibraryUpdated`). See `DailyLogEvent.kt` for the complete sealed interface.
 
 > **PeriodLog lifecycle:** The `PeriodLog` is created (with null `flowIntensity`) by
 > `PeriodToggled` and deleted when the user toggles the period OFF. `FlowIntensityChanged`
@@ -2077,12 +1871,13 @@ initialization and supports pull-to-refresh for regeneration.
 
 ### Constructor
 
-The ViewModel takes 3 injected dependencies:
+The ViewModel receives its dependencies via Koin injection:
 ```kotlin
 class InsightsViewModel(
     private val periodRepository: PeriodRepository,
     private val insightEngine: InsightEngine,
-    private val appSettings: AppSettings
+    private val appSettings: AppSettings,
+    private val educationalContentProvider: EducationalContentProvider,
 ) : ViewModel()
 ```
 
@@ -2160,33 +1955,33 @@ portable to iOS without modification.
 ## 2.9 SettingsScreen and SettingsViewModel
 
 `SettingsViewModel` (`ui/settings/SettingsViewModel.kt`) manages all user preferences
-using the MVI pattern. It is **singleton-scoped** (no database dependency — depends
-only on `AppSettings` and `ReminderScheduler`).
+using the MVI pattern. It is **singleton-scoped** (no database dependency). See
+`SettingsViewModel.kt` for its current constructor parameters.
 
 ### Architecture
 
 - **State:** Four focused sub-state data classes — one per pager page — each exposed
   as a separate `StateFlow` to limit recomposition scope:
-  - `GeneralSettingsState` (9 fields) — autolock, top symptoms count, tutorial hint
-    reset, legal dialogs, and delete-all-data confirmation flow.
-  - `AppearanceSettingsState` (12 fields) — theme mode, summary toggles, phase visibility,
-    phase colors, and educational bottom sheet.
-  - `NotificationSettingsState` (13 fields) — period, medication, and hydration reminder
+  - `GeneralSettingsState` — autolock, top symptoms count, tutorial hint reset, legal
+    dialogs, and delete-all-data confirmation flow.
+  - `AppearanceSettingsState` — theme mode, summary toggles, phase visibility, phase
+    colors, and educational bottom sheet.
+  - `NotificationSettingsState` — period, medication, and hydration reminder
     configuration plus permission rationale and privacy dialog.
-  - `AboutSettingsState` (1 field) — about dialog visibility.
-- **Events:** `SettingsEvent` — a `sealed interface` with 28+ event types covering
-  every toggle, slider, color input, and dialog interaction.
+  - `AboutSettingsState` — about dialog visibility.
+- **Events:** `SettingsEvent` — a sealed interface covering every toggle, slider,
+  color input, and dialog interaction.
 - **Event routing:** `onEvent()` updates the relevant sub-state directly via
   `_xState.update { it.copy(...) }` and launches side effects (DataStore writes,
   `ReminderScheduler` calls) in `viewModelScope`.
 
 ### Initialization Pattern
 
-The init block uses 22 individual `Flow.onEach { }.launchIn(viewModelScope)` collectors
-— one for each `AppSettings` preference flow — routing each to the appropriate sub-state
+The init block uses individual `Flow.onEach { }.launchIn(viewModelScope)` collectors
+— one per `AppSettings` preference flow — routing each to the appropriate sub-state
 flow. This intentionally avoids `combine()` because Kotlin's `combine()` supports a
-maximum of 5 parameters without custom extensions, and there are 22+ settings flows to
-observe.
+maximum of 5 parameters without custom extensions, and there are far more settings
+flows to observe.
 
 ### 4-Page Swipeable Pager
 
@@ -2276,7 +2071,7 @@ coordinates with two domain use cases.
 ### Architecture
 
 ```
-HintKey (enum, 17 entries)
+HintKey (enum)
     │
     ▼
 CoachMarkDef (data class)
@@ -2308,14 +2103,10 @@ When the user taps "Next", `CoachMarkState.advanceOrDismiss()` resolves `nextKey
 against the full definition map, marks the current hint as seen via
 `HintPreferences.markHintSeen()`, and activates the next hint.
 
-The 17 hints are split across two screens:
-- **Daily Log walkthrough** (10 steps): `DAILY_LOG_WELCOME` → `DAILY_LOG_MOOD` →
-  `DAILY_LOG_ENERGY` → `DAILY_LOG_WATER` → `DAILY_LOG_EXPLORE_TABS` →
-  `DAILY_LOG_PERIOD_TAB` → `DAILY_LOG_PERIOD_TOGGLE` → `DAILY_LOG_SYMPTOMS_TAB` →
-  `DAILY_LOG_MEDICATIONS_TAB` → `DAILY_LOG_NOTES_TAB`
-- **Tracker walkthrough** (7 steps): `TRACKER_WELCOME` → `TRACKER_NAV` →
-  `TRACKER_PHASE_LEGEND` → `TRACKER_LONG_PRESS` → `TRACKER_DRAG` →
-  `TRACKER_ADJUST` → `TRACKER_TAP_DAY`
+The hints are split across two screens — a Daily Log walkthrough and a Tracker
+walkthrough. Each chain starts with a `_WELCOME` hint and proceeds through the
+screen's key features. See the `HintKey` enum in `CoachMarkDef.kt` for the
+full list of hints and their chain order.
 
 ### Tutorial Seed Data
 
@@ -2561,12 +2352,11 @@ The `iosApp/` directory already contains a skeleton Xcode project with
 ### What Already Compiles for iOS
 
 Everything in `shared/src/commonMain/`:
-- All domain models (`Period`, `DailyEntry`, `FullDailyLog`, `CyclePhase`, `EducationalArticle`, enums, etc.)
-- `PeriodRepository` interface
-- `PassphraseService` interface
-- All use cases (`StartNewPeriod`, `EndPeriod`, `GetOrCreateDailyLog`, `AutoCloseOngoingPeriod`, `DebugSeeder`, `TutorialSeeder`, `TutorialCleanup`, `SeedManifest`)
-- `InsightEngine` and all 6 generators
-- `SymptomLibraryProvider`, `MedicationLibraryProvider`, and `EducationalContentProvider`
+- All domain models and enums
+- `PeriodRepository` and `PassphraseService` interfaces
+- All use cases
+- `InsightEngine` and all generators
+- All library providers
 
 ### What an iOS App Would Need to Build
 
@@ -2664,7 +2454,7 @@ This file is the single source of truth for all dependency injection. Reading or
   it's requested, not cached. This is because insight generation is stateless.
 - **Session scope block** (`scope(SESSION_SCOPE) { ... }`):
   - Database factory — key derivation + Room builder via `createDatabaseAndZeroizeKey`
-  - 8 DAO providers, each delegating to `PeriodDatabase`
+  - DAO providers (one per table), each delegating to `PeriodDatabase`
   - Repository binding (`PeriodRepository` → `RoomPeriodRepository`)
   - Library providers and use cases
   - Session-scoped ViewModels (Tracker, DailyLog, Insights)
@@ -2690,10 +2480,9 @@ Key architectural details:
 **File:** `composeApp/src/androidMain/kotlin/com/veleda/cyclewise/ui/tracker/TrackerViewModel.kt`
 
 Key architectural details:
-- **Constructor takes 6 parameters:** `periodRepository`, `symptomLibraryProvider`,
-  `medicationLibraryProvider`, `autoClosePeriodUseCase`, `appSettings`,
-  `educationalContentProvider`
-- **`init` block:** 4 collectors demonstrate the reactive data flow pattern. Each
+- **Constructor** receives its dependencies via Koin injection (repository, library
+  providers, use cases, settings, and educational content provider)
+- **`init` block:** Multiple collectors demonstrate the reactive data flow pattern. Each
   collector transforms domain data into UI models. The periods collector also triggers
   `updatePredictionCache()` for reminder worker support.
 - **`onEvent` → `reduce` dispatch** is the MVI core. `_uiState.update` ensures atomic
@@ -2709,7 +2498,7 @@ Key architectural details:
 
 This is the largest file in the codebase. Key sections:
 
-- **Constructor:** Takes `db` + 8 DAOs (all injected by Koin session scope)
+- **Constructor:** Takes `db` + one DAO per table (all injected by Koin session scope)
 - **`saveFullLog()`:** Uses delete-then-insert transaction semantics
 - **`logPeriodDay()`:** The 4-scenario state machine (see [section 2.5](#25-use-cases-to-repository-to-dao))
 - **`unLogPeriodDay()`:** The inverse 4-scenario state machine
@@ -2723,13 +2512,13 @@ This is the largest file in the codebase. Key sections:
 **File:** `composeApp/src/androidMain/kotlin/com/veleda/cyclewise/androidData/local/database/PeriodDatabase.kt`
 
 Key architectural details:
-- **`version = 10`** in the `@Database` annotation — the current schema version
-- **8 entity classes** registered in `@Database(entities = [...])`
-- **8 abstract DAO accessors** (`periodDao()`, `dailyEntryDao()`, etc.)
+- **`version`** in the `@Database` annotation — see `PeriodDatabase.kt` for the current schema version
+- **Entity classes** registered in `@Database(entities = [...])` — one per table
+- **Abstract DAO accessors** — one per entity (e.g., `periodDao()`, `dailyEntryDao()`)
 - **The `create()` companion function:**
   - Takes `Context`, `passphrase: ByteArray`, and optional `dbName`
   - Creates `SupportFactory(passphrase)` — SQLCipher's bridge to Room
-  - Registers all 9 migrations (`Migration_1_2` through `Migration_9_10`)
+  - Registers all migrations from the `migrations/` directory
   - Returns the built database (note: not yet opened — caller must force-open)
   - **Security note:** The caller should pass `key.copyOf()` so the original can be
     zeroed independently (see `createDatabaseAndZeroizeKey`)
@@ -3115,32 +2904,22 @@ composeApp/src/androidMain/kotlin/com/veleda/cyclewise/androidData/local/databas
 
 ### Current Migrations
 
-The database is currently at **version 10** with 9 migration files:
-
-| Migration | File |
-|-----------|------|
-| v1 → v2 | `Migration_1_2.kt` |
-| v2 → v3 | `Migration_2_3.kt` |
-| v3 → v4 | `Migration_3_4.kt` |
-| v4 → v5 | `Migration_4_5.kt` |
-| v5 → v6 | `Migration_5_6.kt` |
-| v6 → v7 | `Migration_6_7.kt` |
-| v7 → v8 | `Migration_7_8.kt` |
-| v8 → v9 | `Migration_8_9.kt` |
-| v9 → v10 | `Migration_9_10.kt` |
+Each schema version step has a corresponding `Migration_X_Y.kt` file in the migrations
+directory. See `PeriodDatabase.kt`'s `@Database` annotation for the current schema
+version and `.addMigrations(...)` call for the full list of registered migrations.
 
 ### Writing a New Migration
 
-1. **Create the migration object:**
+1. **Create the migration object** (replace `N` and `N+1` with the actual versions):
 
 ```kotlin
-// Migration_10_11.kt
+// Migration_N_N1.kt
 package com.veleda.cyclewise.androidData.local.database.migrations
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-object Migration_10_11 : Migration(10, 11) {
+object Migration_N_N1 : Migration(N, N + 1) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE daily_entries ADD COLUMN new_field TEXT DEFAULT ''")
     }
@@ -3150,7 +2929,7 @@ object Migration_10_11 : Migration(10, 11) {
 2. **Register in `PeriodDatabase.create()`** — add the new migration to the
    `.addMigrations(...)` chain.
 
-3. **Bump the version** in `@Database(version = 11, ...)`.
+3. **Bump the version** in the `@Database` annotation to match the migration's target version.
 
 4. **Update the entity class** to match the new schema.
 
@@ -3255,13 +3034,8 @@ directory contains a skeleton Xcode project with placeholder Swift files.
 
 ### What's Already Shared
 
-All domain logic compiles for iOS out of the box:
-- All models in `domain/models/` (including `CyclePhase` and `EducationalArticle`)
-- `PeriodRepository` interface
-- `PassphraseService` interface
-- All use cases (8 total, including tutorial seeder/cleanup)
-- `InsightEngine` and all 6 generators
-- `SymptomLibraryProvider`, `MedicationLibraryProvider`, and `EducationalContentProvider`
+All domain logic compiles for iOS out of the box — every model, interface, use case,
+insight generator, and library provider in `shared/src/commonMain/`.
 
 ---
 
@@ -3297,17 +3071,14 @@ data class InsightData(
 
 ### Current Generators
 
-| Generator | Priority | `Insight` Subtype Produced |
-|-----------|----------|--------------------------|
-| `NextPeriodPredictionGenerator` | 110 | `NextPeriodPrediction` — predicted start date of next period |
-| `MoodPhasePatternGenerator` | 106 | `MoodPhasePattern` — mood patterns across cycle phases |
-| `CycleLengthAverageGenerator` | 100 | `CycleLengthAverage` — average cycle length in days |
-| `CycleLengthTrendGenerator` | 95 | `CycleLengthTrend` — whether cycles are getting longer/shorter/stable |
-| `SymptomPhasePatternGenerator` | Variable | `SymptomPhasePattern` — symptom + phase correlations |
-| `SymptomRecurrenceGenerator` | 90 | `TopSymptomsInsight` — most frequently logged symptoms |
+Each generator lives in `shared/.../domain/insights/generators/` and produces one
+`Insight` sealed interface subtype. Each insight has a numeric `priority` that
+determines display order (higher = shown first). For the current list of generators
+and their priorities, see the source files in the `generators/` directory and
+`InsightEngine.kt`.
 
-Priority determines display order (110 first, 90 last). When adding a new generator,
-choose a priority that reflects its relative importance.
+When adding a new generator, choose a priority that reflects its relative importance
+among existing generators.
 
 ### Adding a New Generator
 
@@ -3347,11 +3118,11 @@ If KDF parameters need to change:
 
 ### Fresh Install vs Upgrade
 
-- **Fresh install:** Room creates the database at the latest version (currently v10).
-  No migrations run.
+- **Fresh install:** Room creates the database at the latest version (see
+  `PeriodDatabase.kt`). No migrations run.
 - **Upgrade:** Room runs each migration sequentially from the installed version to the
-  latest. For example, upgrading from v5 to v10 runs: `Migration_5_6` → `Migration_6_7`
-  → `Migration_7_8` → `Migration_8_9` → `Migration_9_10`.
+  latest. For example, upgrading across several versions runs each `Migration_X_Y`
+  object in order.
 
 ### Testing Migrations
 
@@ -3422,30 +3193,24 @@ dependencies globally within the same scope ID.
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                      UI LAYER                              │  │
-│  │  TrackerScreen, DailyLogScreen, InsightsScreen,            │  │
-│  │  SettingsScreen, PassphraseScreen                          │  │
-│  │  NavRoutes, CycleWiseAppUI, RhythmWiseTheme               │  │
+│  │  Compose screens (Tracker, DailyLog, Insights, Settings,   │  │
+│  │  Passphrase), navigation, theme                            │  │
 │  └──────────────────────────┬─────────────────────────────────┘  │
 │                             │ observes state, sends events       │
 │                             ▼                                    │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                   VIEWMODEL LAYER                          │  │
-│  │  PassphraseViewModel, TrackerViewModel,                    │  │
-│  │  DailyLogViewModel, InsightsViewModel,                     │  │
-│  │  WaterTrackerViewModel                                     │  │
+│  │  One ViewModel per screen (e.g., TrackerViewModel,         │  │
+│  │  DailyLogViewModel, InsightsViewModel)                     │  │
 │  └──────────────────────────┬─────────────────────────────────┘  │
 │                             │ calls use cases, repository        │
 │                             ▼                                    │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                    DOMAIN LAYER                             │  │
-│  │  Use Cases: StartNewPeriod, EndPeriod, GetOrCreateDailyLog,│  │
-│  │    AutoCloseOngoingPeriod, DebugSeeder, TutorialSeeder,    │  │
-│  │    TutorialCleanup, SeedManifest                           │  │
-│  │  InsightEngine + 6 generators                              │  │
-│  │  Providers: SymptomLibrary, MedicationLibrary,             │  │
-│  │    EducationalContent                                      │  │
-│  │  Models: Period, DailyEntry, FullDailyLog, CyclePhase,     │  │
-│  │    EducationalArticle, etc.                                │  │
+│  │  Use cases (one per business operation)                     │  │
+│  │  InsightEngine + generators (one per insight type)          │  │
+│  │  Library providers (symptom, medication, educational)       │  │
+│  │  Domain models and enums                                    │  │
 │  │  Interfaces: PeriodRepository, PassphraseService           │  │
 │  └──────────────────────────┬─────────────────────────────────┘  │
 │                             │ implements interfaces              │
@@ -3453,21 +3218,17 @@ dependencies globally within the same scope ID.
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                      DATA LAYER                            │  │
 │  │  RoomPeriodRepository                                      │  │
-│  │  8 DAOs: PeriodDao, DailyEntryDao, SymptomDao,             │  │
-│  │    MedicationDao, MedicationLogDao, SymptomLogDao,         │  │
-│  │    PeriodLogDao, WaterIntakeDao                             │  │
-│  │  8 Entities + Converters + Mappers                         │  │
+│  │  Room DAOs (one per table)                                 │  │
+│  │  Room entities + Converters + Mappers                      │  │
 │  │  PeriodDatabase (Room + SQLCipher)                         │  │
-│  │  9 Migrations (v1 → v10)                                   │  │
+│  │  Migrations (see migrations/ directory)                    │  │
 │  └──────────────────────────┬─────────────────────────────────┘  │
 │                             │ platform services                  │
 │                             ▼                                    │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                  INFRASTRUCTURE LAYER                       │  │
 │  │  PassphraseServiceAndroid (Argon2id KDF)                   │  │
-│  │  SaltStorage (SharedPreferences, 16-byte salt)             │  │
-│  │  AppSettings (DataStore preferences)                       │  │
-│  │  SessionBus (logout event bus)                             │  │
+│  │  SaltStorage, AppSettings, SessionBus                      │  │
 │  │  LockedWaterDraft (water intake while locked)              │  │
 │  │  ReminderScheduler + ReminderNotifier (WorkManager)        │  │
 │  │  CycleWiseApp (lifecycle observer, autolock)               │  │
