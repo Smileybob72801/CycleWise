@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.session
 
+import java.io.Closeable
 import java.security.MessageDigest
 
 /**
@@ -14,10 +15,13 @@ import java.security.MessageDigest
  * - [matches] uses [MessageDigest.isEqual] for constant-time comparison, preventing timing attacks.
  * - [clear] zeroizes the stored fingerprint when the session scope is destroyed.
  *
+ * Implements [Closeable] so that Koin's `onClose` callback can automatically zeroize the
+ * fingerprint when the session scope is destroyed.
+ *
  * This class must be registered as a **session-scoped** dependency so it is created on unlock
  * and destroyed on logout/autolock together with the [PeriodDatabase].
  */
-class KeyFingerprintHolder {
+class KeyFingerprintHolder : Closeable {
 
     private var fingerprint: ByteArray? = null
 
@@ -53,6 +57,14 @@ class KeyFingerprintHolder {
     fun clear() {
         fingerprint?.fill(0)
         fingerprint = null
+    }
+
+    /**
+     * Delegates to [clear] so Koin's `onClose` callback zeroizes the fingerprint
+     * automatically when the session scope is destroyed.
+     */
+    override fun close() {
+        clear()
     }
 
     private fun sha256(input: ByteArray): ByteArray =

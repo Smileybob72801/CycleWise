@@ -13,6 +13,7 @@ import org.koin.android.ext.koin.androidContext
 import com.veleda.cyclewise.domain.services.PassphraseService
 import com.veleda.cyclewise.services.PassphraseServiceAndroid
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
+import com.veleda.cyclewise.androidData.local.database.rekeyRaw
 import com.veleda.cyclewise.androidData.repository.RoomPeriodRepository
 import com.veleda.cyclewise.domain.insights.InsightEngine
 import com.veleda.cyclewise.domain.insights.generators.CycleLengthAverageGenerator
@@ -96,9 +97,7 @@ internal fun migrateLegacyZeroKeyIfNeeded(context: Context, correctKey: ByteArra
             null,   // errorHandler
         )
         try {
-            val rekeyMethod = db.javaClass.getDeclaredMethod("rekey", ByteArray::class.java)
-            rekeyMethod.isAccessible = true
-            rekeyMethod.invoke(db, correctKey)
+            rekeyRaw(db, correctKey)
             Log.i("ZeroKeyMigration", "Legacy zero-key database re-encrypted successfully.")
         } finally {
             db.close()

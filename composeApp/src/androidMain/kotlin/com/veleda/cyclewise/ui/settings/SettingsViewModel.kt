@@ -688,6 +688,10 @@ class SettingsViewModel(
      * Both the old and new keys are passed to [PeriodDatabase.changeEncryptionKey] so it can
      * attempt a rollback if post-rekey verification fails. The fingerprint is updated only
      * **after** verified success.
+     *
+     * **Security:** Both [currentKey] and [newKey] are zeroized in a `finally` block,
+     * guaranteeing cleanup even if [PeriodDatabase.changeEncryptionKey] throws
+     * (e.g., [RekeyVerificationFailedException]).
      */
     private suspend fun executePassphraseChange(
         event: SettingsEvent.ChangePassphraseSubmitted,
@@ -698,30 +702,23 @@ class SettingsViewModel(
         val fingerprintHolder = sessionScope.get<KeyFingerprintHolder>()
 
         val currentKey = passphraseService.deriveKey(event.current)
-        val currentValid = try {
-            fingerprintHolder.matches(currentKey)
-        } catch (e: Exception) {
+        var newKey: ByteArray? = null
+        try {
+            val currentValid = fingerprintHolder.matches(currentKey)
+            if (!currentValid) return "wrong_current"
+
+            newKey = passphraseService.deriveKey(event.newPassphrase)
+            val context = getKoin().get<android.content.Context>()
+            val db = sessionScope.get<PeriodDatabase>()
+            // changeEncryptionKey zeroizes both key copies in its finally block
+            db.changeEncryptionKey(context, currentKey.copyOf(), newKey.copyOf())
+
+            // Rekey verified — update fingerprint with the new key
+            fingerprintHolder.store(newKey)
+            return null
+        } finally {
             currentKey.fill(0)
-            throw e
+            newKey?.fill(0)
         }
-
-        if (!currentValid) {
-            currentKey.fill(0)
-            return "wrong_current"
-        }
-
-        // currentKey is kept alive for rollback inside changeEncryptionKey
-        val newKey = passphraseService.deriveKey(event.newPassphrase)
-        val context = getKoin().get<android.content.Context>()
-        val db = sessionScope.get<PeriodDatabase>()
-        // changeEncryptionKey zeroizes both key copies in its finally block
-        db.changeEncryptionKey(context, currentKey.copyOf(), newKey.copyOf())
-
-        // Rekey verified — update fingerprint with the new key
-        fingerprintHolder.store(newKey)
-        newKey.fill(0)
-        currentKey.fill(0)
-
-        return null
     }
 }

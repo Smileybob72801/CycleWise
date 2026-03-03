@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,7 +39,9 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import com.veleda.cyclewise.session.SessionBus
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.getKoin
 import kotlin.time.Clock
 
 /** Duration (ms) for default bottom-nav tab crossfade transitions. */
@@ -50,7 +53,12 @@ private const val DETAIL_TRANSITION_DURATION_MS = 300
 /** Duration (ms) for the passphrase authentication gate fade transition. */
 private const val AUTH_TRANSITION_DURATION_MS = 400
 
-/** Root composable that wires up theming, navigation host, bottom nav bar, and session logout handling. */
+/**
+ * Root composable that wires up theming, navigation host, bottom nav bar, and session logout handling.
+ *
+ * Collects [SessionBus.logout] to navigate back to the passphrase screen when the session
+ * scope is destroyed (autolock or manual lock), clearing the entire back stack.
+ */
 @Composable
 @Preview
 fun CycleWiseAppUI() {
@@ -64,6 +72,17 @@ fun CycleWiseAppUI() {
 
     RhythmWiseTheme(darkTheme = darkTheme) {
         val navController = rememberNavController()
+        val sessionBus: SessionBus = getKoin().get()
+
+        // Autolock: navigate to passphrase screen when session is destroyed
+        LaunchedEffect(Unit) {
+            sessionBus.logout.collect {
+                navController.navigate(NavRoute.Passphrase.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
 

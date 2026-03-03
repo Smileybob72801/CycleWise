@@ -243,8 +243,16 @@ abstract class PeriodDatabase : RoomDatabase() {
  * @param newKey the new 32-byte key to pass to `sqlite3_rekey()`.
  * @throws IllegalStateException if the `rekey(byte[])` method is not found (API change).
  */
-private fun rekeyRaw(db: net.sqlcipher.database.SQLiteDatabase, newKey: ByteArray) {
-    val rekeyMethod = db.javaClass.getDeclaredMethod("rekey", ByteArray::class.java)
+internal fun rekeyRaw(db: net.sqlcipher.database.SQLiteDatabase, newKey: ByteArray) {
+    val rekeyMethod = try {
+        db.javaClass.getDeclaredMethod("rekey", ByteArray::class.java)
+    } catch (e: NoSuchMethodException) {
+        throw IllegalStateException(
+            "SQLCipher API change: private rekey(byte[]) not found. " +
+                "Check SQLCipher version compatibility.",
+            e,
+        )
+    }
     rekeyMethod.isAccessible = true
     rekeyMethod.invoke(db, newKey)
 }

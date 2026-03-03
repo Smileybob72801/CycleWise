@@ -1022,6 +1022,10 @@ class SettingsViewModelTest {
         awaitPassphraseChangeCompletion(viewModel)
         assertTrue(viewModel.generalState.value.showPassphraseSuccessDialog)
 
+        // Capture session scope reference before acknowledging
+        val sessionScope = getKoin().getScopeOrNull("session")
+        assertNotNull(sessionScope)
+
         // WHEN — user acknowledges the success dialog
         viewModel.effect.test {
             viewModel.onEvent(SettingsEvent.ChangePassphraseSuccessAcknowledged)
@@ -1035,6 +1039,9 @@ class SettingsViewModelTest {
         val state = viewModel.generalState.value
         assertFalse(state.showChangePassphraseDialog)
         assertFalse(state.showPassphraseSuccessDialog)
+
+        // THEN — session scope is closed (Room DB is stale after rekey)
+        assertTrue(sessionScope.closed)
     }
 
     @Test

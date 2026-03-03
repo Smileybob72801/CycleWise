@@ -62,6 +62,10 @@
 # ----------------------------------------------------------------------------
 # SQLCipher
 # ----------------------------------------------------------------------------
+# Keep ALL members (including private native methods).
+# PeriodDatabase.rekeyRaw() uses reflection to call the private native
+# rekey(byte[]) method for passphrase change and zero-key migration.
+# Narrowing this rule to public members would break encryption key changes.
 -keep class net.sqlcipher.** { *; }
 -dontwarn net.sqlcipher.**
 
