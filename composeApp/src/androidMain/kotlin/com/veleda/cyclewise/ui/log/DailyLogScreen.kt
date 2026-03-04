@@ -37,7 +37,9 @@ import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import com.veleda.cyclewise.domain.usecases.TutorialSeederUseCase
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.settings.parseSeedManifest
+import com.veleda.cyclewise.settings.runSeedCleanupIfNeeded
 import com.veleda.cyclewise.settings.toJson
+import com.veleda.cyclewise.ui.tracker.TRACKER_HINTS
 import com.veleda.cyclewise.ui.coachmark.CoachMarkOverlay
 import com.veleda.cyclewise.ui.coachmark.CoachMarkState
 import com.veleda.cyclewise.ui.coachmark.HintKey
@@ -116,12 +118,8 @@ fun DailyLogScreen(
 
             // Safety net: if seed data exists from a previous session/break-out, wipe it.
             if (manifestJson.isNotEmpty()) {
-                val manifest = parseSeedManifest(manifestJson)
-                if (manifest != null) {
-                    val cleanup: TutorialCleanupUseCase = sessionScope.get()
-                    cleanup(manifest)
-                }
-                appSettings.clearSeedManifest()
+                val cleanup: TutorialCleanupUseCase = sessionScope.get()
+                runSeedCleanupIfNeeded(appSettings, cleanup)
                 return@LaunchedEffect // data was stale; don't restart walkthrough
             }
 
@@ -190,20 +188,38 @@ fun DailyLogScreen(
     // Predictive back: dismiss the coach mark walkthrough instead of navigating away.
     // When no walkthrough is active, the handler is disabled and back navigates normally.
     // Declared last so it takes priority over the pager handler when a walkthrough is active.
+    // Runs cleanup immediately rather than relying on the completion LaunchedEffect
+    // (which misses the skip because walkthroughActive goes false first).
     BackHandler(enabled = activeHint != null || pendingKey != null) {
         coachMarkState.skipAll(DAILY_LOG_HINTS)
         walkthroughActive = false
+        coroutineScope.launch {
+            // Skip the Tracker walkthrough too — user opted out of the whole tutorial.
+            TRACKER_HINTS.keys.forEach { hintPreferences.markHintSeen(it) }
+            // Wipe seed data.
+            val cleanup: TutorialCleanupUseCase = sessionScope.get()
+            val appSettings: AppSettings = koin.get()
+            runSeedCleanupIfNeeded(appSettings, cleanup)
+        }
     }
 
-    // Detect walkthrough completion: the Daily Log walkthrough ended (NOTES_TAB seen)
-    // and the Tracker walkthrough hasn't started yet → navigate to Tracker.
+    // Detect walkthrough completion: walkthroughActive is the reliable signal.
+    // When the user advances past the last hint, activeHint/pendingKey both become
+    // null while walkthroughActive is still true → the Daily Log walkthrough completed
+    // normally. (BackHandler sets walkthroughActive = false first, so this condition
+    // cannot fire on a skip.) Navigate to the Tracker walkthrough if it hasn't been
+    // seen yet; otherwise clean up seed data here so the bottom nav re-enables.
     LaunchedEffect(activeHint, pendingKey, walkthroughActive) {
         if (walkthroughActive && activeHint == null && pendingKey == null) {
-            val notesSeen = hintPreferences.isHintSeen(HintKey.DAILY_LOG_NOTES_TAB).first()
+            walkthroughActive = false
             val trackerSeen = hintPreferences.isHintSeen(HintKey.TRACKER_WELCOME).first()
-            if (notesSeen && !trackerSeen) {
-                walkthroughActive = false
+            if (!trackerSeen) {
                 onNavigateToTracker()
+            } else {
+                // Tracker walkthrough already completed — clean up seed data directly.
+                val cleanup: TutorialCleanupUseCase = sessionScope.get()
+                val appSettings: AppSettings = koin.get()
+                runSeedCleanupIfNeeded(appSettings, cleanup)
             }
         }
     }

@@ -6,10 +6,14 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+
+/** Reduced opacity applied to bottom nav items when [enabled] is `false`. */
+private const val DISABLED_ALPHA = 0.38f
 
 /**
  * Bottom navigation bar displaying the three primary app tabs.
@@ -20,13 +24,19 @@ import androidx.navigation.compose.currentBackStackEntryAsState
  *
  * @param navController The [NavController] used to observe the current destination and
  *   perform tab navigation with state restoration.
+ * @param enabled When `false`, navigation items are visible but non-interactive, with
+ *   reduced opacity to signal the disabled state. Used during the tutorial walkthrough
+ *   to prevent users from navigating away before cleanup runs.
  */
 @Composable
-fun BottomNavBar(navController: NavController) {
+fun BottomNavBar(navController: NavController, enabled: Boolean = true) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
 
-    NavigationBar(tonalElevation = 3.dp) {
+    NavigationBar(
+        tonalElevation = 3.dp,
+        modifier = if (enabled) Modifier else Modifier.alpha(DISABLED_ALPHA),
+    ) {
         NavRoute.all.forEach { route ->
             val selected = currentRoute == route.route
             val icon = if (selected) route.selectedIcon else route.unselectedIcon
@@ -43,8 +53,9 @@ fun BottomNavBar(navController: NavController) {
                 },
                 label = { Text(route.label) },
                 selected = selected,
+                enabled = enabled,
                 onClick = {
-                    if (currentRoute != route.route) {
+                    if (enabled && currentRoute != route.route) {
                         navController.navigate(route.route) {
                             popUpTo(navController.graph.startDestinationId) { saveState = true }
                             launchSingleTop = true

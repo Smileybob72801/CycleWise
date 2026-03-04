@@ -40,6 +40,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import com.veleda.cyclewise.session.SessionBus
+import com.veleda.cyclewise.settings.AppSettings
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
 import kotlin.time.Clock
@@ -72,7 +73,11 @@ fun CycleWiseAppUI() {
 
     RhythmWiseTheme(darkTheme = darkTheme) {
         val navController = rememberNavController()
-        val sessionBus: SessionBus = getKoin().get()
+        val koin = getKoin()
+        val sessionBus: SessionBus = koin.get()
+        val appSettings: AppSettings = koin.get()
+        val seedManifestJson by appSettings.seedManifestJson.collectAsState(initial = "")
+        val tutorialActive = seedManifestJson.isNotEmpty()
 
         // Autolock: navigate to passphrase screen when session is destroyed
         LaunchedEffect(Unit) {
@@ -89,7 +94,7 @@ fun CycleWiseAppUI() {
         Scaffold(
             bottomBar = {
                 if (currentRoute != NavRoute.Passphrase.route) {
-                    BottomNavBar(navController)
+                    BottomNavBar(navController, enabled = !tutorialActive)
                 }
             },
             modifier = Modifier

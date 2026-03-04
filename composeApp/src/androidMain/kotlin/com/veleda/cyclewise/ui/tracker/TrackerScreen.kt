@@ -67,6 +67,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import com.veleda.cyclewise.settings.parseSeedManifest
+import com.veleda.cyclewise.settings.runSeedCleanupIfNeeded
 import com.veleda.cyclewise.settings.toJson
 import org.koin.compose.getKoin
 import org.koin.compose.koinInject
@@ -95,11 +96,20 @@ fun TrackerScreen(navController: NavController) {
     // Tracks whether the Tracker walkthrough was started this composition.
     var trackerWalkthroughActive by remember { mutableStateOf(false) }
 
+    val appSettings: AppSettings = koin.get()
+
     // Predictive back: dismiss the coach mark walkthrough instead of navigating away.
     // When no walkthrough is active, the handler is disabled and back navigates normally.
+    // Runs cleanup immediately rather than relying on the completion LaunchedEffect
+    // (which misses the skip because trackerWalkthroughActive goes false first).
     BackHandler(enabled = activeHint != null || pendingKey != null) {
         coachMarkState.skipAll(TRACKER_HINTS)
         trackerWalkthroughActive = false
+        coroutineScope.launch {
+            val sessionScope = koin.getScope("session")
+            val cleanup: TutorialCleanupUseCase = sessionScope.get()
+            runSeedCleanupIfNeeded(appSettings, cleanup)
+        }
     }
 
     // Start the Tracker walkthrough if the user hasn't seen it yet.
@@ -111,23 +121,14 @@ fun TrackerScreen(navController: NavController) {
         }
     }
 
-    val appSettings: AppSettings = koin.get()
-
-    // Detect Tracker walkthrough completion (normal advance past last hint, or skipAll)
+    // Detect Tracker walkthrough completion (normal advance past last hint)
     // and clean up seed data.
     LaunchedEffect(activeHint, pendingKey, trackerWalkthroughActive) {
         if (trackerWalkthroughActive && activeHint == null && pendingKey == null) {
             trackerWalkthroughActive = false
-            val manifestJson = appSettings.seedManifestJson.first()
-            if (manifestJson.isNotEmpty()) {
-                val manifest = parseSeedManifest(manifestJson)
-                if (manifest != null) {
-                    val sessionScope = koin.getScope("session")
-                    val cleanup: TutorialCleanupUseCase = sessionScope.get()
-                    cleanup(manifest)
-                }
-                appSettings.clearSeedManifest()
-            }
+            val sessionScope = koin.getScope("session")
+            val cleanup: TutorialCleanupUseCase = sessionScope.get()
+            runSeedCleanupIfNeeded(appSettings, cleanup)
         }
     }
 
