@@ -38,7 +38,6 @@ import com.veleda.cyclewise.ui.settings.SettingsEvent
 import com.veleda.cyclewise.ui.settings.components.SettingsSectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.launch
-import org.koin.core.scope.Scope
 
 /**
  * Page 3 — About: App info, version dialog, and developer tools (debug only).
@@ -47,7 +46,8 @@ import org.koin.core.scope.Scope
 internal fun AboutPage(
     state: AboutSettingsState,
     onEvent: (SettingsEvent) -> Unit,
-    session: Scope?,
+    isSessionActive: Boolean,
+    onSeedDebugData: (() -> DebugSeederUseCase?)? = null,
 ) {
     val dims = LocalDimensions.current
     val scope = rememberCoroutineScope()
@@ -107,10 +107,10 @@ internal fun AboutPage(
         if (BuildConfig.DEBUG) {
             SettingsSectionCard(title = stringResource(R.string.settings_developer_title)) {
                 Button(
-                    enabled = session != null,
+                    enabled = isSessionActive,
                     onClick = {
-                        session?.let {
-                            val seeder: DebugSeederUseCase = it.get()
+                        val seeder = onSeedDebugData?.invoke()
+                        if (seeder != null) {
                             scope.launch {
                                 Toast.makeText(
                                     context,
@@ -140,7 +140,7 @@ internal fun AboutPage(
                     Spacer(Modifier.width(dims.sm))
                     Text(stringResource(R.string.settings_seed_button))
                 }
-                if (session == null) {
+                if (!isSessionActive) {
                     Text(
                         stringResource(R.string.settings_developer_locked),
                         style = MaterialTheme.typography.bodySmall,

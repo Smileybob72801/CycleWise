@@ -52,7 +52,6 @@ import com.veleda.cyclewise.ui.settings.GeneralSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
 import com.veleda.cyclewise.ui.settings.components.SettingsSectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
-import org.koin.core.scope.Scope
 import kotlin.math.roundToInt
 
 /**
@@ -63,7 +62,7 @@ import kotlin.math.roundToInt
 internal fun GeneralPage(
     state: GeneralSettingsState,
     onEvent: (SettingsEvent) -> Unit,
-    session: Scope?,
+    isSessionActive: Boolean,
     onLockNow: () -> Unit,
 ) {
     val dims = LocalDimensions.current
@@ -109,7 +108,7 @@ internal fun GeneralPage(
             ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_change_passphrase)) },
                 supportingContent = { Text(stringResource(R.string.settings_change_passphrase_description)) },
-                modifier = Modifier.clickable(enabled = session != null) {
+                modifier = Modifier.clickable(enabled = isSessionActive) {
                     onEvent(SettingsEvent.ChangePassphraseRequested)
                 }
             )
@@ -117,13 +116,13 @@ internal fun GeneralPage(
             HorizontalDivider(modifier = Modifier.padding(horizontal = dims.md))
 
             Button(
-                enabled = session != null,
+                enabled = isSessionActive,
                 onClick = onLockNow,
                 modifier = Modifier.padding(horizontal = dims.md)
             ) {
                 Text(stringResource(R.string.settings_lock_button))
             }
-            if (session == null) {
+            if (!isSessionActive) {
                 Text(
                     stringResource(R.string.settings_locked_message),
                     style = MaterialTheme.typography.bodySmall,

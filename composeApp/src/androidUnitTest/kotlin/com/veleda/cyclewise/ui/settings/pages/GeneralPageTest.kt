@@ -18,11 +18,9 @@ import com.veleda.cyclewise.ui.settings.GeneralSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
 import com.veleda.cyclewise.ui.theme.Dimensions
 import com.veleda.cyclewise.ui.theme.LocalDimensions
-import io.mockk.mockk
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.koin.core.scope.Scope
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -39,7 +37,7 @@ class GeneralPageTest {
     private fun setContent(
         state: GeneralSettingsState = GeneralSettingsState(),
         onEvent: (SettingsEvent) -> Unit = {},
-        session: Scope? = null,
+        isSessionActive: Boolean = false,
         onLockNow: () -> Unit = {},
     ) {
         composeTestRule.setContent {
@@ -48,7 +46,7 @@ class GeneralPageTest {
                     GeneralPage(
                         state = state,
                         onEvent = onEvent,
-                        session = session,
+                        isSessionActive = isSessionActive,
                         onLockNow = onLockNow,
                     )
                 }
@@ -91,14 +89,14 @@ class GeneralPageTest {
 
     @Test
     fun lockNowButton_WHEN_sessionNull_THEN_isDisabled() {
-        setContent(session = null)
+        setContent(isSessionActive = false)
         composeTestRule.onNode(hasText("Lock", substring = true, ignoreCase = true).and(hasClickAction()))
             .assertIsNotEnabled()
     }
 
     @Test
     fun lockedMessage_WHEN_sessionNull_THEN_displayed() {
-        setContent(session = null)
+        setContent(isSessionActive = false)
         composeTestRule.onNodeWithText("Currently locked", substring = true, ignoreCase = true)
             .assertIsDisplayed()
     }
@@ -262,7 +260,7 @@ class GeneralPageTest {
     @Test
     fun changePassphrase_WHEN_sessionActive_THEN_dispatchesEvent() {
         val events = mutableListOf<SettingsEvent>()
-        setContent(session = mockk(relaxed = true), onEvent = { events.add(it) })
+        setContent(isSessionActive = true, onEvent = { events.add(it) })
         composeTestRule.onNodeWithText("Change Passphrase")
             .performScrollTo()
             .performClick()

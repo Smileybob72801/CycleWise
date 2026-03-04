@@ -36,6 +36,7 @@ import org.koin.core.qualifier.named
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
 import com.veleda.cyclewise.session.KeyFingerprintHolder
 import com.veleda.cyclewise.session.SessionBus
+import com.veleda.cyclewise.session.SessionManager
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
 import com.veleda.cyclewise.settings.AppSettings
@@ -159,8 +160,8 @@ internal fun createDatabaseAndZeroizeKey(
  *
  * **Singleton scope** (lives for the app process):
  * [SaltStorage], [AppSettings], [SessionBus], [PassphraseService], [LockedWaterDraft],
- * [ReminderScheduler], [InsightEngine], [WaterTrackerViewModel], [PassphraseViewModel],
- * [SettingsViewModel], [HintPreferences], [EducationalContentProvider].
+ * [ReminderScheduler], [InsightEngine], [SessionManager], [WaterTrackerViewModel],
+ * [PassphraseViewModel], [SettingsViewModel], [HintPreferences], [EducationalContentProvider].
  *
  * **Session scope** ([SESSION_SCOPE], created on unlock, destroyed on logout/autolock):
  * [PeriodDatabase], all DAOs, [PeriodRepository], use cases, library providers,
@@ -199,17 +200,30 @@ val appModule = module {
 
     single { ReminderScheduler(androidContext()) }
 
-    single<EducationalContentProvider> { StaticEducationalContentProvider(EducationalContentLoader.load(androidContext())) }
+    single<EducationalContentProvider> {
+        StaticEducationalContentProvider(EducationalContentLoader.load(androidContext()))
+    }
 
     single { HintPreferences(androidContext()) }
 
     single { DeleteAllDataUseCase(androidContext(), get(), get(), get(), get(), get()) }
 
+    single { SessionManager(appSettings = get(), lockedWaterDraft = get()) }
+
     viewModel { WaterTrackerViewModel(lockedWaterDraft = get()) }
 
-    viewModel { PassphraseViewModel(appSettings = get(), lockedWaterDraft = get()) }
+    viewModel { PassphraseViewModel(appSettings = get(), sessionManager = get()) }
 
-    viewModel { SettingsViewModel(appSettings = get(), reminderScheduler = get(), educationalContentProvider = get(), hintPreferences = get(), deleteAllDataUseCase = get()) }
+    viewModel {
+        SettingsViewModel(
+            appSettings = get(),
+            reminderScheduler = get(),
+            educationalContentProvider = get(),
+            hintPreferences = get(),
+            deleteAllDataUseCase = get(),
+            sessionManager = get(),
+        )
+    }
 
     scope(SESSION_SCOPE) {
         /*

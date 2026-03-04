@@ -2,11 +2,14 @@ package com.veleda.cyclewise.ui.auth
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import android.util.Log
-import com.veleda.cyclewise.androidData.local.draft.LockedWaterDraft
+import com.veleda.cyclewise.session.SessionManager
 import com.veleda.cyclewise.settings.AppSettings
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -19,9 +22,6 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import org.koin.core.context.startKoin
-import org.koin.core.context.stopKoin
-import org.koin.dsl.module
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -32,6 +32,7 @@ import kotlin.test.assertTrue
  *
  * Tests cover first-time detection via `AppSettings.isPrepopulated`,
  * passphrase validation during setup, and the setup-to-unlock delegation.
+ * Session operations are verified via a mocked [SessionManager].
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PassphraseViewModelTest {
@@ -42,34 +43,29 @@ class PassphraseViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
 
     private lateinit var mockAppSettings: AppSettings
-    private lateinit var mockLockedWaterDraft: LockedWaterDraft
+    private lateinit var mockSessionManager: SessionManager
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         mockAppSettings = mockk(relaxed = true)
-        mockLockedWaterDraft = mockk(relaxed = true)
+        mockSessionManager = mockk(relaxed = true)
 
         // Mock android.util.Log which throws RuntimeException("Stub!") in
         // plain JUnit tests. The unlock() catch block calls Log.e().
         mockkStatic(Log::class)
         every { Log.e(any(), any()) } returns 0
-
-        // Start Koin with an empty module so getKoin() does not crash
-        // when the unlock flow is reached during validation tests.
-        startKoin { modules(module { }) }
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
-        stopKoin()
     }
 
     private fun createViewModel(): PassphraseViewModel {
         return PassphraseViewModel(
             appSettings = mockAppSettings,
-            lockedWaterDraft = mockLockedWaterDraft,
+            sessionManager = mockSessionManager,
         )
     }
 
@@ -147,22 +143,16 @@ class PassphraseViewModelTest {
 
     @Test
     fun `onEvent SetupClicked WHEN valid matching passphrase THEN validation passes and unlock attempted`() = runTest {
-        // GIVEN — ViewModel initialized for first-time user
+        // GIVEN — ViewModel initialized for first-time user, openSession succeeds
         every { mockAppSettings.isPrepopulated } returns flowOf(false)
+        coEvery { mockSessionManager.openSession(any()) } returns Unit
         val viewModel = createViewModel()
         advanceUntilIdle()
 
         // WHEN — SetupClicked with valid, matching passphrase
-        // handleSetup() validates and calls unlock() if valid. The unlock
-        // itself will fail (no real session scope) but we are verifying that
-        // validation passed — i.e. neither error field was set.
         viewModel.onEvent(
             PassphraseEvent.SetupClicked("validpassphrase", "validpassphrase")
         )
-
-        // Wait for any IO-dispatched work inside unlock() to settle.
-        @Suppress("BlockingMethodInNonBlockingContext")
-        Thread.sleep(500)
         advanceUntilIdle()
 
         // THEN — validation errors are both null, confirming handleSetup
@@ -170,5 +160,44 @@ class PassphraseViewModelTest {
         val state = viewModel.uiState.value
         assertNull(state.passphraseError)
         assertNull(state.confirmationError)
+
+        // THEN — SessionManager.openSession was called
+        coVerify(exactly = 1) { mockSessionManager.openSession("validpassphrase") }
+    }
+
+    // ── Unlock flow ──────────────────────────────────────────────────
+
+    @Test
+    fun `onEvent UnlockClicked WHEN openSession succeeds THEN navigates to tracker`() = runTest {
+        // GIVEN — returning user, openSession succeeds
+        every { mockAppSettings.isPrepopulated } returns flowOf(true)
+        coEvery { mockSessionManager.openSession(any()) } returns Unit
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user taps unlock
+        viewModel.onEvent(PassphraseEvent.UnlockClicked("mypassphrase"))
+        advanceUntilIdle()
+
+        // THEN — openSession was called and isUnlocking is false
+        coVerify(exactly = 1) { mockSessionManager.openSession("mypassphrase") }
+        assertFalse(viewModel.uiState.value.isUnlocking)
+    }
+
+    @Test
+    fun `onEvent UnlockClicked WHEN openSession fails THEN closes session and shows error`() = runTest {
+        // GIVEN — returning user, openSession throws
+        every { mockAppSettings.isPrepopulated } returns flowOf(true)
+        coEvery { mockSessionManager.openSession(any()) } throws RuntimeException("Wrong passphrase")
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user taps unlock
+        viewModel.onEvent(PassphraseEvent.UnlockClicked("wrongpassphrase"))
+        advanceUntilIdle()
+
+        // THEN — closeSession was called and isUnlocking is false
+        verify(exactly = 1) { mockSessionManager.closeSession() }
+        assertFalse(viewModel.uiState.value.isUnlocking)
     }
 }

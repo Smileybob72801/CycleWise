@@ -24,6 +24,7 @@ import org.koin.core.component.inject
 import org.koin.core.logger.Level
 import androidx.core.content.edit
 import com.veleda.cyclewise.session.SessionBus
+import com.veleda.cyclewise.session.SessionManager
 
 /**
  * Application subclass responsible for Koin initialization and autolock lifecycle management.
@@ -46,6 +47,7 @@ class CycleWiseApp :
     private lateinit var prefs: SharedPreferences
     private val appSettings: AppSettings by inject()
     private val sessionBus: SessionBus by inject()
+    private val sessionManager: SessionManager by inject()
 
     // Background scope to keep an autolock cache fresh
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -93,7 +95,7 @@ class CycleWiseApp :
 
                 if (shouldLockNow(minutes, last)) {
                     // Close session scope to lock DB + clear session-scoped VMs
-                    getKoin().getScopeOrNull(SESSION_SCOPE_ID)?.close()
+                    sessionManager.closeSession()
 
                     // Hardening: clear the timestamp to avoid loop/stale values
                     prefs.edit { remove(KEY_LAST_BG_AT_ELAPSED) }
@@ -122,6 +124,5 @@ class CycleWiseApp :
 
     companion object {
         private const val KEY_LAST_BG_AT_ELAPSED = "last_bg_at_elapsed"
-        private const val SESSION_SCOPE_ID = "session"
     }
 }

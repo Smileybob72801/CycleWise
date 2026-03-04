@@ -29,13 +29,14 @@ import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.settings.pages.AboutPage
 import com.veleda.cyclewise.ui.settings.pages.AppearancePage
+import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
+import com.veleda.cyclewise.session.SessionManager
 import com.veleda.cyclewise.ui.settings.pages.GeneralPage
 import com.veleda.cyclewise.ui.settings.pages.NotificationsPage
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
-import org.koin.core.scope.Scope
 
 /** Number of pages in the settings pager. */
 private const val PAGE_COUNT = 4
@@ -58,11 +59,11 @@ private const val PAGE_ABOUT = 3
 fun SettingsScreen(navController: NavController) {
     val koin = getKoin()
     val viewModel: SettingsViewModel = koinViewModel()
+    val sessionManager: SessionManager = koin.get()
     val generalState by viewModel.generalState.collectAsState()
     val appearanceState by viewModel.appearanceState.collectAsState()
     val notificationState by viewModel.notificationState.collectAsState()
     val aboutState by viewModel.aboutState.collectAsState()
-    val session = koin.getScopeOrNull("session")
     val context = LocalContext.current
     val passphraseChangedMessage = stringResource(R.string.settings_change_passphrase_success)
 
@@ -94,11 +95,17 @@ fun SettingsScreen(navController: NavController) {
             notificationState = notificationState,
             aboutState = aboutState,
             onEvent = viewModel::onEvent,
-            session = session,
+            isSessionActive = sessionManager.isSessionActive,
             onLockNow = {
-                session?.close()
+                sessionManager.closeSession()
                 navController.navigate(NavRoute.Passphrase.route) {
                     popUpTo(0) { inclusive = true }
+                }
+            },
+            onSeedDebugData = {
+                koin.getScopeOrNull("session")?.let {
+                    val seeder: DebugSeederUseCase = it.get()
+                    seeder
                 }
             },
             modifier = Modifier.padding(padding)
@@ -117,8 +124,10 @@ fun SettingsScreen(navController: NavController) {
  * @param notificationState  The current Notifications page state from [SettingsViewModel].
  * @param aboutState         The current About page state from [SettingsViewModel].
  * @param onEvent            Event dispatcher for [SettingsEvent] variants.
- * @param session            The Koin session scope, or `null` when the app is locked.
+ * @param isSessionActive    Whether the session scope is active (database unlocked).
  * @param onLockNow          Callback invoked when the user taps "Lock Now".
+ * @param onSeedDebugData    Returns a [DebugSeederUseCase] if the session is active, or `null`.
+ *                           Only used in debug builds for the developer seeder button.
  * @param modifier           Modifier applied to the root column.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -129,8 +138,9 @@ internal fun SettingsContent(
     notificationState: NotificationSettingsState,
     aboutState: AboutSettingsState,
     onEvent: (SettingsEvent) -> Unit,
-    session: Scope?,
+    isSessionActive: Boolean,
     onLockNow: () -> Unit,
+    onSeedDebugData: (() -> DebugSeederUseCase?)? = null,
     modifier: Modifier = Modifier,
 ) {
     val dims = LocalDimensions.current
@@ -182,10 +192,10 @@ internal fun SettingsContent(
                 modifier = Modifier.fillMaxSize(),
             ) { page ->
                 when (page) {
-                    PAGE_GENERAL -> GeneralPage(generalState, onEvent, session, onLockNow)
+                    PAGE_GENERAL -> GeneralPage(generalState, onEvent, isSessionActive, onLockNow)
                     PAGE_APPEARANCE -> AppearancePage(appearanceState, onEvent)
                     PAGE_NOTIFICATIONS -> NotificationsPage(notificationState, onEvent)
-                    PAGE_ABOUT -> AboutPage(aboutState, onEvent, session)
+                    PAGE_ABOUT -> AboutPage(aboutState, onEvent, isSessionActive, onSeedDebugData)
                 }
             }
         }

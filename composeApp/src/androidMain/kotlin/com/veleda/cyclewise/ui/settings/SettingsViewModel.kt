@@ -1,17 +1,13 @@
 package com.veleda.cyclewise.ui.settings
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
-import com.veleda.cyclewise.androidData.local.database.RekeyVerificationFailedException
-import com.veleda.cyclewise.di.SESSION_SCOPE
 import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
-import com.veleda.cyclewise.domain.services.PassphraseService
 import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.reminders.ReminderScheduler
-import com.veleda.cyclewise.session.KeyFingerprintHolder
+import com.veleda.cyclewise.session.ChangePassphraseResult
+import com.veleda.cyclewise.session.SessionManager
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.auth.MIN_PASSPHRASE_LENGTH
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
@@ -29,7 +25,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.koin.core.component.KoinComponent
 
 /**
  * One-shot side effects emitted by [SettingsViewModel] and consumed by the UI.
@@ -174,12 +169,14 @@ data class AboutSettingsState(
  * `viewModelScope`.
  *
  * Singleton-scoped (no database access needed). Session-specific operations
- * (Lock Now, Debug Seeder) are handled at the Screen level via Koin scope access.
+ * (Lock Now, Debug Seeder) are handled at the Screen level via [SessionManager]
+ * or Koin scope access.
  *
  * @param appSettings          The [AppSettings] for reading/writing preferences.
  * @param reminderScheduler    The [ReminderScheduler] for notification scheduling.
  * @param hintPreferences      The [HintPreferences] for managing tutorial hint state.
  * @param deleteAllDataUseCase The [DeleteAllDataUseCase] for wiping all user data.
+ * @param sessionManager       The [SessionManager] for session scope lifecycle operations.
  */
 class SettingsViewModel(
     private val appSettings: AppSettings,
@@ -187,7 +184,8 @@ class SettingsViewModel(
     private val educationalContentProvider: EducationalContentProvider,
     private val hintPreferences: HintPreferences,
     private val deleteAllDataUseCase: DeleteAllDataUseCase,
-) : ViewModel(), KoinComponent {
+    private val sessionManager: SessionManager,
+) : ViewModel() {
 
     private val _generalState = MutableStateFlow(GeneralSettingsState())
 
@@ -356,7 +354,7 @@ class SettingsViewModel(
                     )
                 }
                 viewModelScope.launch {
-                    getKoin().getScopeOrNull("session")?.close()
+                    sessionManager.closeSession()
                     _effect.emit(SettingsEffect.PassphraseChanged)
                 }
             }
@@ -419,7 +417,7 @@ class SettingsViewModel(
                 }
                 viewModelScope.launch {
                     withContext(Dispatchers.IO) {
-                        getKoin().getScopeOrNull("session")?.close()
+                        sessionManager.closeSession()
                         deleteAllDataUseCase()
                     }
                     _effect.emit(SettingsEffect.DataDeleted)
@@ -621,19 +619,16 @@ class SettingsViewModel(
     }
 
     /**
-     * Validates inputs and orchestrates the passphrase change on the IO dispatcher.
+     * Validates inputs and delegates the passphrase change to [SessionManager].
      *
      * ## Validation (synchronous, before any IO)
      * 1. New passphrase must be >= [MIN_PASSPHRASE_LENGTH] characters.
      * 2. Confirmation must match the new passphrase exactly.
      *
-     * ## Passphrase change (IO dispatcher)
-     * 1. Derives the current key via [PassphraseService] and verifies it against the
-     *    session-scoped [KeyFingerprintHolder] (SHA-256 fingerprint comparison).
-     * 2. Derives the new key and calls [PeriodDatabase.changeEncryptionKey] (PRAGMA rekey)
-     *    on the active session database.
-     * 3. Updates the fingerprint holder with the new key so subsequent changes work.
-     * 4. Emits [SettingsEffect.PassphraseChanged] on success.
+     * ## Passphrase change
+     * Delegates to [SessionManager.changePassphrase] which handles key derivation,
+     * fingerprint verification, database rekey, and fingerprint update on the IO
+     * dispatcher.
      *
      * On any failure, sets [GeneralSettingsState.changePassphraseError] and clears the
      * loading state.
@@ -651,14 +646,12 @@ class SettingsViewModel(
         _generalState.update { it.copy(isChangingPassphrase = true, changePassphraseError = null) }
 
         viewModelScope.launch {
-            val errorKey: String? = try {
-                withContext(Dispatchers.IO) { executePassphraseChange(event) }
-            } catch (e: RekeyVerificationFailedException) {
-                Log.e("SettingsVM", "Change passphrase verification failed: ${e.message}")
-                "verification_failed"
-            } catch (e: Exception) {
-                Log.e("SettingsVM", "Change passphrase failed: ${e.message}")
-                "failed"
+            val result = sessionManager.changePassphrase(event.current, event.newPassphrase)
+            val errorKey = when (result) {
+                ChangePassphraseResult.Success -> null
+                ChangePassphraseResult.WrongCurrent -> "wrong_current"
+                ChangePassphraseResult.VerificationFailed -> "verification_failed"
+                ChangePassphraseResult.Failed -> "failed"
             }
 
             if (errorKey != null) {
@@ -674,51 +667,6 @@ class SettingsViewModel(
                     )
                 }
             }
-        }
-    }
-
-    /**
-     * Performs the IO-bound passphrase change: verifies current via fingerprint, then rekeys.
-     *
-     * Uses the session-scoped [KeyFingerprintHolder] to verify the current passphrase instead
-     * of opening a second raw SQLCipher connection (which would conflict with the Room-held
-     * database file). After a successful rekey, updates the fingerprint so subsequent changes
-     * in the same session work correctly.
-     *
-     * Both the old and new keys are passed to [PeriodDatabase.changeEncryptionKey] so it can
-     * attempt a rollback if post-rekey verification fails. The fingerprint is updated only
-     * **after** verified success.
-     *
-     * **Security:** Both [currentKey] and [newKey] are zeroized in a `finally` block,
-     * guaranteeing cleanup even if [PeriodDatabase.changeEncryptionKey] throws
-     * (e.g., [RekeyVerificationFailedException]).
-     */
-    private suspend fun executePassphraseChange(
-        event: SettingsEvent.ChangePassphraseSubmitted,
-    ): String? {
-        val passphraseService = getKoin().get<PassphraseService>()
-        val sessionScope = getKoin().getScopeOrNull("session")
-            ?: error("No active session")
-        val fingerprintHolder = sessionScope.get<KeyFingerprintHolder>()
-
-        val currentKey = passphraseService.deriveKey(event.current)
-        var newKey: ByteArray? = null
-        try {
-            val currentValid = fingerprintHolder.matches(currentKey)
-            if (!currentValid) return "wrong_current"
-
-            newKey = passphraseService.deriveKey(event.newPassphrase)
-            val context = getKoin().get<android.content.Context>()
-            val db = sessionScope.get<PeriodDatabase>()
-            // changeEncryptionKey zeroizes both key copies in its finally block
-            db.changeEncryptionKey(context, currentKey.copyOf(), newKey.copyOf())
-
-            // Rekey verified — update fingerprint with the new key
-            fingerprintHolder.store(newKey)
-            return null
-        } finally {
-            currentKey.fill(0)
-            newKey?.fill(0)
         }
     }
 }

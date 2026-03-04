@@ -15,7 +15,6 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.koin.core.scope.Scope
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -32,7 +31,7 @@ class AboutPageTest {
     private fun setContent(
         state: AboutSettingsState = AboutSettingsState(),
         onEvent: (SettingsEvent) -> Unit = {},
-        session: Scope? = null,
+        isSessionActive: Boolean = false,
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalDimensions provides Dimensions()) {
@@ -40,7 +39,7 @@ class AboutPageTest {
                     AboutPage(
                         state = state,
                         onEvent = onEvent,
-                        session = session,
+                        isSessionActive = isSessionActive,
                     )
                 }
             }
@@ -132,7 +131,7 @@ class AboutPageTest {
     @Test
     fun developerSection_WHEN_sessionNull_THEN_lockedMessageDisplayed() {
         // Given / When
-        setContent(session = null)
+        setContent(isSessionActive = false)
 
         // Then — in debug builds, the developer section shows a locked message (may need scroll)
         composeTestRule.onNodeWithText("Unlock the app to use developer tools.")

@@ -36,7 +36,7 @@ class SettingsScreenTest {
         notificationState: NotificationSettingsState = NotificationSettingsState(),
         aboutState: AboutSettingsState = AboutSettingsState(),
         onEvent: (SettingsEvent) -> Unit = {},
-        session: org.koin.core.scope.Scope? = null,
+        isSessionActive: Boolean = false,
         onLockNow: () -> Unit = {},
     ) {
         composeTestRule.setContent {
@@ -50,7 +50,7 @@ class SettingsScreenTest {
                         notificationState = notificationState,
                         aboutState = aboutState,
                         onEvent = onEvent,
-                        session = session,
+                        isSessionActive = isSessionActive,
                         onLockNow = onLockNow,
                     )
                 }
@@ -85,9 +85,9 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun generalPage_WHEN_sessionNull_THEN_showsLockedMessage() {
-        // GIVEN — settings content rendered with null session (locked state)
-        setSettingsContent(session = null)
+    fun generalPage_WHEN_sessionInactive_THEN_showsLockedMessage() {
+        // GIVEN — settings content rendered with inactive session (locked state)
+        setSettingsContent(isSessionActive = false)
 
         // THEN — the locked message is visible
         composeTestRule.onNodeWithText("Currently locked", substring = true).assertIsDisplayed()
