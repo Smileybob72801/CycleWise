@@ -23,6 +23,7 @@ import com.veleda.cyclewise.domain.insights.generators.NextPeriodPredictionGener
 import com.veleda.cyclewise.domain.insights.generators.SymptomPhasePatternGenerator
 import com.veleda.cyclewise.domain.insights.generators.SymptomRecurrenceGenerator
 import com.veleda.cyclewise.androidData.local.EducationalContentLoader
+import com.veleda.cyclewise.androidData.local.providers.StaticEducationalContentProvider
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
@@ -198,7 +199,7 @@ val appModule = module {
 
     single { ReminderScheduler(androidContext()) }
 
-    single { EducationalContentProvider(EducationalContentLoader.load(androidContext())) }
+    single<EducationalContentProvider> { StaticEducationalContentProvider(EducationalContentLoader.load(androidContext())) }
 
     single { HintPreferences(androidContext()) }
 
