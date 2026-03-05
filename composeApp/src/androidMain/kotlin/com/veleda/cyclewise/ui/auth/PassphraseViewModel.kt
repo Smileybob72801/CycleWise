@@ -18,8 +18,8 @@ internal const val MAX_PASSPHRASE_LENGTH = 256
  * UI state for the passphrase screen.
  *
  * @property isUnlocking        `true` while an unlock attempt is in progress; used by the UI
- *                              to show a loading indicator and by [PassphraseViewModel.unlock]
- *                              as a re-entrancy guard to ignore duplicate tap events.
+ *                              to show a loading indicator and by [reduce] as a re-entrancy
+ *                              guard to ignore duplicate tap events.
  * @property isFirstTime        `true` when the user has never completed setup (derived from
  *                              `AppSettings.isPrepopulated`). When `true` the UI shows the
  *                              onboarding setup flow instead of the unlock screen.
@@ -50,7 +50,10 @@ data class PassphraseUiState(
  * 5. Syncs water drafts from [LockedWaterDraft] into the database.
  * 6. Emits [PassphraseEffect.NavigateToTracker] on success.
  *
- * **Re-entrancy guard:** Ignores unlock requests while [PassphraseUiState.isUnlocking] is true.
+ * Uses a pure [reduce] function for synchronous state transitions (validation,
+ * re-entrancy guard). Side effects (session operations) are launched in [onEvent]
+ * only when [reduce] transitions [PassphraseUiState.isUnlocking] from false to true.
+ *
  * **Error handling:** On failure, the session scope is closed and [PassphraseEffect.ShowError] is emitted.
  *
  * Singleton-scoped (survives screen rotation).
@@ -92,44 +95,53 @@ class PassphraseViewModel(
     /**
      * Single entry-point for all screen-level user interactions.
      *
-     * Delegates to the appropriate handler based on the [event] type.
+     * Applies a pure state update via [reduce], then launches the unlock side effect
+     * only when the state transitions to [PassphraseUiState.isUnlocking].
      */
     fun onEvent(event: PassphraseEvent) {
-        when (event) {
-            is PassphraseEvent.UnlockClicked -> unlock(event.passphrase)
-            is PassphraseEvent.SetupClicked -> handleSetup(event.passphrase, event.confirmation)
+        val wasUnlocking = _uiState.value.isUnlocking
+        _uiState.update { reduce(it, event) }
+
+        // Launch the unlock side effect only when reduce transitioned isUnlocking false→true
+        if (!wasUnlocking && _uiState.value.isUnlocking) {
+            val passphrase = when (event) {
+                is PassphraseEvent.UnlockClicked -> event.passphrase
+                is PassphraseEvent.SetupClicked -> event.passphrase
+            }
+            launchUnlock(passphrase)
         }
     }
 
     /**
-     * Validates the new passphrase during first-time setup and, if valid, delegates
-     * to the standard [unlock] flow.
+     * Pure function that returns the new [PassphraseUiState] for a given event.
      *
-     * Validation rules (checked in order):
-     * 1. Passphrase must be at least [MIN_PASSPHRASE_LENGTH] characters.
-     * 2. Passphrase and confirmation must match exactly.
+     * Contains no side effects — session operations are handled in [onEvent]
+     * after the state has been updated.
      *
-     * If validation fails, the corresponding error field in [PassphraseUiState] is set
-     * and no unlock attempt is made. If validation passes, both error fields are cleared
-     * and [unlock] is called with the validated passphrase.
-     *
-     * @param passphrase    the new passphrase entered by the user.
-     * @param confirmation  the confirmation re-entry.
+     * Handles:
+     * - **UnlockClicked**: re-entrancy guard — if already unlocking, returns state unchanged.
+     *   Otherwise sets `isUnlocking = true`.
+     * - **SetupClicked**: validates passphrase length and confirmation match. Sets error
+     *   fields on failure, or `isUnlocking = true` on success.
      */
-    private fun handleSetup(passphrase: String, confirmation: String) {
-        // Clear previous errors
-        _uiState.update { it.copy(passphraseError = null, confirmationError = null) }
-
-        if (passphrase.length < MIN_PASSPHRASE_LENGTH) {
-            _uiState.update { it.copy(passphraseError = "too_short") }
-            return
+    private fun reduce(state: PassphraseUiState, event: PassphraseEvent): PassphraseUiState {
+        return when (event) {
+            is PassphraseEvent.UnlockClicked -> {
+                if (state.isUnlocking) state
+                else state.copy(isUnlocking = true)
+            }
+            is PassphraseEvent.SetupClicked -> {
+                val cleared = state.copy(passphraseError = null, confirmationError = null)
+                when {
+                    event.passphrase.length < MIN_PASSPHRASE_LENGTH ->
+                        cleared.copy(passphraseError = "too_short")
+                    event.passphrase != event.confirmation ->
+                        cleared.copy(confirmationError = "mismatch")
+                    cleared.isUnlocking -> cleared
+                    else -> cleared.copy(isUnlocking = true)
+                }
+            }
         }
-        if (passphrase != confirmation) {
-            _uiState.update { it.copy(confirmationError = "mismatch") }
-            return
-        }
-
-        unlock(passphrase)
     }
 
     /**
@@ -143,16 +155,10 @@ class PassphraseViewModel(
      * On any exception the session scope is closed (destroying the database and
      * zeroizing SQLCipher's key copy) and [PassphraseEffect.ShowError] is emitted.
      *
-     * ## Re-entrancy
-     * Ignored while [PassphraseUiState.isUnlocking] is `true`.
-     *
      * @param passphrase the raw user-entered passphrase string.
      */
-    private fun unlock(passphrase: String) {
-        if (_uiState.value.isUnlocking) return
-
+    private fun launchUnlock(passphrase: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isUnlocking = true) }
             try {
                 sessionManager.openSession(passphrase)
                 _effect.emit(PassphraseEffect.NavigateToTracker)

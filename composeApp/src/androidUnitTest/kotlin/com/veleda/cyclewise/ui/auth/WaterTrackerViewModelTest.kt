@@ -124,7 +124,7 @@ class WaterTrackerViewModelTest {
     }
 
     @Test
-    fun onIncrement_WHEN_called_THEN_callsSetCupsWithIncrementedValue() = runTest {
+    fun onEvent_Increment_WHEN_called_THEN_callsSetCupsWithIncrementedValue() = runTest {
         // ARRANGE
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
         draftsFlow.value = mapOf(today to 3)
@@ -132,7 +132,7 @@ class WaterTrackerViewModelTest {
         advanceUntilIdle()
 
         // ACT
-        viewModel.onIncrement()
+        viewModel.onEvent(WaterTrackerEvent.Increment)
         advanceUntilIdle()
 
         // ASSERT
@@ -140,7 +140,7 @@ class WaterTrackerViewModelTest {
     }
 
     @Test
-    fun onDecrement_WHEN_cupsAboveZero_THEN_callsSetCupsWithDecrementedValue() = runTest {
+    fun onEvent_Decrement_WHEN_cupsAboveZero_THEN_callsSetCupsWithDecrementedValue() = runTest {
         // ARRANGE
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
         draftsFlow.value = mapOf(today to 3)
@@ -148,7 +148,7 @@ class WaterTrackerViewModelTest {
         advanceUntilIdle()
 
         // ACT
-        viewModel.onDecrement()
+        viewModel.onEvent(WaterTrackerEvent.Decrement)
         advanceUntilIdle()
 
         // ASSERT
@@ -156,7 +156,7 @@ class WaterTrackerViewModelTest {
     }
 
     @Test
-    fun onDecrement_WHEN_cupsAreZero_THEN_doesNotCallSetCups() = runTest {
+    fun onEvent_Decrement_WHEN_cupsAreZero_THEN_doesNotCallSetCups() = runTest {
         // ARRANGE
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
         draftsFlow.value = mapOf(today to 0)
@@ -164,7 +164,7 @@ class WaterTrackerViewModelTest {
         advanceUntilIdle()
 
         // ACT
-        viewModel.onDecrement()
+        viewModel.onEvent(WaterTrackerEvent.Decrement)
         advanceUntilIdle()
 
         // ASSERT — setCups should not be called for decrement from 0
@@ -172,7 +172,7 @@ class WaterTrackerViewModelTest {
     }
 
     @Test
-    fun onIncrement_WHEN_noDraftForToday_THEN_incrementsFromZero() = runTest {
+    fun onEvent_Increment_WHEN_noDraftForToday_THEN_incrementsFromZero() = runTest {
         // ARRANGE
         draftsFlow.value = emptyMap()
         val viewModel = createViewModel()
@@ -180,11 +180,58 @@ class WaterTrackerViewModelTest {
         assertEquals(0, viewModel.uiState.value.todayCups)
 
         // ACT
-        viewModel.onIncrement()
+        viewModel.onEvent(WaterTrackerEvent.Increment)
         advanceUntilIdle()
 
         // ASSERT
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
         coVerify { mockLockedWaterDraft.setCups(today, 1) }
+    }
+
+    // ── Reduce-specific tests ──────────────────────────────────────────
+
+    @Test
+    fun reduce_Increment_WHEN_called_THEN_optimisticallyUpdatesState() = runTest {
+        // ARRANGE — start with 3 cups from draft flow
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+        draftsFlow.value = mapOf(today to 3)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // ACT — increment should optimistically update state before flow re-emits
+        viewModel.onEvent(WaterTrackerEvent.Increment)
+
+        // ASSERT — state shows 4 immediately (optimistic update)
+        assertEquals(4, viewModel.uiState.value.todayCups)
+    }
+
+    @Test
+    fun reduce_Decrement_WHEN_cupsAboveZero_THEN_optimisticallyUpdatesState() = runTest {
+        // ARRANGE — start with 3 cups from draft flow
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+        draftsFlow.value = mapOf(today to 3)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // ACT — decrement should optimistically update state
+        viewModel.onEvent(WaterTrackerEvent.Decrement)
+
+        // ASSERT — state shows 2 immediately (optimistic update)
+        assertEquals(2, viewModel.uiState.value.todayCups)
+    }
+
+    @Test
+    fun reduce_Decrement_WHEN_cupsAreZero_THEN_stateUnchanged() = runTest {
+        // ARRANGE — start with 0 cups
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+        draftsFlow.value = mapOf(today to 0)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // ACT — decrement at zero should be a no-op
+        viewModel.onEvent(WaterTrackerEvent.Decrement)
+
+        // ASSERT — state remains 0
+        assertEquals(0, viewModel.uiState.value.todayCups)
     }
 }

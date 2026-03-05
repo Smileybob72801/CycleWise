@@ -286,4 +286,39 @@ class InsightsViewModelTest {
         // THEN — "a1" is removed from expanded set
         assertFalse("a1" in viewModel.uiState.value.expandedArticleIds)
     }
+
+    // ── Reduce-specific tests ──────────────────────────────────────────
+
+    @Test
+    fun `reduce FilterArticles WHEN category THEN selectedCategoryUpdatedImmediately`() = runTest {
+        // GIVEN — ViewModel with articles
+        viewModel = createViewModelWithArticles()
+        advanceUntilIdle()
+
+        every { mockEducationalContentProvider.getByCategory(ArticleCategory.WELLNESS) } returns
+                listOf(testArticles[2])
+
+        // WHEN — filter by WELLNESS
+        viewModel.onEvent(InsightsEvent.FilterArticles(ArticleCategory.WELLNESS))
+
+        // THEN — selectedCategory is updated by reduce (pure state)
+        assertEquals(ArticleCategory.WELLNESS, viewModel.uiState.value.selectedCategory)
+    }
+
+    @Test
+    fun `reduce ToggleArticleExpanded WHEN multipleToggled THEN setTracksAll`() = runTest {
+        // GIVEN — ViewModel with articles, none expanded
+        viewModel = createViewModelWithArticles()
+        advanceUntilIdle()
+
+        // WHEN — toggle two different articles
+        viewModel.onEvent(InsightsEvent.ToggleArticleExpanded("a1"))
+        viewModel.onEvent(InsightsEvent.ToggleArticleExpanded("a2"))
+
+        // THEN — both are in expanded set
+        val expanded = viewModel.uiState.value.expandedArticleIds
+        assertTrue("a1" in expanded)
+        assertTrue("a2" in expanded)
+        assertEquals(2, expanded.size)
+    }
 }

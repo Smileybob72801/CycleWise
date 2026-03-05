@@ -267,8 +267,8 @@ internal fun UnlockScreen(
                 val waterState by waterViewModel.uiState.collectAsState()
                 WaterTrackerCounter(
                     cups = waterState.todayCups,
-                    onIncrement = waterViewModel::onIncrement,
-                    onDecrement = waterViewModel::onDecrement,
+                    onIncrement = { waterViewModel.onEvent(WaterTrackerEvent.Increment) },
+                    onDecrement = { waterViewModel.onEvent(WaterTrackerEvent.Decrement) },
                     yesterdayCupsForPrompt = waterState.yesterdayCupsForPrompt
                 )
             }

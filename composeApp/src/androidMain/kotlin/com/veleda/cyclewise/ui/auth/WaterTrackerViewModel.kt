@@ -34,6 +34,10 @@ data class WaterTrackerUiState(
  * database is not yet available. On init, ensures the day has rolled over (resets
  * today's count and prunes old entries), then continuously collects draft changes.
  *
+ * Uses a pure [reduce] function for optimistic state updates, fixing a race condition
+ * where rapid taps could read stale state before the DataStore flow re-emitted.
+ * Side effects (DataStore persistence) are launched in [onEvent] after the state update.
+ *
  * Exposes today's cup count and an optional yesterday cup count prompting the user
  * to log in so drafts can be synced to the encrypted database.
  */
@@ -66,20 +70,38 @@ class WaterTrackerViewModel(
         }
     }
 
-    fun onIncrement() {
-        viewModelScope.launch {
-            val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-            val current = _uiState.value.todayCups
-            lockedWaterDraft.setCups(today, current + 1)
+    /**
+     * Single entry-point for all water tracker user interactions.
+     *
+     * Applies an optimistic state update via [reduce], then persists the new cup count
+     * to [LockedWaterDraft]. The DataStore flow will eventually re-emit and reconcile,
+     * but the optimistic update prevents stale reads on rapid taps.
+     */
+    fun onEvent(event: WaterTrackerEvent) {
+        val previousCups = _uiState.value.todayCups
+        _uiState.update { reduce(it, event) }
+        val newCups = _uiState.value.todayCups
+
+        if (newCups != previousCups) {
+            viewModelScope.launch {
+                val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+                lockedWaterDraft.setCups(today, newCups)
+            }
         }
     }
 
-    fun onDecrement() {
-        viewModelScope.launch {
-            val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-            val current = _uiState.value.todayCups
-            if (current > 0) {
-                lockedWaterDraft.setCups(today, current - 1)
+    /**
+     * Pure function that returns the new [WaterTrackerUiState] for a given event.
+     *
+     * Contains no side effects — DataStore persistence is handled in [onEvent]
+     * after the state has been updated.
+     */
+    private fun reduce(state: WaterTrackerUiState, event: WaterTrackerEvent): WaterTrackerUiState {
+        return when (event) {
+            is WaterTrackerEvent.Increment -> state.copy(todayCups = state.todayCups + 1)
+            is WaterTrackerEvent.Decrement -> {
+                if (state.todayCups > 0) state.copy(todayCups = state.todayCups - 1)
+                else state
             }
         }
     }

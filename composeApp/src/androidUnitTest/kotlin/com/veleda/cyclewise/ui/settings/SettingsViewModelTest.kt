@@ -983,4 +983,170 @@ class SettingsViewModelTest {
         assertFalse(viewModel.generalState.value.isChangingPassphrase)
         assertFalse(viewModel.generalState.value.showPassphraseSuccessDialog)
     }
+
+    // ── Reduce-specific tests ──────────────────────────────────────────
+
+    @Test
+    fun `reduceGeneral AutolockChanged THEN updatesAutolockMinutes`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — autolock changed
+        viewModel.onEvent(SettingsEvent.AutolockChanged(5))
+
+        // THEN — state updated synchronously by reduce
+        assertEquals(5, viewModel.generalState.value.autolockMinutes)
+    }
+
+    @Test
+    fun `reduceGeneral ChangePassphraseSubmitted WHEN tooShort THEN setsErrorWithoutChanging`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — submitted with short passphrase
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted("old", "short", "short")
+        )
+
+        // THEN — reduce sets error, isChangingPassphrase stays false
+        assertEquals("too_short", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+    }
+
+    @Test
+    fun `reduceGeneral ChangePassphraseSubmitted WHEN mismatch THEN setsErrorWithoutChanging`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — submitted with mismatched confirmation
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted("old", "newpassphrase", "different")
+        )
+
+        // THEN — reduce sets error, isChangingPassphrase stays false
+        assertEquals("mismatch", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+    }
+
+    @Test
+    fun `reduceGeneral DeleteAllDataFirstConfirmed THEN transitionsToSecondConfirmation`() = runTest {
+        // GIVEN — first confirmation showing
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+
+        // WHEN — first dialog confirmed
+        viewModel.onEvent(SettingsEvent.DeleteAllDataFirstConfirmed)
+
+        // THEN — reduce transitions dialog state
+        val state = viewModel.generalState.value
+        assertFalse(state.showDeleteFirstConfirmation)
+        assertTrue(state.showDeleteSecondConfirmation)
+    }
+
+    @Test
+    fun `reduceAppearance ThemeModeChanged THEN updatesThemeMode`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — theme changed
+        viewModel.onEvent(SettingsEvent.ThemeModeChanged(ThemeMode.DARK))
+
+        // THEN — state updated synchronously by reduce
+        assertEquals(ThemeMode.DARK, viewModel.appearanceState.value.themeMode)
+    }
+
+    @Test
+    fun `reduceAppearance ResetPhaseColorsToDefaults THEN resetsAllColors`() = runTest {
+        // GIVEN — ViewModel with custom colors
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.MenstruationColorChanged("FF0000"))
+        viewModel.onEvent(SettingsEvent.FollicularColorChanged("00FF00"))
+
+        // WHEN — reset to defaults
+        viewModel.onEvent(SettingsEvent.ResetPhaseColorsToDefaults)
+
+        // THEN — reduce resets all colors synchronously
+        val state = viewModel.appearanceState.value
+        assertEquals(CyclePhaseColors.DEFAULT_MENSTRUATION_HEX, state.menstruationColorHex)
+        assertEquals(CyclePhaseColors.DEFAULT_FOLLICULAR_HEX, state.follicularColorHex)
+    }
+
+    @Test
+    fun `reduceAppearance DismissEducationalSheet THEN clearsArticles`() = runTest {
+        // GIVEN — educational sheet is showing
+        every { mockEducationalContentProvider.getByTag("CyclePhase.Colors") } returns listOf(testArticle)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.ShowEducationalSheet("CyclePhase.Colors"))
+        assertNotNull(viewModel.appearanceState.value.educationalArticles)
+
+        // WHEN — dismissed
+        viewModel.onEvent(SettingsEvent.DismissEducationalSheet)
+
+        // THEN — reduce clears articles synchronously
+        assertNull(viewModel.appearanceState.value.educationalArticles)
+    }
+
+    @Test
+    fun `reduceNotification PeriodPrivacyAccepted THEN setsMultipleFields`() = runTest {
+        // GIVEN — ViewModel with privacy dialog showing
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.ShowPrivacyDialog)
+
+        // WHEN — privacy accepted
+        viewModel.onEvent(SettingsEvent.PeriodPrivacyAccepted)
+
+        // THEN — reduce sets all fields synchronously
+        val state = viewModel.notificationState.value
+        assertTrue(state.periodPrivacyAccepted)
+        assertTrue(state.periodReminderEnabled)
+        assertFalse(state.showPrivacyDialog)
+    }
+
+    @Test
+    fun `reduceNotification HydrationFrequencyChanged THEN updatesFrequency`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — frequency changed
+        viewModel.onEvent(SettingsEvent.HydrationFrequencyChanged(4))
+
+        // THEN — state updated synchronously by reduce
+        assertEquals(4, viewModel.notificationState.value.hydrationFrequencyHours)
+    }
+
+    @Test
+    fun `reduceAbout ShowAboutDialog THEN setsDialogVisible`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — show about dialog
+        viewModel.onEvent(SettingsEvent.ShowAboutDialog)
+
+        // THEN — reduce sets dialog visible
+        assertTrue(viewModel.aboutState.value.showAboutDialog)
+    }
+
+    @Test
+    fun `reduceAbout DismissAboutDialog THEN hidesDialog`() = runTest {
+        // GIVEN — about dialog visible
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.ShowAboutDialog)
+
+        // WHEN — dismiss about dialog
+        viewModel.onEvent(SettingsEvent.DismissAboutDialog)
+
+        // THEN — reduce hides dialog
+        assertFalse(viewModel.aboutState.value.showAboutDialog)
+    }
 }

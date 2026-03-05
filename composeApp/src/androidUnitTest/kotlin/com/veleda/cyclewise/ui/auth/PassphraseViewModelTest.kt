@@ -200,4 +200,83 @@ class PassphraseViewModelTest {
         verify(exactly = 1) { mockSessionManager.closeSession() }
         assertFalse(viewModel.uiState.value.isUnlocking)
     }
+
+    // ── Reduce-specific tests ──────────────────────────────────────────
+
+    @Test
+    fun `reduce UnlockClicked WHEN notAlreadyUnlocking THEN setsIsUnlockingTrue`() = runTest {
+        // GIVEN — returning user, openSession succeeds
+        every { mockAppSettings.isPrepopulated } returns flowOf(true)
+        coEvery { mockSessionManager.openSession(any()) } returns Unit
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isUnlocking)
+
+        // WHEN — unlock clicked (with UnconfinedTestDispatcher, the launch completes
+        // immediately, so we verify openSession was called as proof reduce set isUnlocking)
+        viewModel.onEvent(PassphraseEvent.UnlockClicked("mypassphrase"))
+        advanceUntilIdle()
+
+        // THEN — openSession was called (proving reduce set isUnlocking = true)
+        coVerify(exactly = 1) { mockSessionManager.openSession("mypassphrase") }
+    }
+
+    @Test
+    fun `reduce SetupClicked WHEN passphraseTooShort THEN setsErrorWithoutUnlocking`() = runTest {
+        // GIVEN — first-time user
+        every { mockAppSettings.isPrepopulated } returns flowOf(false)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — setup with short passphrase
+        viewModel.onEvent(PassphraseEvent.SetupClicked("short", "short"))
+
+        // THEN — error set, isUnlocking stays false, no openSession call
+        val state = viewModel.uiState.value
+        assertEquals("too_short", state.passphraseError)
+        assertNull(state.confirmationError)
+        assertFalse(state.isUnlocking)
+        coVerify(exactly = 0) { mockSessionManager.openSession(any()) }
+    }
+
+    @Test
+    fun `reduce SetupClicked WHEN confirmationMismatch THEN setsErrorWithoutUnlocking`() = runTest {
+        // GIVEN — first-time user
+        every { mockAppSettings.isPrepopulated } returns flowOf(false)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — setup with mismatched confirmation
+        viewModel.onEvent(PassphraseEvent.SetupClicked("validpassphrase", "different"))
+
+        // THEN — error set, isUnlocking stays false, no openSession call
+        val state = viewModel.uiState.value
+        assertNull(state.passphraseError)
+        assertEquals("mismatch", state.confirmationError)
+        assertFalse(state.isUnlocking)
+        coVerify(exactly = 0) { mockSessionManager.openSession(any()) }
+    }
+
+    @Test
+    fun `reduce SetupClicked WHEN validInput THEN clearsErrorsAndSetsIsUnlocking`() = runTest {
+        // GIVEN — first-time user with a previous error
+        every { mockAppSettings.isPrepopulated } returns flowOf(false)
+        coEvery { mockSessionManager.openSession(any()) } returns Unit
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Set a previous error
+        viewModel.onEvent(PassphraseEvent.SetupClicked("short", "short"))
+        assertEquals("too_short", viewModel.uiState.value.passphraseError)
+
+        // WHEN — setup with valid input
+        viewModel.onEvent(PassphraseEvent.SetupClicked("validpassphrase", "validpassphrase"))
+        advanceUntilIdle()
+
+        // THEN — errors cleared and openSession was called
+        val state = viewModel.uiState.value
+        assertNull(state.passphraseError)
+        assertNull(state.confirmationError)
+        coVerify(exactly = 1) { mockSessionManager.openSession("validpassphrase") }
+    }
 }

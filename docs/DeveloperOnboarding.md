@@ -886,10 +886,11 @@ top of MVVM components:
 - **Effects** (`TrackerEffect`) — One-shot side effects (navigation, toasts) that
   should be consumed exactly once. Exposed as `SharedFlow` with `replay = 0`.
 - **Reducer** (`reduce()`) — A pure function that takes current state + event and returns
-  new state with no side effects. `TrackerViewModel` and `DailyLogViewModel` use a pure
-  `reduce()` function. Other ViewModels use a simpler `onEvent()` dispatch without a
-  separate reducer. Side effects (repository writes, scheduler calls, navigation) are
-  launched in `onEvent()` after the state update.
+  new state with no side effects. All ViewModels use a pure `reduce()` function.
+  `SettingsViewModel` uses four reduce functions — `reduceGeneral()`, `reduceAppearance()`,
+  `reduceNotification()`, `reduceAbout()` — one per sub-state flow. Side effects
+  (repository writes, scheduler calls, navigation) are launched in `onEvent()` after
+  the state update.
 
 ### Concrete Example: TrackerViewModel
 
@@ -1974,8 +1975,9 @@ current constructor parameters.
   - `AboutSettingsState` — about dialog visibility.
 - **Events:** `SettingsEvent` — a sealed interface covering every toggle, slider,
   color input, and dialog interaction.
-- **Event routing:** `onEvent()` updates the relevant sub-state directly via
-  `_xState.update { it.copy(...) }` and launches side effects (DataStore writes,
+- **Event routing:** `onEvent()` applies a pure state update via the appropriate
+  reduce function — `reduceGeneral()`, `reduceAppearance()`, `reduceNotification()`,
+  or `reduceAbout()` — then launches side effects (DataStore writes,
   `ReminderScheduler` calls) in `viewModelScope`.
 
 ### Initialization Pattern

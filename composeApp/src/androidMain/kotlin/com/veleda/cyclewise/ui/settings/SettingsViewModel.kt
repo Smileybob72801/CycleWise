@@ -156,17 +156,18 @@ data class AboutSettingsState(
 )
 
 /**
- * Settings screen ViewModel following the MVI-inspired pattern.
+ * Settings screen ViewModel following the MVI pattern with pure reduce functions.
  *
  * Exposes four separate [StateFlow]s — one per pager page — so that changes to one
- * page's state only trigger recomposition of that page. This replaces the former
- * monolithic `SettingsUiState` to reduce recomposition scope on lower-end devices.
+ * page's state only trigger recomposition of that page. Each sub-state has a
+ * corresponding pure reduce function ([reduceGeneral], [reduceAppearance],
+ * [reduceNotification], [reduceAbout]) that handles synchronous state transitions.
  *
  * Collects all [AppSettings] preference flows in its `init` block via individual
  * `Flow.onEach { }.launchIn(viewModelScope)` collectors. User interactions are dispatched
- * through [onEvent], which applies state updates directly to the relevant sub-state flow
- * and then launches side effects (DataStore writes, [ReminderScheduler] calls) in
- * `viewModelScope`.
+ * through [onEvent], which applies a pure state update via the appropriate reduce
+ * function, then launches side effects (DataStore writes, [ReminderScheduler] calls)
+ * in `viewModelScope`.
  *
  * Singleton-scoped (no database access needed). Session-specific operations
  * (Lock Now, Debug Seeder) are handled at the Screen level via [SessionManager]
@@ -320,48 +321,90 @@ class SettingsViewModel(
     /**
      * The single public entry point for all UI interactions.
      *
-     * Updates the relevant sub-state directly, then launches side effects
-     * (DataStore writes, scheduler calls) asynchronously in [viewModelScope].
+     * Applies a pure state update via the appropriate reduce function, then launches
+     * side effects (DataStore writes, scheduler calls) asynchronously in [viewModelScope].
      */
     fun onEvent(event: SettingsEvent) {
         when (event) {
             // ── General state events ─────────────────────────────────
-            is SettingsEvent.AutolockChanged -> {
-                _generalState.update { it.copy(autolockMinutes = event.minutes) }
+            is SettingsEvent.AutolockChanged,
+            is SettingsEvent.ChangePassphraseRequested,
+            is SettingsEvent.ChangePassphraseDismissed,
+            is SettingsEvent.TopSymptomsCountChanged,
+            is SettingsEvent.ShowPrivacyPolicyDialog,
+            is SettingsEvent.DismissPrivacyPolicyDialog,
+            is SettingsEvent.ShowTermsOfServiceDialog,
+            is SettingsEvent.DismissTermsOfServiceDialog,
+            is SettingsEvent.DeleteAllDataRequested,
+            is SettingsEvent.DeleteAllDataCancelled,
+            is SettingsEvent.DeleteAllDataFirstConfirmed,
+            is SettingsEvent.DeleteConfirmTextChanged,
+            is SettingsEvent.DeleteAllDataConfirmed,
+            is SettingsEvent.ChangePassphraseSuccessAcknowledged,
+            is SettingsEvent.ChangePassphraseSubmitted,
+            is SettingsEvent.ResetTutorialHints ->
+                _generalState.update { reduceGeneral(it, event) }
+
+            // ── Appearance state events ──────────────────────────────
+            is SettingsEvent.ThemeModeChanged,
+            is SettingsEvent.ShowMoodToggled,
+            is SettingsEvent.ShowEnergyToggled,
+            is SettingsEvent.ShowLibidoToggled,
+            is SettingsEvent.ShowFollicularToggled,
+            is SettingsEvent.ShowOvulationToggled,
+            is SettingsEvent.ShowLutealToggled,
+            is SettingsEvent.MenstruationColorChanged,
+            is SettingsEvent.FollicularColorChanged,
+            is SettingsEvent.OvulationColorChanged,
+            is SettingsEvent.LutealColorChanged,
+            is SettingsEvent.ResetPhaseColorsToDefaults,
+            is SettingsEvent.ShowEducationalSheet,
+            is SettingsEvent.DismissEducationalSheet ->
+                _appearanceState.update { reduceAppearance(it, event) }
+
+            // ── Notification state events ────────────────────────────
+            is SettingsEvent.PeriodReminderToggled,
+            is SettingsEvent.PeriodDaysBeforeChanged,
+            is SettingsEvent.PeriodPrivacyAccepted,
+            is SettingsEvent.MedicationReminderToggled,
+            is SettingsEvent.MedicationHourChanged,
+            is SettingsEvent.MedicationMinuteChanged,
+            is SettingsEvent.HydrationReminderToggled,
+            is SettingsEvent.HydrationGoalCupsChanged,
+            is SettingsEvent.HydrationFrequencyChanged,
+            is SettingsEvent.HydrationStartHourChanged,
+            is SettingsEvent.HydrationEndHourChanged,
+            is SettingsEvent.ShowPrivacyDialog,
+            is SettingsEvent.DismissPrivacyDialog,
+            is SettingsEvent.ShowPermissionRationale,
+            is SettingsEvent.DismissPermissionRationale ->
+                _notificationState.update { reduceNotification(it, event) }
+
+            // ── About state events ───────────────────────────────────
+            is SettingsEvent.ShowAboutDialog,
+            is SettingsEvent.DismissAboutDialog ->
+                _aboutState.update { reduceAbout(it, event) }
+        }
+
+        // ── Side effects ─────────────────────────────────────────────
+        when (event) {
+            is SettingsEvent.AutolockChanged ->
                 viewModelScope.launch { appSettings.setAutolockMinutes(event.minutes) }
+
+            is SettingsEvent.TopSymptomsCountChanged ->
+                viewModelScope.launch { appSettings.setTopSymptomsCount(event.count) }
+
+            is SettingsEvent.ChangePassphraseSubmitted -> {
+                if (_generalState.value.isChangingPassphrase) {
+                    launchChangePassphrase(event)
+                }
             }
 
-            is SettingsEvent.ChangePassphraseRequested ->
-                _generalState.update { it.copy(showChangePassphraseDialog = true) }
-
-            is SettingsEvent.ChangePassphraseDismissed ->
-                _generalState.update {
-                    it.copy(
-                        showChangePassphraseDialog = false,
-                        changePassphraseError = null,
-                        showPassphraseSuccessDialog = false,
-                    )
-                }
-
-            is SettingsEvent.ChangePassphraseSubmitted ->
-                handleChangePassphrase(event)
-
             is SettingsEvent.ChangePassphraseSuccessAcknowledged -> {
-                _generalState.update {
-                    it.copy(
-                        showChangePassphraseDialog = false,
-                        showPassphraseSuccessDialog = false,
-                    )
-                }
                 viewModelScope.launch {
                     sessionManager.closeSession()
                     _effect.emit(SettingsEffect.PassphraseChanged)
                 }
-            }
-
-            is SettingsEvent.TopSymptomsCountChanged -> {
-                _generalState.update { it.copy(topSymptomsCount = event.count) }
-                viewModelScope.launch { appSettings.setTopSymptomsCount(event.count) }
             }
 
             is SettingsEvent.ResetTutorialHints -> {
@@ -371,50 +414,7 @@ class SettingsViewModel(
                 }
             }
 
-            is SettingsEvent.ShowPrivacyPolicyDialog ->
-                _generalState.update { it.copy(showPrivacyPolicyDialog = true) }
-
-            is SettingsEvent.DismissPrivacyPolicyDialog ->
-                _generalState.update { it.copy(showPrivacyPolicyDialog = false) }
-
-            is SettingsEvent.ShowTermsOfServiceDialog ->
-                _generalState.update { it.copy(showTermsOfServiceDialog = true) }
-
-            is SettingsEvent.DismissTermsOfServiceDialog ->
-                _generalState.update { it.copy(showTermsOfServiceDialog = false) }
-
-            is SettingsEvent.DeleteAllDataRequested ->
-                _generalState.update { it.copy(showDeleteFirstConfirmation = true) }
-
-            is SettingsEvent.DeleteAllDataCancelled ->
-                _generalState.update {
-                    it.copy(
-                        showDeleteFirstConfirmation = false,
-                        showDeleteSecondConfirmation = false,
-                        deleteConfirmText = "",
-                    )
-                }
-
-            is SettingsEvent.DeleteAllDataFirstConfirmed ->
-                _generalState.update {
-                    it.copy(
-                        showDeleteFirstConfirmation = false,
-                        showDeleteSecondConfirmation = true,
-                        deleteConfirmText = "",
-                    )
-                }
-
-            is SettingsEvent.DeleteConfirmTextChanged ->
-                _generalState.update { it.copy(deleteConfirmText = event.text) }
-
             is SettingsEvent.DeleteAllDataConfirmed -> {
-                _generalState.update {
-                    it.copy(
-                        showDeleteSecondConfirmation = false,
-                        deleteConfirmText = "",
-                        isDeletingData = true,
-                    )
-                }
                 viewModelScope.launch {
                     withContext(Dispatchers.IO) {
                         sessionManager.closeSession()
@@ -424,71 +424,40 @@ class SettingsViewModel(
                 }
             }
 
-            // ── Appearance state events ──────────────────────────────
-            is SettingsEvent.ThemeModeChanged -> {
-                _appearanceState.update { it.copy(themeMode = event.mode) }
+            is SettingsEvent.ThemeModeChanged ->
                 viewModelScope.launch { appSettings.setThemeMode(event.mode.key) }
-            }
 
-            is SettingsEvent.ShowMoodToggled -> {
-                _appearanceState.update { it.copy(showMood = event.enabled) }
+            is SettingsEvent.ShowMoodToggled ->
                 viewModelScope.launch { appSettings.setShowMoodInSummary(event.enabled) }
-            }
 
-            is SettingsEvent.ShowEnergyToggled -> {
-                _appearanceState.update { it.copy(showEnergy = event.enabled) }
+            is SettingsEvent.ShowEnergyToggled ->
                 viewModelScope.launch { appSettings.setShowEnergyInSummary(event.enabled) }
-            }
 
-            is SettingsEvent.ShowLibidoToggled -> {
-                _appearanceState.update { it.copy(showLibido = event.enabled) }
+            is SettingsEvent.ShowLibidoToggled ->
                 viewModelScope.launch { appSettings.setShowLibidoInSummary(event.enabled) }
-            }
 
-            is SettingsEvent.ShowFollicularToggled -> {
-                _appearanceState.update { it.copy(showFollicular = event.enabled) }
+            is SettingsEvent.ShowFollicularToggled ->
                 viewModelScope.launch { appSettings.setShowFollicularPhase(event.enabled) }
-            }
 
-            is SettingsEvent.ShowOvulationToggled -> {
-                _appearanceState.update { it.copy(showOvulation = event.enabled) }
+            is SettingsEvent.ShowOvulationToggled ->
                 viewModelScope.launch { appSettings.setShowOvulationPhase(event.enabled) }
-            }
 
-            is SettingsEvent.ShowLutealToggled -> {
-                _appearanceState.update { it.copy(showLuteal = event.enabled) }
+            is SettingsEvent.ShowLutealToggled ->
                 viewModelScope.launch { appSettings.setShowLutealPhase(event.enabled) }
-            }
 
-            is SettingsEvent.MenstruationColorChanged -> {
-                _appearanceState.update { it.copy(menstruationColorHex = event.hex) }
+            is SettingsEvent.MenstruationColorChanged ->
                 viewModelScope.launch { appSettings.setMenstruationColor(event.hex) }
-            }
 
-            is SettingsEvent.FollicularColorChanged -> {
-                _appearanceState.update { it.copy(follicularColorHex = event.hex) }
+            is SettingsEvent.FollicularColorChanged ->
                 viewModelScope.launch { appSettings.setFollicularColor(event.hex) }
-            }
 
-            is SettingsEvent.OvulationColorChanged -> {
-                _appearanceState.update { it.copy(ovulationColorHex = event.hex) }
+            is SettingsEvent.OvulationColorChanged ->
                 viewModelScope.launch { appSettings.setOvulationColor(event.hex) }
-            }
 
-            is SettingsEvent.LutealColorChanged -> {
-                _appearanceState.update { it.copy(lutealColorHex = event.hex) }
+            is SettingsEvent.LutealColorChanged ->
                 viewModelScope.launch { appSettings.setLutealColor(event.hex) }
-            }
 
             is SettingsEvent.ResetPhaseColorsToDefaults -> {
-                _appearanceState.update {
-                    it.copy(
-                        menstruationColorHex = CyclePhaseColors.DEFAULT_MENSTRUATION_HEX,
-                        follicularColorHex = CyclePhaseColors.DEFAULT_FOLLICULAR_HEX,
-                        ovulationColorHex = CyclePhaseColors.DEFAULT_OVULATION_HEX,
-                        lutealColorHex = CyclePhaseColors.DEFAULT_LUTEAL_HEX,
-                    )
-                }
                 viewModelScope.launch {
                     appSettings.setMenstruationColor(CyclePhaseColors.DEFAULT_MENSTRUATION_HEX)
                     appSettings.setFollicularColor(CyclePhaseColors.DEFAULT_FOLLICULAR_HEX)
@@ -502,31 +471,17 @@ class SettingsViewModel(
                 _appearanceState.update { it.copy(educationalArticles = articles.ifEmpty { null }) }
             }
 
-            is SettingsEvent.DismissEducationalSheet ->
-                _appearanceState.update { it.copy(educationalArticles = null) }
-
-            // ── Notification state events ────────────────────────────
             is SettingsEvent.PeriodReminderToggled -> {
-                _notificationState.update { it.copy(periodReminderEnabled = event.enabled) }
                 viewModelScope.launch {
                     appSettings.setReminderPeriodEnabled(event.enabled)
                     reminderScheduler.schedulePeriodPrediction(event.enabled)
                 }
             }
 
-            is SettingsEvent.PeriodDaysBeforeChanged -> {
-                _notificationState.update { it.copy(periodDaysBefore = event.days) }
+            is SettingsEvent.PeriodDaysBeforeChanged ->
                 viewModelScope.launch { appSettings.setReminderPeriodDaysBefore(event.days) }
-            }
 
             is SettingsEvent.PeriodPrivacyAccepted -> {
-                _notificationState.update {
-                    it.copy(
-                        periodPrivacyAccepted = true,
-                        periodReminderEnabled = true,
-                        showPrivacyDialog = false,
-                    )
-                }
                 viewModelScope.launch {
                     appSettings.setReminderPeriodPrivacyAccepted(true)
                     appSettings.setReminderPeriodEnabled(true)
@@ -535,7 +490,6 @@ class SettingsViewModel(
             }
 
             is SettingsEvent.MedicationReminderToggled -> {
-                _notificationState.update { it.copy(medicationReminderEnabled = event.enabled) }
                 val state = _notificationState.value
                 viewModelScope.launch {
                     appSettings.setReminderMedicationEnabled(event.enabled)
@@ -548,7 +502,6 @@ class SettingsViewModel(
             }
 
             is SettingsEvent.MedicationHourChanged -> {
-                _notificationState.update { it.copy(medicationHour = event.hour) }
                 val state = _notificationState.value
                 viewModelScope.launch {
                     appSettings.setReminderMedicationHour(event.hour)
@@ -557,7 +510,6 @@ class SettingsViewModel(
             }
 
             is SettingsEvent.MedicationMinuteChanged -> {
-                _notificationState.update { it.copy(medicationMinute = event.minute) }
                 val state = _notificationState.value
                 viewModelScope.launch {
                     appSettings.setReminderMedicationMinute(event.minute)
@@ -566,7 +518,6 @@ class SettingsViewModel(
             }
 
             is SettingsEvent.HydrationReminderToggled -> {
-                _notificationState.update { it.copy(hydrationReminderEnabled = event.enabled) }
                 val state = _notificationState.value
                 viewModelScope.launch {
                     appSettings.setReminderHydrationEnabled(event.enabled)
@@ -574,77 +525,279 @@ class SettingsViewModel(
                 }
             }
 
-            is SettingsEvent.HydrationGoalCupsChanged -> {
-                _notificationState.update { it.copy(hydrationGoalCups = event.cups) }
+            is SettingsEvent.HydrationGoalCupsChanged ->
                 viewModelScope.launch { appSettings.setReminderHydrationGoalCups(event.cups) }
-            }
 
             is SettingsEvent.HydrationFrequencyChanged -> {
-                _notificationState.update { it.copy(hydrationFrequencyHours = event.hours) }
                 viewModelScope.launch {
                     appSettings.setReminderHydrationFrequencyHours(event.hours)
                     reminderScheduler.scheduleHydration(true, event.hours)
                 }
             }
 
-            is SettingsEvent.HydrationStartHourChanged -> {
-                _notificationState.update { it.copy(hydrationStartHour = event.hour) }
+            is SettingsEvent.HydrationStartHourChanged ->
                 viewModelScope.launch { appSettings.setReminderHydrationStartHour(event.hour) }
-            }
 
-            is SettingsEvent.HydrationEndHourChanged -> {
-                _notificationState.update { it.copy(hydrationEndHour = event.hour) }
+            is SettingsEvent.HydrationEndHourChanged ->
                 viewModelScope.launch { appSettings.setReminderHydrationEndHour(event.hour) }
-            }
 
-            is SettingsEvent.ShowPrivacyDialog ->
-                _notificationState.update { it.copy(showPrivacyDialog = true) }
-
-            is SettingsEvent.DismissPrivacyDialog ->
-                _notificationState.update { it.copy(showPrivacyDialog = false) }
-
-            is SettingsEvent.ShowPermissionRationale ->
-                _notificationState.update { it.copy(showPermissionRationale = true) }
-
-            is SettingsEvent.DismissPermissionRationale ->
-                _notificationState.update { it.copy(showPermissionRationale = false) }
-
-            // ── About state events ───────────────────────────────────
-            is SettingsEvent.ShowAboutDialog ->
-                _aboutState.update { it.copy(showAboutDialog = true) }
-
-            is SettingsEvent.DismissAboutDialog ->
-                _aboutState.update { it.copy(showAboutDialog = false) }
+            // State-only events — no side effects needed.
+            is SettingsEvent.ChangePassphraseRequested,
+            is SettingsEvent.ChangePassphraseDismissed,
+            is SettingsEvent.ShowPrivacyPolicyDialog,
+            is SettingsEvent.DismissPrivacyPolicyDialog,
+            is SettingsEvent.ShowTermsOfServiceDialog,
+            is SettingsEvent.DismissTermsOfServiceDialog,
+            is SettingsEvent.DeleteAllDataRequested,
+            is SettingsEvent.DeleteAllDataCancelled,
+            is SettingsEvent.DeleteAllDataFirstConfirmed,
+            is SettingsEvent.DeleteConfirmTextChanged,
+            is SettingsEvent.DismissEducationalSheet,
+            is SettingsEvent.ShowPrivacyDialog,
+            is SettingsEvent.DismissPrivacyDialog,
+            is SettingsEvent.ShowPermissionRationale,
+            is SettingsEvent.DismissPermissionRationale,
+            is SettingsEvent.ShowAboutDialog,
+            is SettingsEvent.DismissAboutDialog -> { /* state-only */ }
         }
     }
 
     /**
-     * Validates inputs and delegates the passphrase change to [SessionManager].
+     * Pure function that returns the new [GeneralSettingsState] for a given event.
      *
-     * ## Validation (synchronous, before any IO)
-     * 1. New passphrase must be >= [MIN_PASSPHRASE_LENGTH] characters.
-     * 2. Confirmation must match the new passphrase exactly.
+     * Handles autolock, top symptoms, passphrase change validation, tutorial hints,
+     * legal dialogs, and data deletion confirmation flow. Contains no side effects.
+     */
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
+    private fun reduceGeneral(state: GeneralSettingsState, event: SettingsEvent): GeneralSettingsState {
+        return when (event) {
+            is SettingsEvent.AutolockChanged ->
+                state.copy(autolockMinutes = event.minutes)
+
+            is SettingsEvent.ChangePassphraseRequested ->
+                state.copy(showChangePassphraseDialog = true)
+
+            is SettingsEvent.ChangePassphraseDismissed ->
+                state.copy(
+                    showChangePassphraseDialog = false,
+                    changePassphraseError = null,
+                    showPassphraseSuccessDialog = false,
+                )
+
+            is SettingsEvent.ChangePassphraseSubmitted -> {
+                when {
+                    event.newPassphrase.length < MIN_PASSPHRASE_LENGTH ->
+                        state.copy(changePassphraseError = "too_short")
+                    event.newPassphrase != event.confirmation ->
+                        state.copy(changePassphraseError = "mismatch")
+                    else ->
+                        state.copy(isChangingPassphrase = true, changePassphraseError = null)
+                }
+            }
+
+            is SettingsEvent.ChangePassphraseSuccessAcknowledged ->
+                state.copy(
+                    showChangePassphraseDialog = false,
+                    showPassphraseSuccessDialog = false,
+                )
+
+            is SettingsEvent.TopSymptomsCountChanged ->
+                state.copy(topSymptomsCount = event.count)
+
+            is SettingsEvent.ResetTutorialHints -> state
+
+            is SettingsEvent.ShowPrivacyPolicyDialog ->
+                state.copy(showPrivacyPolicyDialog = true)
+
+            is SettingsEvent.DismissPrivacyPolicyDialog ->
+                state.copy(showPrivacyPolicyDialog = false)
+
+            is SettingsEvent.ShowTermsOfServiceDialog ->
+                state.copy(showTermsOfServiceDialog = true)
+
+            is SettingsEvent.DismissTermsOfServiceDialog ->
+                state.copy(showTermsOfServiceDialog = false)
+
+            is SettingsEvent.DeleteAllDataRequested ->
+                state.copy(showDeleteFirstConfirmation = true)
+
+            is SettingsEvent.DeleteAllDataCancelled ->
+                state.copy(
+                    showDeleteFirstConfirmation = false,
+                    showDeleteSecondConfirmation = false,
+                    deleteConfirmText = "",
+                )
+
+            is SettingsEvent.DeleteAllDataFirstConfirmed ->
+                state.copy(
+                    showDeleteFirstConfirmation = false,
+                    showDeleteSecondConfirmation = true,
+                    deleteConfirmText = "",
+                )
+
+            is SettingsEvent.DeleteConfirmTextChanged ->
+                state.copy(deleteConfirmText = event.text)
+
+            is SettingsEvent.DeleteAllDataConfirmed ->
+                state.copy(
+                    showDeleteSecondConfirmation = false,
+                    deleteConfirmText = "",
+                    isDeletingData = true,
+                )
+
+            else -> state
+        }
+    }
+
+    /**
+     * Pure function that returns the new [AppearanceSettingsState] for a given event.
      *
-     * ## Passphrase change
-     * Delegates to [SessionManager.changePassphrase] which handles key derivation,
-     * fingerprint verification, database rekey, and fingerprint update on the IO
-     * dispatcher.
+     * Handles theme mode, display toggles, phase visibility, phase colors, and
+     * educational sheet visibility. Contains no side effects — content provider
+     * queries and DataStore writes are handled in [onEvent].
+     */
+    private fun reduceAppearance(state: AppearanceSettingsState, event: SettingsEvent): AppearanceSettingsState {
+        return when (event) {
+            is SettingsEvent.ThemeModeChanged ->
+                state.copy(themeMode = event.mode)
+
+            is SettingsEvent.ShowMoodToggled ->
+                state.copy(showMood = event.enabled)
+
+            is SettingsEvent.ShowEnergyToggled ->
+                state.copy(showEnergy = event.enabled)
+
+            is SettingsEvent.ShowLibidoToggled ->
+                state.copy(showLibido = event.enabled)
+
+            is SettingsEvent.ShowFollicularToggled ->
+                state.copy(showFollicular = event.enabled)
+
+            is SettingsEvent.ShowOvulationToggled ->
+                state.copy(showOvulation = event.enabled)
+
+            is SettingsEvent.ShowLutealToggled ->
+                state.copy(showLuteal = event.enabled)
+
+            is SettingsEvent.MenstruationColorChanged ->
+                state.copy(menstruationColorHex = event.hex)
+
+            is SettingsEvent.FollicularColorChanged ->
+                state.copy(follicularColorHex = event.hex)
+
+            is SettingsEvent.OvulationColorChanged ->
+                state.copy(ovulationColorHex = event.hex)
+
+            is SettingsEvent.LutealColorChanged ->
+                state.copy(lutealColorHex = event.hex)
+
+            is SettingsEvent.ResetPhaseColorsToDefaults ->
+                state.copy(
+                    menstruationColorHex = CyclePhaseColors.DEFAULT_MENSTRUATION_HEX,
+                    follicularColorHex = CyclePhaseColors.DEFAULT_FOLLICULAR_HEX,
+                    ovulationColorHex = CyclePhaseColors.DEFAULT_OVULATION_HEX,
+                    lutealColorHex = CyclePhaseColors.DEFAULT_LUTEAL_HEX,
+                )
+
+            is SettingsEvent.ShowEducationalSheet -> state
+
+            is SettingsEvent.DismissEducationalSheet ->
+                state.copy(educationalArticles = null)
+
+            else -> state
+        }
+    }
+
+    /**
+     * Pure function that returns the new [NotificationSettingsState] for a given event.
+     *
+     * Handles period, medication, and hydration reminder configuration, plus
+     * privacy dialog and permission rationale visibility. Contains no side effects.
+     */
+    private fun reduceNotification(state: NotificationSettingsState, event: SettingsEvent): NotificationSettingsState {
+        return when (event) {
+            is SettingsEvent.PeriodReminderToggled ->
+                state.copy(periodReminderEnabled = event.enabled)
+
+            is SettingsEvent.PeriodDaysBeforeChanged ->
+                state.copy(periodDaysBefore = event.days)
+
+            is SettingsEvent.PeriodPrivacyAccepted ->
+                state.copy(
+                    periodPrivacyAccepted = true,
+                    periodReminderEnabled = true,
+                    showPrivacyDialog = false,
+                )
+
+            is SettingsEvent.MedicationReminderToggled ->
+                state.copy(medicationReminderEnabled = event.enabled)
+
+            is SettingsEvent.MedicationHourChanged ->
+                state.copy(medicationHour = event.hour)
+
+            is SettingsEvent.MedicationMinuteChanged ->
+                state.copy(medicationMinute = event.minute)
+
+            is SettingsEvent.HydrationReminderToggled ->
+                state.copy(hydrationReminderEnabled = event.enabled)
+
+            is SettingsEvent.HydrationGoalCupsChanged ->
+                state.copy(hydrationGoalCups = event.cups)
+
+            is SettingsEvent.HydrationFrequencyChanged ->
+                state.copy(hydrationFrequencyHours = event.hours)
+
+            is SettingsEvent.HydrationStartHourChanged ->
+                state.copy(hydrationStartHour = event.hour)
+
+            is SettingsEvent.HydrationEndHourChanged ->
+                state.copy(hydrationEndHour = event.hour)
+
+            is SettingsEvent.ShowPrivacyDialog ->
+                state.copy(showPrivacyDialog = true)
+
+            is SettingsEvent.DismissPrivacyDialog ->
+                state.copy(showPrivacyDialog = false)
+
+            is SettingsEvent.ShowPermissionRationale ->
+                state.copy(showPermissionRationale = true)
+
+            is SettingsEvent.DismissPermissionRationale ->
+                state.copy(showPermissionRationale = false)
+
+            else -> state
+        }
+    }
+
+    /**
+     * Pure function that returns the new [AboutSettingsState] for a given event.
+     *
+     * Handles about dialog visibility. Contains no side effects.
+     */
+    private fun reduceAbout(state: AboutSettingsState, event: SettingsEvent): AboutSettingsState {
+        return when (event) {
+            is SettingsEvent.ShowAboutDialog ->
+                state.copy(showAboutDialog = true)
+
+            is SettingsEvent.DismissAboutDialog ->
+                state.copy(showAboutDialog = false)
+
+            else -> state
+        }
+    }
+
+    /**
+     * Validates inputs via [reduceGeneral] and delegates the passphrase change to [SessionManager].
+     *
+     * Called only when [reduceGeneral] transitions [GeneralSettingsState.isChangingPassphrase]
+     * to `true` (validation passed). Delegates to [SessionManager.changePassphrase] which
+     * handles key derivation, fingerprint verification, database rekey, and fingerprint
+     * update on the IO dispatcher.
      *
      * On any failure, sets [GeneralSettingsState.changePassphraseError] and clears the
      * loading state.
      */
-    private fun handleChangePassphrase(event: SettingsEvent.ChangePassphraseSubmitted) {
-        if (event.newPassphrase.length < MIN_PASSPHRASE_LENGTH) {
-            _generalState.update { it.copy(changePassphraseError = "too_short") }
-            return
-        }
-        if (event.newPassphrase != event.confirmation) {
-            _generalState.update { it.copy(changePassphraseError = "mismatch") }
-            return
-        }
-
-        _generalState.update { it.copy(isChangingPassphrase = true, changePassphraseError = null) }
-
+    private fun launchChangePassphrase(event: SettingsEvent.ChangePassphraseSubmitted) {
         viewModelScope.launch {
             val result = sessionManager.changePassphrase(event.current, event.newPassphrase)
             val errorKey = when (result) {
