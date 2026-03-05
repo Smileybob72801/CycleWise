@@ -125,12 +125,13 @@ class TutorialSeederUseCaseTest {
         // WHEN
         useCase()
 
-        // THEN — 4 symptoms and 1 medication created
+        // THEN — 4 symptoms and 2 medications created
         coVerify { repository.createOrGetSymptomInLibrary("Cramps", SymptomCategory.PAIN) }
         coVerify { repository.createOrGetSymptomInLibrary("Bloating", SymptomCategory.DIGESTIVE) }
         coVerify { repository.createOrGetSymptomInLibrary("Headache", SymptomCategory.PAIN) }
         coVerify { repository.createOrGetSymptomInLibrary("Fatigue", SymptomCategory.ENERGY) }
         coVerify { repository.createOrGetMedicationInLibrary("Ibuprofen") }
+        coVerify { repository.createOrGetMedicationInLibrary("Acetaminophen") }
     }
 
     @Test
@@ -219,6 +220,26 @@ class TutorialSeederUseCaseTest {
         )
     }
 
+    @Test
+    fun `invoke WHEN noPeriods THEN gapDayEntriesIncludeSymptomLogs`() = runTest {
+        // GIVEN — empty database
+        coEvery { repository.getAllPeriods() } returns flowOf(emptyList())
+        stubLibraryMethods()
+
+        val savedLogs = mutableListOf<FullDailyLog>()
+        coEvery { repository.saveFullLog(capture(savedLogs)) } returns Unit
+
+        // WHEN
+        useCase()
+
+        // THEN — at least some gap-day entries have symptom logs
+        val gapDayLogs = savedLogs.filter { it.periodLog == null }
+        assertTrue(gapDayLogs.isNotEmpty(), "Should have gap-day entries")
+        val gapDaysWithSymptoms = gapDayLogs.filter { it.symptomLogs.isNotEmpty() }
+        assertTrue(gapDaysWithSymptoms.isNotEmpty(),
+            "Some gap-day entries should include symptom logs")
+    }
+
     /**
      * Stubs the library creation methods to return deterministic domain objects.
      * Also stubs [createCompletedPeriod] to return periods with sequential IDs.
@@ -234,6 +255,8 @@ class TutorialSeederUseCaseTest {
             buildSymptom(id = "fatigue-id", name = "Fatigue", category = SymptomCategory.ENERGY)
         coEvery { repository.createOrGetMedicationInLibrary("Ibuprofen") } returns
             buildMedication(id = "ibuprofen-id", name = "Ibuprofen")
+        coEvery { repository.createOrGetMedicationInLibrary("Acetaminophen") } returns
+            buildMedication(id = "acetaminophen-id", name = "Acetaminophen")
         coEvery { repository.createCompletedPeriod(any(), any()) } answers {
             buildPeriod(
                 id = "period-${periodCounter++}",

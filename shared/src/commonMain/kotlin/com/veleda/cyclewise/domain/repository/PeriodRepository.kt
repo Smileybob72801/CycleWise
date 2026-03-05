@@ -195,6 +195,12 @@ interface PeriodRepository {
      */
     suspend fun createOrGetMedicationInLibrary(name: String): Medication
 
+    /**
+     * Seeds the medication library with a default set of common medications (12 entries).
+     * Uses INSERT IGNORE semantics so existing medications are not duplicated.
+     */
+    suspend fun prepopulateMedicationLibrary()
+
     /** Returns a one-shot list of all [MedicationLog] entries across all dates. */
     suspend fun getAllMedicationLogs(): List<MedicationLog>
 

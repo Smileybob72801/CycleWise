@@ -79,13 +79,17 @@ class SessionManager(
             val db = sessionScope.get<PeriodDatabase> { parametersOf(passphrase) }
             db.openHelper.writableDatabase   // Force-open so SQLCipher consumes the real key
 
+            val repository = sessionScope.get<PeriodRepository>()
+
             if (needsPrepopulation) {
-                val repository = sessionScope.get<PeriodRepository>()
                 repository.prepopulateSymptomLibrary()
                 appSettings.setPrepopulated(true)
             }
 
-            val repository = sessionScope.get<PeriodRepository>()
+            // Medication prepopulation runs unconditionally — INSERT IGNORE makes it
+            // idempotent, and this ensures existing users who already passed the
+            // first-unlock gate still get the medication library populated.
+            repository.prepopulateMedicationLibrary()
             val syncer = WaterDraftSyncer(lockedWaterDraft, repository)
             syncer.sync()
         }

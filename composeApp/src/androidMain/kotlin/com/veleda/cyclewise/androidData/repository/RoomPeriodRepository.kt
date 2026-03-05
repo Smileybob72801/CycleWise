@@ -299,6 +299,41 @@ class RoomPeriodRepository(
         }
     }
 
+    /**
+     * Seeds the medication library with 12 common default medications.
+     *
+     * Uses [MedicationDao.insert] which has `OnConflictStrategy.IGNORE`, so calling
+     * this multiple times is idempotent — existing entries are not duplicated.
+     *
+     * @see PeriodRepository.prepopulateMedicationLibrary
+     */
+    @OptIn(ExperimentalTime::class)
+    override suspend fun prepopulateMedicationLibrary() {
+        val now = Clock.System.now()
+        val defaultMedications = listOf(
+            // Pain relief
+            Medication(uuid4().toString(), "Ibuprofen", now),
+            Medication(uuid4().toString(), "Acetaminophen", now),
+            Medication(uuid4().toString(), "Naproxen Sodium", now),
+            Medication(uuid4().toString(), "Aspirin", now),
+            // Hormonal
+            Medication(uuid4().toString(), "Birth Control Pill", now),
+            // Supplements
+            Medication(uuid4().toString(), "Iron Supplement", now),
+            Medication(uuid4().toString(), "Magnesium", now),
+            Medication(uuid4().toString(), "Vitamin B6", now),
+            Medication(uuid4().toString(), "Calcium", now),
+            Medication(uuid4().toString(), "Vitamin D", now),
+            // Other
+            Medication(uuid4().toString(), "Antihistamine", now),
+            Medication(uuid4().toString(), "Antacid", now),
+        )
+
+        defaultMedications.forEach { medication ->
+            medicationDao.insert(medication.toEntity())
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun getAllLogs(): Flow<List<FullDailyLog>> {
         return dailyEntryDao.getAllEntries().flatMapLatest { entries ->
@@ -452,11 +487,14 @@ class RoomPeriodRepository(
      */
     override suspend fun seedDatabaseForDebug() {
         prepopulateSymptomLibrary()
+        prepopulateMedicationLibrary()
         val cramps = createOrGetSymptomInLibrary("Cramps", SymptomCategory.PAIN)
         val headache = createOrGetSymptomInLibrary("Headache", SymptomCategory.PAIN)
         val anxiety = createOrGetSymptomInLibrary("Anxiety", SymptomCategory.MOOD)
         val bloating = createOrGetSymptomInLibrary("Bloating", SymptomCategory.DIGESTIVE)
         val ibuprofen = createOrGetMedicationInLibrary("Ibuprofen")
+        val naproxen = createOrGetMedicationInLibrary("Naproxen Sodium")
+        val acetaminophen = createOrGetMedicationInLibrary("Acetaminophen")
 
         db.withTransaction {
             medicationLogDao.deleteAll()
@@ -557,8 +595,14 @@ class RoomPeriodRepository(
                 }
 
                 val medicationLogs = mutableListOf<MedicationLog>()
-                if (symptomLogs.any { it.symptomId == cramps.id || it.symptomId == headache.id } && Random.nextFloat() < 0.6f) {
-                    medicationLogs.add(MedicationLog(uuid4().toString(), entryId, ibuprofen.id, Clock.System.now()))
+                val hasCramps = symptomLogs.any { it.symptomId == cramps.id }
+                val hasHeadache = symptomLogs.any { it.symptomId == headache.id }
+                if (hasCramps && Random.nextFloat() < 0.6f) {
+                    val painMed = if (Random.nextBoolean()) ibuprofen else naproxen
+                    medicationLogs.add(MedicationLog(uuid4().toString(), entryId, painMed.id, Clock.System.now()))
+                }
+                if (hasHeadache && Random.nextFloat() < 0.6f) {
+                    medicationLogs.add(MedicationLog(uuid4().toString(), entryId, acetaminophen.id, Clock.System.now()))
                 }
 
                 allNewLogs.add(FullDailyLog(newEntry, periodLog, symptomLogs, medicationLogs))

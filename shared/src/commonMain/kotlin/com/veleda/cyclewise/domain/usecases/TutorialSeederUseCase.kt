@@ -75,6 +75,7 @@ class TutorialSeederUseCase(
         val headache = repository.createOrGetSymptomInLibrary("Headache", SymptomCategory.PAIN)
         val fatigue = repository.createOrGetSymptomInLibrary("Fatigue", SymptomCategory.ENERGY)
         val ibuprofen = repository.createOrGetMedicationInLibrary("Ibuprofen")
+        val acetaminophen = repository.createOrGetMedicationInLibrary("Acetaminophen")
 
         // ── Cycle 1: 5-day period ending 5 days ago ─────────────────────
         val c1End = today.minus(5, DateTimeUnit.DAY)
@@ -98,6 +99,7 @@ class TutorialSeederUseCase(
             }
             val medLogs = buildList {
                 if (dayOffset in 0..2) add(MedicationLog(uuid4().toString(), entryId, ibuprofen.id, now))
+                if (dayOffset == 1) add(MedicationLog(uuid4().toString(), entryId, acetaminophen.id, now))
             }
             val log = FullDailyLog(
                 entry = DailyEntry(
@@ -289,6 +291,7 @@ class TutorialSeederUseCase(
                         createdAt = now,
                         updatedAt = now,
                     ),
+                    symptomLogs = symptomLogs,
                 )
                 repository.saveFullLog(log)
                 dailyEntryIds.add(entryId)
