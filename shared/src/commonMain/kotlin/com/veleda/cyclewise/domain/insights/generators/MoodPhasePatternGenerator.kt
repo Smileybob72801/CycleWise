@@ -31,6 +31,18 @@ private enum class MoodType { LOW, HIGH }
  */
 class MoodPhasePatternGenerator : InsightGenerator {
 
+    /**
+     * Analyzes up to the last 8 cycles for recurring mood-to-phase correlations.
+     *
+     * Normalizes each mood occurrence's day-in-cycle to a phase-relative offset,
+     * tallies low (score <= 2) and high (score >= 4) moods per normalized day,
+     * then filters for days recurring in >= 60 % of cycles. Significant days
+     * are grouped into blocks of >= 3 consecutive days to produce
+     * [MoodPhasePattern] insights.
+     *
+     * @param data Aggregated cycle data; requires >= 2 completed periods.
+     * @return Zero or more [MoodPhasePattern] insights, one per significant block.
+     */
     override fun generate(data: InsightData): List<Insight> {
         val chronologicalCycles = data.allPeriods.filter { it.endDate != null }.reversed()
         if (chronologicalCycles.size < 2) return emptyList()

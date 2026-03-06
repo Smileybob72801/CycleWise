@@ -42,6 +42,18 @@ import com.veleda.cyclewise.ui.log.MAX_NOTE_LENGTH
 import com.veleda.cyclewise.ui.log.components.SectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 
+/**
+ * Daily log page for custom tags and free-text notes.
+ *
+ * Renders a [CustomTagLogger] for adding/removing tags and a [NoteEditor]
+ * for free-form notes, each inside a [SectionCard].
+ *
+ * @param tags Currently applied custom tags.
+ * @param note Current note text.
+ * @param onAddTag Callback when the user adds a new tag.
+ * @param onRemoveTag Callback when the user removes an existing tag.
+ * @param onNoteChanged Callback when the note text changes.
+ */
 @Composable
 internal fun NotesTagsPage(
     tags: List<String>,
@@ -85,6 +97,16 @@ internal fun NotesTagsPage(
     }
 }
 
+/**
+ * Inline tag editor with a text field and removable [InputChip]s.
+ *
+ * The user types a tag name and submits via the trailing icon or keyboard
+ * Done action. Existing tags are shown as chips with a close button for removal.
+ *
+ * @param tags Currently applied tags.
+ * @param onAddTag Callback when the user submits a new tag name.
+ * @param onRemoveTag Callback when the user taps the close button on a tag chip.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun CustomTagLogger(
@@ -133,6 +155,15 @@ internal fun CustomTagLogger(
     }
 }
 
+/**
+ * Multi-line text field for daily log notes with a character counter.
+ *
+ * Enforces a maximum length of [MAX_NOTE_LENGTH] characters and displays
+ * a live character count in the supporting text.
+ *
+ * @param note Current note text.
+ * @param onNoteChanged Callback invoked on each text change.
+ */
 @Composable
 internal fun NoteEditor(
     note: String,

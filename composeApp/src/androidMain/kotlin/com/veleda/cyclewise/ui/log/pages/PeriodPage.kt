@@ -42,6 +42,25 @@ import com.veleda.cyclewise.ui.coachmark.coachMarkTarget
 import com.veleda.cyclewise.ui.log.components.SectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 
+/**
+ * Daily log page for period tracking: toggle, flow intensity, color, and consistency.
+ *
+ * Displays a period on/off toggle; when enabled, reveals [SectionCard]s for
+ * flow intensity, period color, and period consistency selectors. Each section
+ * includes an info button for educational content. Integrates with the
+ * coach-mark walkthrough to highlight the period toggle.
+ *
+ * @param isPeriodDay Whether the current day is marked as a period day.
+ * @param flowIntensity Currently selected flow intensity, or `null` if unset.
+ * @param periodColor Currently selected period color, or `null` if unset.
+ * @param periodConsistency Currently selected period consistency, or `null` if unset.
+ * @param onPeriodToggled Callback when the user toggles the period switch.
+ * @param onFlowChanged Callback when the user selects a flow intensity (or `null` to deselect).
+ * @param onColorChanged Callback when the user selects a period color (or `null` to deselect).
+ * @param onConsistencyChanged Callback when the user selects a consistency (or `null` to deselect).
+ * @param onShowEducationalSheet Callback to display educational content for the given tag.
+ * @param coachMarkState Optional coach-mark state for walkthrough integration.
+ */
 @Composable
 internal fun PeriodPage(
     isPeriodDay: Boolean,
@@ -160,6 +179,14 @@ internal fun PeriodPage(
     }
 }
 
+/**
+ * Horizontal row of [FilterChip]s for selecting a [FlowIntensity] value.
+ *
+ * Tapping an already-selected chip deselects it (sends `null`).
+ *
+ * @param selectedIntensity Currently selected intensity, or `null` if none.
+ * @param onSelectionChanged Callback with the new selection (or `null` on deselect).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun FlowIntensitySelector(

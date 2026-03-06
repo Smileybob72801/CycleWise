@@ -39,6 +39,18 @@ import com.veleda.cyclewise.ui.log.MAX_NAME_LENGTH
 import com.veleda.cyclewise.ui.log.components.SectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 
+/**
+ * Daily log page for medication tracking.
+ *
+ * Shows a count of currently logged medications and a [MedicationLogger] inside
+ * a [SectionCard] with an info button for educational content.
+ *
+ * @param loggedMedications Medication logs already recorded for this day.
+ * @param medicationLibrary Full list of available medications to choose from.
+ * @param onToggleMedication Callback when the user toggles a medication chip.
+ * @param onCreateAndAddMedication Callback when the user creates and logs a new medication by name.
+ * @param onShowEducationalSheet Callback to display educational content for the given tag.
+ */
 @Composable
 internal fun MedicationsPage(
     loggedMedications: List<MedicationLog>,
@@ -82,6 +94,18 @@ internal fun MedicationsPage(
     }
 }
 
+/**
+ * Chip-based medication selector with an inline text field for creating new medications.
+ *
+ * Displays all medications from [medicationLibrary] as [FilterChip]s (selected
+ * state reflects [loggedMedications]). The text field allows the user to type a
+ * custom medication name and add it via the trailing icon or the keyboard Done action.
+ *
+ * @param loggedMedications Medication logs already recorded for this day.
+ * @param medicationLibrary Full list of available medications to display as chips.
+ * @param onToggleMedication Callback when the user toggles a medication chip.
+ * @param onCreateAndAddMedication Callback when the user submits a new medication name.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun MedicationLogger(

@@ -40,6 +40,18 @@ import com.veleda.cyclewise.ui.log.MAX_NAME_LENGTH
 import com.veleda.cyclewise.ui.log.components.SectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 
+/**
+ * Daily log page for symptom tracking.
+ *
+ * Shows a count of currently logged symptoms and a [SymptomLogger] inside a
+ * [SectionCard] with an info button for educational content.
+ *
+ * @param loggedSymptoms Symptom logs already recorded for this day.
+ * @param symptomLibrary Full list of available symptoms to choose from.
+ * @param onToggleSymptom Callback when the user toggles a symptom chip.
+ * @param onCreateAndAddSymptom Callback when the user creates and logs a new symptom by name.
+ * @param onShowEducationalSheet Callback to display educational content for the given tag.
+ */
 @Composable
 internal fun SymptomsPage(
     loggedSymptoms: List<SymptomLog>,
@@ -83,6 +95,18 @@ internal fun SymptomsPage(
     }
 }
 
+/**
+ * Chip-based symptom selector with an inline text field for creating new symptoms.
+ *
+ * Displays all symptoms from [symptomLibrary] as [FilterChip]s (selected state
+ * reflects [loggedSymptoms]). The text field allows the user to type a custom
+ * symptom name and add it via the trailing icon or the keyboard Done action.
+ *
+ * @param loggedSymptoms Symptom logs already recorded for this day.
+ * @param symptomLibrary Full list of available symptoms to display as chips.
+ * @param onToggleSymptom Callback when the user toggles a symptom chip.
+ * @param onCreateAndAddSymptom Callback when the user submits a new symptom name.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun SymptomLogger(

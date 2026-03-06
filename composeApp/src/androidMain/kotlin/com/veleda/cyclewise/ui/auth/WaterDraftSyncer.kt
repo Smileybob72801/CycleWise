@@ -22,6 +22,16 @@ class WaterDraftSyncer(
     private val lockedWaterDraft: LockedWaterDraft,
     private val repository: PeriodRepository
 ) {
+    /**
+     * Flushes all non-today drafts from [LockedWaterDraft] into the encrypted database.
+     *
+     * For each draft date (excluding [today]), writes the draft cup count to the
+     * database only if it exceeds the existing DB value. Successfully synced dates
+     * are cleared from the draft store; individual failures are logged without
+     * aborting the remaining sync.
+     *
+     * @param today The date to skip (defaults to the current system date).
+     */
     suspend fun sync(today: LocalDate = Clock.System.todayIn(TimeZone.currentSystemDefault())) {
         val allDrafts = lockedWaterDraft.readAll()
         val drafts = allDrafts.filterKeys { it != today }

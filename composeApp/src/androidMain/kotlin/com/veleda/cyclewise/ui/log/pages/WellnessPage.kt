@@ -40,6 +40,25 @@ import com.veleda.cyclewise.ui.log.components.SectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.theme.RhythmWiseColors
 
+/**
+ * Daily log page for mood, energy, libido, and water intake.
+ *
+ * Renders each wellness metric inside a [SectionCard] with an info button
+ * that triggers the educational bottom sheet. Integrates with the coach-mark
+ * walkthrough to highlight mood, energy, and water sections.
+ *
+ * @param moodScore Current mood score (1-5), or `null` if unset.
+ * @param energyLevel Current energy level (1-5), or `null` if unset.
+ * @param libidoScore Current libido score (1-5), or `null` if unset.
+ * @param waterCups Current water intake in cups.
+ * @param onMoodChanged Callback when the user selects a mood score.
+ * @param onEnergyChanged Callback when the user selects an energy level.
+ * @param onLibidoChanged Callback when the user selects a libido score.
+ * @param onWaterIncrement Callback when the user taps the water increment button.
+ * @param onWaterDecrement Callback when the user taps the water decrement button.
+ * @param onShowEducationalSheet Callback to display educational content for the given tag.
+ * @param coachMarkState Optional coach-mark state for walkthrough integration.
+ */
 @Composable
 internal fun WellnessPage(
     moodScore: Int?,
@@ -163,6 +182,15 @@ internal fun WellnessPage(
     }
 }
 
+/**
+ * 1-5 star rating selector for mood score.
+ *
+ * Renders a row of star icons; filled stars indicate the selected score,
+ * outlined stars indicate unselected values. Tapping a star sets that score.
+ *
+ * @param selectedMood Currently selected mood score (1-5), or `null` if unset.
+ * @param onSelectionChanged Callback invoked with the tapped score.
+ */
 @Composable
 internal fun MoodSelector(
     selectedMood: Int?,

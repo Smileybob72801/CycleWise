@@ -44,6 +44,7 @@ interface EducationalContentProvider {
      * Returns the article with the given [id], or `null` if not found.
      *
      * @param id The unique article identifier.
+     * @return The matching [EducationalArticle], or `null` if no article has the given [id].
      */
     fun getById(id: String): EducationalArticle?
 }

@@ -75,6 +75,16 @@ import kotlin.time.Clock
 import java.time.DayOfWeek as JavaDayOfWeek
 import java.time.YearMonth as JavaYearMonth
 
+/**
+ * Calendar-based cycle tracker screen.
+ *
+ * Displays a scrollable monthly calendar with color-coded cycle phase overlays,
+ * period drag-to-select, day-detail bottom sheet, and a phase legend. Also manages
+ * the Tracker coach-mark walkthrough lifecycle and tutorial seed-data cleanup.
+ *
+ * @param navController Navigation controller used to navigate to [NavRoute.DailyLog]
+ *        when the user taps a calendar day.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackerScreen(navController: NavController) {

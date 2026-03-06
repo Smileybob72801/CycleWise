@@ -81,6 +81,18 @@ private const val PAGE_NOTES = 4
 /** Delay after pager scroll to let [ScrollableTabRow] finish scrolling to the selected tab. */
 private const val TAB_ROW_SETTLE_MS = 300L
 
+/**
+ * Full-screen daily log editor presented as a horizontal pager with five tabbed pages:
+ * Wellness, Period, Symptoms, Medications, and Notes/Tags.
+ *
+ * Manages the coach-mark walkthrough lifecycle (start, skip, completion), tutorial
+ * seed data cleanup, and predictive-back gestures for pager navigation and
+ * walkthrough dismissal.
+ *
+ * @param date The calendar date whose daily log is being viewed/edited.
+ * @param onNavigateToTracker Callback invoked when the walkthrough completes and the
+ *        user should be navigated to the Tracker screen for its walkthrough.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DailyLogScreen(

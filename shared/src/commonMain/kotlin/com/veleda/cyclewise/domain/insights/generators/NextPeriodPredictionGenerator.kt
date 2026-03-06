@@ -23,6 +23,15 @@ import kotlin.time.ExperimentalTime
  * (e.g., [SymptomPhasePatternGenerator]) can use its prediction for recurrence forecasting.
  */
 class NextPeriodPredictionGenerator : InsightGenerator {
+    /**
+     * Calculates the predicted start date of the next period by adding the
+     * rounded average cycle length to the latest period's start date.
+     *
+     * @param data Aggregated cycle data; requires a non-null average cycle length
+     *             and at least one period.
+     * @return A single-element list with a [NextPeriodPrediction], or empty if
+     *         the average is unavailable or no periods exist.
+     */
     @OptIn(ExperimentalTime::class)
     override fun generate(data: InsightData): List<Insight> {
         val latestCycle = data.allPeriods.firstOrNull()

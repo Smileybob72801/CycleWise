@@ -24,6 +24,14 @@ import kotlin.time.ExperimentalTime
 class AutoCloseOngoingPeriodUseCase(
     private val repository: PeriodRepository
 ) {
+    /**
+     * Checks for an ongoing period and closes it if a 1-day gap is detected.
+     *
+     * Compares today's date against the last logged period day. If the day
+     * after the last log is today or earlier, the period's end date is set
+     * to that last logged day. No-op when no ongoing period exists or the
+     * last logged day is today.
+     */
     @OptIn(ExperimentalTime::class)
     suspend operator fun invoke() {
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())

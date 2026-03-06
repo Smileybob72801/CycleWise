@@ -22,6 +22,19 @@ import androidx.compose.ui.res.stringResource
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 
+/**
+ * Increment/decrement counter for daily water intake displayed as cups.
+ *
+ * Shows a centered cup count flanked by minus and plus buttons, with an
+ * optional motivational prompt showing yesterday's intake.
+ *
+ * @param cups Current cup count to display.
+ * @param onIncrement Callback when the user taps the plus button.
+ * @param onDecrement Callback when the user taps the minus button.
+ * @param yesterdayCupsForPrompt Yesterday's cup count for the motivational prompt,
+ *        or `null` to hide the prompt.
+ * @param modifier Modifier applied to the outer column.
+ */
 @Composable
 fun WaterTrackerCounter(
     cups: Int,
