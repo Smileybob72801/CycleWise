@@ -103,13 +103,18 @@ fun Modifier.coachMarkTarget(key: HintKey, state: CoachMarkState): Modifier =
  * (e.g., tapping the Period tab at step 3). Underlying controls are guarded by per-step
  * logic in the host screen (tab locks, pager scroll disable) rather than by the overlay.
  *
- * @param state   The per-screen [CoachMarkState] driving this overlay.
- * @param allDefs The full walkthrough map, used by [CoachMarkState.advanceOrDismiss].
+ * @param state     The per-screen [CoachMarkState] driving this overlay.
+ * @param allDefs   The full walkthrough map, used by [CoachMarkState.advanceOrDismiss].
+ * @param onSkipAll Optional callback invoked after the user completes the "Hold to Skip"
+ *                  gesture and the overlay has already called [CoachMarkState.skipAll].
+ *                  Host screens use this to run additional cleanup (e.g., marking hints
+ *                  on other screens as seen, wiping seed data, unlocking the navbar).
  */
 @Composable
 fun CoachMarkOverlay(
     state: CoachMarkState,
     allDefs: Map<HintKey, CoachMarkDef>,
+    onSkipAll: () -> Unit = {},
 ) {
     val activeCoachMark by state.active.collectAsState()
     val active = activeCoachMark ?: return
@@ -214,7 +219,10 @@ fun CoachMarkOverlay(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     HoldToSkipButton(
-                        onSkip = { state.skipAll(allDefs) },
+                        onSkip = {
+                            state.skipAll(allDefs)
+                            onSkipAll()
+                        },
                         modifier = Modifier.weight(1f, fill = false),
                     )
 

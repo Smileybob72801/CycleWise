@@ -197,13 +197,10 @@ fun DailyLogScreen(
         coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
     }
 
-    // Predictive back: dismiss the coach mark walkthrough instead of navigating away.
-    // When no walkthrough is active, the handler is disabled and back navigates normally.
-    // Declared last so it takes priority over the pager handler when a walkthrough is active.
-    // Runs cleanup immediately rather than relying on the completion LaunchedEffect
-    // (which misses the skip because walkthroughActive goes false first).
-    BackHandler(enabled = activeHint != null || pendingKey != null) {
-        coachMarkState.skipAll(DAILY_LOG_HINTS)
+    // Shared cleanup for skipping the entire tutorial (both DailyLog and Tracker).
+    // Called by both the BackHandler and the CoachMarkOverlay "Hold to Skip" callback.
+    // Does NOT call coachMarkState.skipAll() — callers handle that themselves.
+    val skipEntireTutorial: () -> Unit = {
         walkthroughActive = false
         coroutineScope.launch {
             // Skip the Tracker walkthrough too — user opted out of the whole tutorial.
@@ -213,6 +210,16 @@ fun DailyLogScreen(
             val appSettings: AppSettings = koin.get()
             runSeedCleanupIfNeeded(appSettings, cleanup)
         }
+    }
+
+    // Predictive back: dismiss the coach mark walkthrough instead of navigating away.
+    // When no walkthrough is active, the handler is disabled and back navigates normally.
+    // Declared last so it takes priority over the pager handler when a walkthrough is active.
+    // Runs cleanup immediately rather than relying on the completion LaunchedEffect
+    // (which misses the skip because walkthroughActive goes false first).
+    BackHandler(enabled = activeHint != null || pendingKey != null) {
+        coachMarkState.skipAll(DAILY_LOG_HINTS)
+        skipEntireTutorial()
     }
 
     // Detect walkthrough completion: walkthroughActive is the reliable signal.
@@ -423,7 +430,11 @@ fun DailyLogScreen(
                 )
 
                 // Coach mark overlay draws on top of all screen content.
-                CoachMarkOverlay(state = coachMarkState, allDefs = DAILY_LOG_HINTS)
+                CoachMarkOverlay(
+                    state = coachMarkState,
+                    allDefs = DAILY_LOG_HINTS,
+                    onSkipAll = skipEntireTutorial,
+                )
             }
         }
     }

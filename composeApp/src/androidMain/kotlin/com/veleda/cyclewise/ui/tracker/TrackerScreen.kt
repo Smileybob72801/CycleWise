@@ -108,18 +108,25 @@ fun TrackerScreen(navController: NavController) {
 
     val appSettings: AppSettings = koin.get()
 
-    // Predictive back: dismiss the coach mark walkthrough instead of navigating away.
-    // When no walkthrough is active, the handler is disabled and back navigates normally.
-    // Runs cleanup immediately rather than relying on the completion LaunchedEffect
-    // (which misses the skip because trackerWalkthroughActive goes false first).
-    BackHandler(enabled = activeHint != null || pendingKey != null) {
-        coachMarkState.skipAll(TRACKER_HINTS)
+    // Shared cleanup for skipping the Tracker tutorial.
+    // Called by both the BackHandler and the CoachMarkOverlay "Hold to Skip" callback.
+    // Does NOT call coachMarkState.skipAll() — callers handle that themselves.
+    val skipTrackerTutorial: () -> Unit = {
         trackerWalkthroughActive = false
         coroutineScope.launch {
             val sessionScope = koin.getScope("session")
             val cleanup: TutorialCleanupUseCase = sessionScope.get()
             runSeedCleanupIfNeeded(appSettings, cleanup)
         }
+    }
+
+    // Predictive back: dismiss the coach mark walkthrough instead of navigating away.
+    // When no walkthrough is active, the handler is disabled and back navigates normally.
+    // Runs cleanup immediately rather than relying on the completion LaunchedEffect
+    // (which misses the skip because trackerWalkthroughActive goes false first).
+    BackHandler(enabled = activeHint != null || pendingKey != null) {
+        coachMarkState.skipAll(TRACKER_HINTS)
+        skipTrackerTutorial()
     }
 
     // Start the Tracker walkthrough if the user hasn't seen it yet.
@@ -416,7 +423,11 @@ fun TrackerScreen(navController: NavController) {
         }
 
         // Coach mark overlay draws on top of all screen content.
-        CoachMarkOverlay(state = coachMarkState, allDefs = TRACKER_HINTS)
+        CoachMarkOverlay(
+            state = coachMarkState,
+            allDefs = TRACKER_HINTS,
+            onSkipAll = skipTrackerTutorial,
+        )
         }
     }
 }
