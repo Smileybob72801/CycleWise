@@ -1,4 +1,4 @@
-package com.veleda.cyclewise.domain.providers
+package com.veleda.cyclewise.androidData.local.providers
 
 import com.veleda.cyclewise.domain.models.ArticleCategory
 import com.veleda.cyclewise.domain.models.EducationalArticle
@@ -8,11 +8,11 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Unit tests for [EducationalContentProvider].
+ * Unit tests for [StaticEducationalContentProvider].
  *
  * Covers sorting, category filtering, tag filtering, and ID lookup.
  */
-class EducationalContentProviderTest {
+class StaticEducationalContentProviderTest {
 
     private fun article(
         id: String = "test-id",
@@ -42,7 +42,7 @@ class EducationalContentProviderTest {
         )
 
         // WHEN
-        val provider = EducationalContentProvider(articles)
+        val provider = StaticEducationalContentProvider(articles)
 
         // THEN
         assertEquals(
@@ -62,7 +62,7 @@ class EducationalContentProviderTest {
             article(id = "symptoms", category = ArticleCategory.SYMPTOMS, sortOrder = 2),
             article(id = "basics2", category = ArticleCategory.CYCLE_BASICS, sortOrder = 3),
         )
-        val provider = EducationalContentProvider(articles)
+        val provider = StaticEducationalContentProvider(articles)
 
         // WHEN
         val result = provider.getByCategory(ArticleCategory.CYCLE_BASICS)
@@ -78,7 +78,7 @@ class EducationalContentProviderTest {
         val articles = listOf(
             article(id = "basics", category = ArticleCategory.CYCLE_BASICS, sortOrder = 1),
         )
-        val provider = EducationalContentProvider(articles)
+        val provider = StaticEducationalContentProvider(articles)
 
         // WHEN
         val result = provider.getByCategory(ArticleCategory.WHEN_TO_SEE_A_DOCTOR)
@@ -97,7 +97,7 @@ class EducationalContentProviderTest {
             article(id = "b", tags = listOf("Energy"), sortOrder = 2),
             article(id = "c", tags = listOf("Mood"), sortOrder = 3),
         )
-        val provider = EducationalContentProvider(articles)
+        val provider = StaticEducationalContentProvider(articles)
 
         // WHEN
         val result = provider.getByTag("Mood")
@@ -112,7 +112,7 @@ class EducationalContentProviderTest {
         val articles = listOf(
             article(id = "a", tags = listOf("FlowIntensity"), sortOrder = 1),
         )
-        val provider = EducationalContentProvider(articles)
+        val provider = StaticEducationalContentProvider(articles)
 
         // WHEN
         val result = provider.getByTag("NonExistentTag")
@@ -130,7 +130,7 @@ class EducationalContentProviderTest {
             article(id = "find-me", sortOrder = 1),
             article(id = "not-me", sortOrder = 2),
         )
-        val provider = EducationalContentProvider(articles)
+        val provider = StaticEducationalContentProvider(articles)
 
         // WHEN
         val result = provider.getById("find-me")
@@ -142,7 +142,7 @@ class EducationalContentProviderTest {
     @Test
     fun `getById WHEN idAbsent THEN returnsNull`() {
         // GIVEN
-        val provider = EducationalContentProvider(
+        val provider = StaticEducationalContentProvider(
             listOf(article(id = "exists", sortOrder = 1))
         )
 

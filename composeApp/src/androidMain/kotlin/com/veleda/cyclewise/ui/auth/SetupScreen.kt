@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.auth
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -17,6 +19,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,17 +33,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.components.MarkdownText
+import com.veleda.cyclewise.ui.components.MedicalDisclaimer
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.launch
 
@@ -70,11 +82,21 @@ fun SetupScreen(
     val pagerState = rememberPagerState(pageCount = { SETUP_PAGE_COUNT })
     val coroutineScope = rememberCoroutineScope()
 
+    // Predictive back: navigate to the previous pager page instead of exiting the app.
+    // Disabled on page 0 so the system handles back normally (minimize/exit).
+    BackHandler(enabled = pagerState.currentPage > 0) {
+        coroutineScope.launch {
+            pagerState.animateScrollToPage(pagerState.currentPage - 1)
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
+            .imePadding()
     ) {
+        ContentContainer(maxWidth = dims.authMaxWidth) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -98,6 +120,11 @@ fun SetupScreen(
                     0 -> InfoPage(
                         title = stringResource(R.string.setup_page1_title),
                         body = stringResource(R.string.setup_page1_body),
+                        trailingContent = {
+                            MedicalDisclaimer(
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        },
                     )
                     1 -> InfoPage(
                         title = stringResource(R.string.setup_page2_title),
@@ -154,6 +181,7 @@ fun SetupScreen(
                     Spacer(Modifier.width(dims.buttonMin))
                 }
             }
+        }
         }
 
         // Loading overlay (same pattern as unlock screen)
@@ -214,13 +242,16 @@ private fun PageIndicator(
  * Displays a title and body text. The body is rendered via [MarkdownText] to
  * support `**bold**` and bullet list formatting.
  *
- * @param title page title displayed as a headline.
- * @param body  Markdown-formatted body text.
+ * @param title           page title displayed as a headline.
+ * @param body            Markdown-formatted body text.
+ * @param trailingContent optional composable rendered below the body text,
+ *                        e.g. a [MedicalDisclaimer] banner on the first page.
  */
 @Composable
 private fun InfoPage(
     title: String,
     body: String,
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     val dims = LocalDimensions.current
     Column(
@@ -238,6 +269,10 @@ private fun InfoPage(
             text = body,
             style = MaterialTheme.typography.bodyMedium,
         )
+        if (trailingContent != null) {
+            Spacer(Modifier.height(dims.md))
+            trailingContent()
+        }
     }
 }
 
@@ -257,11 +292,13 @@ private fun CreatePassphrasePage(
     onEvent: (PassphraseEvent) -> Unit,
 ) {
     val dims = LocalDimensions.current
+    val focusManager = LocalFocusManager.current
+    val confirmFocusRequester = remember { FocusRequester() }
 
     var passphrase by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
-    var passphraseVisible by remember { mutableStateOf(false) }
-    var confirmVisible by remember { mutableStateOf(false) }
+    var passphraseVisible by rememberSaveable { mutableStateOf(false) }
+    var confirmVisible by rememberSaveable { mutableStateOf(false) }
 
     val passphraseErrorText = if (uiState.passphraseError != null) {
         stringResource(R.string.setup_error_too_short)
@@ -293,7 +330,7 @@ private fun CreatePassphrasePage(
         // Create passphrase field
         OutlinedTextField(
             value = passphrase,
-            onValueChange = { passphrase = it },
+            onValueChange = { if (it.length <= MAX_PASSPHRASE_LENGTH) passphrase = it },
             label = { Text(stringResource(R.string.setup_passphrase_label)) },
             visualTransformation = if (passphraseVisible) {
                 VisualTransformation.None
@@ -323,6 +360,11 @@ private fun CreatePassphrasePage(
                 null
             },
             singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Next,
+            ),
+            keyboardActions = KeyboardActions(onNext = { confirmFocusRequester.requestFocus() }),
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("setup-passphrase-input"),
@@ -332,7 +374,7 @@ private fun CreatePassphrasePage(
         // Confirm passphrase field
         OutlinedTextField(
             value = confirmation,
-            onValueChange = { confirmation = it },
+            onValueChange = { if (it.length <= MAX_PASSPHRASE_LENGTH) confirmation = it },
             label = { Text(stringResource(R.string.setup_confirm_label)) },
             visualTransformation = if (confirmVisible) {
                 VisualTransformation.None
@@ -362,8 +404,14 @@ private fun CreatePassphrasePage(
                 null
             },
             singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
             modifier = Modifier
                 .fillMaxWidth()
+                .focusRequester(confirmFocusRequester)
                 .testTag("setup-confirm-input"),
         )
         Spacer(Modifier.height(dims.lg))

@@ -8,7 +8,7 @@ import com.veleda.cyclewise.ui.theme.ThemeMode
  * Covers every user interaction on the Settings pager: security changes, display
  * and phase visibility toggles, phase color customization, reminder configuration,
  * and dialog show/dismiss actions. Each event maps to a pure state transition in
- * [SettingsViewModel.reduce] plus optional side effects (DataStore writes,
+ * [SettingsViewModel.onEvent] plus optional side effects (DataStore writes,
  * [ReminderScheduler] calls).
  */
 sealed interface SettingsEvent {
@@ -17,6 +17,31 @@ sealed interface SettingsEvent {
 
     /** User selected a new auto-lock timeout from the segmented button row. */
     data class AutolockChanged(val minutes: Int) : SettingsEvent
+
+    /** User tapped "Change Passphrase" to open the change passphrase dialog. */
+    data object ChangePassphraseRequested : SettingsEvent
+
+    /** User dismissed the change passphrase dialog without submitting. */
+    data object ChangePassphraseDismissed : SettingsEvent
+
+    /**
+     * User submitted the change passphrase form.
+     *
+     * The ViewModel validates the inputs, verifies the current passphrase against the
+     * encrypted database, and re-keys the database with the new passphrase-derived key.
+     *
+     * @property current       the user's current passphrase for verification.
+     * @property newPassphrase the desired new passphrase (must be >= 8 characters).
+     * @property confirmation  re-entry of the new passphrase (must match [newPassphrase]).
+     */
+    data class ChangePassphraseSubmitted(
+        val current: String,
+        val newPassphrase: String,
+        val confirmation: String,
+    ) : SettingsEvent
+
+    /** User acknowledged the passphrase change success dialog and confirmed they saved the new passphrase. */
+    data object ChangePassphraseSuccessAcknowledged : SettingsEvent
 
     // ── Insights ─────────────────────────────────────────────────────
 
@@ -130,6 +155,37 @@ sealed interface SettingsEvent {
 
     /** Permission rationale has been acknowledged or dismissed. */
     data object DismissPermissionRationale : SettingsEvent
+
+    // ── Data Management ───────────────────────────────────────────
+
+    /** User tapped "Delete All Data" to begin the deletion flow. */
+    data object DeleteAllDataRequested : SettingsEvent
+
+    /** User dismissed any delete confirmation dialog without proceeding. */
+    data object DeleteAllDataCancelled : SettingsEvent
+
+    /** User confirmed the first warning dialog and should see the second confirmation. */
+    data object DeleteAllDataFirstConfirmed : SettingsEvent
+
+    /** User updated the text field in the second confirmation dialog. */
+    data class DeleteConfirmTextChanged(val text: String) : SettingsEvent
+
+    /** User typed "DELETE" and tapped the final confirm button — execute the wipe. */
+    data object DeleteAllDataConfirmed : SettingsEvent
+
+    // ── Legal ───────────────────────────────────────────────────────
+
+    /** User tapped "Privacy Policy" to view the privacy policy dialog. */
+    data object ShowPrivacyPolicyDialog : SettingsEvent
+
+    /** User dismissed the privacy policy dialog. */
+    data object DismissPrivacyPolicyDialog : SettingsEvent
+
+    /** User tapped "Terms of Service" to view the terms dialog. */
+    data object ShowTermsOfServiceDialog : SettingsEvent
+
+    /** User dismissed the terms of service dialog. */
+    data object DismissTermsOfServiceDialog : SettingsEvent
 
     // ── Educational ──────────────────────────────────────────────────
 

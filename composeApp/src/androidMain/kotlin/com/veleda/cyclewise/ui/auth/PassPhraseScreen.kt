@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
@@ -40,9 +41,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.flow.SharedFlow
 import org.koin.androidx.compose.koinViewModel
@@ -107,7 +110,7 @@ fun PassphraseScreen(
  * A semi-transparent loading overlay prevents interaction during unlock.
  */
 @Composable
-private fun UnlockScreen(
+internal fun UnlockScreen(
     uiState: PassphraseUiState,
     onEvent: (PassphraseEvent) -> Unit,
     effect: SharedFlow<PassphraseEffect>,
@@ -153,7 +156,9 @@ private fun UnlockScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
+            .imePadding()
     ) {
+        ContentContainer(maxWidth = dims.authMaxWidth) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -189,8 +194,10 @@ private fun UnlockScreen(
             OutlinedTextField(
                 value = passphrase,
                 onValueChange = {
-                    passphrase = it
-                    errorMessage = null
+                    if (it.length <= MAX_PASSPHRASE_LENGTH) {
+                        passphrase = it
+                        errorMessage = null
+                    }
                 },
                 label = { Text(stringResource(R.string.passphrase_label)) },
                 visualTransformation = if (passwordVisible) {
@@ -221,7 +228,10 @@ private fun UnlockScreen(
                     null
                 },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done,
+                ),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -240,7 +250,7 @@ private fun UnlockScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Lock,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_passphrase_unlock),
                     modifier = Modifier.size(dims.md)
                 )
                 Spacer(Modifier.size(dims.sm))
@@ -257,11 +267,12 @@ private fun UnlockScreen(
                 val waterState by waterViewModel.uiState.collectAsState()
                 WaterTrackerCounter(
                     cups = waterState.todayCups,
-                    onIncrement = waterViewModel::onIncrement,
-                    onDecrement = waterViewModel::onDecrement,
+                    onIncrement = { waterViewModel.onEvent(WaterTrackerEvent.Increment) },
+                    onDecrement = { waterViewModel.onEvent(WaterTrackerEvent.Decrement) },
                     yesterdayCupsForPrompt = waterState.yesterdayCupsForPrompt
                 )
             }
+        }
         }
 
         // Loading overlay

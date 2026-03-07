@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.log
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.benasher44.uuid.uuid4
@@ -40,6 +41,7 @@ import kotlinx.coroutines.flow.onEach
  * @property isPeriodDay           Whether the date being edited falls within a period.
  * @property waterCups             Water intake count for this date.
  * @property educationalArticles   Articles to display in the educational bottom sheet, or null when the sheet is hidden.
+ * @property errorMessage          Transient error for Snackbar display (e.g. failed library save). Cleared by [DailyLogEvent.ErrorDismissed].
  */
 data class DailyLogUiState(
     val isLoading: Boolean = true,
@@ -50,6 +52,7 @@ data class DailyLogUiState(
     val isPeriodDay: Boolean = false,
     val waterCups: Int = 0,
     val educationalArticles: List<EducationalArticle>? = null,
+    val errorMessage: String? = null,
 )
 
 /**
@@ -64,10 +67,13 @@ data class DailyLogUiState(
  * during typing.
  *
  * **Period toggle:** The ViewModel self-determines [DailyLogUiState.isPeriodDay] by
- * querying the repository during init. The [DailyLogEvent.PeriodToggled] event calls
- * [PeriodRepository.logPeriodDay] or [PeriodRepository.unLogPeriodDay] — the same
- * repository methods used by the Tracker's long-press mark/unmark, ensuring consistent
- * period-splitting and merging behavior across both screens.
+ * querying the repository during init. The [DailyLogEvent.PeriodToggled] event
+ * creates or deletes the [PeriodLog] in the reducer, then calls
+ * [PeriodRepository.logPeriodDay] or [PeriodRepository.unLogPeriodDay] as a side
+ * effect — the same repository methods used by the Tracker's long-press mark/unmark,
+ * ensuring consistent period-splitting and merging behavior across both screens.
+ * [DailyLogEvent.FlowIntensityChanged] only updates the flow field on an existing
+ * PeriodLog — it no longer creates or deletes one.
  *
  * **Two-phase init:**
  * 1. Fetches the initial log, symptom library, medication library, water intake, and
@@ -107,8 +113,28 @@ class DailyLogViewModel(
                 entryDate >= period.startDate && (end == null || entryDate <= end)
             }
 
-            onEvent(DailyLogEvent.LogLoaded(result, initialSymptoms, initialMedications))
+            // Backfill a PeriodLog if the day is a period day but no PeriodLog exists
+            // (covers tracker-marked days that were never opened in the daily log editor).
+            val loadedLog = if (isPeriodDay && result.periodLog == null) {
+                val now = Clock.System.now()
+                val backfilledPeriodLog = PeriodLog(
+                    id = uuid4().toString(),
+                    entryId = result.entry.id,
+                    createdAt = now,
+                    updatedAt = now
+                )
+                result.copy(periodLog = backfilledPeriodLog)
+            } else {
+                result
+            }
+
+            onEvent(DailyLogEvent.LogLoaded(loadedLog, initialSymptoms, initialMedications))
             _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0, isPeriodDay = isPeriodDay) }
+
+            // Persist the backfilled PeriodLog immediately.
+            if (isPeriodDay && result.periodLog == null) {
+                autoSave()
+            }
         }
 
         // 2. Subsequent library changes also dispatch events instead of mutating state directly.
@@ -126,6 +152,10 @@ class DailyLogViewModel(
      *
      * State is updated synchronously via [reduce], then side effects (auto-save,
      * repository writes, library creation) are launched asynchronously.
+     *
+     * [DailyLogEvent.CreateAndAddSymptom] and [DailyLogEvent.MedicationCreatedAndAdded]
+     * wrap their repository calls in try-catch so that DB failures surface as a
+     * transient [DailyLogUiState.errorMessage] instead of propagating silently.
      */
     fun onEvent(event: DailyLogEvent) {
         _uiState.update { currentState ->
@@ -138,27 +168,32 @@ class DailyLogViewModel(
                 val name = event.name.trim()
                 if (name.isBlank()) return
                 viewModelScope.launch {
-                    val newSymptom = periodRepository.createOrGetSymptomInLibrary(name)
-                    val newLogEntry = SymptomLog(
-                        id = uuid4().toString(),
-                        entryId = _uiState.value.log!!.entry.id,
-                        symptomId = newSymptom.id,
-                        severity = 3,
-                        createdAt = Clock.System.now()
-                    )
-                    _uiState.update {
-                        val updatedLogs = it.log!!.symptomLogs + newLogEntry
-                        val updatedLibrary = if (it.symptomLibrary.any { s -> s.id == newSymptom.id }) {
-                            it.symptomLibrary
-                        } else {
-                            it.symptomLibrary + newSymptom
-                        }
-                        it.copy(
-                            log = it.log.copy(symptomLogs = updatedLogs),
-                            symptomLibrary = updatedLibrary
+                    try {
+                        val newSymptom = periodRepository.createOrGetSymptomInLibrary(name)
+                        val newLogEntry = SymptomLog(
+                            id = uuid4().toString(),
+                            entryId = _uiState.value.log!!.entry.id,
+                            symptomId = newSymptom.id,
+                            severity = 3,
+                            createdAt = Clock.System.now()
                         )
+                        _uiState.update {
+                            val updatedLogs = it.log!!.symptomLogs + newLogEntry
+                            val updatedLibrary = if (it.symptomLibrary.any { s -> s.id == newSymptom.id }) {
+                                it.symptomLibrary
+                            } else {
+                                it.symptomLibrary + newSymptom
+                            }
+                            it.copy(
+                                log = it.log.copy(symptomLogs = updatedLogs),
+                                symptomLibrary = updatedLibrary
+                            )
+                        }
+                        autoSave()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to create symptom '$name'", e)
+                        _uiState.update { it.copy(errorMessage = "Failed to save symptom. Please try again.") }
                     }
-                    autoSave()
                 }
             }
 
@@ -166,36 +201,44 @@ class DailyLogViewModel(
                 val name = event.name.trim()
                 if (name.isBlank()) return
                 viewModelScope.launch {
-                    val newMedication = periodRepository.createOrGetMedicationInLibrary(name)
-                    val newLogEntry = MedicationLog(
-                        id = uuid4().toString(),
-                        entryId = _uiState.value.log!!.entry.id,
-                        medicationId = newMedication.id,
-                        createdAt = Clock.System.now()
-                    )
-                    _uiState.update {
-                        val updatedLogs = it.log!!.medicationLogs + newLogEntry
-                        val updatedLibrary = if (it.medicationLibrary.any { m -> m.id == newMedication.id }) {
-                            it.medicationLibrary
-                        } else {
-                            it.medicationLibrary + newMedication
-                        }
-                        it.copy(
-                            log = it.log.copy(medicationLogs = updatedLogs),
-                            medicationLibrary = updatedLibrary
+                    try {
+                        val newMedication = periodRepository.createOrGetMedicationInLibrary(name)
+                        val newLogEntry = MedicationLog(
+                            id = uuid4().toString(),
+                            entryId = _uiState.value.log!!.entry.id,
+                            medicationId = newMedication.id,
+                            createdAt = Clock.System.now()
                         )
+                        _uiState.update {
+                            val updatedLogs = it.log!!.medicationLogs + newLogEntry
+                            val updatedLibrary = if (it.medicationLibrary.any { m -> m.id == newMedication.id }) {
+                                it.medicationLibrary
+                            } else {
+                                it.medicationLibrary + newMedication
+                            }
+                            it.copy(
+                                log = it.log.copy(medicationLogs = updatedLogs),
+                                medicationLibrary = updatedLibrary
+                            )
+                        }
+                        autoSave()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to create medication '$name'", e)
+                        _uiState.update { it.copy(errorMessage = "Failed to save medication. Please try again.") }
                     }
-                    autoSave()
                 }
             }
 
-            is DailyLogEvent.PeriodToggled -> viewModelScope.launch {
-                if (event.isOnPeriod) {
-                    periodRepository.logPeriodDay(entryDate)
-                } else {
-                    periodRepository.unLogPeriodDay(entryDate)
+            is DailyLogEvent.PeriodToggled -> {
+                viewModelScope.launch {
+                    if (event.isOnPeriod) {
+                        periodRepository.logPeriodDay(entryDate)
+                    } else {
+                        periodRepository.unLogPeriodDay(entryDate)
+                    }
+                    _uiState.update { it.copy(isPeriodDay = event.isOnPeriod) }
                 }
-                _uiState.update { it.copy(isPeriodDay = event.isOnPeriod) }
+                autoSave()
             }
 
             is DailyLogEvent.WaterIncrement -> viewModelScope.launch {
@@ -241,11 +284,12 @@ class DailyLogViewModel(
                 _uiState.update { it.copy(educationalArticles = articles.ifEmpty { null }) }
             }
 
-            // No side effects for load/library/symptomName/dismiss events.
+            // No side effects for load/library/symptomName/dismiss/error events.
             is DailyLogEvent.LogLoaded,
             is DailyLogEvent.LibraryUpdated,
             is DailyLogEvent.SymptomNameChanged,
-            is DailyLogEvent.DismissEducationalSheet -> { /* state-only */ }
+            is DailyLogEvent.DismissEducationalSheet,
+            is DailyLogEvent.ErrorDismissed -> { /* state-only */ }
         }
     }
 
@@ -254,6 +298,10 @@ class DailyLogViewModel(
      *
      * Contains no side effects — all repository writes, library creation, and water
      * persistence are handled in [onEvent] after the state has been updated.
+     *
+     * [DailyLogEvent.PeriodToggled] creates or deletes the [PeriodLog] (with null
+     * [FlowIntensity]). [DailyLogEvent.FlowIntensityChanged] only updates the flow
+     * field on an existing PeriodLog — it does not create or delete one.
      */
     private fun reduce(currentState: DailyLogUiState, event: DailyLogEvent): DailyLogUiState {
         // The log must exist for almost all events.
@@ -276,21 +324,16 @@ class DailyLogViewModel(
 
         return when (event) {
             is DailyLogEvent.FlowIntensityChanged -> {
-                val newPeriodLog = if (event.intensity != null) {
-                    val existingLog = log.periodLog
-                    val now = Clock.System.now()
-                    existingLog?.copy(flowIntensity = event.intensity, updatedAt = now)
-                        ?: PeriodLog(
-                            id = uuid4().toString(),
-                            entryId = log.entry.id,
+                val existingLog = log.periodLog ?: return currentState
+                val now = Clock.System.now()
+                currentState.copy(
+                    log = log.copy(
+                        periodLog = existingLog.copy(
                             flowIntensity = event.intensity,
-                            createdAt = now,
                             updatedAt = now
                         )
-                } else {
-                    null
-                }
-                currentState.copy(log = log.copy(periodLog = newPeriodLog))
+                    )
+                )
             }
             is DailyLogEvent.MoodScoreChanged -> {
                 val updatedEntry = log.entry.copy(moodScore = event.score)
@@ -351,7 +394,20 @@ class DailyLogViewModel(
                 currentState.copy(log = log.copy(medicationLogs = newLogs))
             }
             is DailyLogEvent.MedicationCreatedAndAdded -> currentState
-            is DailyLogEvent.PeriodToggled -> currentState
+            is DailyLogEvent.PeriodToggled -> {
+                if (event.isOnPeriod) {
+                    val now = Clock.System.now()
+                    val newPeriodLog = log.periodLog ?: PeriodLog(
+                        id = uuid4().toString(),
+                        entryId = log.entry.id,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                    currentState.copy(log = log.copy(periodLog = newPeriodLog))
+                } else {
+                    currentState.copy(log = log.copy(periodLog = null))
+                }
+            }
             is DailyLogEvent.WaterIncrement -> {
                 currentState.copy(waterCups = currentState.waterCups + 1)
             }
@@ -360,6 +416,7 @@ class DailyLogViewModel(
                 currentState.copy(waterCups = currentState.waterCups - 1)
             }
             is DailyLogEvent.DismissEducationalSheet -> currentState.copy(educationalArticles = null)
+            is DailyLogEvent.ErrorDismissed -> currentState.copy(errorMessage = null)
             is DailyLogEvent.ShowEducationalSheet -> currentState
             is DailyLogEvent.LogLoaded, is DailyLogEvent.LibraryUpdated, is DailyLogEvent.SymptomNameChanged -> currentState
         }
@@ -410,6 +467,8 @@ class DailyLogViewModel(
     }
 
     companion object {
+        private const val TAG = "DailyLogViewModel"
+
         /** Debounce delay for note auto-save in milliseconds. */
         const val NOTE_DEBOUNCE_MS = 500L
     }

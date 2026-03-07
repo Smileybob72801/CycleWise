@@ -141,6 +141,11 @@ class LockedWaterDraft(private val context: Context) {
         }
     }
 
+    /** Removes all draft water intake entries, restoring the store to its empty state. */
+    suspend fun clearAll() {
+        context.waterDraftStore.edit { it.clear() }
+    }
+
     private fun parsePayload(raw: String?): WaterDraftPayload {
         if (raw.isNullOrBlank()) return WaterDraftPayload()
         return runCatching { json.decodeFromString<WaterDraftPayload>(raw) }

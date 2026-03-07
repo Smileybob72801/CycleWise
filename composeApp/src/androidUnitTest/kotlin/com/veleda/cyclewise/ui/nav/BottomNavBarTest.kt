@@ -2,6 +2,8 @@ package com.veleda.cyclewise.ui.nav
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -34,7 +36,7 @@ class BottomNavBarTest {
      * Sets up a minimal scaffold with [BottomNavBar] wired to a [NavHost]
      * whose start destination is [NavRoute.Tracker].
      */
-    private fun setBottomNavContent() {
+    private fun setBottomNavContent(enabled: Boolean = true) {
         composeTestRule.setContent {
             MaterialTheme {
                 val navController = rememberNavController()
@@ -46,7 +48,7 @@ class BottomNavBarTest {
                     composable(NavRoute.Insights.route) {}
                     composable(NavRoute.Settings.route) {}
                 }
-                BottomNavBar(navController)
+                BottomNavBar(navController, enabled = enabled)
             }
         }
     }
@@ -106,5 +108,41 @@ class BottomNavBarTest {
 
         // THEN — no tab for "Pass Phrase" exists
         composeTestRule.onNodeWithText("Pass Phrase").assertDoesNotExist()
+    }
+
+    @Test
+    fun insightsTab_WHEN_disabledAndTapped_THEN_trackerRemainsSelected() {
+        // GIVEN — the bottom nav is rendered with enabled = false
+        setBottomNavContent(enabled = false)
+
+        // WHEN — Insights tab is tapped while disabled
+        composeTestRule.onNodeWithTag("bottom-nav-insights").performClick()
+        composeTestRule.waitForIdle()
+
+        // THEN — Tracker is still selected (navigation did not happen)
+        composeTestRule.onNodeWithTag("bottom-nav-tracker").assertIsSelected()
+        composeTestRule.onNodeWithTag("bottom-nav-insights").assertIsNotSelected()
+    }
+
+    @Test
+    fun allTabs_WHEN_disabled_THEN_navItemsAreNotEnabled() {
+        // GIVEN — the bottom nav is rendered with enabled = false
+        setBottomNavContent(enabled = false)
+
+        // THEN — all navigation items report as not enabled
+        composeTestRule.onNodeWithTag("bottom-nav-tracker").assertIsNotEnabled()
+        composeTestRule.onNodeWithTag("bottom-nav-insights").assertIsNotEnabled()
+        composeTestRule.onNodeWithTag("bottom-nav-settings").assertIsNotEnabled()
+    }
+
+    @Test
+    fun allTabs_WHEN_enabled_THEN_navItemsAreEnabled() {
+        // GIVEN — the bottom nav is rendered with default enabled = true
+        setBottomNavContent()
+
+        // THEN — all navigation items report as enabled
+        composeTestRule.onNodeWithTag("bottom-nav-tracker").assertIsEnabled()
+        composeTestRule.onNodeWithTag("bottom-nav-insights").assertIsEnabled()
+        composeTestRule.onNodeWithTag("bottom-nav-settings").assertIsEnabled()
     }
 }

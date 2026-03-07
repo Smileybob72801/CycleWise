@@ -36,6 +36,7 @@ val DAILY_LOG_HINTS: Map<HintKey, CoachMarkDef> = mapOf(
         bodyRes = R.string.hint_daily_log_mood_body,
         nextKey = HintKey.DAILY_LOG_ENERGY,
         dismissLabelRes = R.string.coach_mark_next,
+        requiresAction = true,
     ),
     HintKey.DAILY_LOG_ENERGY to CoachMarkDef(
         key = HintKey.DAILY_LOG_ENERGY,
@@ -43,6 +44,7 @@ val DAILY_LOG_HINTS: Map<HintKey, CoachMarkDef> = mapOf(
         bodyRes = R.string.hint_daily_log_energy_body,
         nextKey = HintKey.DAILY_LOG_WATER,
         dismissLabelRes = R.string.coach_mark_next,
+        requiresAction = true,
     ),
     HintKey.DAILY_LOG_WATER to CoachMarkDef(
         key = HintKey.DAILY_LOG_WATER,
@@ -50,6 +52,7 @@ val DAILY_LOG_HINTS: Map<HintKey, CoachMarkDef> = mapOf(
         bodyRes = R.string.hint_daily_log_water_body,
         nextKey = HintKey.DAILY_LOG_EXPLORE_TABS,
         dismissLabelRes = R.string.coach_mark_next,
+        requiresAction = true,
     ),
     HintKey.DAILY_LOG_EXPLORE_TABS to CoachMarkDef(
         key = HintKey.DAILY_LOG_EXPLORE_TABS,
@@ -67,6 +70,7 @@ val DAILY_LOG_HINTS: Map<HintKey, CoachMarkDef> = mapOf(
         skipButtonRes = R.string.coach_mark_no_periods,
         skipTargetKey = HintKey.DAILY_LOG_SYMPTOMS_TAB,
         skipToastRes = R.string.coach_mark_no_periods_toast,
+        requiresAction = true,
     ),
     HintKey.DAILY_LOG_PERIOD_TOGGLE to CoachMarkDef(
         key = HintKey.DAILY_LOG_PERIOD_TOGGLE,
@@ -74,6 +78,7 @@ val DAILY_LOG_HINTS: Map<HintKey, CoachMarkDef> = mapOf(
         bodyRes = R.string.hint_daily_log_period_toggle_body,
         nextKey = HintKey.DAILY_LOG_SYMPTOMS_TAB,
         dismissLabelRes = R.string.coach_mark_next,
+        requiresAction = true,
     ),
     HintKey.DAILY_LOG_SYMPTOMS_TAB to CoachMarkDef(
         key = HintKey.DAILY_LOG_SYMPTOMS_TAB,
@@ -81,6 +86,7 @@ val DAILY_LOG_HINTS: Map<HintKey, CoachMarkDef> = mapOf(
         bodyRes = R.string.hint_daily_log_symptoms_tab_body,
         nextKey = HintKey.DAILY_LOG_MEDICATIONS_TAB,
         dismissLabelRes = R.string.coach_mark_next,
+        requiresAction = true,
     ),
     HintKey.DAILY_LOG_MEDICATIONS_TAB to CoachMarkDef(
         key = HintKey.DAILY_LOG_MEDICATIONS_TAB,
@@ -88,6 +94,7 @@ val DAILY_LOG_HINTS: Map<HintKey, CoachMarkDef> = mapOf(
         bodyRes = R.string.hint_daily_log_medications_tab_body,
         nextKey = HintKey.DAILY_LOG_NOTES_TAB,
         dismissLabelRes = R.string.coach_mark_next,
+        requiresAction = true,
     ),
     HintKey.DAILY_LOG_NOTES_TAB to CoachMarkDef(
         key = HintKey.DAILY_LOG_NOTES_TAB,

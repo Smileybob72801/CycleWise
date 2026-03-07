@@ -106,6 +106,19 @@ no recovery mechanism, so remember it. Once unlocked, open **Settings** and tap
 ./gradlew testDebugUnitTest
 ```
 
+#### Static Analysis
+
+```bash
+# Android Lint (composeApp module)
+./gradlew :composeApp:lintDebug
+
+# Detekt (Kotlin static analysis, all sources)
+./gradlew detekt
+```
+
+Lint and Detekt baselines capture existing findings so new regressions are caught.
+See [`docs/testing/RUNNING_TESTS.md`](docs/testing/RUNNING_TESTS.md) for report paths and baseline info.
+
 For full onboarding instructions, see [`docs/DeveloperOnboarding.md`](docs/DeveloperOnboarding.md).
 
 ## 🤝 Contributing

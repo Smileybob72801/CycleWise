@@ -4,11 +4,13 @@ import android.content.Context
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.di.createDatabaseAndZeroizeKey
 import com.veleda.cyclewise.domain.services.PassphraseService
+import com.veleda.cyclewise.session.KeyFingerprintHolder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.slot
 import io.mockk.unmockkObject
+import io.mockk.verify
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -38,6 +40,9 @@ class KeyZeroizationTest {
 
     /** Relaxed mock database returned by the mocked [PeriodDatabase.create] companion call. */
     private val mockDb: PeriodDatabase = mockk(relaxed = true)
+
+    /** Mock fingerprint holder used to verify that [store] is called with the derived key. */
+    private val keyFingerprintHolder: KeyFingerprintHolder = mockk(relaxed = true)
 
     /**
      * The "derived key" returned by [passphraseService]. Initialized to all-`0xFF` bytes
@@ -74,10 +79,13 @@ class KeyZeroizationTest {
         every { PeriodDatabase.create(any(), capture(receivedKey), any()) } returns mockDb
 
         // WHEN we create the database
-        val db = createDatabaseAndZeroizeKey(context, passphraseService, "test-passphrase")
+        val db = createDatabaseAndZeroizeKey(context, passphraseService, "test-passphrase", keyFingerprintHolder)
 
         // THEN the database is returned
         assertEquals(mockDb, db)
+
+        // AND the key fingerprint was stored before zeroization
+        verify(exactly = 1) { keyFingerprintHolder.store(any()) }
 
         // AND the key passed to create() is a distinct copy (not the same array object)
         assertFalse(
@@ -105,7 +113,7 @@ class KeyZeroizationTest {
 
         // WHEN we attempt to create the database
         assertFailsWith<RuntimeException>("DB creation failed") {
-            createDatabaseAndZeroizeKey(context, passphraseService, "test-passphrase")
+            createDatabaseAndZeroizeKey(context, passphraseService, "test-passphrase", keyFingerprintHolder)
         }
 
         // THEN the original key is still zeroized despite the failure

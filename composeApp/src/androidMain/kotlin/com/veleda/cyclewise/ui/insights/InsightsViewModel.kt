@@ -53,6 +53,9 @@ data class InsightsUiState(
  * The Learn section is populated from [EducationalContentProvider] (singleton-scoped,
  * static content) with category filtering and expandable article cards.
  *
+ * Uses a pure [reduce] function for state transitions, with side effects launched
+ * separately in [onEvent].
+ *
  * Session-scoped (destroyed on logout/autolock).
  */
 class InsightsViewModel(
@@ -138,12 +141,44 @@ class InsightsViewModel(
     }
 
     /**
-     * Dispatches a user interaction [event] to the appropriate handler.
+     * Single entry-point for all screen-level user interactions.
+     *
+     * Applies a pure state update via [reduce], then launches side effects
+     * (content provider queries) when needed.
      */
     fun onEvent(event: InsightsEvent) {
+        _uiState.update { reduce(it, event) }
+
+        // Side effects — launched after state update
         when (event) {
-            is InsightsEvent.FilterArticles -> filterArticles(event.category)
-            is InsightsEvent.ToggleArticleExpanded -> toggleArticleExpanded(event.articleId)
+            is InsightsEvent.FilterArticles -> {
+                val filtered = if (event.category == null) {
+                    _uiState.value.allArticles
+                } else {
+                    educationalContentProvider.getByCategory(event.category)
+                }
+                _uiState.update { it.copy(filteredArticles = filtered) }
+            }
+
+            // State-only events — no side effects needed.
+            is InsightsEvent.ToggleArticleExpanded -> { /* state-only */ }
+        }
+    }
+
+    /**
+     * Pure function that returns the new [InsightsUiState] for a given event.
+     *
+     * Contains no side effects — content provider queries are handled in [onEvent]
+     * after the state has been updated.
+     */
+    private fun reduce(state: InsightsUiState, event: InsightsEvent): InsightsUiState {
+        return when (event) {
+            is InsightsEvent.FilterArticles -> state.copy(selectedCategory = event.category)
+            is InsightsEvent.ToggleArticleExpanded -> {
+                val ids = state.expandedArticleIds.toMutableSet()
+                if (event.articleId in ids) ids.remove(event.articleId) else ids.add(event.articleId)
+                state.copy(expandedArticleIds = ids)
+            }
         }
     }
 
@@ -160,38 +195,6 @@ class InsightsViewModel(
                 allArticles = articles,
                 filteredArticles = articles,
             )
-        }
-    }
-
-    /**
-     * Filters articles by [category], or shows all when `null`.
-     *
-     * Updates both [InsightsUiState.selectedCategory] and [InsightsUiState.filteredArticles].
-     */
-    private fun filterArticles(category: ArticleCategory?) {
-        val filtered = if (category == null) {
-            _uiState.value.allArticles
-        } else {
-            educationalContentProvider.getByCategory(category)
-        }
-        _uiState.update {
-            it.copy(
-                selectedCategory = category,
-                filteredArticles = filtered,
-            )
-        }
-    }
-
-    /**
-     * Toggles the expanded state of the article with the given [articleId].
-     *
-     * If the article is currently expanded, it collapses; otherwise it expands.
-     */
-    private fun toggleArticleExpanded(articleId: String) {
-        _uiState.update { state ->
-            val ids = state.expandedArticleIds.toMutableSet()
-            if (articleId in ids) ids.remove(articleId) else ids.add(articleId)
-            state.copy(expandedArticleIds = ids)
         }
     }
 }

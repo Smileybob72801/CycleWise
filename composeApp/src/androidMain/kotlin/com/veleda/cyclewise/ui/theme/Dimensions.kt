@@ -23,7 +23,10 @@ import androidx.compose.ui.unit.dp
  * | iconMd    | 48 dp |
  * | iconLg    | 64 dp |
  * | iconXl    | 96 dp |
- * | buttonMin | 48 dp |
+ * | buttonMin       | 48 dp  |
+ * | contentMaxWidth | 600 dp |
+ * | gridMaxWidth    | 840 dp |
+ * | authMaxWidth    | 480 dp |
  *
  * @property xxs Double-extra-small spacing (2 dp) — borders, hairline gaps.
  * @property xs Extra-small spacing (4 dp).
@@ -36,6 +39,9 @@ import androidx.compose.ui.unit.dp
  * @property iconLg Large icon size (64 dp).
  * @property iconXl Extra-large icon size (96 dp).
  * @property buttonMin Minimum interactive touch-target size (48 dp) — Material 3 compliance.
+ * @property contentMaxWidth Max content width for phone-style screens (600 dp) — DailyLog, Insights, Settings.
+ * @property gridMaxWidth Max content width for grid-style screens (840 dp) — Tracker calendar.
+ * @property authMaxWidth Max content width for auth forms (480 dp) — PassPhrase, Setup.
  */
 @Immutable
 data class Dimensions(
@@ -50,6 +56,9 @@ data class Dimensions(
     val iconLg: Dp = 64.dp,
     val iconXl: Dp = 96.dp,
     val buttonMin: Dp = 48.dp,
+    val contentMaxWidth: Dp = 600.dp,
+    val gridMaxWidth: Dp = 840.dp,
+    val authMaxWidth: Dp = 480.dp,
 )
 
 /**

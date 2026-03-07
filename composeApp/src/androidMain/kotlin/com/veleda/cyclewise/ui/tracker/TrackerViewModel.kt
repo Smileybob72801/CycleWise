@@ -13,6 +13,7 @@ import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
 import com.veleda.cyclewise.settings.AppSettings
+import android.util.Log
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,7 +72,10 @@ data class TrackerUiState(
  * **Init:** Collects 4 reactive flows — day details, periods, symptom library, and
  * medication library — each updating the corresponding [TrackerUiState] field.
  *
- * **Effects:** One-shot navigation events are emitted via [_effect] ([SharedFlow] with replay = 0).
+ * **Effects:** One-shot navigation events are emitted via [_effect] ([SharedFlow] with
+ * replay = 0, `extraBufferCapacity = 1`). The buffer capacity allows [tryEmit] to
+ * succeed even when no collector is active, preventing dropped events or unexpected
+ * [CancellationException] propagation from [emit] during scope cancellation.
  *
  * Session-scoped (destroyed on logout/autolock).
  */
@@ -87,7 +91,7 @@ class TrackerViewModel(
     private val _uiState = MutableStateFlow(TrackerUiState())
     val uiState: StateFlow<TrackerUiState> = _uiState.asStateFlow()
 
-    private val _effect = MutableSharedFlow<TrackerEffect>(replay = 0)
+    private val _effect = MutableSharedFlow<TrackerEffect>(replay = 0, extraBufferCapacity = 1)
     val effect: SharedFlow<TrackerEffect> = _effect.asSharedFlow()
 
     init {
@@ -164,7 +168,9 @@ class TrackerViewModel(
                         )
                     }
                 } else {
-                    _effect.emit(TrackerEffect.NavigateToDailyLog(date))
+                    if (!_effect.tryEmit(TrackerEffect.NavigateToDailyLog(date))) {
+                        Log.w(TAG, "Failed to emit NavigateToDailyLog effect for $date")
+                    }
                 }
             }
 
@@ -227,7 +233,9 @@ class TrackerViewModel(
             }
 
             is TrackerEvent.EditLogClicked -> viewModelScope.launch {
-                _effect.emit(TrackerEffect.NavigateToDailyLog(event.date))
+                if (!_effect.tryEmit(TrackerEffect.NavigateToDailyLog(event.date))) {
+                    Log.w(TAG, "Failed to emit NavigateToDailyLog effect for ${event.date}")
+                }
             }
 
             is TrackerEvent.DeletePeriodConfirmed -> viewModelScope.launch {
@@ -312,5 +320,9 @@ class TrackerViewModel(
         val latest = periods.maxBy { it.startDate }
         val predicted = latest.startDate.plus(avgDays, DateTimeUnit.DAY)
         appSettings.setCachedPredictedPeriodDate(predicted.toString())
+    }
+
+    companion object {
+        private const val TAG = "TrackerViewModel"
     }
 }

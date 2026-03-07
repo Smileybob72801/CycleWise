@@ -85,7 +85,12 @@ private val FollicularBorderLight = Color(0xFF4DB6AC)
 private val OvulationBorderLight = Color(0xFFFFB74D)
 private val LutealBorderLight = Color(0xFF9575CD)
 
-/** Default light-mode [CyclePhasePalette]. */
+/**
+ * Default light-mode [CyclePhasePalette].
+ *
+ * Uses Material 200-variant fills with dark "on" colors for WCAG contrast,
+ * and 300-variant borders/chart lines for visual definition against light backgrounds.
+ */
 internal val LightCyclePhasePalette = CyclePhasePalette(
     menstruation = PhaseColors(
         fill = CyclePhaseColors.Menstruation,
@@ -124,7 +129,13 @@ internal val LightCyclePhasePalette = CyclePhasePalette(
 // Dark-mode "on" colors
 private val OnOvulationDark = Color(0xFF1A1113) // dark bg for light amber fill
 
-/** Default dark-mode [CyclePhasePalette]. */
+/**
+ * Default dark-mode [CyclePhasePalette].
+ *
+ * Uses the same base fills as light mode but with reduced subtle-alpha (0.25),
+ * white "on" colors for maximum contrast on dark backgrounds, and
+ * border/chart-line colors matching the opaque fill.
+ */
 internal val DarkCyclePhasePalette = CyclePhasePalette(
     menstruation = PhaseColors(
         fill = CyclePhaseColors.Menstruation,

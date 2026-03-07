@@ -43,7 +43,7 @@ fun MedicalDisclaimer(modifier: Modifier = Modifier) {
         ) {
             Icon(
                 imageVector = Icons.Outlined.Info,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_medical_disclaimer),
                 tint = MaterialTheme.colorScheme.onErrorContainer,
                 modifier = Modifier.size(dims.iconSm),
             )

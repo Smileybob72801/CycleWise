@@ -1,7 +1,11 @@
 package com.veleda.cyclewise.androidData.local
 
+import com.veleda.cyclewise.RobolectricTestApp
 import com.veleda.cyclewise.domain.models.ArticleCategory
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.assertNotNull
@@ -9,8 +13,10 @@ import kotlin.test.assertNotNull
 /**
  * Unit tests for [EducationalContentLoader.parseJson].
  *
- * Tests the JSON deserialization path without requiring Android context.
+ * Runs under Robolectric because `parseJson` uses [android.util.Log].
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(application = RobolectricTestApp::class)
 class EducationalContentLoaderTest {
 
     @Test

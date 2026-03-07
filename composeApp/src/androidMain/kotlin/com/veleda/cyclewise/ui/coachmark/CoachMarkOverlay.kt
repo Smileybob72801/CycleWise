@@ -38,8 +38,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
@@ -79,15 +81,26 @@ private val SKIP_PROGRESS_HEIGHT = 4.dp
  * so the overlay can draw a cutout around it.
  *
  * Attaches an [onGloballyPositioned] callback that calls [CoachMarkState.registerTarget]
- * with the composable's [boundsInRoot].
+ * with the composable's [boundsInRoot] when [enabled] is `true`. When [enabled] is
+ * `false`, calls [CoachMarkState.unregisterTarget] instead, so that off-screen or
+ * inactive targets are not considered registered.
  *
- * @param key   The [HintKey] this composable is the target for.
- * @param state The [CoachMarkState] managing the current walkthrough.
+ * @param key     The [HintKey] this composable is the target for.
+ * @param state   The [CoachMarkState] managing the current walkthrough.
+ * @param enabled Whether to register (`true`) or unregister (`false`) the target.
+ *                Defaults to `true` for backward compatibility.
  */
-fun Modifier.coachMarkTarget(key: HintKey, state: CoachMarkState): Modifier =
-    this.onGloballyPositioned { coordinates ->
+fun Modifier.coachMarkTarget(
+    key: HintKey,
+    state: CoachMarkState,
+    enabled: Boolean = true,
+): Modifier = this.onGloballyPositioned { coordinates ->
+    if (enabled) {
         state.registerTarget(key, coordinates.boundsInRoot())
+    } else {
+        state.unregisterTarget(key)
     }
+}
 
 /**
  * Full-screen overlay that dims the screen except for a highlighted cutout around
@@ -103,13 +116,18 @@ fun Modifier.coachMarkTarget(key: HintKey, state: CoachMarkState): Modifier =
  * (e.g., tapping the Period tab at step 3). Underlying controls are guarded by per-step
  * logic in the host screen (tab locks, pager scroll disable) rather than by the overlay.
  *
- * @param state   The per-screen [CoachMarkState] driving this overlay.
- * @param allDefs The full walkthrough map, used by [CoachMarkState.advanceOrDismiss].
+ * @param state     The per-screen [CoachMarkState] driving this overlay.
+ * @param allDefs   The full walkthrough map, used by [CoachMarkState.advanceOrDismiss].
+ * @param onSkipAll Optional callback invoked after the user completes the "Hold to Skip"
+ *                  gesture and the overlay has already called [CoachMarkState.skipAll].
+ *                  Host screens use this to run additional cleanup (e.g., marking hints
+ *                  on other screens as seen, wiping seed data, unlocking the navbar).
  */
 @Composable
 fun CoachMarkOverlay(
     state: CoachMarkState,
     allDefs: Map<HintKey, CoachMarkDef>,
+    onSkipAll: () -> Unit = {},
 ) {
     val activeCoachMark by state.active.collectAsState()
     val active = activeCoachMark ?: return
@@ -175,6 +193,21 @@ fun CoachMarkOverlay(
             drawScrimWithCutout(highlightRect, cutoutCorner)
         }
 
+        // For informational steps, block ALL content touches so non-target controls
+        // can't be tapped. The tooltip card renders on top so its buttons still work.
+        if (!active.def.requiresAction) {
+            Spacer(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            // Consume without forwarding — blocks the touch.
+                        }
+                    }
+            )
+        }
+
         // Tooltip card — pre-compute positions to avoid referencing unavailable scope properties.
         val tooltipMaxWidthPx = with(density) { TOOLTIP_MAX_WIDTH_DP.toPx() }
         val marginPx = with(density) { dims.md.toPx() }
@@ -214,7 +247,10 @@ fun CoachMarkOverlay(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     HoldToSkipButton(
-                        onSkip = { state.skipAll(allDefs) },
+                        onSkip = {
+                            state.skipAll(allDefs)
+                            onSkipAll()
+                        },
                         modifier = Modifier.weight(1f, fill = false),
                     )
 
@@ -238,13 +274,17 @@ fun CoachMarkOverlay(
                             }
                         }
 
-                        TextButton(
-                            onClick = { state.advanceOrDismiss(allDefs) },
-                        ) {
-                            Text(
-                                text = stringResource(active.def.dismissLabelRes),
-                                maxLines = 1,
-                            )
+                        // Hide the dismiss button for task steps — the user must
+                        // perform the action to advance.
+                        if (!active.def.requiresAction) {
+                            TextButton(
+                                onClick = { state.advanceOrDismiss(allDefs) },
+                            ) {
+                                Text(
+                                    text = stringResource(active.def.dismissLabelRes),
+                                    maxLines = 1,
+                                )
+                            }
                         }
                     }
                 }

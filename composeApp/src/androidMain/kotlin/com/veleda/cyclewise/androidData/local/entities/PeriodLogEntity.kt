@@ -18,7 +18,7 @@ import kotlin.time.Instant
  *
  * @property id                UUID primary key.
  * @property entryId           FK to [DailyEntryEntity.id] (indexed, CASCADE on delete).
- * @property flowIntensity     Menstrual flow level, stored as the enum name string via [Converters].
+ * @property flowIntensity     Menstrual flow level, stored as the enum name string via [Converters], or null if unrecorded.
  * @property periodColor       Optional period color, stored as the enum name string via [Converters].
  * @property periodConsistency Optional period consistency, stored as the enum name string via [Converters].
  * @property createdAt         Timestamp when this record was first persisted (epoch ms).
@@ -39,7 +39,7 @@ import kotlin.time.Instant
 data class PeriodLogEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "entry_id", index = true) val entryId: String,
-    @ColumnInfo(name = "flow_intensity") val flowIntensity: FlowIntensity,
+    @ColumnInfo(name = "flow_intensity") val flowIntensity: FlowIntensity? = null,
     @ColumnInfo(name = "period_color") val periodColor: PeriodColor? = null,
     @ColumnInfo(name = "period_consistency") val periodConsistency: PeriodConsistency? = null,
     @ColumnInfo(name = "created_at") val createdAt: Instant,

@@ -20,6 +20,16 @@ import kotlin.math.roundToInt
  * Differences <= 1 day are reported as "remained consistent".
  */
 class CycleLengthTrendGenerator : InsightGenerator {
+    /**
+     * Splits completed cycle durations into an older and a recent half, compares
+     * their averages, and emits a [CycleLengthTrend] indicating whether the
+     * cycle length has lengthened, shortened, or remained consistent.
+     *
+     * A difference of > 1 day is considered a meaningful trend.
+     *
+     * @param data Aggregated cycle data; requires >= 3 completed periods.
+     * @return A single-element list with the trend, or empty if insufficient data.
+     */
     override fun generate(data: InsightData): List<Insight> {
         val completedCycles = data.allPeriods.filter { it.endDate != null }.reversed()
         if (completedCycles.size < 3) {

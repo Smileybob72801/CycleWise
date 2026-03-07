@@ -1,17 +1,25 @@
 package com.veleda.cyclewise.ui.settings
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import app.cash.turbine.test
 import com.veleda.cyclewise.domain.models.ArticleCategory
 import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
+import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.reminders.ReminderScheduler
+import com.veleda.cyclewise.session.ChangePassphraseResult
+import com.veleda.cyclewise.session.SessionManager
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.theme.ThemeMode
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
+import android.util.Log
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -34,8 +42,8 @@ import kotlin.test.assertTrue
 /**
  * Unit tests for [SettingsViewModel] following the Given-When-Then convention.
  *
- * Mocks [AppSettings] (all Flows return `flowOf(default)`) and [ReminderScheduler]
- * to verify state updates and side-effect invocations in isolation.
+ * Mocks [AppSettings] (all Flows return `flowOf(default)`), [ReminderScheduler],
+ * and [SessionManager] to verify state updates and side-effect invocations in isolation.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
@@ -49,6 +57,8 @@ class SettingsViewModelTest {
     private lateinit var mockReminderScheduler: ReminderScheduler
     private lateinit var mockEducationalContentProvider: EducationalContentProvider
     private lateinit var mockHintPreferences: HintPreferences
+    private lateinit var mockDeleteAllDataUseCase: DeleteAllDataUseCase
+    private lateinit var mockSessionManager: SessionManager
 
     @Before
     fun setUp() {
@@ -58,6 +68,8 @@ class SettingsViewModelTest {
         mockReminderScheduler = mockk(relaxed = true)
         mockEducationalContentProvider = mockk(relaxed = true)
         mockHintPreferences = mockk(relaxed = true)
+        mockDeleteAllDataUseCase = mockk(relaxed = true)
+        mockSessionManager = mockk(relaxed = true)
 
         // Configure all AppSettings flows to return defaults.
         every { mockAppSettings.themeMode } returns flowOf("system")
@@ -84,11 +96,18 @@ class SettingsViewModelTest {
         every { mockAppSettings.reminderHydrationFrequencyHours } returns flowOf(3)
         every { mockAppSettings.reminderHydrationStartHour } returns flowOf(8)
         every { mockAppSettings.reminderHydrationEndHour } returns flowOf(20)
+
+        // Stub android.util.Log so Log.e() returns 0 instead of throwing
+        // "Method e in android.util.Log not mocked" in non-Robolectric tests.
+        mockkStatic(Log::class)
+        every { Log.e(any(), any()) } returns 0
+        every { Log.e(any(), any(), any()) } returns 0
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        unmockkStatic(Log::class)
     }
 
     private fun createViewModel(): SettingsViewModel {
@@ -97,23 +116,49 @@ class SettingsViewModelTest {
             reminderScheduler = mockReminderScheduler,
             educationalContentProvider = mockEducationalContentProvider,
             hintPreferences = mockHintPreferences,
+            deleteAllDataUseCase = mockDeleteAllDataUseCase,
+            sessionManager = mockSessionManager,
         )
     }
 
-    // ── Init ─────────────────────────────────────────────────────────
+    // ── Init — General state defaults ────────────────────────────────
 
     @Test
-    fun `init WHEN created THEN uiStateHasDefaultValues`() = runTest {
+    fun `init WHEN created THEN generalStateHasDefaultValues`() = runTest {
         // GIVEN — default AppSettings flows
         // WHEN — ViewModel is created
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        // THEN — state matches defaults
-        val state = viewModel.uiState.value
-        assertEquals(ThemeMode.SYSTEM, state.themeMode)
+        // THEN — general state matches defaults
+        val state = viewModel.generalState.value
         assertEquals(10, state.autolockMinutes)
         assertEquals(3, state.topSymptomsCount)
+        assertFalse(state.showHintResetConfirmation)
+        assertFalse(state.showPrivacyPolicyDialog)
+        assertFalse(state.showTermsOfServiceDialog)
+        assertFalse(state.showChangePassphraseDialog)
+        assertNull(state.changePassphraseError)
+        assertFalse(state.isChangingPassphrase)
+        assertFalse(state.showPassphraseSuccessDialog)
+        assertFalse(state.showDeleteFirstConfirmation)
+        assertFalse(state.showDeleteSecondConfirmation)
+        assertEquals("", state.deleteConfirmText)
+        assertFalse(state.isDeletingData)
+    }
+
+    // ── Init — Appearance state defaults ─────────────────────────────
+
+    @Test
+    fun `init WHEN created THEN appearanceStateHasDefaultValues`() = runTest {
+        // GIVEN — default AppSettings flows
+        // WHEN — ViewModel is created
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // THEN — appearance state matches defaults
+        val state = viewModel.appearanceState.value
+        assertEquals(ThemeMode.SYSTEM, state.themeMode)
         assertTrue(state.showMood)
         assertTrue(state.showEnergy)
         assertTrue(state.showLibido)
@@ -124,6 +169,20 @@ class SettingsViewModelTest {
         assertEquals(CyclePhaseColors.DEFAULT_FOLLICULAR_HEX, state.follicularColorHex)
         assertEquals(CyclePhaseColors.DEFAULT_OVULATION_HEX, state.ovulationColorHex)
         assertEquals(CyclePhaseColors.DEFAULT_LUTEAL_HEX, state.lutealColorHex)
+        assertNull(state.educationalArticles)
+    }
+
+    // ── Init — Notification state defaults ───────────────────────────
+
+    @Test
+    fun `init WHEN created THEN notificationStateHasDefaultValues`() = runTest {
+        // GIVEN — default AppSettings flows
+        // WHEN — ViewModel is created
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // THEN — notification state matches defaults
+        val state = viewModel.notificationState.value
         assertFalse(state.periodReminderEnabled)
         assertEquals(2, state.periodDaysBefore)
         assertFalse(state.periodPrivacyAccepted)
@@ -135,9 +194,21 @@ class SettingsViewModelTest {
         assertEquals(3, state.hydrationFrequencyHours)
         assertEquals(8, state.hydrationStartHour)
         assertEquals(20, state.hydrationEndHour)
-        assertFalse(state.showAboutDialog)
-        assertFalse(state.showPrivacyDialog)
         assertFalse(state.showPermissionRationale)
+        assertFalse(state.showPrivacyDialog)
+    }
+
+    // ── Init — About state defaults ──────────────────────────────────
+
+    @Test
+    fun `init WHEN created THEN aboutStateHasDefaultValues`() = runTest {
+        // GIVEN — default AppSettings flows
+        // WHEN — ViewModel is created
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // THEN — about state matches defaults
+        assertFalse(viewModel.aboutState.value.showAboutDialog)
     }
 
     // ── AutolockChanged ──────────────────────────────────────────────
@@ -153,7 +224,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertEquals(15, viewModel.uiState.value.autolockMinutes)
+        assertEquals(15, viewModel.generalState.value.autolockMinutes)
         coVerify(atLeast = 1) { mockAppSettings.setAutolockMinutes(15) }
     }
 
@@ -170,7 +241,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertEquals(5, viewModel.uiState.value.topSymptomsCount)
+        assertEquals(5, viewModel.generalState.value.topSymptomsCount)
         coVerify(atLeast = 1) { mockAppSettings.setTopSymptomsCount(5) }
     }
 
@@ -187,7 +258,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showMood)
+        assertFalse(viewModel.appearanceState.value.showMood)
         coVerify(atLeast = 1) { mockAppSettings.setShowMoodInSummary(false) }
     }
 
@@ -202,7 +273,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showEnergy)
+        assertFalse(viewModel.appearanceState.value.showEnergy)
         coVerify(atLeast = 1) { mockAppSettings.setShowEnergyInSummary(false) }
     }
 
@@ -217,7 +288,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showLibido)
+        assertFalse(viewModel.appearanceState.value.showLibido)
         coVerify(atLeast = 1) { mockAppSettings.setShowLibidoInSummary(false) }
     }
 
@@ -234,7 +305,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showFollicular)
+        assertFalse(viewModel.appearanceState.value.showFollicular)
         coVerify(atLeast = 1) { mockAppSettings.setShowFollicularPhase(false) }
     }
 
@@ -249,7 +320,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showOvulation)
+        assertFalse(viewModel.appearanceState.value.showOvulation)
         coVerify(atLeast = 1) { mockAppSettings.setShowOvulationPhase(false) }
     }
 
@@ -264,7 +335,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertFalse(viewModel.uiState.value.showLuteal)
+        assertFalse(viewModel.appearanceState.value.showLuteal)
         coVerify(atLeast = 1) { mockAppSettings.setShowLutealPhase(false) }
     }
 
@@ -281,7 +352,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertEquals("FF0000", viewModel.uiState.value.menstruationColorHex)
+        assertEquals("FF0000", viewModel.appearanceState.value.menstruationColorHex)
         coVerify(atLeast = 1) { mockAppSettings.setMenstruationColor("FF0000") }
     }
 
@@ -301,7 +372,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — all four colors reset to defaults and persistence called
-        val state = viewModel.uiState.value
+        val state = viewModel.appearanceState.value
         assertEquals(CyclePhaseColors.DEFAULT_MENSTRUATION_HEX, state.menstruationColorHex)
         assertEquals(CyclePhaseColors.DEFAULT_FOLLICULAR_HEX, state.follicularColorHex)
         assertEquals(CyclePhaseColors.DEFAULT_OVULATION_HEX, state.ovulationColorHex)
@@ -325,7 +396,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated, scheduler called, persistence called
-        assertTrue(viewModel.uiState.value.periodReminderEnabled)
+        assertTrue(viewModel.notificationState.value.periodReminderEnabled)
         coVerify(atLeast = 1) { mockAppSettings.setReminderPeriodEnabled(true) }
         verify(atLeast = 1) { mockReminderScheduler.schedulePeriodPrediction(true) }
     }
@@ -342,7 +413,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated, scheduler cancels, persistence called
-        assertFalse(viewModel.uiState.value.periodReminderEnabled)
+        assertFalse(viewModel.notificationState.value.periodReminderEnabled)
         coVerify(atLeast = 1) { mockAppSettings.setReminderPeriodEnabled(false) }
         verify(atLeast = 1) { mockReminderScheduler.schedulePeriodPrediction(false) }
     }
@@ -360,7 +431,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — scheduler called with current time, persistence called
-        assertTrue(viewModel.uiState.value.medicationReminderEnabled)
+        assertTrue(viewModel.notificationState.value.medicationReminderEnabled)
         coVerify(atLeast = 1) { mockAppSettings.setReminderMedicationEnabled(true) }
         verify(atLeast = 1) { mockReminderScheduler.scheduleMedication(true, 9, 0) }
     }
@@ -377,7 +448,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated, scheduler rescheduled with new hour
-        assertEquals(14, viewModel.uiState.value.medicationHour)
+        assertEquals(14, viewModel.notificationState.value.medicationHour)
         coVerify(atLeast = 1) { mockAppSettings.setReminderMedicationHour(14) }
         verify(atLeast = 1) { mockReminderScheduler.scheduleMedication(true, 14, 0) }
     }
@@ -395,7 +466,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — scheduler called with current frequency, persistence called
-        assertTrue(viewModel.uiState.value.hydrationReminderEnabled)
+        assertTrue(viewModel.notificationState.value.hydrationReminderEnabled)
         coVerify(atLeast = 1) { mockAppSettings.setReminderHydrationEnabled(true) }
         verify(atLeast = 1) { mockReminderScheduler.scheduleHydration(true, 3) }
     }
@@ -412,7 +483,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated, scheduler rescheduled with new frequency
-        assertEquals(2, viewModel.uiState.value.hydrationFrequencyHours)
+        assertEquals(2, viewModel.notificationState.value.hydrationFrequencyHours)
         coVerify(atLeast = 1) { mockAppSettings.setReminderHydrationFrequencyHours(2) }
         verify(atLeast = 1) { mockReminderScheduler.scheduleHydration(true, 2) }
     }
@@ -429,7 +500,7 @@ class SettingsViewModelTest {
         viewModel.onEvent(SettingsEvent.ShowAboutDialog)
 
         // THEN — dialog state is true
-        assertTrue(viewModel.uiState.value.showAboutDialog)
+        assertTrue(viewModel.aboutState.value.showAboutDialog)
     }
 
     @Test
@@ -438,13 +509,13 @@ class SettingsViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
         viewModel.onEvent(SettingsEvent.ShowAboutDialog)
-        assertTrue(viewModel.uiState.value.showAboutDialog)
+        assertTrue(viewModel.aboutState.value.showAboutDialog)
 
         // WHEN — dismiss about dialog dispatched
         viewModel.onEvent(SettingsEvent.DismissAboutDialog)
 
         // THEN — dialog state is false
-        assertFalse(viewModel.uiState.value.showAboutDialog)
+        assertFalse(viewModel.aboutState.value.showAboutDialog)
     }
 
     @Test
@@ -453,14 +524,14 @@ class SettingsViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
         viewModel.onEvent(SettingsEvent.ShowPrivacyDialog)
-        assertTrue(viewModel.uiState.value.showPrivacyDialog)
+        assertTrue(viewModel.notificationState.value.showPrivacyDialog)
 
         // WHEN — privacy accepted
         viewModel.onEvent(SettingsEvent.PeriodPrivacyAccepted)
         advanceUntilIdle()
 
         // THEN — privacy accepted, reminder enabled, dialog dismissed
-        val state = viewModel.uiState.value
+        val state = viewModel.notificationState.value
         assertTrue(state.periodPrivacyAccepted)
         assertTrue(state.periodReminderEnabled)
         assertFalse(state.showPrivacyDialog)
@@ -482,12 +553,12 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state updated and persistence called
-        assertEquals(ThemeMode.DARK, viewModel.uiState.value.themeMode)
+        assertEquals(ThemeMode.DARK, viewModel.appearanceState.value.themeMode)
         coVerify(atLeast = 1) { mockAppSettings.setThemeMode("dark") }
     }
 
     @Test
-    fun `init WHEN themeModeIsLight THEN uiStateReflectsLight`() = runTest {
+    fun `init WHEN themeModeIsLight THEN appearanceStateReflectsLight`() = runTest {
         // GIVEN — AppSettings returns "light" for themeMode
         every { mockAppSettings.themeMode } returns flowOf("light")
 
@@ -496,7 +567,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — state reflects LIGHT mode
-        assertEquals(ThemeMode.LIGHT, viewModel.uiState.value.themeMode)
+        assertEquals(ThemeMode.LIGHT, viewModel.appearanceState.value.themeMode)
     }
 
     // ── Educational sheet tests ────────────────────────────────────
@@ -524,8 +595,8 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — educationalArticles is populated
-        assertNotNull(viewModel.uiState.value.educationalArticles)
-        assertEquals(1, viewModel.uiState.value.educationalArticles!!.size)
+        assertNotNull(viewModel.appearanceState.value.educationalArticles)
+        assertEquals(1, viewModel.appearanceState.value.educationalArticles!!.size)
     }
 
     @Test
@@ -540,7 +611,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         // THEN — educationalArticles remains null
-        assertNull(viewModel.uiState.value.educationalArticles)
+        assertNull(viewModel.appearanceState.value.educationalArticles)
     }
 
     @Test
@@ -551,13 +622,531 @@ class SettingsViewModelTest {
         advanceUntilIdle()
         viewModel.onEvent(SettingsEvent.ShowEducationalSheet("CyclePhase.Colors"))
         advanceUntilIdle()
-        assertNotNull(viewModel.uiState.value.educationalArticles)
+        assertNotNull(viewModel.appearanceState.value.educationalArticles)
 
         // WHEN — dismiss educational sheet dispatched
         viewModel.onEvent(SettingsEvent.DismissEducationalSheet)
         advanceUntilIdle()
 
         // THEN — educationalArticles is null
-        assertNull(viewModel.uiState.value.educationalArticles)
+        assertNull(viewModel.appearanceState.value.educationalArticles)
+    }
+
+    // ── Delete All Data ─────────────────────────────────────────────
+
+    @Test
+    fun `onEvent DeleteAllDataRequested THEN showsFirstConfirmation`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — delete all data requested
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+
+        // THEN — first confirmation dialog is shown
+        assertTrue(viewModel.generalState.value.showDeleteFirstConfirmation)
+        assertFalse(viewModel.generalState.value.showDeleteSecondConfirmation)
+    }
+
+    @Test
+    fun `onEvent DeleteAllDataCancelled THEN resetsAllConfirmationState`() = runTest {
+        // GIVEN — first confirmation dialog is showing
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+        assertTrue(viewModel.generalState.value.showDeleteFirstConfirmation)
+
+        // WHEN — user cancels
+        viewModel.onEvent(SettingsEvent.DeleteAllDataCancelled)
+
+        // THEN — all confirmation state is reset
+        val state = viewModel.generalState.value
+        assertFalse(state.showDeleteFirstConfirmation)
+        assertFalse(state.showDeleteSecondConfirmation)
+        assertEquals("", state.deleteConfirmText)
+    }
+
+    @Test
+    fun `onEvent DeleteAllDataFirstConfirmed THEN advancesToSecondConfirmation`() = runTest {
+        // GIVEN — first confirmation dialog is showing
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+
+        // WHEN — user confirms first dialog
+        viewModel.onEvent(SettingsEvent.DeleteAllDataFirstConfirmed)
+
+        // THEN — advances to second confirmation
+        val state = viewModel.generalState.value
+        assertFalse(state.showDeleteFirstConfirmation)
+        assertTrue(state.showDeleteSecondConfirmation)
+        assertEquals("", state.deleteConfirmText)
+    }
+
+    @Test
+    fun `onEvent DeleteConfirmTextChanged THEN updatesDeleteConfirmText`() = runTest {
+        // GIVEN — second confirmation dialog is showing
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+        viewModel.onEvent(SettingsEvent.DeleteAllDataFirstConfirmed)
+
+        // WHEN — user types in the confirmation field
+        viewModel.onEvent(SettingsEvent.DeleteConfirmTextChanged("DEL"))
+
+        // THEN — text is updated
+        assertEquals("DEL", viewModel.generalState.value.deleteConfirmText)
+    }
+
+    @Test
+    fun `onEvent DeleteAllDataConfirmed THEN closesSessionAndInvokesUseCaseAndEmitsEffect`() = runTest {
+        // GIVEN — second confirmation completed
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+        viewModel.onEvent(SettingsEvent.DeleteAllDataFirstConfirmed)
+        viewModel.onEvent(SettingsEvent.DeleteConfirmTextChanged("DELETE"))
+
+        // WHEN — user confirms final deletion
+        viewModel.effect.test {
+            viewModel.onEvent(SettingsEvent.DeleteAllDataConfirmed)
+            advanceUntilIdle()
+
+            // THEN — use case was invoked and DataDeleted effect was emitted
+            coVerify(exactly = 1) { mockDeleteAllDataUseCase() }
+            assertEquals(SettingsEffect.DataDeleted, awaitItem())
+        }
+
+        // THEN — session was closed and confirmation state is reset
+        verify(atLeast = 1) { mockSessionManager.closeSession() }
+        val state = viewModel.generalState.value
+        assertFalse(state.showDeleteSecondConfirmation)
+        assertEquals("", state.deleteConfirmText)
+    }
+
+    // ── Change Passphrase ───────────────────────────────────────────
+
+    @Test
+    fun `onEvent ChangePassphraseRequested THEN showsDialog`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — change passphrase requested
+        viewModel.onEvent(SettingsEvent.ChangePassphraseRequested)
+
+        // THEN — dialog is shown
+        assertTrue(viewModel.generalState.value.showChangePassphraseDialog)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseDismissed THEN closesDialogAndClearsError`() = runTest {
+        // GIVEN — dialog is open with an error
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.ChangePassphraseRequested)
+        // Trigger a validation error first
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "old",
+                newPassphrase = "short",
+                confirmation = "short",
+            )
+        )
+        assertNotNull(viewModel.generalState.value.changePassphraseError)
+
+        // WHEN — user dismisses
+        viewModel.onEvent(SettingsEvent.ChangePassphraseDismissed)
+
+        // THEN — dialog is hidden and error is cleared
+        val state = viewModel.generalState.value
+        assertFalse(state.showChangePassphraseDialog)
+        assertNull(state.changePassphraseError)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN newTooShort THEN setsErrorTooShort`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — submitted with new passphrase shorter than 8 chars
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "currentpass",
+                newPassphrase = "short",
+                confirmation = "short",
+            )
+        )
+
+        // THEN — error is "too_short"
+        assertEquals("too_short", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN confirmationMismatch THEN setsErrorMismatch`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — submitted with mismatching confirmation
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "currentpass",
+                newPassphrase = "newpassphrase",
+                confirmation = "differentconfirm",
+            )
+        )
+
+        // THEN — error is "mismatch"
+        assertEquals("mismatch", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN shortThenMismatch THEN errorChanges`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — first submit with too-short passphrase
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "old",
+                newPassphrase = "short",
+                confirmation = "short",
+            )
+        )
+
+        // THEN — error is "too_short"
+        assertEquals("too_short", viewModel.generalState.value.changePassphraseError)
+
+        // WHEN — second submit with mismatching confirmation (but valid length)
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "currentpass",
+                newPassphrase = "newpassphrase",
+                confirmation = "differentconfirm",
+            )
+        )
+
+        // THEN — error changes to "mismatch"
+        assertEquals("mismatch", viewModel.generalState.value.changePassphraseError)
+    }
+
+    // ── Change Passphrase — IO path (via SessionManager) ─────────────
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN wrongCurrentPassphrase THEN setsWrongCurrentError`() = runTest {
+        // GIVEN — SessionManager returns WrongCurrent
+        coEvery {
+            mockSessionManager.changePassphrase("wrong-current", "newpassphrase123")
+        } returns ChangePassphraseResult.WrongCurrent
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — submitted with wrong current passphrase
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "wrong-current",
+                newPassphrase = "newpassphrase123",
+                confirmation = "newpassphrase123",
+            )
+        )
+        advanceUntilIdle()
+
+        // THEN — error is "wrong_current"
+        assertEquals("wrong_current", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN correctCurrentPassphrase THEN showsSuccessDialog`() = runTest {
+        // GIVEN — SessionManager returns Success
+        coEvery {
+            mockSessionManager.changePassphrase("correct-current", "newpassphrase123")
+        } returns ChangePassphraseResult.Success
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Open the dialog first so showChangePassphraseDialog is true
+        viewModel.onEvent(SettingsEvent.ChangePassphraseRequested)
+
+        // WHEN — submitted with correct current passphrase
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "correct-current",
+                newPassphrase = "newpassphrase123",
+                confirmation = "newpassphrase123",
+            )
+        )
+        advanceUntilIdle()
+
+        // THEN — success dialog shown, change dialog stays open, no error, not loading
+        val state = viewModel.generalState.value
+        assertTrue(state.showPassphraseSuccessDialog)
+        assertTrue(state.showChangePassphraseDialog)
+        assertNull(state.changePassphraseError)
+        assertFalse(state.isChangingPassphrase)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSuccessAcknowledged THEN closesSessionAndEmitsEffect`() = runTest {
+        // GIVEN — a successful passphrase change (success dialog showing)
+        coEvery {
+            mockSessionManager.changePassphrase("correct-current", "newpassphrase123")
+        } returns ChangePassphraseResult.Success
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(SettingsEvent.ChangePassphraseRequested)
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "correct-current",
+                newPassphrase = "newpassphrase123",
+                confirmation = "newpassphrase123",
+            )
+        )
+        advanceUntilIdle()
+        assertTrue(viewModel.generalState.value.showPassphraseSuccessDialog)
+
+        // WHEN — user acknowledges the success dialog
+        viewModel.effect.test {
+            viewModel.onEvent(SettingsEvent.ChangePassphraseSuccessAcknowledged)
+            advanceUntilIdle()
+
+            // THEN — PassphraseChanged effect is emitted
+            assertEquals(SettingsEffect.PassphraseChanged, awaitItem())
+        }
+
+        // THEN — both dialogs are closed
+        val state = viewModel.generalState.value
+        assertFalse(state.showChangePassphraseDialog)
+        assertFalse(state.showPassphraseSuccessDialog)
+
+        // THEN — session was closed (Room DB is stale after rekey)
+        verify(atLeast = 1) { mockSessionManager.closeSession() }
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN rekeyVerificationFails THEN setsVerificationFailedError`() = runTest {
+        // GIVEN — SessionManager returns VerificationFailed
+        coEvery {
+            mockSessionManager.changePassphrase("correct-current", "newpassphrase123")
+        } returns ChangePassphraseResult.VerificationFailed
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — submitted with correct current passphrase but rekey verification fails
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "correct-current",
+                newPassphrase = "newpassphrase123",
+                confirmation = "newpassphrase123",
+            )
+        )
+        advanceUntilIdle()
+
+        // THEN — error is "verification_failed"
+        assertEquals("verification_failed", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+        assertFalse(viewModel.generalState.value.showPassphraseSuccessDialog)
+    }
+
+    @Test
+    fun `onEvent ChangePassphraseSubmitted WHEN genericExceptionThrown THEN setsFailedError`() = runTest {
+        // GIVEN — SessionManager returns Failed
+        coEvery {
+            mockSessionManager.changePassphrase("correct-current", "newpassphrase123")
+        } returns ChangePassphraseResult.Failed
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — submitted with correct current passphrase but change fails
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted(
+                current = "correct-current",
+                newPassphrase = "newpassphrase123",
+                confirmation = "newpassphrase123",
+            )
+        )
+        advanceUntilIdle()
+
+        // THEN — error is "failed"
+        assertEquals("failed", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+        assertFalse(viewModel.generalState.value.showPassphraseSuccessDialog)
+    }
+
+    // ── Reduce-specific tests ──────────────────────────────────────────
+
+    @Test
+    fun `reduceGeneral AutolockChanged THEN updatesAutolockMinutes`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — autolock changed
+        viewModel.onEvent(SettingsEvent.AutolockChanged(5))
+
+        // THEN — state updated synchronously by reduce
+        assertEquals(5, viewModel.generalState.value.autolockMinutes)
+    }
+
+    @Test
+    fun `reduceGeneral ChangePassphraseSubmitted WHEN tooShort THEN setsErrorWithoutChanging`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — submitted with short passphrase
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted("old", "short", "short")
+        )
+
+        // THEN — reduce sets error, isChangingPassphrase stays false
+        assertEquals("too_short", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+    }
+
+    @Test
+    fun `reduceGeneral ChangePassphraseSubmitted WHEN mismatch THEN setsErrorWithoutChanging`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — submitted with mismatched confirmation
+        viewModel.onEvent(
+            SettingsEvent.ChangePassphraseSubmitted("old", "newpassphrase", "different")
+        )
+
+        // THEN — reduce sets error, isChangingPassphrase stays false
+        assertEquals("mismatch", viewModel.generalState.value.changePassphraseError)
+        assertFalse(viewModel.generalState.value.isChangingPassphrase)
+    }
+
+    @Test
+    fun `reduceGeneral DeleteAllDataFirstConfirmed THEN transitionsToSecondConfirmation`() = runTest {
+        // GIVEN — first confirmation showing
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.DeleteAllDataRequested)
+
+        // WHEN — first dialog confirmed
+        viewModel.onEvent(SettingsEvent.DeleteAllDataFirstConfirmed)
+
+        // THEN — reduce transitions dialog state
+        val state = viewModel.generalState.value
+        assertFalse(state.showDeleteFirstConfirmation)
+        assertTrue(state.showDeleteSecondConfirmation)
+    }
+
+    @Test
+    fun `reduceAppearance ThemeModeChanged THEN updatesThemeMode`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — theme changed
+        viewModel.onEvent(SettingsEvent.ThemeModeChanged(ThemeMode.DARK))
+
+        // THEN — state updated synchronously by reduce
+        assertEquals(ThemeMode.DARK, viewModel.appearanceState.value.themeMode)
+    }
+
+    @Test
+    fun `reduceAppearance ResetPhaseColorsToDefaults THEN resetsAllColors`() = runTest {
+        // GIVEN — ViewModel with custom colors
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.MenstruationColorChanged("FF0000"))
+        viewModel.onEvent(SettingsEvent.FollicularColorChanged("00FF00"))
+
+        // WHEN — reset to defaults
+        viewModel.onEvent(SettingsEvent.ResetPhaseColorsToDefaults)
+
+        // THEN — reduce resets all colors synchronously
+        val state = viewModel.appearanceState.value
+        assertEquals(CyclePhaseColors.DEFAULT_MENSTRUATION_HEX, state.menstruationColorHex)
+        assertEquals(CyclePhaseColors.DEFAULT_FOLLICULAR_HEX, state.follicularColorHex)
+    }
+
+    @Test
+    fun `reduceAppearance DismissEducationalSheet THEN clearsArticles`() = runTest {
+        // GIVEN — educational sheet is showing
+        every { mockEducationalContentProvider.getByTag("CyclePhase.Colors") } returns listOf(testArticle)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.ShowEducationalSheet("CyclePhase.Colors"))
+        assertNotNull(viewModel.appearanceState.value.educationalArticles)
+
+        // WHEN — dismissed
+        viewModel.onEvent(SettingsEvent.DismissEducationalSheet)
+
+        // THEN — reduce clears articles synchronously
+        assertNull(viewModel.appearanceState.value.educationalArticles)
+    }
+
+    @Test
+    fun `reduceNotification PeriodPrivacyAccepted THEN setsMultipleFields`() = runTest {
+        // GIVEN — ViewModel with privacy dialog showing
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.ShowPrivacyDialog)
+
+        // WHEN — privacy accepted
+        viewModel.onEvent(SettingsEvent.PeriodPrivacyAccepted)
+
+        // THEN — reduce sets all fields synchronously
+        val state = viewModel.notificationState.value
+        assertTrue(state.periodPrivacyAccepted)
+        assertTrue(state.periodReminderEnabled)
+        assertFalse(state.showPrivacyDialog)
+    }
+
+    @Test
+    fun `reduceNotification HydrationFrequencyChanged THEN updatesFrequency`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — frequency changed
+        viewModel.onEvent(SettingsEvent.HydrationFrequencyChanged(4))
+
+        // THEN — state updated synchronously by reduce
+        assertEquals(4, viewModel.notificationState.value.hydrationFrequencyHours)
+    }
+
+    @Test
+    fun `reduceAbout ShowAboutDialog THEN setsDialogVisible`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — show about dialog
+        viewModel.onEvent(SettingsEvent.ShowAboutDialog)
+
+        // THEN — reduce sets dialog visible
+        assertTrue(viewModel.aboutState.value.showAboutDialog)
+    }
+
+    @Test
+    fun `reduceAbout DismissAboutDialog THEN hidesDialog`() = runTest {
+        // GIVEN — about dialog visible
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onEvent(SettingsEvent.ShowAboutDialog)
+
+        // WHEN — dismiss about dialog
+        viewModel.onEvent(SettingsEvent.DismissAboutDialog)
+
+        // THEN — reduce hides dialog
+        assertFalse(viewModel.aboutState.value.showAboutDialog)
     }
 }

@@ -27,6 +27,16 @@ import kotlin.time.ExperimentalTime
 class GetOrCreateDailyLogUseCase(
     private val repository: PeriodRepository
 ) {
+    /**
+     * Returns the [FullDailyLog] for [date], creating a blank one if none exists.
+     *
+     * A new entry's [DailyEntry.dayInCycle] is calculated relative to the most
+     * recent period's start date (1-based), or set to `0` when no parent period
+     * is found.
+     *
+     * @param date The calendar date to retrieve or create a log for.
+     * @return The existing or newly created [FullDailyLog].
+     */
     suspend operator fun invoke(date: LocalDate): FullDailyLog {
         val existingLog = repository.getFullLogForDate(date)
         if (existingLog != null) {

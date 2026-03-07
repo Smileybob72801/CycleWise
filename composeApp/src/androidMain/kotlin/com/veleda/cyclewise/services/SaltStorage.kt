@@ -38,4 +38,9 @@ class SaltStorage(context: Context) {
         prefs.edit { putString(SALT_KEY, encoded) }
         return salt
     }
+
+    /** Removes the persisted salt, forcing a new one to be generated on the next unlock. */
+    fun clear() {
+        prefs.edit().clear().apply()
+    }
 }

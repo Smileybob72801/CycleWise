@@ -7,7 +7,9 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.veleda.cyclewise.domain.usecases.SeedManifest
+import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
@@ -326,6 +328,40 @@ class AppSettings(private val context: Context) {
     /** Removes the seed manifest preference after cleanup completes. */
     suspend fun clearSeedManifest() {
         context.dataStore.edit { it.remove(SEED_MANIFEST_JSON) }
+    }
+
+    /** Removes all preferences, restoring every setting to its default value. */
+    suspend fun clearAll() {
+        context.dataStore.edit { it.clear() }
+    }
+}
+
+/**
+ * Reads the persisted [SeedManifest], runs [TutorialCleanupUseCase] if one exists,
+ * and **always** clears the manifest afterwards — even if the JSON is malformed or
+ * the cleanup use case throws. This guarantees the bottom nav re-enables after the
+ * tutorial ends.
+ *
+ * No-op when no manifest is stored (empty JSON). This is the single cleanup
+ * entry-point used by all tutorial exit paths (normal completion, back-gesture
+ * skip, and the safety-net on next session load).
+ *
+ * @param appSettings  DataStore wrapper that holds the serialised manifest.
+ * @param cleanupUseCase Use case that deletes the seed data described by the manifest.
+ */
+suspend fun runSeedCleanupIfNeeded(
+    appSettings: AppSettings,
+    cleanupUseCase: TutorialCleanupUseCase,
+) {
+    val json = appSettings.seedManifestJson.first()
+    if (json.isEmpty()) return
+    try {
+        val manifest = parseSeedManifest(json)
+        if (manifest != null) {
+            cleanupUseCase(manifest)
+        }
+    } finally {
+        appSettings.clearSeedManifest()
     }
 }
 

@@ -2,7 +2,10 @@ package com.veleda.cyclewise.ui.log
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.veleda.cyclewise.domain.models.DailyEntry
+import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.PeriodColor
+import com.veleda.cyclewise.domain.models.PeriodLog
 import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.ArticleCategory
 import com.veleda.cyclewise.domain.models.EducationalArticle
@@ -12,10 +15,13 @@ import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
 import com.veleda.cyclewise.testutil.TestData
+import android.util.Log
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.mockkStatic
 import io.mockk.mockk
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
@@ -65,6 +71,8 @@ class DailyLogViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        mockkStatic(Log::class)
+        every { Log.w(any<String>(), any<String>(), any()) } returns 0
 
         mockRepository = mockk(relaxed = true)
         mockGetOrCreateDailyLog = mockk(relaxed = true)
@@ -82,6 +90,7 @@ class DailyLogViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        unmockkStatic(Log::class)
     }
 
     private fun createViewModel(entryDate: LocalDate = testDate): DailyLogViewModel {
@@ -233,6 +242,66 @@ class DailyLogViewModelTest {
         coVerify(atLeast = 1) { mockRepository.logPeriodDay(testDate) }
     }
 
+    @Test
+    fun `onEvent PeriodToggled WHEN true THEN createsPeriodLogWithNullFlow`() = runTest {
+        // GIVEN — ViewModel initialized with no period
+        val vm = createViewModel()
+        advanceUntilIdle()
+        assertNull(vm.uiState.value.log!!.periodLog, "PeriodLog should be null before toggle")
+
+        // WHEN — user toggles period ON
+        vm.onEvent(DailyLogEvent.PeriodToggled(isOnPeriod = true))
+        advanceUntilIdle()
+
+        // THEN — a PeriodLog exists with null flowIntensity
+        val periodLog = vm.uiState.value.log!!.periodLog
+        assertNotNull(periodLog, "PeriodLog should be created when period is toggled ON")
+        assertNull(periodLog.flowIntensity, "flowIntensity should be null for a newly toggled PeriodLog")
+    }
+
+    @Test
+    fun `onEvent FlowIntensityChanged WHEN null THEN clearsFlowButKeepsPeriodLog`() = runTest {
+        // GIVEN — ViewModel with a PeriodLog that has flow set
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // Toggle period ON to create a PeriodLog, then set flow
+        vm.onEvent(DailyLogEvent.PeriodToggled(isOnPeriod = true))
+        advanceUntilIdle()
+        vm.onEvent(DailyLogEvent.FlowIntensityChanged(intensity = FlowIntensity.HEAVY))
+        advanceUntilIdle()
+        assertEquals(FlowIntensity.HEAVY, vm.uiState.value.log!!.periodLog!!.flowIntensity)
+
+        // WHEN — flow intensity is deselected (set to null)
+        vm.onEvent(DailyLogEvent.FlowIntensityChanged(intensity = null))
+        advanceUntilIdle()
+
+        // THEN — PeriodLog still exists but flow is null
+        val periodLog = vm.uiState.value.log!!.periodLog
+        assertNotNull(periodLog, "PeriodLog should still exist after clearing flow")
+        assertNull(periodLog.flowIntensity, "flowIntensity should be null after deselection")
+    }
+
+    @Test
+    fun `onEvent PeriodColorChanged WHEN periodLogExists THEN updatesColor`() = runTest {
+        // GIVEN — ViewModel with a PeriodLog (no flow selected yet)
+        val vm = createViewModel()
+        advanceUntilIdle()
+        vm.onEvent(DailyLogEvent.PeriodToggled(isOnPeriod = true))
+        advanceUntilIdle()
+        assertNotNull(vm.uiState.value.log!!.periodLog)
+
+        // WHEN — user selects a period color (without having selected flow first)
+        vm.onEvent(DailyLogEvent.PeriodColorChanged(color = PeriodColor.DARK_RED))
+        advanceUntilIdle()
+
+        // THEN — color is saved on the existing PeriodLog
+        val periodLog = vm.uiState.value.log!!.periodLog
+        assertNotNull(periodLog, "PeriodLog should still exist")
+        assertEquals(PeriodColor.DARK_RED, periodLog.periodColor)
+        assertNull(periodLog.flowIntensity, "flowIntensity should still be null")
+    }
+
     // ── Auto-save tests ──────────────────────────────────────────────
 
     @Test
@@ -312,6 +381,46 @@ class DailyLogViewModelTest {
 
         // THEN
         assertNull(vm.uiState.value.educationalArticles)
+    }
+
+    // ── Error handling tests ──────────────────────────────────────────
+
+    @Test
+    fun `onEvent CreateAndAddSymptom WHEN repositoryThrows THEN errorMessageIsEmitted`() = runTest {
+        // GIVEN — repository throws when creating a symptom
+        coEvery { mockRepository.createOrGetSymptomInLibrary(any(), any()) } throws RuntimeException("DB error")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user creates a new symptom
+        vm.onEvent(DailyLogEvent.CreateAndAddSymptom("Headache"))
+        advanceUntilIdle()
+
+        // THEN — errorMessage is set
+        assertNotNull(vm.uiState.value.errorMessage, "errorMessage should be non-null when symptom save fails")
+        assertTrue(
+            vm.uiState.value.errorMessage!!.contains("symptom", ignoreCase = true),
+            "errorMessage should mention symptom"
+        )
+    }
+
+    @Test
+    fun `onEvent MedicationCreatedAndAdded WHEN repositoryThrows THEN errorMessageIsEmitted`() = runTest {
+        // GIVEN — repository throws when creating a medication
+        coEvery { mockRepository.createOrGetMedicationInLibrary(any()) } throws RuntimeException("DB error")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user creates a new medication
+        vm.onEvent(DailyLogEvent.MedicationCreatedAndAdded("Ibuprofen"))
+        advanceUntilIdle()
+
+        // THEN — errorMessage is set
+        assertNotNull(vm.uiState.value.errorMessage, "errorMessage should be non-null when medication save fails")
+        assertTrue(
+            vm.uiState.value.errorMessage!!.contains("medication", ignoreCase = true),
+            "errorMessage should mention medication"
+        )
     }
 
     @Test

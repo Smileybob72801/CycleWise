@@ -52,6 +52,18 @@ class SymptomPhasePatternGenerator : InsightGenerator {
         private const val NORMAL_PRIORITY = 98
     }
 
+    /**
+     * Analyzes up to the last 8 cycles for recurring symptom-to-phase correlations.
+     *
+     * Normalizes each symptom occurrence's day-in-cycle to a phase-relative offset,
+     * tallies occurrences per `(symptomId, normalizedDay)`, and filters for patterns
+     * recurring in >= 60 % of cycles. Consecutive significant days are grouped, and
+     * each group produces a [SymptomPhasePattern] insight with an optional recurrence
+     * prediction when a [NextPeriodPrediction] is available.
+     *
+     * @param data Aggregated cycle data; requires >= 2 completed periods.
+     * @return Zero or more [SymptomPhasePattern] insights, one per symptom cluster.
+     */
     @OptIn(ExperimentalTime::class)
     override fun generate(data: InsightData): List<Insight> {
         val chronologicalPeriods = data.allPeriods.filter { it.endDate != null }.reversed()

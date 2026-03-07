@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,8 +17,8 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
 /**
  * Robolectric-based Compose UI tests for [SettingsContent].
  *
- * Tests the internal [SettingsContent] composable directly with a [SettingsUiState]
- * and event callback, bypassing the Koin-injected [SettingsScreen] wrapper.
+ * Tests the internal [SettingsContent] composable directly with the four sub-state
+ * objects and event callback, bypassing the Koin-injected [SettingsScreen] wrapper.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = com.veleda.cyclewise.RobolectricTestApp::class)
@@ -30,9 +31,12 @@ class SettingsScreenTest {
      * Helper that wraps [SettingsContent] with required composition locals.
      */
     private fun setSettingsContent(
-        uiState: SettingsUiState = SettingsUiState(),
+        generalState: GeneralSettingsState = GeneralSettingsState(),
+        appearanceState: AppearanceSettingsState = AppearanceSettingsState(),
+        notificationState: NotificationSettingsState = NotificationSettingsState(),
+        aboutState: AboutSettingsState = AboutSettingsState(),
         onEvent: (SettingsEvent) -> Unit = {},
-        session: org.koin.core.scope.Scope? = null,
+        isSessionActive: Boolean = false,
         onLockNow: () -> Unit = {},
     ) {
         composeTestRule.setContent {
@@ -41,9 +45,12 @@ class SettingsScreenTest {
             ) {
                 MaterialTheme {
                     SettingsContent(
-                        uiState = uiState,
+                        generalState = generalState,
+                        appearanceState = appearanceState,
+                        notificationState = notificationState,
+                        aboutState = aboutState,
                         onEvent = onEvent,
-                        session = session,
+                        isSessionActive = isSessionActive,
                         onLockNow = onLockNow,
                     )
                 }
@@ -74,13 +81,13 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText("10 min").assertIsDisplayed()
         composeTestRule.onNodeWithText("15 min").assertIsDisplayed()
         composeTestRule.onNodeWithText("30 min").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Insight Settings").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Insight Settings").performScrollTo().assertIsDisplayed()
     }
 
     @Test
-    fun generalPage_WHEN_sessionNull_THEN_showsLockedMessage() {
-        // GIVEN — settings content rendered with null session (locked state)
-        setSettingsContent(session = null)
+    fun generalPage_WHEN_sessionInactive_THEN_showsLockedMessage() {
+        // GIVEN — settings content rendered with inactive session (locked state)
+        setSettingsContent(isSessionActive = false)
 
         // THEN — the locked message is visible
         composeTestRule.onNodeWithText("Currently locked", substring = true).assertIsDisplayed()

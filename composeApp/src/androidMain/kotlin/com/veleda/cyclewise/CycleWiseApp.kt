@@ -7,6 +7,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.veleda.cyclewise.BuildConfig
 import com.veleda.cyclewise.di.appModule
 import com.veleda.cyclewise.reminders.ReminderNotifier
 import com.veleda.cyclewise.settings.AppSettings
@@ -16,11 +17,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.android.ext.koin.androidContext
+import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import org.koin.core.logger.Level
 import androidx.core.content.edit
 import com.veleda.cyclewise.session.SessionBus
+import com.veleda.cyclewise.session.SessionManager
 
 /**
  * Application subclass responsible for Koin initialization and autolock lifecycle management.
@@ -43,6 +47,7 @@ class CycleWiseApp :
     private lateinit var prefs: SharedPreferences
     private val appSettings: AppSettings by inject()
     private val sessionBus: SessionBus by inject()
+    private val sessionManager: SessionManager by inject()
 
     // Background scope to keep an autolock cache fresh
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -55,7 +60,7 @@ class CycleWiseApp :
         super.onCreate()
 
         startKoin {
-            printLogger()
+            androidLogger(if (BuildConfig.DEBUG) Level.INFO else Level.ERROR)
             androidContext(this@CycleWiseApp)
             modules(appModule)
             allowOverride(false)
@@ -90,7 +95,7 @@ class CycleWiseApp :
 
                 if (shouldLockNow(minutes, last)) {
                     // Close session scope to lock DB + clear session-scoped VMs
-                    getKoin().getScopeOrNull(SESSION_SCOPE_ID)?.close()
+                    sessionManager.closeSession()
 
                     // Hardening: clear the timestamp to avoid loop/stale values
                     prefs.edit { remove(KEY_LAST_BG_AT_ELAPSED) }
@@ -119,6 +124,5 @@ class CycleWiseApp :
 
     companion object {
         private const val KEY_LAST_BG_AT_ELAPSED = "last_bg_at_elapsed"
-        private const val SESSION_SCOPE_ID = "session"
     }
 }

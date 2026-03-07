@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -21,13 +22,29 @@ import androidx.compose.ui.res.stringResource
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 
+/**
+ * Increment/decrement counter for daily water intake displayed as cups.
+ *
+ * Shows a centered cup count flanked by minus and plus buttons, with an
+ * optional motivational prompt showing yesterday's intake.
+ *
+ * @param cups Current cup count to display.
+ * @param onIncrement Callback when the user taps the plus button.
+ * @param onDecrement Callback when the user taps the minus button.
+ * @param yesterdayCupsForPrompt Yesterday's cup count for the motivational prompt,
+ *        or `null` to hide the prompt.
+ * @param modifier Modifier applied to the outer column.
+ * @param enabled Whether the buttons are interactive. When `false`, both increment
+ *        and decrement buttons are disabled.
+ */
 @Composable
 fun WaterTrackerCounter(
     cups: Int,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
     yesterdayCupsForPrompt: Int?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val dims = LocalDimensions.current
 
@@ -47,7 +64,7 @@ fun WaterTrackerCounter(
         ) {
             FilledIconButton(
                 onClick = onDecrement,
-                enabled = cups > 0,
+                enabled = enabled && cups > 0,
                 modifier = Modifier
                     .size(dims.buttonMin)
                     .testTag("water-decrement"),
@@ -56,7 +73,7 @@ fun WaterTrackerCounter(
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             ) {
-                Text("\u2212", style = MaterialTheme.typography.titleLarge)
+                Icon(Icons.Default.Remove, contentDescription = stringResource(R.string.cd_water_remove))
             }
             Text(
                 text = stringResource(R.string.water_cups_count, cups),
@@ -65,6 +82,7 @@ fun WaterTrackerCounter(
             )
             FilledIconButton(
                 onClick = onIncrement,
+                enabled = enabled,
                 modifier = Modifier
                     .size(dims.buttonMin)
                     .testTag("water-increment"),
@@ -73,7 +91,7 @@ fun WaterTrackerCounter(
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             ) {
-                Icon(Icons.Default.Add, contentDescription = null)
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_water_add))
             }
         }
         if (yesterdayCupsForPrompt != null) {

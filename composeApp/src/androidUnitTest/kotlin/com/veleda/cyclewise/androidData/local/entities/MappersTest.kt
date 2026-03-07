@@ -247,6 +247,30 @@ class MappersTest {
         assertNull(periodLogDomain.periodConsistency)
     }
 
+    @Test
+    fun periodLogToDomain_WHEN_flowIntensityNull_THEN_mapsNullCorrectly() {
+        // ARRANGE
+        val periodLogEntity = PeriodLogEntity(
+            id = "plog-null-flow",
+            entryId = "entry-uuid",
+            flowIntensity = null,
+            periodColor = PeriodColor.BRIGHT_RED,
+            periodConsistency = PeriodConsistency.THIN,
+            createdAt = testNow,
+            updatedAt = testNow
+        )
+
+        // ACT
+        val domain = periodLogEntity.toDomain()
+        val roundTripped = domain.toEntity()
+
+        // ASSERT — null flowIntensity round-trips correctly
+        assertNull(domain.flowIntensity)
+        assertEquals(PeriodColor.BRIGHT_RED, domain.periodColor)
+        assertNull(roundTripped.flowIntensity)
+        assertEquals("plog-null-flow", roundTripped.id)
+    }
+
     // --- Tests for Medication mappers ---
 
     @Test

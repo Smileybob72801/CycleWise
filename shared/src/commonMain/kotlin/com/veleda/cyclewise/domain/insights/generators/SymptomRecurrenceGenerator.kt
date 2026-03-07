@@ -13,6 +13,14 @@ import com.veleda.cyclewise.domain.insights.TopSymptomsInsight
  * Requires at least 3 total symptom log entries to produce a result.
  */
 class SymptomRecurrenceGenerator : InsightGenerator {
+    /**
+     * Counts symptom log occurrences across all daily logs, selects the top N
+     * most frequent (configured by [InsightData.topSymptomsCount]), and returns
+     * a single [TopSymptomsInsight] listing their names.
+     *
+     * @param data Aggregated cycle data; requires >= 3 total symptom log entries.
+     * @return A single-element list with the top symptoms, or empty if insufficient data.
+     */
     override fun generate(data: InsightData): List<Insight> {
         val allSymptomLogs = data.allLogs.flatMap { it.symptomLogs }
         if (allSymptomLogs.size < 3) {

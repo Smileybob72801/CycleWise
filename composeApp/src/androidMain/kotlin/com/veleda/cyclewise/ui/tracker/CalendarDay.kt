@@ -74,6 +74,10 @@ private const val PERIOD_FILL_ALPHA = 0.4f
  * @param boundsRegistry    Optional [DayBoundsRegistry] — when provided, this cell registers
  *                          its root-coordinate bounds so the container-level drag gesture
  *                          can map pointer positions to dates.
+ * @param cellAspectRatio   Width-to-height ratio applied to the cell. Defaults to `1f` (square).
+ *                          On landscape tablets the calendar container may not have enough vertical
+ *                          space for square cells, so [CalendarGrid] computes a wider ratio that
+ *                          keeps all six possible rows visible.
  */
 @Composable
 internal fun CalendarDayCell(
@@ -91,7 +95,8 @@ internal fun CalendarDayCell(
     palette: CyclePhasePalette,
     displayPhase: CyclePhase? = null,
     onTap: (() -> Unit)?,
-    boundsRegistry: DayBoundsRegistry? = null
+    boundsRegistry: DayBoundsRegistry? = null,
+    cellAspectRatio: Float = 1f,
 ) {
     val dims = LocalDimensions.current
     val date = day.date.toKotlinLocalDate()
@@ -135,7 +140,7 @@ internal fun CalendarDayCell(
 
     Box(
         modifier = Modifier
-            .aspectRatio(1f)
+            .aspectRatio(cellAspectRatio)
             .padding(
                 top = if (inRange || hasDisplayPhase) dims.xxs else dims.xs,
                 bottom = if (inRange || hasDisplayPhase) dims.xxs else dims.xs,

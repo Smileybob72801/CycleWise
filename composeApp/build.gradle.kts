@@ -113,7 +113,12 @@ android {
 
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     compileOptions {
@@ -132,6 +137,13 @@ android {
             isIncludeAndroidResources = true
         }
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
+    }
+
+    lint {
+        baseline = file("lint-baseline.xml")
+        abortOnError = true
+        warningsAsErrors = false
+        checkDependencies = true
     }
 }
 

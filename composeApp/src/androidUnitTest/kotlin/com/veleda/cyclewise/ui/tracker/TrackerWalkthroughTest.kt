@@ -3,8 +3,10 @@ package com.veleda.cyclewise.ui.tracker
 import com.veleda.cyclewise.ui.coachmark.HintKey
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Unit tests for the [TRACKER_HINTS] walkthrough definition.
@@ -39,6 +41,30 @@ class TrackerWalkthroughTest {
         }
 
         assertEquals(expectedChain, actualChain, "Chain should walk through all 7 steps in order")
+    }
+
+    @Test
+    fun `TRACKER_LONG_PRESS has requiresAction true`() {
+        val def = TRACKER_HINTS[HintKey.TRACKER_LONG_PRESS]
+        assertNotNull(def, "TRACKER_LONG_PRESS should exist")
+        assertTrue(def.requiresAction, "TRACKER_LONG_PRESS should have requiresAction = true")
+    }
+
+    @Test
+    fun `informational steps have requiresAction false`() {
+        val infoKeys = listOf(
+            HintKey.TRACKER_WELCOME,
+            HintKey.TRACKER_NAV,
+            HintKey.TRACKER_PHASE_LEGEND,
+            HintKey.TRACKER_DRAG,
+            HintKey.TRACKER_ADJUST,
+            HintKey.TRACKER_TAP_DAY,
+        )
+        for (key in infoKeys) {
+            val def = TRACKER_HINTS[key]
+            assertNotNull(def, "$key should exist")
+            assertFalse(def.requiresAction, "$key should have requiresAction = false")
+        }
     }
 
     @Test
