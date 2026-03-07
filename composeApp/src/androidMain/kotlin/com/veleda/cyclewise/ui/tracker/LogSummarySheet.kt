@@ -234,7 +234,7 @@ internal fun LogSummarySheetContent(
                         horizontalArrangement = Arrangement.spacedBy(dims.sm),
                         modifier = Modifier.padding(top = dims.xs)
                     ) {
-                        items(log.symptomLogs) { symptomLog ->
+                        items(log.symptomLogs, key = { it.symptomId }) { symptomLog ->
                             val symptomInfo = symptomLibrary.find { it.id == symptomLog.symptomId }
                             if (symptomInfo != null) {
                                 SuggestionChip(
@@ -264,7 +264,7 @@ internal fun LogSummarySheetContent(
                         horizontalArrangement = Arrangement.spacedBy(dims.sm),
                         modifier = Modifier.padding(top = dims.xs)
                     ) {
-                        items(log.medicationLogs) { medicationLog ->
+                        items(log.medicationLogs, key = { it.medicationId }) { medicationLog ->
                             val medicationInfo =
                                 medicationLibrary.find { it.id == medicationLog.medicationId }
                             if (medicationInfo != null) {

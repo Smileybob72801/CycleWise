@@ -34,14 +34,14 @@ internal fun LearnCategoryChips(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(dims.sm),
     ) {
-        item {
+        item(key = "all") {
             FilterChip(
                 selected = selectedCategory == null,
                 onClick = { onCategorySelected(null) },
                 label = { Text(stringResource(R.string.article_category_all)) }
             )
         }
-        items(ArticleCategory.entries.toList()) { category ->
+        items(ArticleCategory.entries.toList(), key = { it.name }) { category ->
             FilterChip(
                 selected = selectedCategory == category,
                 onClick = { onCategorySelected(category) },

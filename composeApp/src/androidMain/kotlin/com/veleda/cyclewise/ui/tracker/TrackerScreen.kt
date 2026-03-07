@@ -317,10 +317,11 @@ fun TrackerScreen(navController: NavController) {
                 Text(stringResource(R.string.tracker_today))
             }
 
-            DaysOfWeekTitle(daysOfWeek = firstDayOfWeek.let {
+            val daysOfWeek = remember(firstDayOfWeek) {
                 val days = JavaDayOfWeek.entries
-                days.subList(it.value - 1, days.size) + days.subList(0, it.value - 1)
-            })
+                days.subList(firstDayOfWeek.value - 1, days.size) + days.subList(0, firstDayOfWeek.value - 1)
+            }
+            DaysOfWeekTitle(daysOfWeek = daysOfWeek)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
