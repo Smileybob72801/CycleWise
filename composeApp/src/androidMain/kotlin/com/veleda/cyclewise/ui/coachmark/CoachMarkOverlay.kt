@@ -79,15 +79,26 @@ private val SKIP_PROGRESS_HEIGHT = 4.dp
  * so the overlay can draw a cutout around it.
  *
  * Attaches an [onGloballyPositioned] callback that calls [CoachMarkState.registerTarget]
- * with the composable's [boundsInRoot].
+ * with the composable's [boundsInRoot] when [enabled] is `true`. When [enabled] is
+ * `false`, calls [CoachMarkState.unregisterTarget] instead, so that off-screen or
+ * inactive targets are not considered registered.
  *
- * @param key   The [HintKey] this composable is the target for.
- * @param state The [CoachMarkState] managing the current walkthrough.
+ * @param key     The [HintKey] this composable is the target for.
+ * @param state   The [CoachMarkState] managing the current walkthrough.
+ * @param enabled Whether to register (`true`) or unregister (`false`) the target.
+ *                Defaults to `true` for backward compatibility.
  */
-fun Modifier.coachMarkTarget(key: HintKey, state: CoachMarkState): Modifier =
-    this.onGloballyPositioned { coordinates ->
+fun Modifier.coachMarkTarget(
+    key: HintKey,
+    state: CoachMarkState,
+    enabled: Boolean = true,
+): Modifier = this.onGloballyPositioned { coordinates ->
+    if (enabled) {
         state.registerTarget(key, coordinates.boundsInRoot())
+    } else {
+        state.unregisterTarget(key)
     }
+}
 
 /**
  * Full-screen overlay that dims the screen except for a highlighted cutout around

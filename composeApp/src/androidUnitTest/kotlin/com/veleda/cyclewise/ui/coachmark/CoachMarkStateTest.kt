@@ -344,4 +344,52 @@ class CoachMarkStateTest {
         coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_PERIOD_TAB) }
         coVerify { mockHintPreferences.markHintSeen(HintKey.DAILY_LOG_PERIOD_TOGGLE) }
     }
+
+    // --- Unregister target tests ---
+
+    @Test
+    fun `unregisterTarget WHEN boundsWereRegistered THEN showHintGoesPending`() {
+        // GIVEN — bounds are registered and then unregistered
+        state.registerTarget(HintKey.DAILY_LOG_WELCOME, testBounds)
+        state.unregisterTarget(HintKey.DAILY_LOG_WELCOME)
+
+        // WHEN — showHint is called
+        state.showHint(defWelcome)
+
+        // THEN — hint is pending because bounds were removed
+        assertNull(state.active.value, "Active should be null after bounds were unregistered")
+        assertEquals(
+            HintKey.DAILY_LOG_WELCOME,
+            state.pendingHintKey.value,
+            "pendingHintKey should be set when bounds were unregistered"
+        )
+    }
+
+    @Test
+    fun `unregisterTarget WHEN keyNeverRegistered THEN noOp`() {
+        // WHEN — unregister a key that was never registered
+        state.unregisterTarget(HintKey.DAILY_LOG_WELCOME)
+
+        // THEN — no crash, state is unchanged
+        assertNull(state.active.value, "Active should remain null")
+        assertNull(state.pendingHintKey.value, "pendingHintKey should remain null")
+    }
+
+    @Test
+    fun `registerTarget WHEN activeKeyMatchesAndBoundsChange THEN updatesActiveBounds`() {
+        // GIVEN — a hint is active
+        state.registerTarget(HintKey.DAILY_LOG_WELCOME, testBounds)
+        state.showHint(defWelcome)
+        assertEquals(testBounds, state.active.value?.targetBounds)
+
+        // WHEN — the same target reports new bounds (e.g. during scroll animation)
+        val newBounds = Rect(50f, 100f, 250f, 160f)
+        state.registerTarget(HintKey.DAILY_LOG_WELCOME, newBounds)
+
+        // THEN — active bounds are updated
+        val active = state.active.value
+        assertNotNull(active, "Active should still be set")
+        assertEquals(HintKey.DAILY_LOG_WELCOME, active.def.key)
+        assertEquals(newBounds, active.targetBounds, "Active bounds should update to the new position")
+    }
 }

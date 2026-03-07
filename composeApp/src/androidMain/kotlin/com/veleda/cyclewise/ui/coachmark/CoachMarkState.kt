@@ -62,9 +62,19 @@ class CoachMarkState(
      * target composable. If a pending hint matches [key] and the state is not [held],
      * the overlay activates immediately. Otherwise the bounds are stored for later
      * resolution when [release] is called.
+     *
+     * When the active hint's key matches [key], the active bounds are updated so that
+     * the highlight tracks the target during scroll animations.
      */
     fun registerTarget(key: HintKey, bounds: Rect) {
         targetBoundsMap[key] = bounds
+
+        // Update active bounds when the target moves (e.g. during scroll animation).
+        val current = _active.value
+        if (current != null && current.def.key == key) {
+            _active.value = current.copy(targetBounds = bounds)
+        }
+
         if (held) return
         val pending = pendingDef
         if (pending != null && pending.key == key) {
@@ -75,9 +85,21 @@ class CoachMarkState(
     }
 
     /**
-     * Activates a coach mark hint. If the target's bounds are already registered, the
-     * overlay shows immediately; otherwise the definition is held as pending until the
-     * target composable reports its bounds via [registerTarget].
+     * Removes a previously registered target's bounds from [targetBoundsMap].
+     *
+     * Used by [coachMarkTarget] when its `enabled` parameter is `false`, so that
+     * off-screen or inactive targets are not considered registered. This forces
+     * [showHint] to take the pending path, triggering navigation (e.g. pager scroll)
+     * to bring the target into view before activating the hint.
+     */
+    fun unregisterTarget(key: HintKey) {
+        targetBoundsMap.remove(key)
+    }
+
+    /**
+     * Activates a coach mark hint. If the target's bounds are already registered,
+     * the overlay shows immediately; otherwise the definition is held as pending
+     * until the target composable reports bounds via [registerTarget].
      */
     fun showHint(def: CoachMarkDef) {
         val bounds = targetBoundsMap[def.key]
@@ -128,8 +150,8 @@ class CoachMarkState(
     /**
      * Resumes normal activation after a previous [hold].
      *
-     * If a pending hint's target bounds were registered while held, the hint
-     * activates immediately upon release. Safe to call when not held (no-op).
+     * If a pending hint's target bounds were registered while held, the hint activates
+     * immediately upon release. Safe to call when not held (no-op).
      */
     fun release() {
         held = false

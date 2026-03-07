@@ -79,7 +79,7 @@ private const val PAGE_MEDICATIONS = 3
 private const val PAGE_NOTES = 4
 
 /** Delay after pager scroll to let [ScrollableTabRow] finish scrolling to the selected tab. */
-private const val TAB_ROW_SETTLE_MS = 300L
+private const val TAB_ROW_SETTLE_MS = 500L
 
 /**
  * Full-screen daily log editor presented as a horizontal pager with five tabbed pages:
@@ -296,7 +296,11 @@ fun DailyLogScreen(
                 viewModel.onEvent(DailyLogEvent.ErrorDismissed)
             }
 
-            Box(modifier = Modifier.fillMaxSize().imePadding()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .imePadding(),
+            ) {
                 ContentContainer {
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Header
@@ -348,9 +352,18 @@ fun DailyLogScreen(
                                 },
                                 modifier = when (index) {
                                     PAGE_PERIOD -> Modifier.coachMarkTarget(HintKey.DAILY_LOG_PERIOD_TAB, coachMarkState)
-                                    PAGE_SYMPTOMS -> Modifier.coachMarkTarget(HintKey.DAILY_LOG_SYMPTOMS_TAB, coachMarkState)
-                                    PAGE_MEDICATIONS -> Modifier.coachMarkTarget(HintKey.DAILY_LOG_MEDICATIONS_TAB, coachMarkState)
-                                    PAGE_NOTES -> Modifier.coachMarkTarget(HintKey.DAILY_LOG_NOTES_TAB, coachMarkState)
+                                    PAGE_SYMPTOMS -> Modifier.coachMarkTarget(
+                                        HintKey.DAILY_LOG_SYMPTOMS_TAB, coachMarkState,
+                                        enabled = pagerState.currentPage == PAGE_SYMPTOMS,
+                                    )
+                                    PAGE_MEDICATIONS -> Modifier.coachMarkTarget(
+                                        HintKey.DAILY_LOG_MEDICATIONS_TAB, coachMarkState,
+                                        enabled = pagerState.currentPage == PAGE_MEDICATIONS,
+                                    )
+                                    PAGE_NOTES -> Modifier.coachMarkTarget(
+                                        HintKey.DAILY_LOG_NOTES_TAB, coachMarkState,
+                                        enabled = pagerState.currentPage == PAGE_NOTES,
+                                    )
                                     else -> Modifier
                                 },
                             )
