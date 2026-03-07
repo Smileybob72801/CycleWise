@@ -24,7 +24,9 @@ security_crypto = "1.1.0"
 kotlinx-serialization = "1.9.0"
 uuid = "0.8.4"
 androidx-datastore = "1.1.1"
-compose-calendar = "2.8.0"
+compose-calendar = "2.10.0"
+compose-markdown = "0.5.4"
+lottie-compose = "6.6.7"
 mockk = "1.14.5"
 kotlinxCoroutines = "1.10.2"
 junitVersion = "4.13.2"
@@ -72,6 +74,8 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 uuid = { module = "com.benasher44:uuid", version.ref = "uuid" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "androidx-datastore" }
 compose-calendar = { module = "com.kizitonwose.calendar:compose", version.ref = "compose-calendar" }
+compose-markdown = { module = "com.github.jeziellago:compose-markdown", version.ref = "compose-markdown" }
+lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottie-compose" }
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }

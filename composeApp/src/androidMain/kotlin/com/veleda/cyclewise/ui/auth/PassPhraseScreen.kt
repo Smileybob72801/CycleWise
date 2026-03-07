@@ -20,7 +20,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import com.veleda.cyclewise.ui.components.LottieAnimationBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -46,6 +46,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.components.ContentContainer
+import com.veleda.cyclewise.ui.components.SuccessAnimation
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.flow.SharedFlow
 import org.koin.androidx.compose.koinViewModel
@@ -72,12 +73,14 @@ fun PassphraseScreen(
 ) {
     val viewModel: PassphraseViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
+    var showSetupSuccess by remember { mutableStateOf(false) }
 
     // Collect one-time effects from the ViewModel (shared by both paths)
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
                 is PassphraseEffect.NavigateToTracker -> onPassphraseEntered()
+                is PassphraseEffect.SetupComplete -> { showSetupSuccess = true }
                 is PassphraseEffect.ShowError -> {
                     // ShowError is handled within each sub-screen
                 }
@@ -100,6 +103,15 @@ fun PassphraseScreen(
             effect = viewModel.effect,
         )
     }
+
+    // Success animation after first-time setup
+    SuccessAnimation(
+        visible = showSetupSuccess,
+        onAnimationComplete = {
+            showSetupSuccess = false
+            onPassphraseEntered()
+        },
+    )
 }
 
 /**
@@ -283,7 +295,11 @@ internal fun UnlockScreen(
                     .background(MaterialTheme.colorScheme.scrim.copy(alpha = SCRIM_ALPHA)),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator()
+                LottieAnimationBox(
+                    animationResId = R.raw.anim_loading_general,
+                    modifier = Modifier.size(dims.iconLg),
+                    contentDescription = stringResource(R.string.lottie_cd_loading),
+                )
             }
         }
     }

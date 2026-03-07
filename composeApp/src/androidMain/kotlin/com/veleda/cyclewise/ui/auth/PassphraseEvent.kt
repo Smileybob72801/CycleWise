@@ -40,6 +40,14 @@ sealed interface PassphraseEffect {
     data object NavigateToTracker : PassphraseEffect
 
     /**
+     * Emitted after a successful first-time passphrase setup.
+     *
+     * The UI shows a success animation before proceeding to navigation.
+     * By the time this is emitted, the session scope is active.
+     */
+    data object SetupComplete : PassphraseEffect
+
+    /**
      * Emitted when unlock fails (wrong passphrase, database corruption, etc.).
      *
      * The session scope has already been closed before this effect is emitted,

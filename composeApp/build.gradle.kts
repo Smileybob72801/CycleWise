@@ -48,6 +48,8 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.androidx.datastore.preferences)
             implementation(libs.compose.calendar)
+            implementation(libs.compose.markdown)
+            implementation(libs.lottie.compose)
             implementation(libs.uuid)
             implementation(libs.workmanager.runtime)
             implementation(libs.splashscreen)

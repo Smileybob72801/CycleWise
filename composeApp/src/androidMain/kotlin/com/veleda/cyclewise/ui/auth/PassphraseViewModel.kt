@@ -158,10 +158,15 @@ class PassphraseViewModel(
      * @param passphrase the raw user-entered passphrase string.
      */
     private fun launchUnlock(passphrase: String) {
+        val isSetup = _uiState.value.isFirstTime
         viewModelScope.launch {
             try {
                 sessionManager.openSession(passphrase)
-                _effect.emit(PassphraseEffect.NavigateToTracker)
+                if (isSetup) {
+                    _effect.emit(PassphraseEffect.SetupComplete)
+                } else {
+                    _effect.emit(PassphraseEffect.NavigateToTracker)
+                }
             } catch (e: Exception) {
                 Log.e("PassphraseUnlock", "Unlock failed: ${e.message}")
                 sessionManager.closeSession()
