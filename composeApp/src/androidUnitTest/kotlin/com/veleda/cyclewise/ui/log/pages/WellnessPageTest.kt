@@ -5,11 +5,13 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.veleda.cyclewise.RobolectricTestApp
+import com.veleda.cyclewise.ui.coachmark.HintKey
 import com.veleda.cyclewise.ui.theme.Dimensions
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import org.junit.Rule
@@ -42,6 +44,7 @@ class WellnessPageTest {
         onWaterIncrement: () -> Unit = {},
         onWaterDecrement: () -> Unit = {},
         onShowEducationalSheet: (String) -> Unit = {},
+        activeHintKey: HintKey? = null,
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalDimensions provides Dimensions()) {
@@ -57,6 +60,7 @@ class WellnessPageTest {
                         onWaterIncrement = onWaterIncrement,
                         onWaterDecrement = onWaterDecrement,
                         onShowEducationalSheet = onShowEducationalSheet,
+                        activeHintKey = activeHintKey,
                     )
                 }
             }
@@ -242,6 +246,55 @@ class WellnessPageTest {
 
         // Then
         assert(captured == 1) { "Expected libido score 1, got $captured" }
+    }
+
+    // endregion
+
+    // region Walkthrough disabled controls
+
+    @Test
+    fun moodSelector_WHEN_activeHintIsEnergy_THEN_moodStarsDisabled() {
+        // Given — walkthrough active on ENERGY step
+        setContent(activeHintKey = HintKey.DAILY_LOG_ENERGY)
+
+        // Then — mood star buttons should be disabled
+        composeTestRule.onAllNodesWithContentDescription("Mood score 1")[0]
+            .assertIsNotEnabled()
+    }
+
+    @Test
+    fun energySelector_WHEN_activeHintIsMood_THEN_energyStarsDisabled() {
+        // Given
+        setContent(activeHintKey = HintKey.DAILY_LOG_MOOD)
+
+        // Then
+        composeTestRule.onAllNodesWithContentDescription("Energy score 1")[0]
+            .assertIsNotEnabled()
+    }
+
+    @Test
+    fun waterButtons_WHEN_activeHintIsMood_THEN_waterIncrementDisabled() {
+        // Given
+        setContent(activeHintKey = HintKey.DAILY_LOG_MOOD)
+
+        // Then
+        composeTestRule.onNodeWithTag("water-increment", useUnmergedTree = true)
+            .performScrollTo()
+            .assertIsNotEnabled()
+    }
+
+    @Test
+    fun moodSelector_WHEN_activeHintIsMood_THEN_moodStarsEnabled() {
+        // Given — walkthrough active on MOOD step (target)
+        var captured: Int? = null
+        setContent(activeHintKey = HintKey.DAILY_LOG_MOOD, onMoodChanged = { captured = it })
+
+        // When — tap mood star
+        composeTestRule.onAllNodesWithContentDescription("Mood score 3")[0]
+            .performClick()
+
+        // Then — callback fires (star is enabled)
+        assert(captured == 3) { "Expected mood score 3, got $captured" }
     }
 
     // endregion

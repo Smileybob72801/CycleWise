@@ -49,6 +49,11 @@ enum class HintKey {
  *                           Only meaningful when [skipButtonRes] is non-null.
  * @property skipToastRes    Optional string resource for a toast shown after skipping.
  *                           Only meaningful when [skipButtonRes] is non-null.
+ * @property requiresAction  When `true`, the step is a task step: the "Next" / "Got it"
+ *                           button is hidden, and the overlay allows touches through to
+ *                           the target so the user can perform the required action. The
+ *                           host screen is responsible for calling [CoachMarkState.advanceOrDismiss]
+ *                           when the action completes. Defaults to `false` (informational step).
  */
 data class CoachMarkDef(
     val key: HintKey,
@@ -59,4 +64,5 @@ data class CoachMarkDef(
     val skipButtonRes: Int? = null,
     val skipTargetKey: HintKey? = null,
     val skipToastRes: Int? = null,
+    val requiresAction: Boolean = false,
 )

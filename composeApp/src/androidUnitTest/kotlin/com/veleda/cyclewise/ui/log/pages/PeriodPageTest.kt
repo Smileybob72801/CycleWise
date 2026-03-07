@@ -3,6 +3,7 @@ package com.veleda.cyclewise.ui.log.pages
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasContentDescription
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.veleda.cyclewise.RobolectricTestApp
+import com.veleda.cyclewise.ui.coachmark.HintKey
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.PeriodColor
 import com.veleda.cyclewise.domain.models.PeriodConsistency
@@ -43,6 +45,7 @@ class PeriodPageTest {
         onColorChanged: (PeriodColor?) -> Unit = {},
         onConsistencyChanged: (PeriodConsistency?) -> Unit = {},
         onShowEducationalSheet: (String) -> Unit = {},
+        activeHintKey: HintKey? = null,
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalDimensions provides Dimensions()) {
@@ -57,6 +60,7 @@ class PeriodPageTest {
                         onColorChanged = onColorChanged,
                         onConsistencyChanged = onConsistencyChanged,
                         onShowEducationalSheet = onShowEducationalSheet,
+                        activeHintKey = activeHintKey,
                     )
                 }
             }
@@ -215,6 +219,36 @@ class PeriodPageTest {
         setContent()
         // Exact string from R.string.daily_log_period_toggle
         composeTestRule.onNodeWithText("I\u0027m on my period today").assertIsDisplayed()
+    }
+
+    // endregion
+
+    // region Walkthrough disabled toggle
+
+    @Test
+    fun periodToggle_WHEN_activeHintIsNotToggle_THEN_switchIsDisabled() {
+        // Given — walkthrough active on a non-toggle step
+        setContent(isPeriodDay = false, activeHintKey = HintKey.DAILY_LOG_MOOD)
+
+        // Then
+        composeTestRule.onNodeWithTag("period_toggle").assertIsNotEnabled()
+    }
+
+    @Test
+    fun periodToggle_WHEN_activeHintIsToggle_THEN_switchIsEnabled() {
+        // Given — walkthrough active on the PERIOD_TOGGLE step
+        var captured: Boolean? = null
+        setContent(
+            isPeriodDay = false,
+            activeHintKey = HintKey.DAILY_LOG_PERIOD_TOGGLE,
+            onPeriodToggled = { captured = it },
+        )
+
+        // When
+        composeTestRule.onNodeWithTag("period_toggle").performClick()
+
+        // Then
+        assert(captured == true) { "Expected onPeriodToggled(true), got $captured" }
     }
 
     // endregion

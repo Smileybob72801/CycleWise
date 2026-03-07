@@ -38,8 +38,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
@@ -191,6 +193,21 @@ fun CoachMarkOverlay(
             drawScrimWithCutout(highlightRect, cutoutCorner)
         }
 
+        // For informational steps, block ALL content touches so non-target controls
+        // can't be tapped. The tooltip card renders on top so its buttons still work.
+        if (!active.def.requiresAction) {
+            Spacer(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            // Consume without forwarding — blocks the touch.
+                        }
+                    }
+            )
+        }
+
         // Tooltip card — pre-compute positions to avoid referencing unavailable scope properties.
         val tooltipMaxWidthPx = with(density) { TOOLTIP_MAX_WIDTH_DP.toPx() }
         val marginPx = with(density) { dims.md.toPx() }
@@ -257,13 +274,17 @@ fun CoachMarkOverlay(
                             }
                         }
 
-                        TextButton(
-                            onClick = { state.advanceOrDismiss(allDefs) },
-                        ) {
-                            Text(
-                                text = stringResource(active.def.dismissLabelRes),
-                                maxLines = 1,
-                            )
+                        // Hide the dismiss button for task steps — the user must
+                        // perform the action to advance.
+                        if (!active.def.requiresAction) {
+                            TextButton(
+                                onClick = { state.advanceOrDismiss(allDefs) },
+                            ) {
+                                Text(
+                                    text = stringResource(active.def.dismissLabelRes),
+                                    maxLines = 1,
+                                )
+                            }
                         }
                     }
                 }

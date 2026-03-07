@@ -54,6 +54,8 @@ import kotlinx.datetime.toKotlinLocalDate
  * @param onCalendarBoxPositioned Callback when the calendar container is positioned.
  * @param onDragStateChanged  Callback to update drag state (anchor, current, isDragging).
  * @param onEvent             Callback for tracker events.
+ * @param onTutorialAdvance   Callback to advance the tutorial after the user long-presses
+ *                            a day during the [HintKey.TRACKER_LONG_PRESS] step.
  * @param modifier            Modifier applied to the outer [Box].
  */
 @Composable
@@ -74,6 +76,7 @@ internal fun CalendarGrid(
     onCalendarBoxPositioned: (LayoutCoordinates) -> Unit,
     onDragStateChanged: (anchor: LocalDate?, current: LocalDate?, dragging: Boolean) -> Unit,
     onEvent: (TrackerEvent) -> Unit,
+    onTutorialAdvance: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val anchorPeriod = if (isDragging && dragAnchor != null) {
@@ -89,8 +92,13 @@ internal fun CalendarGrid(
             .coachMarkTarget(HintKey.TRACKER_TAP_DAY, coachMarkState)
             .onGloballyPositioned { onCalendarBoxPositioned(it) }
             .pointerInput(activeHint, pendingKey) {
-                // Disable long-press/drag gestures while the coach mark walkthrough is active.
-                if (activeHint != null || pendingKey != null) return@pointerInput
+                // Block gestures during walkthrough, except during the LONG_PRESS step.
+                val blockGestures = when {
+                    activeHint == null && pendingKey == null -> false
+                    activeHint?.def?.key == HintKey.TRACKER_LONG_PRESS -> false
+                    else -> true
+                }
+                if (blockGestures) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     val rootPos = calendarBoxCoords
@@ -129,6 +137,11 @@ internal fun CalendarGrid(
                         onEvent(TrackerEvent.PeriodRangeDragged(anchorDate, lastDragDate))
                     } else {
                         onEvent(TrackerEvent.PeriodMarkDay(anchorDate))
+                    }
+
+                    // If this was the LONG_PRESS tutorial step, advance the walkthrough.
+                    if (activeHint?.def?.key == HintKey.TRACKER_LONG_PRESS) {
+                        onTutorialAdvance()
                     }
 
                     // Reset drag state.

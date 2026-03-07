@@ -3,8 +3,10 @@ package com.veleda.cyclewise.ui.log
 import com.veleda.cyclewise.ui.coachmark.HintKey
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Unit tests for the [DAILY_LOG_HINTS] walkthrough definition.
@@ -53,6 +55,38 @@ class DailyLogWalkthroughTest {
         val last = DAILY_LOG_HINTS[HintKey.DAILY_LOG_NOTES_TAB]
         assertNotNull(last, "NOTES_TAB step should exist")
         assertNull(last.nextKey, "Last step should have null nextKey")
+    }
+
+    @Test
+    fun `task steps have requiresAction true`() {
+        val taskKeys = listOf(
+            HintKey.DAILY_LOG_MOOD,
+            HintKey.DAILY_LOG_ENERGY,
+            HintKey.DAILY_LOG_WATER,
+            HintKey.DAILY_LOG_PERIOD_TAB,
+            HintKey.DAILY_LOG_PERIOD_TOGGLE,
+            HintKey.DAILY_LOG_SYMPTOMS_TAB,
+            HintKey.DAILY_LOG_MEDICATIONS_TAB,
+        )
+        for (key in taskKeys) {
+            val def = DAILY_LOG_HINTS[key]
+            assertNotNull(def, "$key should exist")
+            assertTrue(def.requiresAction, "$key should have requiresAction = true")
+        }
+    }
+
+    @Test
+    fun `informational steps have requiresAction false`() {
+        val infoKeys = listOf(
+            HintKey.DAILY_LOG_WELCOME,
+            HintKey.DAILY_LOG_EXPLORE_TABS,
+            HintKey.DAILY_LOG_NOTES_TAB,
+        )
+        for (key in infoKeys) {
+            val def = DAILY_LOG_HINTS[key]
+            assertNotNull(def, "$key should exist")
+            assertFalse(def.requiresAction, "$key should have requiresAction = false")
+        }
     }
 
     @Test

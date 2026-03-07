@@ -34,6 +34,8 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
  * @param yesterdayCupsForPrompt Yesterday's cup count for the motivational prompt,
  *        or `null` to hide the prompt.
  * @param modifier Modifier applied to the outer column.
+ * @param enabled Whether the buttons are interactive. When `false`, both increment
+ *        and decrement buttons are disabled.
  */
 @Composable
 fun WaterTrackerCounter(
@@ -41,7 +43,8 @@ fun WaterTrackerCounter(
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
     yesterdayCupsForPrompt: Int?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val dims = LocalDimensions.current
 
@@ -61,7 +64,7 @@ fun WaterTrackerCounter(
         ) {
             FilledIconButton(
                 onClick = onDecrement,
-                enabled = cups > 0,
+                enabled = enabled && cups > 0,
                 modifier = Modifier
                     .size(dims.buttonMin)
                     .testTag("water-decrement"),
@@ -79,6 +82,7 @@ fun WaterTrackerCounter(
             )
             FilledIconButton(
                 onClick = onIncrement,
+                enabled = enabled,
                 modifier = Modifier
                     .size(dims.buttonMin)
                     .testTag("water-increment"),

@@ -20,6 +20,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -177,11 +178,19 @@ internal fun GeneralPage(
 
         // ── Tutorial Card ──────────────────────────────────────────
         SettingsSectionCard(title = stringResource(R.string.settings_section_tutorial)) {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_reset_hints)) },
-                supportingContent = { Text(stringResource(R.string.settings_reset_hints_description)) },
-                modifier = Modifier.clickable { onEvent(SettingsEvent.ResetTutorialHints) }
-            )
+            Column(modifier = Modifier.padding(horizontal = dims.md)) {
+                Text(
+                    stringResource(R.string.settings_reset_hints_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(dims.sm))
+                FilledTonalButton(
+                    onClick = { onEvent(SettingsEvent.ResetTutorialHints) },
+                ) {
+                    Text(stringResource(R.string.settings_reset_hints))
+                }
+            }
         }
 
         // Show a Toast when hints are successfully reset.

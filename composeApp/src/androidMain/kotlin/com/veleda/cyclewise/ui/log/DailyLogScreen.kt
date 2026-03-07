@@ -330,12 +330,23 @@ fun DailyLogScreen(
                                         !tutorialActive -> {
                                             coroutineScope.launch { pagerState.animateScrollToPage(index) }
                                         }
-                                        // Step 3 (PERIOD_TAB) + user tapped the Period tab.
-                                        // Scroll first, then advance — this way pendingKey never
-                                        // changes during the animation, avoiding a race with the
-                                        // LaunchedEffect that also scrolls on pendingKey changes.
+                                        // Task tab steps: scroll to the target page, then advance.
                                         activeHint?.def?.key == HintKey.DAILY_LOG_PERIOD_TAB
                                             && index == PAGE_PERIOD -> {
+                                            coroutineScope.launch {
+                                                pagerState.animateScrollToPage(index)
+                                                coachMarkState.advanceOrDismiss(DAILY_LOG_HINTS)
+                                            }
+                                        }
+                                        activeHint?.def?.key == HintKey.DAILY_LOG_SYMPTOMS_TAB
+                                            && index == PAGE_SYMPTOMS -> {
+                                            coroutineScope.launch {
+                                                pagerState.animateScrollToPage(index)
+                                                coachMarkState.advanceOrDismiss(DAILY_LOG_HINTS)
+                                            }
+                                        }
+                                        activeHint?.def?.key == HintKey.DAILY_LOG_MEDICATIONS_TAB
+                                            && index == PAGE_MEDICATIONS -> {
                                             coroutineScope.launch {
                                                 pagerState.animateScrollToPage(index)
                                                 coachMarkState.advanceOrDismiss(DAILY_LOG_HINTS)
@@ -384,25 +395,47 @@ fun DailyLogScreen(
                                 energyLevel = log.entry.energyLevel,
                                 libidoScore = log.entry.libidoScore,
                                 waterCups = uiState.waterCups,
-                                onMoodChanged = { viewModel.onEvent(DailyLogEvent.MoodScoreChanged(it)) },
-                                onEnergyChanged = { viewModel.onEvent(DailyLogEvent.EnergyLevelChanged(it)) },
+                                onMoodChanged = { score ->
+                                    viewModel.onEvent(DailyLogEvent.MoodScoreChanged(score))
+                                    if (activeHint?.def?.key == HintKey.DAILY_LOG_MOOD) {
+                                        coachMarkState.advanceOrDismiss(DAILY_LOG_HINTS)
+                                    }
+                                },
+                                onEnergyChanged = { score ->
+                                    viewModel.onEvent(DailyLogEvent.EnergyLevelChanged(score))
+                                    if (activeHint?.def?.key == HintKey.DAILY_LOG_ENERGY) {
+                                        coachMarkState.advanceOrDismiss(DAILY_LOG_HINTS)
+                                    }
+                                },
                                 onLibidoChanged = { viewModel.onEvent(DailyLogEvent.LibidoScoreChanged(it)) },
-                                onWaterIncrement = { viewModel.onEvent(DailyLogEvent.WaterIncrement) },
+                                onWaterIncrement = {
+                                    viewModel.onEvent(DailyLogEvent.WaterIncrement)
+                                    if (activeHint?.def?.key == HintKey.DAILY_LOG_WATER) {
+                                        coachMarkState.advanceOrDismiss(DAILY_LOG_HINTS)
+                                    }
+                                },
                                 onWaterDecrement = { viewModel.onEvent(DailyLogEvent.WaterDecrement) },
                                 onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
                                 coachMarkState = coachMarkState,
+                                activeHintKey = activeHint?.def?.key,
                             )
                             PAGE_PERIOD -> PeriodPage(
                                 isPeriodDay = uiState.isPeriodDay,
                                 flowIntensity = log.periodLog?.flowIntensity,
                                 periodColor = log.periodLog?.periodColor,
                                 periodConsistency = log.periodLog?.periodConsistency,
-                                onPeriodToggled = { viewModel.onEvent(DailyLogEvent.PeriodToggled(it)) },
+                                onPeriodToggled = { toggled ->
+                                    viewModel.onEvent(DailyLogEvent.PeriodToggled(toggled))
+                                    if (activeHint?.def?.key == HintKey.DAILY_LOG_PERIOD_TOGGLE) {
+                                        coachMarkState.advanceOrDismiss(DAILY_LOG_HINTS)
+                                    }
+                                },
                                 onFlowChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) },
                                 onColorChanged = { viewModel.onEvent(DailyLogEvent.PeriodColorChanged(it)) },
                                 onConsistencyChanged = { viewModel.onEvent(DailyLogEvent.PeriodConsistencyChanged(it)) },
                                 onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
                                 coachMarkState = coachMarkState,
+                                activeHintKey = activeHint?.def?.key,
                             )
                             PAGE_SYMPTOMS -> SymptomsPage(
                                 loggedSymptoms = log.symptomLogs,

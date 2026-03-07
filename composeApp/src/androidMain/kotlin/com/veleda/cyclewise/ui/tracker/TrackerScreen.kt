@@ -57,6 +57,7 @@ import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.components.EducationalBottomSheet
 import com.veleda.cyclewise.ui.components.InfoButton
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.theme.buildCyclePhasePalette
@@ -218,9 +219,13 @@ fun TrackerScreen(navController: NavController) {
         viewModel.effect.collect { effect ->
             when (effect) {
                 is TrackerEffect.NavigateToDailyLog -> {
-                    navController.navigate(
-                        NavRoute.DailyLog.createRoute(effect.date)
-                    )
+                    // Suppress navigation during the walkthrough so the user
+                    // stays on the Tracker screen.
+                    if (!trackerWalkthroughActive) {
+                        navController.navigate(
+                            NavRoute.DailyLog.createRoute(effect.date)
+                        )
+                    }
                 }
             }
         }
@@ -361,6 +366,12 @@ fun TrackerScreen(navController: NavController) {
                     isDragging = dragging
                 },
                 onEvent = viewModel::onEvent,
+                onTutorialAdvance = {
+                    coroutineScope.launch {
+                        delay(800) // let user see the day color change
+                        coachMarkState.advanceOrDismiss(TRACKER_HINTS)
+                    }
+                },
                 modifier = Modifier.weight(1f),
             )
 

@@ -143,6 +143,22 @@ class GeneralPageTest {
         }
     }
 
+    @Test
+    fun resetHints_WHEN_rendered_THEN_descriptionTextDisplayed() {
+        setContent()
+        composeTestRule.onNodeWithText("tutorial hints", substring = true, ignoreCase = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun resetHintsButton_WHEN_rendered_THEN_isEnabled() {
+        setContent()
+        composeTestRule.onNode(
+            hasText("Reset Tutorial Hints").and(hasClickAction()),
+        ).performScrollTo().assertIsEnabled()
+    }
+
     // endregion
 
     // region Legal section

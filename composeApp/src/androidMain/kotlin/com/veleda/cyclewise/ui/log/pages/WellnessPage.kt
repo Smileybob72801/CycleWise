@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import com.veleda.cyclewise.R
@@ -58,6 +59,8 @@ import com.veleda.cyclewise.ui.theme.RhythmWiseColors
  * @param onWaterDecrement Callback when the user taps the water decrement button.
  * @param onShowEducationalSheet Callback to display educational content for the given tag.
  * @param coachMarkState Optional coach-mark state for walkthrough integration.
+ * @param activeHintKey The currently active walkthrough hint key, or `null` when no
+ *        walkthrough is running. Used to disable non-target sections during task steps.
  */
 @Composable
 internal fun WellnessPage(
@@ -72,8 +75,16 @@ internal fun WellnessPage(
     onWaterDecrement: () -> Unit,
     onShowEducationalSheet: (String) -> Unit,
     coachMarkState: CoachMarkState? = null,
+    activeHintKey: HintKey? = null,
 ) {
     val dims = LocalDimensions.current
+
+    // During task walkthrough steps, only the target section is interactive.
+    val walkthroughActive = activeHintKey != null
+    val moodEnabled = !walkthroughActive || activeHintKey == HintKey.DAILY_LOG_MOOD
+    val energyEnabled = !walkthroughActive || activeHintKey == HintKey.DAILY_LOG_ENERGY
+    val waterEnabled = !walkthroughActive || activeHintKey == HintKey.DAILY_LOG_WATER
+    val libidoEnabled = !walkthroughActive
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -117,15 +128,16 @@ internal fun WellnessPage(
             title = stringResource(R.string.daily_log_mood_title),
             icon = Icons.Outlined.SelfImprovement,
             onInfoClick = { onShowEducationalSheet("Mood") },
-            modifier = if (coachMarkState != null) {
+            modifier = (if (coachMarkState != null) {
                 Modifier.coachMarkTarget(HintKey.DAILY_LOG_MOOD, coachMarkState)
             } else {
                 Modifier
-            },
+            }).alpha(if (moodEnabled) 1f else 0.38f),
         ) {
             MoodSelector(
                 selectedMood = moodScore,
                 onSelectionChanged = onMoodChanged,
+                enabled = moodEnabled,
             )
         }
 
@@ -133,16 +145,17 @@ internal fun WellnessPage(
             title = stringResource(R.string.energy_section_title),
             icon = Icons.Outlined.Bedtime,
             onInfoClick = { onShowEducationalSheet("Energy") },
-            modifier = if (coachMarkState != null) {
+            modifier = (if (coachMarkState != null) {
                 Modifier.coachMarkTarget(HintKey.DAILY_LOG_ENERGY, coachMarkState)
             } else {
                 Modifier
-            },
+            }).alpha(if (energyEnabled) 1f else 0.38f),
         ) {
             ScoreSelector(
                 selectedScore = energyLevel,
                 onSelectionChanged = onEnergyChanged,
                 contentDescriptionPrefix = stringResource(R.string.energy_section_title),
+                enabled = energyEnabled,
             )
         }
 
@@ -150,11 +163,13 @@ internal fun WellnessPage(
             title = stringResource(R.string.libido_section_title),
             icon = Icons.Outlined.FavoriteBorder,
             onInfoClick = { onShowEducationalSheet("Libido") },
+            modifier = Modifier.alpha(if (libidoEnabled) 1f else 0.38f),
         ) {
             ScoreSelector(
                 selectedScore = libidoScore,
                 onSelectionChanged = onLibidoChanged,
                 contentDescriptionPrefix = stringResource(R.string.libido_section_title),
+                enabled = libidoEnabled,
             )
         }
 
@@ -162,11 +177,11 @@ internal fun WellnessPage(
             title = stringResource(R.string.water_section_title),
             icon = Icons.Outlined.WaterDrop,
             onInfoClick = { onShowEducationalSheet("Hydration") },
-            modifier = if (coachMarkState != null) {
+            modifier = (if (coachMarkState != null) {
                 Modifier.coachMarkTarget(HintKey.DAILY_LOG_WATER, coachMarkState)
             } else {
                 Modifier
-            },
+            }).alpha(if (waterEnabled) 1f else 0.38f),
         ) {
             WaterTrackerCounter(
                 cups = waterCups,
@@ -174,6 +189,7 @@ internal fun WellnessPage(
                 onDecrement = onWaterDecrement,
                 yesterdayCupsForPrompt = null,
                 modifier = Modifier.fillMaxWidth(),
+                enabled = waterEnabled,
             )
         }
 
@@ -190,18 +206,23 @@ internal fun WellnessPage(
  *
  * @param selectedMood Currently selected mood score (1-5), or `null` if unset.
  * @param onSelectionChanged Callback invoked with the tapped score.
+ * @param enabled Whether the selector is interactive. When `false`, taps are ignored.
  */
 @Composable
 internal fun MoodSelector(
     selectedMood: Int?,
-    onSelectionChanged: (Int) -> Unit
+    onSelectionChanged: (Int) -> Unit,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceAround
     ) {
         (1..5).forEach { score ->
-            IconButton(onClick = { onSelectionChanged(score) }) {
+            IconButton(
+                onClick = { onSelectionChanged(score) },
+                enabled = enabled,
+            ) {
                 val icon = if (score <= (selectedMood ?: 0)) Icons.Filled.Star else Icons.Outlined.StarOutlined
                 Icon(
                     icon,
@@ -223,19 +244,24 @@ internal fun MoodSelector(
  * @param selectedScore Currently selected score (1-5), or null if unset.
  * @param onSelectionChanged Callback invoked when the user taps a score.
  * @param contentDescriptionPrefix Prefix for accessibility labels (e.g., "Energy").
+ * @param enabled Whether the selector is interactive. When `false`, taps are ignored.
  */
 @Composable
 internal fun ScoreSelector(
     selectedScore: Int?,
     onSelectionChanged: (Int) -> Unit,
-    contentDescriptionPrefix: String
+    contentDescriptionPrefix: String,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceAround
     ) {
         (1..5).forEach { score ->
-            IconButton(onClick = { onSelectionChanged(score) }) {
+            IconButton(
+                onClick = { onSelectionChanged(score) },
+                enabled = enabled,
+            ) {
                 val icon = if (score <= (selectedScore ?: 0)) Icons.Filled.Star else Icons.Outlined.StarOutlined
                 Icon(
                     icon,

@@ -47,6 +47,7 @@ val TRACKER_HINTS: Map<HintKey, CoachMarkDef> = mapOf(
         bodyRes = R.string.hint_tracker_long_press_body,
         nextKey = HintKey.TRACKER_DRAG,
         dismissLabelRes = R.string.coach_mark_next,
+        requiresAction = true,
     ),
     HintKey.TRACKER_DRAG to CoachMarkDef(
         key = HintKey.TRACKER_DRAG,

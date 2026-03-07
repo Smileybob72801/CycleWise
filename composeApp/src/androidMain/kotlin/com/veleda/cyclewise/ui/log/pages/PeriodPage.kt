@@ -60,6 +60,8 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
  * @param onConsistencyChanged Callback when the user selects a consistency (or `null` to deselect).
  * @param onShowEducationalSheet Callback to display educational content for the given tag.
  * @param coachMarkState Optional coach-mark state for walkthrough integration.
+ * @param activeHintKey The currently active walkthrough hint key, or `null` when no
+ *        walkthrough is running. Used to disable the toggle during non-target steps.
  */
 @Composable
 internal fun PeriodPage(
@@ -73,8 +75,10 @@ internal fun PeriodPage(
     onConsistencyChanged: (PeriodConsistency?) -> Unit,
     onShowEducationalSheet: (String) -> Unit,
     coachMarkState: CoachMarkState? = null,
+    activeHintKey: HintKey? = null,
 ) {
     val dims = LocalDimensions.current
+    val toggleEnabled = activeHintKey == null || activeHintKey == HintKey.DAILY_LOG_PERIOD_TOGGLE
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -110,6 +114,7 @@ internal fun PeriodPage(
                 Switch(
                     checked = isPeriodDay,
                     onCheckedChange = onPeriodToggled,
+                    enabled = toggleEnabled,
                     modifier = Modifier.testTag("period_toggle"),
                 )
             }
