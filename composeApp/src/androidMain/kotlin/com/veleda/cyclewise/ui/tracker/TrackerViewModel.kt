@@ -183,6 +183,7 @@ class TrackerViewModel(
                 } else {
                     periodRepository.logPeriodDay(event.date)
                 }
+                _effect.tryEmit(TrackerEffect.PeriodMarked)
             }
 
             is TrackerEvent.PeriodRangeDragged -> viewModelScope.launch {
@@ -230,6 +231,7 @@ class TrackerViewModel(
                         }
                     }
                 }
+                _effect.tryEmit(TrackerEffect.PeriodMarked)
             }
 
             is TrackerEvent.EditLogClicked -> viewModelScope.launch {

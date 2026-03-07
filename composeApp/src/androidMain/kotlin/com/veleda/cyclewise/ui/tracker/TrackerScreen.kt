@@ -57,6 +57,7 @@ import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.components.EducationalBottomSheet
 import com.veleda.cyclewise.ui.components.InfoButton
+import com.veleda.cyclewise.ui.components.SuccessAnimation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import com.veleda.cyclewise.ui.theme.LocalDimensions
@@ -209,12 +210,14 @@ fun TrackerScreen(navController: NavController) {
         )
     }
 
+    var showSuccess by remember { mutableStateOf(false) }
+
     // Trigger auto-close logic when the screen is first composed/entered.
     LaunchedEffect(Unit) {
         viewModel.onEvent(TrackerEvent.ScreenEntered)
     }
 
-    // Collect one-time effects (navigation).
+    // Collect one-time effects (navigation, success animation).
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
@@ -226,6 +229,9 @@ fun TrackerScreen(navController: NavController) {
                             NavRoute.DailyLog.createRoute(effect.date)
                         )
                     }
+                }
+                is TrackerEffect.PeriodMarked -> {
+                    showSuccess = true
                 }
             }
         }
@@ -439,6 +445,12 @@ fun TrackerScreen(navController: NavController) {
             state = coachMarkState,
             allDefs = TRACKER_HINTS,
             onSkipAll = skipTrackerTutorial,
+        )
+
+        // Success animation shown after period marking.
+        SuccessAnimation(
+            visible = showSuccess,
+            onAnimationComplete = { showSuccess = false },
         )
         }
     }

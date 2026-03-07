@@ -22,8 +22,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.annotation.RawRes
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -50,6 +50,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.components.ContentContainer
+import com.veleda.cyclewise.ui.components.LottieAnimationBox
 import com.veleda.cyclewise.ui.components.MarkdownText
 import com.veleda.cyclewise.ui.components.MedicalDisclaimer
 import com.veleda.cyclewise.ui.theme.LocalDimensions
@@ -120,6 +121,8 @@ fun SetupScreen(
                     0 -> InfoPage(
                         title = stringResource(R.string.setup_page1_title),
                         body = stringResource(R.string.setup_page1_body),
+                        illustrationResId = R.raw.anim_onboarding_welcome,
+                        illustrationContentDescription = stringResource(R.string.lottie_cd_onboarding_welcome),
                         trailingContent = {
                             MedicalDisclaimer(
                                 modifier = Modifier.fillMaxWidth(),
@@ -129,10 +132,14 @@ fun SetupScreen(
                     1 -> InfoPage(
                         title = stringResource(R.string.setup_page2_title),
                         body = stringResource(R.string.setup_page2_body),
+                        illustrationResId = R.raw.anim_onboarding_privacy,
+                        illustrationContentDescription = stringResource(R.string.lottie_cd_onboarding_privacy),
                     )
                     2 -> InfoPage(
                         title = stringResource(R.string.setup_page3_title),
                         body = stringResource(R.string.setup_page3_body),
+                        illustrationResId = R.raw.anim_onboarding_tracking,
+                        illustrationContentDescription = stringResource(R.string.lottie_cd_onboarding_tracking),
                     )
                     3 -> CreatePassphrasePage(
                         uiState = uiState,
@@ -192,7 +199,11 @@ fun SetupScreen(
                     .background(MaterialTheme.colorScheme.scrim.copy(alpha = SCRIM_ALPHA)),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator()
+                LottieAnimationBox(
+                    animationResId = R.raw.anim_loading_general,
+                    modifier = Modifier.size(dims.iconLg),
+                    contentDescription = stringResource(R.string.lottie_cd_loading),
+                )
             }
         }
     }
@@ -237,20 +248,25 @@ private fun PageIndicator(
 }
 
 /**
- * Educational information page used for pages 1–3 of the onboarding flow.
+ * Educational information page used for pages 1-3 of the onboarding flow.
  *
- * Displays a title and body text. The body is rendered via [MarkdownText] to
- * support `**bold**` and bullet list formatting.
+ * Displays an optional Lottie illustration, a title, and body text. The body is
+ * rendered via [MarkdownText] to support `**bold**` and bullet list formatting.
  *
- * @param title           page title displayed as a headline.
- * @param body            Markdown-formatted body text.
- * @param trailingContent optional composable rendered below the body text,
- *                        e.g. a [MedicalDisclaimer] banner on the first page.
+ * @param title                          page title displayed as a headline.
+ * @param body                           Markdown-formatted body text.
+ * @param illustrationResId              optional raw resource ID for a Lottie animation
+ *                                       displayed above the title.
+ * @param illustrationContentDescription accessibility description for the illustration.
+ * @param trailingContent                optional composable rendered below the body text,
+ *                                       e.g. a [MedicalDisclaimer] banner on the first page.
  */
 @Composable
 private fun InfoPage(
     title: String,
     body: String,
+    @RawRes illustrationResId: Int? = null,
+    illustrationContentDescription: String? = null,
     trailingContent: (@Composable () -> Unit)? = null,
 ) {
     val dims = LocalDimensions.current
@@ -260,6 +276,16 @@ private fun InfoPage(
             .verticalScroll(rememberScrollState())
             .padding(vertical = dims.md),
     ) {
+        if (illustrationResId != null) {
+            LottieAnimationBox(
+                animationResId = illustrationResId,
+                modifier = Modifier
+                    .size(dims.iconXl)
+                    .align(Alignment.CenterHorizontally),
+                contentDescription = illustrationContentDescription,
+            )
+            Spacer(Modifier.height(dims.md))
+        }
         Text(
             text = title,
             style = MaterialTheme.typography.headlineSmall,

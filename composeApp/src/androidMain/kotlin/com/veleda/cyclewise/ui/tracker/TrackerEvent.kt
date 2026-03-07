@@ -48,4 +48,7 @@ sealed interface TrackerEvent {
 sealed interface TrackerEffect {
     /** Navigate to the daily log detail screen for the given [date]. */
     data class NavigateToDailyLog(val date: LocalDate) : TrackerEffect
+
+    /** A period day was marked or unmarked, triggering a success animation. */
+    data object PeriodMarked : TrackerEffect
 }

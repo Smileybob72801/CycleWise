@@ -333,6 +333,14 @@
     <string name="settings_delete_progress_title">Deleting Data</string>
     <string name="settings_delete_progress_body">Erasing all data…</string>
 
+    <!-- Lottie Animations -->
+    <string name="lottie_cd_loading">Loading</string>
+    <string name="lottie_cd_success">Success</string>
+    <string name="lottie_cd_empty_insights">No insights illustration</string>
+    <string name="lottie_cd_onboarding_welcome">Welcome illustration</string>
+    <string name="lottie_cd_onboarding_privacy">Privacy illustration</string>
+    <string name="lottie_cd_onboarding_tracking">Tracking illustration</string>
+
     <!-- Accessibility -->
     <string name="cd_water_add">Add one cup of water</string>
     <string name="cd_water_remove">Remove one cup of water</string>

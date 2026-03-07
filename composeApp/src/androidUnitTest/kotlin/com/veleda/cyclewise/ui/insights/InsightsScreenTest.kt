@@ -66,13 +66,13 @@ class InsightsScreenTest {
     }
 
     @Test
-    fun loading_WHEN_isLoadingTrue_THEN_showsProgressIndicator() {
+    fun loading_WHEN_isLoadingTrue_THEN_showsSkeletonLoader() {
         // GIVEN — loading state
         setInsightsContent(
             uiState = InsightsUiState(isLoading = true, insights = emptyList())
         )
 
-        // THEN — progress indicator is shown (no empty state heading)
+        // THEN — skeleton loader is shown (no empty state heading)
         composeTestRule.onNodeWithText("No Insights Yet").assertDoesNotExist()
     }
 
