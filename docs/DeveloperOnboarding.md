@@ -2421,13 +2421,54 @@ without modification.
 
 ### New Screen
 
-1. Create the Composable in `composeApp/.../ui/newscreen/NewScreen.kt`
-2. Create a ViewModel: `NewScreenViewModel.kt`
+Every new screen must use a `Scaffold` with a `TopAppBar`. This is the canonical
+pattern — Material3's `TopAppBar` automatically handles status bar insets, so you
+never need to think about `statusBarsPadding()` or `WindowInsets` manually.
+
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NewScreen(viewModel: NewScreenViewModel = koinViewModel()) {
+    val dims = LocalDimensions.current
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.new_screen_title)) },
+            )
+        },
+    ) { padding ->
+        // padding includes status bar (top) automatically
+        ContentContainer {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+            ) {
+                // Screen content here
+            }
+        }
+    }
+}
+```
+
+**Steps:**
+
+1. Create the Composable in `composeApp/.../ui/newscreen/NewScreen.kt` following the
+   template above
+2. Create a ViewModel: `NewScreenViewModel.kt` (follow MVI pattern — see §3.8.3)
 3. Add a `NavRoute` to `NavRoutes.kt` (with `selectedIcon`/`unselectedIcon` if it
    should appear in bottom navigation)
 4. Add the composable to the `NavHost` in `CycleWiseAppUI`
 5. Register the ViewModel in `AppModule.kt` (session-scoped if it needs DB access)
 6. If it should appear in bottom navigation, add it to `NavRoute.all`
+
+> **Why always `Scaffold` + `TopAppBar`?** The outer `Scaffold` in `CycleWiseAppUI`
+> sets `contentWindowInsets = WindowInsets(0, 0, 0, 0)` — it does NOT handle status
+> bar insets. Each screen is responsible for its own top insets. Using `Scaffold` +
+> `TopAppBar` handles this automatically with no extra code. Some older screens
+> (PassphraseScreen, SetupScreen, DailyLogScreen) use `statusBarsPadding()` instead
+> because they predate this convention — do not copy that pattern for new screens.
 
 ### New Insight Generator
 
@@ -2911,6 +2952,24 @@ single { NewService(get<PeriodRepository>()) }
 // RIGHT — registered in session scope
 scope(SESSION_SCOPE) {
     scoped { NewService(get()) }
+}
+```
+
+### 9. Double status bar insets from nested Scaffolds
+
+```kotlin
+// WRONG — outer Scaffold manually applies system bars, inner TopAppBar adds them again
+Scaffold(
+    modifier = Modifier.padding(WindowInsets.systemBars.asPaddingValues())
+) {
+    // Inner screen:
+    Scaffold(topBar = { TopAppBar(...) }) { ... }  // Double status bar gap!
+}
+
+// RIGHT — outer Scaffold delegates insets; each screen handles its own
+Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) {
+    // Inner screen with TopAppBar handles status bar automatically
+    Scaffold(topBar = { TopAppBar(...) }) { ... }
 }
 ```
 

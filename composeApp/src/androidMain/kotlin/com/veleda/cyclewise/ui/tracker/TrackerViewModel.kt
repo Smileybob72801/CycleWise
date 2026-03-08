@@ -41,6 +41,7 @@ import kotlin.time.Clock
 /**
  * UI state for the Tracker (calendar) screen.
  *
+ * @property isInitialLoading     True until the first emission from the periods or day-details flow.
  * @property periods             All saved periods, used for calendar range highlighting.
  * @property logForSheet         The full daily log to display in the bottom sheet, or null when the sheet is hidden.
  * @property periodIdForSheet    The id of the period that contains the date shown in the bottom sheet, if any.
@@ -55,6 +56,7 @@ import kotlin.time.Clock
  * @property heatmapIntensities    Per-date intensity values (0.0-1.0) for the active heatmap metric.
  */
 data class TrackerUiState(
+    val isInitialLoading: Boolean = true,
     val periods: List<Period> = emptyList(),
     val logForSheet: FullDailyLog? = null,
     val periodIdForSheet: String? = null,
@@ -117,13 +119,23 @@ class TrackerViewModel(
                     }
                 }
                 .collect { uiReadyDetailsMap ->
-                    _uiState.update { it.copy(dayDetails = uiReadyDetailsMap) }
+                    _uiState.update {
+                        it.copy(
+                            dayDetails = uiReadyDetailsMap,
+                            isInitialLoading = false,
+                        )
+                    }
                 }
         }
 
         viewModelScope.launch {
             periodRepository.getAllPeriods().collect { periods ->
-                _uiState.update { it.copy(periods = periods) }
+                _uiState.update {
+                    it.copy(
+                        periods = periods,
+                        isInitialLoading = false,
+                    )
+                }
                 updatePredictionCache(periods)
             }
         }

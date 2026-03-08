@@ -64,9 +64,9 @@
     <string name="daily_log_wellness_empty_icon_cd">Get started prompt</string>
 
     <!-- Tracker calendar empty state -->
-    <string name="tracker_empty_title">No Periods Logged Yet</string>
-    <string name="tracker_empty_body">Long-press a day to mark it as a period day, or use the Daily Log to get started.</string>
-    <string name="tracker_empty_icon_cd">No periods tracked</string>
+    <string name="tracker_empty_title">Your Calendar Is Empty</string>
+    <string name="tracker_empty_body">Tap any day to start logging — track periods, symptoms, mood, and more.</string>
+    <string name="tracker_empty_icon_cd">No data logged yet</string>
 
     <!-- Tracker -->
     <string name="tracker_delete_title">Confirm Deletion</string>

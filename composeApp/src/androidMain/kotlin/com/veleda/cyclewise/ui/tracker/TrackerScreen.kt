@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -272,7 +274,7 @@ fun TrackerScreen(navController: NavController) {
         )
     }
 
-    Scaffold { padding ->
+    Scaffold(contentWindowInsets = WindowInsets.statusBars) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
         ContentContainer(maxWidth = dims.gridMaxWidth) {
         Column(
@@ -389,7 +391,9 @@ fun TrackerScreen(navController: NavController) {
             Spacer(Modifier.height(dims.md))
 
             AnimatedVisibility(
-                visible = uiState.periods.isEmpty(),
+                visible = !uiState.isInitialLoading
+                    && uiState.periods.isEmpty()
+                    && uiState.dayDetails.isEmpty(),
                 enter = fadeIn(),
                 exit = fadeOut(),
             ) {
