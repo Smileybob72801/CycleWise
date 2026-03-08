@@ -37,8 +37,15 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import com.veleda.cyclewise.session.SessionBus
 import com.veleda.cyclewise.settings.AppSettings
+import com.veleda.cyclewise.settings.runSeedCleanupIfNeeded
+import com.veleda.cyclewise.ui.coachmark.HintKey
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
+import com.veleda.cyclewise.ui.tutorial.shouldRunTutorialBoundsCleanup
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
 import kotlin.time.Clock
@@ -51,6 +58,9 @@ private const val DETAIL_TRANSITION_DURATION_MS = 300
 
 /** Duration (ms) for the passphrase authentication gate fade transition. */
 private const val AUTH_TRANSITION_DURATION_MS = 400
+
+/** Grace period before the global tutorial bounds check fires, to avoid false positives during navigation. */
+private const val TUTORIAL_BOUNDS_CHECK_DELAY_MS = 2000L
 
 /**
  * Root composable that wires up theming, navigation host, bottom nav bar, and session logout handling.
@@ -76,6 +86,7 @@ fun CycleWiseAppUI() {
         val appSettings: AppSettings = koin.get()
         val seedManifestJson by appSettings.seedManifestJson.collectAsState(initial = "")
         val tutorialActive = seedManifestJson.isNotEmpty()
+        val hintPreferences: HintPreferences = koin.get()
 
         // Autolock: navigate to passphrase screen when session is destroyed
         LaunchedEffect(Unit) {
@@ -88,6 +99,22 @@ fun CycleWiseAppUI() {
 
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
+
+        // Global tutorial bounds check — catches any state where seed data persists
+        // but no walkthrough is actively running on the current screen.
+        LaunchedEffect(tutorialActive, currentRoute) {
+            if (!tutorialActive) return@LaunchedEffect
+            delay(TUTORIAL_BOUNDS_CHECK_DELAY_MS)
+            val dailyLogDone = hintPreferences.isHintSeen(HintKey.DAILY_LOG_NOTES_TAB).first()
+            val trackerDone = hintPreferences.isHintSeen(HintKey.TRACKER_TAP_DAY).first()
+            if (shouldRunTutorialBoundsCleanup(currentRoute, dailyLogDone, trackerDone)) {
+                // Mark all hints seen so walkthroughs don't restart
+                HintKey.entries.forEach { hintPreferences.markHintSeen(it) }
+                val sessionScope = koin.getScope("session")
+                val cleanup: TutorialCleanupUseCase = sessionScope.get()
+                runSeedCleanupIfNeeded(appSettings, cleanup)
+            }
+        }
 
         Scaffold(
             bottomBar = {

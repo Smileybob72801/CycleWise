@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -108,7 +109,7 @@ fun TrackerScreen(navController: NavController) {
     val pendingKey by coachMarkState.pendingHintKey.collectAsState()
 
     // Tracks whether the Tracker walkthrough was started this composition.
-    var trackerWalkthroughActive by remember { mutableStateOf(false) }
+    var trackerWalkthroughActive by rememberSaveable { mutableStateOf(false) }
 
     val appSettings: AppSettings = koin.get()
 
