@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -107,7 +108,7 @@ fun ReminderSettings(
         }
     }
 
-    Column {
+    Column(modifier = Modifier.padding(horizontal = dims.md)) {
         if (showTitle) {
             Text(
                 stringResource(R.string.reminder_settings_title),

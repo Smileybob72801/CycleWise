@@ -1,11 +1,14 @@
 package com.veleda.cyclewise.ui.tracker
 
+import com.veleda.cyclewise.domain.models.HeatmapMetric
 import kotlinx.datetime.LocalDate
 
 /**
  * Defines all user interactions that can occur on the Tracker screen.
  */
 sealed interface TrackerEvent {
+    /** The user selected or deselected a heatmap metric overlay. */
+    data class SelectHeatmapMetric(val metric: HeatmapMetric?) : TrackerEvent
     /** The user tapped a day in the calendar. */
     data class DayTapped(val date: LocalDate) : TrackerEvent
 

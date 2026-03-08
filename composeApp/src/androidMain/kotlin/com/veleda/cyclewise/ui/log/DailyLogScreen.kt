@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -301,7 +302,7 @@ fun DailyLogScreen(
                     .imePadding(),
             ) {
                 ContentContainer {
-                Column(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
                     // Header
                     Text(
                         text = stringResource(R.string.daily_log_for, log.entry.entryDate.toLocalizedDateString()),

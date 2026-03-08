@@ -78,6 +78,8 @@ private const val PERIOD_FILL_ALPHA = 0.4f
  *                          On landscape tablets the calendar container may not have enough vertical
  *                          space for square cells, so [CalendarGrid] computes a wider ratio that
  *                          keeps all six possible rows visible.
+ * @param heatmapColor     Optional semi-transparent overlay color for the heatmap feature.
+ *                          Drawn as a circle between the phase background and the day number.
  */
 @Composable
 internal fun CalendarDayCell(
@@ -97,6 +99,7 @@ internal fun CalendarDayCell(
     onTap: (() -> Unit)?,
     boundsRegistry: DayBoundsRegistry? = null,
     cellAspectRatio: Float = 1f,
+    heatmapColor: Color? = null,
 ) {
     val dims = LocalDimensions.current
     val date = day.date.toKotlinLocalDate()
@@ -171,6 +174,15 @@ internal fun CalendarDayCell(
     ) {
         DisposableEffect(date) {
             onDispose { boundsRegistry?.unregister(date) }
+        }
+        if (heatmapColor != null) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(dims.xxs)
+                    .clip(CircleShape)
+                    .background(heatmapColor)
+            )
         }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,

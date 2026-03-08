@@ -2,11 +2,9 @@ package com.veleda.cyclewise.domain.insights.generators
 
 import com.veleda.cyclewise.domain.insights.Insight
 import com.veleda.cyclewise.domain.insights.MoodPhasePattern
-import com.veleda.cyclewise.domain.models.Period
-import kotlinx.datetime.daysUntil
-import kotlin.math.abs
-
-private enum class MoodType { LOW, HIGH }
+import com.veleda.cyclewise.domain.insights.analysis.CycleAnalyzer
+import com.veleda.cyclewise.domain.insights.analysis.DataExtractors
+import com.veleda.cyclewise.domain.insights.analysis.PhaseDescriptionFormatter
 
 /**
  * Detects recurring mood-to-cycle-phase correlations across recent cycles.
@@ -44,124 +42,46 @@ class MoodPhasePatternGenerator : InsightGenerator {
      * @return Zero or more [MoodPhasePattern] insights, one per significant block.
      */
     override fun generate(data: InsightData): List<Insight> {
-        val chronologicalCycles = data.allPeriods.filter { it.endDate != null }.reversed()
-        if (chronologicalCycles.size < 2) return emptyList()
+        val boundaries = CycleAnalyzer.buildCycleBoundaries(data.allPeriods)
+        if (boundaries.isEmpty()) return emptyList()
 
-        val cyclePairs = chronologicalCycles.zipWithNext()
+        val lowTally = CycleAnalyzer.tallyPatterns(boundaries, data.allLogs, DataExtractors.moodLow)
+        val highTally = CycleAnalyzer.tallyPatterns(boundaries, data.allLogs, DataExtractors.moodHigh)
 
-        val patternTally = mutableMapOf<Pair<MoodType, Int>, Int>()
-
-        for ((currentCycle, nextCycle) in cyclePairs.takeLast(8)) {
-            val actualCycleLength = currentCycle.startDate.daysUntil(nextCycle.startDate)
-
-            val logsForCycle = data.allLogs.filter { it.entry.entryDate >= currentCycle.startDate
-                    && it.entry.entryDate < nextCycle.startDate }
-
-            if (logsForCycle.isEmpty()) continue
-
-            for (log in logsForCycle) {
-                val mood = log.entry.moodScore ?: continue
-                val moodType = when {
-                    mood <= 2 -> MoodType.LOW
-                    mood >= 4 -> MoodType.HIGH
-                    else -> null
-                } ?: continue
-
-                val day = log.entry.dayInCycle
-                val normalizedDay = if (day <= 16) day else day - actualCycleLength - 1
-
-                val key = Pair(moodType, normalizedDay)
-                patternTally[key] = (patternTally[key] ?: 0) + 1
-            }
+        val combinedTally = (lowTally.keys + highTally.keys).associateWith { key ->
+            (lowTally[key] ?: 0) + (highTally[key] ?: 0)
         }
 
-        val significantDays = patternTally.filter { (_, count) ->
-            count >= 1 && (count.toDouble() / cyclePairs.size) >= 0.60
-        }.map { it.key }
+        val significantPatterns = CycleAnalyzer.filterSignificant(combinedTally, boundaries.size)
+        if (significantPatterns.isEmpty()) return emptyList()
 
-        if (significantDays.isEmpty()) return emptyList()
-
+        val chronologicalPeriods = data.allPeriods.filter { it.endDate != null }.reversed()
         val resultingInsights = mutableListOf<MoodPhasePattern>()
 
-        for (moodType in MoodType.entries) {
-            val daysForMood = significantDays.filter { it.first == moodType }.map { it.second }.sorted()
-            if (daysForMood.isEmpty()) continue
+        for (moodType in listOf("low", "high")) {
+            val tally = if (moodType == "low") lowTally else highTally
+            val significantForMood = CycleAnalyzer.filterSignificant(tally, boundaries.size)
 
-            val allSignificantBlocks = findAllSignificantBlocks(daysForMood)
+            val blocks = CycleAnalyzer.buildRecurrenceBlocks(
+                significantPatterns = significantForMood,
+                totalCycles = boundaries.size,
+                maxGap = 2,
+                minBlockSize = 3,
+            )
 
-            for (block in allSignificantBlocks) {
-                val recurrenceCount = block.mapNotNull { day -> patternTally[Pair(moodType, day)] }.minOrNull() ?: 0
-
-               resultingInsights.add(
+            for (block in blocks) {
+                resultingInsights.add(
                     MoodPhasePattern(
-                        moodType = moodType.name.lowercase(),
-                        phaseDescription = formatRelativePhase(block, chronologicalCycles),
-                        recurrenceRate = "$recurrenceCount out of ${cyclePairs.size}"
+                        moodType = moodType,
+                        phaseDescription = PhaseDescriptionFormatter.formatRelativePhase(
+                            block.normalizedDays, chronologicalPeriods
+                        ),
+                        recurrenceRate = "${block.recurrenceCount} out of ${boundaries.size}",
                     )
                 )
             }
         }
 
         return resultingInsights
-    }
-
-    /**
-     * Groups significant days into dense, non-overlapping clusters by proximity.
-     *
-     * Days within a gap of <= 2 are merged into the same block. A block is retained
-     * only if it contains at least 3 individually significant days.
-     *
-     * @param significantDays sorted list of normalized day offsets that passed significance filtering.
-     * @return non-overlapping blocks, each containing >= 3 consecutive-ish significant days.
-     */
-    private fun findAllSignificantBlocks(significantDays: List<Int>): List<List<Int>> {
-        if (significantDays.isEmpty()) return emptyList()
-
-        val potentialBlocks = mutableListOf<List<Int>>()
-        var currentBlock = mutableListOf<Int>()
-        for (day in significantDays) {
-            if (currentBlock.isEmpty() || day - currentBlock.last() <= 2) {
-                currentBlock.add(day)
-            } else {
-                potentialBlocks.add(currentBlock)
-                currentBlock = mutableListOf(day)
-            }
-        }
-        if (currentBlock.isNotEmpty()) potentialBlocks.add(currentBlock)
-
-        return potentialBlocks.filter { it.size >= 3 }
-    }
-
-    /**
-     * Formats a human-readable phase description for a mood pattern group.
-     * Same phase boundary logic as [SymptomPhasePatternGenerator.formatRelativePhase].
-     */
-    private fun formatRelativePhase(group: List<Int>, periods: List<Period>): String {
-        if (group.isEmpty()) return ""
-
-        val representativeDay = group.average().toInt()
-        val isLutealPhase = representativeDay > 16 || representativeDay < 0
-
-        if (isLutealPhase) {
-            val firstDayBefore = abs(group.last())
-            val lastDayBefore = abs(group.first())
-            return when {
-                lastDayBefore == 1 && group.size == 1 -> "on the day before your period"
-                group.size == 1 -> "$lastDayBefore days before your period"
-                else -> "from $firstDayBefore to $lastDayBefore days before your period"
-            }
-        } else {
-            val avgPeriodLength = periods.mapNotNull { it.endDate?.let { endDate -> it.startDate.daysUntil(endDate) } }
-                .average().takeIf { !it.isNaN() }?.toInt() ?: 5
-
-            val firstDayAfter = group.first() - avgPeriodLength
-            val lastDayAfter = group.last() - avgPeriodLength
-
-            return when {
-                firstDayAfter <= 1 && lastDayAfter <= 1 -> "right after your period"
-                group.size == 1 -> "$firstDayAfter days after your period"
-                else -> "from $firstDayAfter to $lastDayAfter days after your period"
-            }
-        }
     }
 }

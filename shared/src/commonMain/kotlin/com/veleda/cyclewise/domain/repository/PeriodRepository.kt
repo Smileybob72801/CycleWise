@@ -217,6 +217,11 @@ interface PeriodRepository {
      */
     suspend fun getWaterIntakeForDates(dates: List<LocalDate>): List<WaterIntake>
 
+    /**
+     * Returns a reactive stream of all water intake records across all dates.
+     */
+    fun getAllWaterIntakes(): Flow<List<WaterIntake>>
+
     // ── Tutorial Cleanup ─────────────────────────────────────────────────
 
     /**

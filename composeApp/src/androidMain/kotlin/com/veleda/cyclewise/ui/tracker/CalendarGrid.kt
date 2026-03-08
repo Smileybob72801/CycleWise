@@ -214,6 +214,12 @@ internal fun CalendarGrid(
                     }
                 }
 
+                val heatmapOverlay = uiState.selectedHeatmapMetric?.let { metric ->
+                    uiState.heatmapIntensities[date]?.let { intensity ->
+                        heatmapColor(metric, intensity)
+                    }
+                }
+
                 CalendarDayCell(
                     day = day,
                     dayInfo = dayInfo,
@@ -231,6 +237,7 @@ internal fun CalendarGrid(
                     onTap = handleTap,
                     boundsRegistry = boundsRegistry,
                     cellAspectRatio = cellAspectRatio,
+                    heatmapColor = heatmapOverlay,
                 )
             }
         )

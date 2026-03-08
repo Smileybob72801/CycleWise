@@ -753,4 +753,7 @@ class RoomPeriodRepository(
     override suspend fun getWaterIntakeForDates(dates: List<LocalDate>): List<WaterIntake> {
         return waterIntakeDao.getForDates(dates.map { it.toString() }).map { it.toDomain() }
     }
+
+    override fun getAllWaterIntakes(): Flow<List<WaterIntake>> =
+        waterIntakeDao.getAll().map { entities -> entities.map { it.toDomain() } }
 }

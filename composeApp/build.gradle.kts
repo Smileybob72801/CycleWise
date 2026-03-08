@@ -53,6 +53,7 @@ kotlin {
             implementation(libs.uuid)
             implementation(libs.workmanager.runtime)
             implementation(libs.splashscreen)
+            implementation(libs.vico.compose.m3)
         }
         commonMain.dependencies {
             implementation(compose.runtime)

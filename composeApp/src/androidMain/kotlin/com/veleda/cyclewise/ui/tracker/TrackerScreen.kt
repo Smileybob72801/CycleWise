@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -34,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -106,7 +109,7 @@ fun TrackerScreen(navController: NavController) {
     val pendingKey by coachMarkState.pendingHintKey.collectAsState()
 
     // Tracks whether the Tracker walkthrough was started this composition.
-    var trackerWalkthroughActive by remember { mutableStateOf(false) }
+    var trackerWalkthroughActive by rememberSaveable { mutableStateOf(false) }
 
     val appSettings: AppSettings = koin.get()
 
@@ -272,7 +275,7 @@ fun TrackerScreen(navController: NavController) {
         )
     }
 
-    Scaffold { padding ->
+    Scaffold(contentWindowInsets = WindowInsets.statusBars) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
         ContentContainer(maxWidth = dims.gridMaxWidth) {
         Column(
@@ -351,6 +354,11 @@ fun TrackerScreen(navController: NavController) {
                 )
             }
 
+            HeatmapSelector(
+                selectedMetric = uiState.selectedHeatmapMetric,
+                onMetricSelected = { viewModel.onEvent(TrackerEvent.SelectHeatmapMetric(it)) },
+            )
+
             CalendarGrid(
                 uiState = uiState,
                 calendarState = calendarState,
@@ -384,7 +392,9 @@ fun TrackerScreen(navController: NavController) {
             Spacer(Modifier.height(dims.md))
 
             AnimatedVisibility(
-                visible = uiState.periods.isEmpty(),
+                visible = !uiState.isInitialLoading
+                    && uiState.periods.isEmpty()
+                    && uiState.dayDetails.isEmpty(),
                 enter = fadeIn(),
                 exit = fadeOut(),
             ) {
