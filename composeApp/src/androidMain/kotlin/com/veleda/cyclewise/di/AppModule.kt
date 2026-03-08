@@ -22,6 +22,17 @@ import com.veleda.cyclewise.domain.insights.generators.MoodPhasePatternGenerator
 import com.veleda.cyclewise.domain.insights.generators.NextPeriodPredictionGenerator
 import com.veleda.cyclewise.domain.insights.generators.SymptomPhasePatternGenerator
 import com.veleda.cyclewise.domain.insights.generators.SymptomRecurrenceGenerator
+import com.veleda.cyclewise.domain.insights.generators.EnergyPhasePatternGenerator
+import com.veleda.cyclewise.domain.insights.generators.LibidoPhasePatternGenerator
+import com.veleda.cyclewise.domain.insights.generators.FlowPatternGenerator
+import com.veleda.cyclewise.domain.insights.generators.WaterIntakePhasePatternGenerator
+import com.veleda.cyclewise.domain.insights.generators.SymptomSeverityTrendGenerator
+import com.veleda.cyclewise.domain.insights.generators.CycleSummaryGenerator
+import com.veleda.cyclewise.domain.insights.generators.CrossVariableCorrelationGenerator
+import com.veleda.cyclewise.domain.insights.analysis.CorrelationEngine
+import com.veleda.cyclewise.domain.insights.DataReadinessCalculator
+import com.veleda.cyclewise.domain.insights.InsightScorer
+import com.veleda.cyclewise.domain.insights.charts.ChartDataGenerator
 import com.veleda.cyclewise.androidData.local.EducationalContentLoader
 import com.veleda.cyclewise.androidData.local.providers.StaticEducationalContentProvider
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
@@ -183,16 +194,32 @@ val appModule = module {
 
     single<PassphraseService> { PassphraseServiceAndroid(get()) }
 
+    factory { InsightScorer() }
+
+    factory { DataReadinessCalculator() }
+
+    factory { ChartDataGenerator() }
+
+    factory { CorrelationEngine() }
+
     factory {
         InsightEngine(
-            listOf(
+            generators = listOf(
                 CycleLengthAverageGenerator(),
                 NextPeriodPredictionGenerator(),
                 SymptomRecurrenceGenerator(),
                 MoodPhasePatternGenerator(),
                 CycleLengthTrendGenerator(),
-                SymptomPhasePatternGenerator()
-            )
+                SymptomPhasePatternGenerator(),
+                EnergyPhasePatternGenerator(),
+                LibidoPhasePatternGenerator(),
+                FlowPatternGenerator(),
+                WaterIntakePhasePatternGenerator(),
+                SymptomSeverityTrendGenerator(),
+                CycleSummaryGenerator(),
+                CrossVariableCorrelationGenerator(get()),
+            ),
+            scorer = get(),
         )
     }
 
@@ -327,6 +354,8 @@ val appModule = module {
                 insightEngine = get(),
                 appSettings = get(),
                 educationalContentProvider = get(),
+                dataReadinessCalculator = get(),
+                chartDataGenerator = get(),
             )
         }
     }

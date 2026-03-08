@@ -351,6 +351,11 @@ fun TrackerScreen(navController: NavController) {
                 )
             }
 
+            HeatmapSelector(
+                selectedMetric = uiState.selectedHeatmapMetric,
+                onMetricSelected = { viewModel.onEvent(TrackerEvent.SelectHeatmapMetric(it)) },
+            )
+
             CalendarGrid(
                 uiState = uiState,
                 calendarState = calendarState,

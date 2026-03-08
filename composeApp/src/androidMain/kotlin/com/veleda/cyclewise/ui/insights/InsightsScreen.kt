@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -19,21 +20,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.domain.insights.CrossVariableCorrelation
 import com.veleda.cyclewise.domain.insights.CycleLengthAverage
 import com.veleda.cyclewise.domain.insights.CycleLengthTrend
+import com.veleda.cyclewise.domain.insights.CycleSummary
+import com.veleda.cyclewise.domain.insights.EnergyPhasePattern
+import com.veleda.cyclewise.domain.insights.FlowPattern
 import com.veleda.cyclewise.domain.insights.Insight
+import com.veleda.cyclewise.domain.insights.InsightCategory
+import com.veleda.cyclewise.domain.insights.LibidoPhasePattern
 import com.veleda.cyclewise.domain.insights.MoodPhasePattern
 import com.veleda.cyclewise.domain.insights.NextPeriodPrediction
 import com.veleda.cyclewise.domain.insights.SymptomPhasePattern
+import com.veleda.cyclewise.domain.insights.SymptomSeverityTrend
 import com.veleda.cyclewise.domain.insights.TopSymptomsInsight
+import com.veleda.cyclewise.domain.insights.WaterIntakePhasePattern
 import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.components.MedicalDisclaimer
 import com.veleda.cyclewise.ui.insights.cards.CycleLengthCard
+import com.veleda.cyclewise.ui.insights.cards.CycleSummaryCard
+import com.veleda.cyclewise.ui.insights.cards.DataReadinessCard
+import com.veleda.cyclewise.ui.insights.cards.GenericInsightCard
 import com.veleda.cyclewise.ui.insights.cards.MoodPatternCard
 import com.veleda.cyclewise.ui.insights.cards.PredictionCard
 import com.veleda.cyclewise.ui.insights.cards.SymptomPhaseCard
 import com.veleda.cyclewise.ui.insights.cards.TopSymptomsCard
 import com.veleda.cyclewise.ui.insights.cards.TrendCard
+import com.veleda.cyclewise.ui.insights.charts.ChartsSection
 import com.veleda.cyclewise.ui.insights.learn.LearnArticleCard
 import com.veleda.cyclewise.ui.insights.learn.LearnCategoryChips
 import com.veleda.cyclewise.ui.insights.learn.LearnSectionHeader
@@ -67,17 +80,18 @@ fun InsightsScreen() {
 }
 
 /**
- * Testable content composable that renders the insight list, empty state, or loading indicator.
+ * Testable content composable that renders the progressive disclosure insights layout.
  *
- * Accepts [InsightsUiState] and an [onRefresh] callback instead of a ViewModel reference
- * so it can be tested in isolation without Koin or coroutine concerns.
+ * Layout order:
+ * 1. Cycle summary card (if active cycle)
+ * 2. Data readiness countdown cards (for not-yet-ready categories)
+ * 3. "Your Top Insights" section (top 5 scored insights)
+ * 4. Categorized accordion sections (collapsed by default)
+ * 5. Learn section (educational articles)
  *
- * When educational articles are available, a **Learn** section is appended below the insight
- * cards with category filter chips and expandable article cards.
- *
- * @param uiState  Current UI state (loading, refreshing, or populated).
+ * @param uiState  Current UI state.
  * @param onRefresh Callback invoked when the user pulls to refresh.
- * @param onEvent   Callback for [InsightsEvent] dispatching (article filtering, expand/collapse).
+ * @param onEvent   Callback for [InsightsEvent] dispatching.
  * @param modifier  Modifier applied to the root container.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,7 +103,9 @@ internal fun InsightsContent(
     modifier: Modifier = Modifier
 ) {
     val dims = LocalDimensions.current
-    val hasContent = uiState.insights.isNotEmpty() || uiState.allArticles.isNotEmpty()
+    val hasContent = uiState.insights.isNotEmpty() || uiState.cycleSummary != null ||
+        uiState.dataReadiness.any { !it.isReady } || uiState.charts.isNotEmpty() ||
+        uiState.allArticles.isNotEmpty()
 
     ContentContainer(modifier = modifier) {
         Box(Modifier.fillMaxSize()) {
@@ -111,10 +127,74 @@ internal fun InsightsContent(
                             contentPadding = PaddingValues(dims.md),
                             verticalArrangement = Arrangement.spacedBy(dims.md)
                         ) {
-                            items(uiState.insights, key = { it.id }) { insight ->
-                                InsightCardDispatcher(insight = insight)
+                            // 1. Cycle Summary (pinned to top)
+                            uiState.cycleSummary?.let { summary ->
+                                item(key = "cycle-summary") {
+                                    CycleSummaryCard(insight = summary)
+                                }
                             }
 
+                            // 2. Data Readiness Countdowns (not-ready categories only)
+                            val notReady = uiState.dataReadiness.filter { !it.isReady }
+                            if (notReady.isNotEmpty()) {
+                                item(key = "readiness-header") {
+                                    Text(
+                                        text = stringResource(R.string.insights_data_readiness_header),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.padding(top = dims.sm),
+                                    )
+                                }
+                                items(notReady, key = { "readiness-${it.category.name}" }) { readiness ->
+                                    DataReadinessCard(readiness = readiness)
+                                }
+                            }
+
+                            // 3. Top Insights
+                            if (uiState.topInsights.isNotEmpty()) {
+                                item(key = "top-header") {
+                                    Text(
+                                        text = stringResource(R.string.insights_top_section_header),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.padding(top = dims.sm),
+                                    )
+                                }
+                                items(
+                                    uiState.topInsights,
+                                    key = { "top-${it.insight.id}" }
+                                ) { scored ->
+                                    InsightCardDispatcher(insight = scored.insight)
+                                }
+                            }
+
+                            // 4. Charts Section
+                            if (uiState.charts.isNotEmpty()) {
+                                item(key = "charts-section") {
+                                    ChartsSection(charts = uiState.charts)
+                                }
+                            }
+
+                            // 5. Categorized Accordion Sections
+                            for ((category, scored) in uiState.categorizedInsights) {
+                                val isExpanded = category in uiState.expandedCategories
+                                item(key = "cat-header-${category.name}") {
+                                    CategoryHeader(
+                                        category = category,
+                                        count = scored.size,
+                                        isExpanded = isExpanded,
+                                        onToggle = { onEvent(InsightsEvent.ToggleCategory(category)) },
+                                    )
+                                }
+                                if (isExpanded) {
+                                    items(
+                                        scored,
+                                        key = { "cat-${category.name}-${it.insight.id}" }
+                                    ) { item ->
+                                        InsightCardDispatcher(insight = item.insight)
+                                    }
+                                }
+                            }
+
+                            // 6. Learn Section
                             if (uiState.allArticles.isNotEmpty()) {
                                 item(key = "learn-header") {
                                     LearnSectionHeader()
@@ -168,5 +248,12 @@ internal fun InsightCardDispatcher(insight: Insight) {
         is SymptomPhasePattern -> SymptomPhaseCard(insight)
         is MoodPhasePattern -> MoodPatternCard(insight)
         is TopSymptomsInsight -> TopSymptomsCard(insight)
+        is CycleSummary -> CycleSummaryCard(insight)
+        is EnergyPhasePattern -> GenericInsightCard(insight)
+        is LibidoPhasePattern -> GenericInsightCard(insight)
+        is WaterIntakePhasePattern -> GenericInsightCard(insight)
+        is FlowPattern -> GenericInsightCard(insight)
+        is SymptomSeverityTrend -> GenericInsightCard(insight)
+        is CrossVariableCorrelation -> GenericInsightCard(insight)
     }
 }

@@ -102,10 +102,13 @@ class InsightEngineTest {
         logs = tempLogs
     }
 
+    /** Helper to extract raw [Insight] list from scored results. */
+    private fun List<ScoredInsight>.insights(): List<Insight> = map { it.insight }
+
     @Test
     fun generateInsights_WHEN_sufficientData_THEN_allTypesPresent() {
         // ACT
-        val insights = insightEngine.generateInsights(periods, logs, symptomLib, topSymptomsCount = 2)
+        val insights = insightEngine.generateInsights(periods, logs, symptomLib, topSymptomsCount = 2).insights()
 
         // ASSERT
         assertTrue(insights.filterIsInstance<NextPeriodPrediction>().isNotEmpty(), "Missing NextPeriodPrediction")
@@ -121,14 +124,13 @@ class InsightEngineTest {
     }
 
     @Test
-    fun generateInsights_WHEN_generated_THEN_sortedByPriorityDesc() {
+    fun generateInsights_WHEN_generated_THEN_sortedByRelevanceDesc() {
         // ACT
-        val insights = insightEngine.generateInsights(periods, logs, symptomLib, topSymptomsCount = 2)
+        val scored = insightEngine.generateInsights(periods, logs, symptomLib, topSymptomsCount = 2)
 
         // ASSERT
-        val priorities = insights.map { it.priority }
-        assertTrue(priorities.zipWithNext { a, b -> a >= b }.all { it }, "Insights should be sorted by priority descending")
-        assertEquals("NEXT_PERIOD_PREDICTION", insights.first().id)
+        val scores = scored.map { it.relevanceScore }
+        assertTrue(scores.zipWithNext { a, b -> a >= b }.all { it }, "Insights should be sorted by relevance descending")
     }
 
     @Test
@@ -137,7 +139,7 @@ class InsightEngineTest {
         val insufficientPeriods = periods.take(2)
 
         // ACT
-        val insights = insightEngine.generateInsights(insufficientPeriods, logs, symptomLib, topSymptomsCount = 2)
+        val insights = insightEngine.generateInsights(insufficientPeriods, logs, symptomLib, topSymptomsCount = 2).insights()
 
         // ASSERT
         assertTrue(insights.none { it is NextPeriodPrediction || it is CycleLengthAverage }, "Cycle-based insights should be omitted")
@@ -150,7 +152,7 @@ class InsightEngineTest {
         val fewLogs = logs.take(2)
 
         // ACT
-        val insights = insightEngine.generateInsights(periods, fewLogs, symptomLib, topSymptomsCount = 2)
+        val insights = insightEngine.generateInsights(periods, fewLogs, symptomLib, topSymptomsCount = 2).insights()
 
         // ASSERT
         assertTrue(insights.filterIsInstance<CycleLengthAverage>().isNotEmpty(), "Cycle insights should still be generated")
@@ -160,7 +162,7 @@ class InsightEngineTest {
     @Test
     fun generateInsights_WHEN_topCountIsOne_THEN_returnsOnlyTopSymptom() {
         // ACT
-        val insights = insightEngine.generateInsights(periods, logs, symptomLib, topSymptomsCount = 1)
+        val insights = insightEngine.generateInsights(periods, logs, symptomLib, topSymptomsCount = 1).insights()
 
         // ASSERT
         val topSymptomsInsight = insights.filterIsInstance<TopSymptomsInsight>().firstOrNull()

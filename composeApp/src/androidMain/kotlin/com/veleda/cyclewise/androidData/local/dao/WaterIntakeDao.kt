@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.veleda.cyclewise.androidData.local.entities.WaterIntakeEntity
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Room DAO for the `water_intake` table.
@@ -23,6 +24,9 @@ interface WaterIntakeDao {
 
     @Query("SELECT * FROM water_intake WHERE date IN (:dates)")
     suspend fun getForDates(dates: List<String>): List<WaterIntakeEntity>
+
+    @Query("SELECT * FROM water_intake")
+    fun getAll(): Flow<List<WaterIntakeEntity>>
 
     @Query("DELETE FROM water_intake WHERE date IN (:dates)")
     suspend fun deleteByDates(dates: List<String>)

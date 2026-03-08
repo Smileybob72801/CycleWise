@@ -1,8 +1,10 @@
 package com.veleda.cyclewise.domain.insights.generators
 
-import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.WaterIntake
 import com.veleda.cyclewise.domain.insights.Insight
 
 /**
@@ -26,7 +28,9 @@ data class InsightData(
     val symptomLibrary: List<Symptom>,
     val averageCycleLength: Double?,
     val generatedInsights: List<Insight> = emptyList(),
-    val topSymptomsCount: Int
+    val topSymptomsCount: Int,
+    val waterIntakes: List<WaterIntake> = emptyList(),
+    val medicationLibrary: List<Medication> = emptyList(),
 )
 
 /**

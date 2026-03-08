@@ -260,6 +260,28 @@
     <string name="insights_content_description_trend_stable">Trend stable</string>
     <string name="insights_content_description_prediction_icon">Calendar prediction</string>
     <string name="insights_content_description_empty_icon">No insights available</string>
+    <string name="insights_top_section_header">Your Top Insights</string>
+    <string name="insights_data_readiness_header">Data Progress</string>
+    <string name="insights_data_readiness_ready">Ready</string>
+    <string name="insights_data_readiness_periods_needed">%d more period(s) needed</string>
+    <string name="insights_category_prediction">Predictions</string>
+    <string name="insights_category_pattern">Patterns</string>
+    <string name="insights_category_correlation">Correlations</string>
+    <string name="insights_category_trend">Trends</string>
+    <string name="insights_category_summary">Summaries</string>
+    <string name="insights_cycle_summary_title">Cycle Summary</string>
+    <string name="insights_energy_pattern_title">Energy Pattern</string>
+    <string name="insights_libido_pattern_title">Libido Pattern</string>
+    <string name="insights_water_pattern_title">Water Intake Pattern</string>
+    <string name="insights_flow_pattern_title">Flow Pattern</string>
+    <string name="insights_severity_trend_title">Symptom Severity Trend</string>
+    <string name="insights_see_all">See all %d insights</string>
+    <string name="insights_content_description_expand_category">Expand %s category</string>
+    <string name="insights_content_description_collapse_category">Collapse %s category</string>
+    <string name="insights_content_description_data_progress">Data readiness progress</string>
+    <string name="insights_charts_section_header">Charts</string>
+    <string name="heatmap_off">Off</string>
+    <string name="heatmap_section_label">Heatmap</string>
 
     <!-- Reminder time labels -->
     <string name="reminder_hour_label">Hour</string>

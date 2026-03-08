@@ -3,9 +3,11 @@ package com.veleda.cyclewise.domain.insights
 import com.veleda.cyclewise.domain.insights.generators.InsightData
 import com.veleda.cyclewise.domain.insights.generators.InsightGenerator
 import com.veleda.cyclewise.domain.insights.generators.NextPeriodPredictionGenerator
-import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.Medication
+import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.WaterIntake
 import kotlinx.datetime.daysUntil
 
 /**
@@ -15,26 +17,32 @@ import kotlinx.datetime.daysUntil
  * 1. [NextPeriodPredictionGenerator] runs first (other generators may depend on its output).
  * 2. All remaining generators run with the prediction result available in [InsightData.generatedInsights].
  *
- * Results are deduplicated by [Insight.id] and sorted by [Insight.priority] descending.
+ * Results are deduplicated by [Insight.id], scored by [InsightScorer], and returned
+ * as [ScoredInsight]s sorted by relevance descending.
  */
 class InsightEngine(
     private val generators: List<InsightGenerator>,
+    private val scorer: InsightScorer = InsightScorer(),
 ) {
     /**
-     * Generates all insights from the user's data.
+     * Generates all insights from the user's data, scored and sorted by relevance.
      *
-     * @param allPeriods      all periods, sorted by start date descending.
-     * @param allLogs         all daily logs across all dates.
-     * @param symptomLibrary  the user's full symptom library (for ID-to-name lookups).
-     * @param topSymptomsCount how many top symptoms to include in [TopSymptomsInsight].
-     * @return deduplicated insights sorted by priority descending.
+     * @param allPeriods         All periods, sorted by start date descending.
+     * @param allLogs            All daily logs across all dates.
+     * @param symptomLibrary     The user's full symptom library (for ID-to-name lookups).
+     * @param topSymptomsCount   How many top symptoms to include in [TopSymptomsInsight].
+     * @param waterIntakes       All water intake records.
+     * @param medicationLibrary  The user's medication library.
+     * @return Scored insights sorted by relevance descending.
      */
     fun generateInsights(
         allPeriods: List<Period>,
         allLogs: List<FullDailyLog>,
         symptomLibrary: List<Symptom>,
-        topSymptomsCount: Int
-    ): List<Insight> {
+        topSymptomsCount: Int,
+        waterIntakes: List<WaterIntake> = emptyList(),
+        medicationLibrary: List<Medication> = emptyList(),
+    ): List<ScoredInsight> {
         val insights = mutableListOf<Insight>()
 
         val baseData = InsightData(
@@ -42,7 +50,9 @@ class InsightEngine(
             allLogs = allLogs,
             symptomLibrary = symptomLibrary,
             averageCycleLength = calculateAverageCycleLength(allPeriods),
-            topSymptomsCount = topSymptomsCount
+            topSymptomsCount = topSymptomsCount,
+            waterIntakes = waterIntakes,
+            medicationLibrary = medicationLibrary,
         )
 
         val predictionGenerator = generators.find { it is NextPeriodPredictionGenerator }
@@ -53,7 +63,8 @@ class InsightEngine(
             insights.addAll(generator.generate(dataWithPrediction))
         }
 
-        return insights.distinctBy { it.id }.sortedByDescending { it.priority }
+        val deduplicated = insights.distinctBy { it.id }
+        return scorer.score(deduplicated)
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.insights
 
+import com.veleda.cyclewise.domain.insights.InsightCategory
 import com.veleda.cyclewise.domain.models.ArticleCategory
 
 /**
@@ -20,4 +21,11 @@ sealed interface InsightsEvent {
      *                     to toggle.
      */
     data class ToggleArticleExpanded(val articleId: String) : InsightsEvent
+
+    /**
+     * The user tapped a category header to expand or collapse the categorized insights section.
+     *
+     * @property category The [InsightCategory] to toggle.
+     */
+    data class ToggleCategory(val category: InsightCategory) : InsightsEvent
 }

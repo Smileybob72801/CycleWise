@@ -2,11 +2,14 @@ package com.veleda.cyclewise.ui.tracker
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.veleda.cyclewise.domain.models.DayHeatmapData
 import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.domain.models.HeatmapMetric
 import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.domain.models.WaterIntake
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
@@ -21,6 +24,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -46,7 +50,9 @@ import kotlin.time.Clock
  * @property showDeleteConfirmation Whether the delete-period confirmation dialog is visible.
  * @property periodIdToDelete    The id of the period the user has requested to delete.
  * @property waterCupsForSheet      Water intake cup count for the date shown in the bottom sheet.
- * @property educationalArticles   Articles to display in the educational bottom sheet, or null when the sheet is hidden.
+ * @property educationalArticles    Articles to display in the educational bottom sheet, or null when the sheet is hidden.
+ * @property selectedHeatmapMetric The currently active calendar heatmap overlay, or null for none.
+ * @property heatmapIntensities    Per-date intensity values (0.0-1.0) for the active heatmap metric.
  */
 data class TrackerUiState(
     val periods: List<Period> = emptyList(),
@@ -59,6 +65,8 @@ data class TrackerUiState(
     val periodIdToDelete: String? = null,
     val waterCupsForSheet: Int? = null,
     val educationalArticles: List<EducationalArticle>? = null,
+    val selectedHeatmapMetric: HeatmapMetric? = null,
+    val heatmapIntensities: Map<LocalDate, Float> = emptyMap(),
 ) {
     val ongoingPeriod: Period? = periods.find { it.endDate == null }
 }
@@ -249,6 +257,12 @@ class TrackerViewModel(
                 _uiState.update { it.copy(educationalArticles = articles.ifEmpty { null }) }
             }
 
+            is TrackerEvent.SelectHeatmapMetric -> {
+                if (event.metric != null) {
+                    viewModelScope.launch { computeHeatmapIntensities(event.metric) }
+                }
+            }
+
             // State-only events — no side effects needed.
             is TrackerEvent.DismissLogSheet,
             is TrackerEvent.DeletePeriodRequested,
@@ -295,6 +309,10 @@ class TrackerViewModel(
                     periodIdToDelete = null
                 )
             }
+            is TrackerEvent.SelectHeatmapMetric -> currentState.copy(
+                selectedHeatmapMetric = event.metric,
+                heatmapIntensities = if (event.metric == null) emptyMap() else currentState.heatmapIntensities,
+            )
             is TrackerEvent.ShowEducationalSheet -> currentState
             is TrackerEvent.DismissEducationalSheet -> currentState.copy(educationalArticles = null)
         }
@@ -322,6 +340,35 @@ class TrackerViewModel(
         val latest = periods.maxBy { it.startDate }
         val predicted = latest.startDate.plus(avgDays, DateTimeUnit.DAY)
         appSettings.setCachedPredictedPeriodDate(predicted.toString())
+    }
+
+    /**
+     * Builds [DayHeatmapData] for each logged day and computes intensity values
+     * for the given [metric], then updates [TrackerUiState.heatmapIntensities].
+     */
+    private suspend fun computeHeatmapIntensities(metric: HeatmapMetric) {
+        val allLogs = periodRepository.getAllLogs().first()
+        val waterIntakes = periodRepository.getAllWaterIntakes().first()
+        val waterByDate = waterIntakes.associateBy { it.date }
+
+        val intensities = mutableMapOf<LocalDate, Float>()
+        for (log in allLogs) {
+            val date = log.entry.entryDate
+            val dayData = DayHeatmapData(
+                date = date,
+                moodScore = log.entry.moodScore,
+                energyLevel = log.entry.energyLevel,
+                libidoScore = log.entry.libidoScore,
+                waterCups = waterByDate[date]?.cups,
+                symptomCount = log.symptomLogs.size,
+                symptomMaxSeverity = log.symptomLogs.maxOfOrNull { it.severity },
+                flowIntensity = log.periodLog?.flowIntensity,
+                medicationCount = log.medicationLogs.size,
+            )
+            metric.intensity(dayData)?.let { intensities[date] = it }
+        }
+
+        _uiState.update { it.copy(heatmapIntensities = intensities) }
     }
 
     companion object {
