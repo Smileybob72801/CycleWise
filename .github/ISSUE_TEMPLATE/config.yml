@@ -1,0 +1,27 @@
+# ------------------------------------------------------------------------------
+# GitHub Issue Template Configuration for RhythmWise
+# ------------------------------------------------------------------------------
+# This file defines how issue templates behave across the repository.
+# It disables unstructured "blank issues" and adds direct contact links
+# for security reports and general questions.
+# ------------------------------------------------------------------------------
+
+blank_issues_enabled: false
+
+contact_links:
+  - name: 🔒 Security Policy
+    url: https://github.com/Smileybob72801/RhythmWise/security/policy
+    about: >
+      Please DO NOT report security vulnerabilities publicly.
+      Review the security policy for responsible disclosure instructions.
+
+  - name: 📚 Documentation or Onboarding Questions
+    url: https://github.com/Smileybob72801/RhythmWise/discussions/categories/documentation
+    about: >
+      For questions about build instructions, architecture, or contributions,
+      please start a thread in the Documentation Q&A section of Discussions.
+
+  - name: 💬 General Discussion
+    url: https://github.com/Smileybob72801/RhythmWise/discussions
+    about: >
+      For feature brainstorming, feedback, and community dialogue.

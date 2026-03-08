@@ -1,0 +1,69 @@
+name: ✨ Feature Request
+description: Suggest an idea or enhancement for RhythmWise
+title: "[Feature] Imperative summary of the goal (e.g., Implement User Profile Screen)"
+labels:
+  - feature
+  - enhancement
+assignees:
+  - SmileyBob72801
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve **RhythmWise**!
+        Please complete the sections below. Items marked **required** must be filled
+        out before you can submit.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem? Please describe.
+      description: Explain the "why." What limitation or problem does this feature solve for users or developers?
+      placeholder: >
+        Describe the pain point and who is affected. Include current behavior and its impact.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: Explain the "what." A high-level overview from the user's perspective.
+      placeholder: >
+        Summarize the desired behavior or outcome without diving into implementation details.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: >
+        Provide a detailed, technical checklist of the required work. Break it down by module and layer.
+      placeholder: |
+        - **Data Model (`shared`):**
+          - ...
+        - **Persistence (`shared`/Room/SQLCipher):**
+          - ...
+        - **Logic (`shared`):**
+          - ...
+        - **UI (`androidApp`/Compose):**
+          - ...
+        - **Testing (`commonTest` / `androidUnitTest` / `androidTest`):**
+          - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context (optional)
+      description: Add any extra info—future goals, screenshots, mockups, or related links.
+
+  - type: textarea
+    id: technical-notes
+    attributes:
+      label: Technical Implementation Notes (optional)
+      description: Suggest libraries, patterns (e.g., Strategy), algorithms, or performance constraints to consider.
+      placeholder: >
+        e.g., Consider a repository method with memoization; reuse existing Koin scope; prefer sealed interfaces for result types.

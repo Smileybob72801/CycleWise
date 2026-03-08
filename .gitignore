@@ -16,3 +16,16 @@ captures
 !*.xcodeproj/project.xcworkspace/
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
+nul
+
+# Release APK output
+composeApp/release/
+
+# Signing keys and credentials
+*.jks
+*.keystore
+*.keystore.*
+*.p12
+*.pem
+*.env
+.env.*

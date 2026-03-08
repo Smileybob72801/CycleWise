@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Night-mode XML theme applied before Compose initialises.
+      Transparent system bars with dark status-bar icons disabled.
+    -->
+    <style name="Theme.RhythmWise" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- Splash screen theme (used only during cold start, dark variant) -->
+    <style name="Theme.RhythmWise.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#1A1113</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.RhythmWise</item>
+    </style>
+</resources>

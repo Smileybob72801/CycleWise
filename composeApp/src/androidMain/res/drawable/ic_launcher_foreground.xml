@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Calendar body: rounded rectangle centred in the 66dp safe zone -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M33,35 L75,35 Q78,35 78,38 L78,76 Q78,79 75,79 L33,79 Q30,79 30,76 L30,38 Q30,35 33,35 Z" />
+
+    <!-- Left binding tab -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M41,30 Q41,28 43,28 Q45,28 45,30 L45,38 L41,38 Z" />
+
+    <!-- Right binding tab -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M63,30 Q63,28 65,28 Q67,28 67,30 L67,38 L63,38 Z" />
+
+    <!-- Calendar header line -->
+    <path
+        android:fillColor="#D4B5CF"
+        android:pathData="M30,43 L78,43 L78,44 L30,44 Z" />
+
+    <!-- Water-drop / cycle accent inside calendar body -->
+    <path
+        android:fillColor="#AA808C"
+        android:pathData="M54,50 Q54,50 60,60 Q63,65 60,69 Q57,73 54,73 Q51,73 48,69 Q45,65 48,60 Q54,50 54,50 Z" />
+</vector>
