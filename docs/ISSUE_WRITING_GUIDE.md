@@ -1,72 +1,263 @@
 # RhythmWise Issue Writing Guide
 
-A well-written issue is one of the most valuable contributions you can make to the project. It makes it easier to understand, prioritize, and implement fixes and features. This guide provides a set of best practices for writing high-quality issues for RhythmWise.
+A well-written issue is one of the most valuable contributions you can make. It determines how quickly a feature gets prioritized, how smoothly it gets implemented, and whether the result actually solves the right problem. Poor issues create back-and-forth; great issues create momentum.
 
-Before creating an issue, please **search the existing issues** to see if a similar one has already been reported.
+Before creating an issue, **search existing issues** to avoid duplicates. If a related issue exists, add your context there instead of opening a new one.
 
-## The Issue Title
+## Choosing the Right Template
 
-A good title gives a high-level summary of the issue at a glance. We use a `[Type] <Subject>` format.
+When you create a new issue on GitHub, you will be presented with two structured templates:
 
-#### **[Type]**
+- **Feature Request** — for new functionality or enhancements
+- **Bug Report** — for defects or unexpected behavior
 
-The type tag helps categorize the issue. Please choose one of the following:
+Select the one that matches your intent. The templates provide labeled fields with placeholders — this guide explains how to fill them out *well*.
 
--   `[Feature]`: For a new feature or enhancement that adds user-facing value.
--   `[Bug]`: For a defect or unexpected behavior in the application.
--   `[Refactor]`: For improving the internal structure or implementation of existing code without changing its external behavior.
--   `[Chore]`: Tasks for project health: updating dependencies, builds, tooling, and tests.
--   `[Docs]`: For writing or updating documentation.
+## Title Conventions
 
-#### **<Subject>**
+Both templates pre-fill a `[Type]` prefix. Keep it, and write the rest as an **imperative summary** — a command that describes the goal.
 
-The subject should be a concise, imperative summary of the goal.
--   **Good:** `[Feature] Implement Medical Report PDF Export`
--   **Bad:** `[Feature] Medical report exporting`
+| Prefix | Use for |
+|---|---|
+| `[Feature]` | New functionality or enhancements |
+| `[Bug]` | Defects or unexpected behavior |
+| `[Refactor]` | Internal improvements with no behavior change |
+| `[Chore]` | Dependency updates, tooling, build config |
+| `[Docs]` | Documentation additions or corrections |
 
-## Anatomy of a Feature Request
+**Good:** `[Feature] Add cycle-length trend chart to Insights tab`
+**Bad:** `[Feature] chart stuff` — too vague to triage without opening the issue
 
-Our feature request template is designed to capture the "Why," "What," and "How" of an idea.
-
-#### ### Is your feature request related to a problem? Please describe.
-
-**Purpose:** To explain the motivation behind the feature. Every feature should solve a real problem for a user or a developer. This section justifies the work.
-
--   **Good:** "Users can track detailed health data but have no way to share it with their doctor in a readable format. The current tools are only for developer backups."
--   **Bad:** "I think we should have a PDF export."
-
-#### ### Describe the solution you'd like
-
-**Purpose:** To describe the proposed feature from a user's perspective. How will it work? What will the user see and do? This helps everyone on the team understand the desired outcome.
-
--   **Good:** "I'd like a new 'Export Report' button in Settings. It will ask for a date range and then generate a multi-page PDF with a summary and daily logs, which can be shared."
--   **Bad:** "Make a PDF."
-
-#### ### Acceptance Criteria
-
-**Purpose:** This is the most critical section for implementation. It is a technical checklist that defines what "done" means. It forces the author to think through the implementation details and provides a clear roadmap for the developer.
-
--   **Good:** A detailed, bulleted list broken down by module and layer (e.g., "In `RoomPeriodRepository.kt`, add a new function `getLogsForDateRange(...)`").
--   **Bad:** "Code the feature." or "The report should be generated."
-
-## Anatomy of a Bug Report
-
-A good bug report is reproducible. The template helps ensure that anyone on the team can replicate the bug and verify the fix.
-
-#### ### Steps to Reproduce
-
-**Purpose:** To provide a precise, step-by-step recipe for triggering the bug. If we can't reproduce it, we can't fix it.
-
--   **Good:** "1. Start a new cycle on today's date. 2. Tap the 'End Cycle Today' button. 3. Re-open the app. 4. The cycle that was just ended is still showing as ongoing."
--   **Bad:** "The end cycle button is broken."
-
-#### ### Expected vs. Actual Behavior
-
-**Purpose:** To clearly state the discrepancy between what you thought would happen and what actually did. This removes ambiguity.
-
--   **Good:** "**Expected:** The cycle should be marked with an end date. **Actual:** The cycle's end date remains null in the UI."
--   **Bad:** "It didn't work right."
+The title should be specific enough that someone scanning the issue list can understand the scope without clicking in.
 
 ---
 
-Thank you for taking the time to write a detailed issue. It is a massive help in making RhythmWise a better, more stable application!
+## Feature Request Fields
+
+### Is your feature request related to a problem? Please describe.
+
+*Required*
+
+This field asks for the **why** — the motivation behind the feature.
+
+**Why it matters:** Every feature has an implementation cost, a maintenance cost, and a complexity cost. This section is how the team decides whether the work is justified. If you can't articulate a real problem, the feature probably doesn't need to exist. It also helps prioritizers gauge urgency: "users have no way to share data with their doctor" is more urgent than "it would be cool if..."
+
+**Write it well:**
+- Name who is affected and how (users, developers, both)
+- Describe the current limitation and its real-world impact
+- Avoid jumping to solutions here — stay in problem space
+
+**Good:** "Users can track detailed symptom data daily but have no way to see trends over time. They have to manually scroll through weeks of logs to notice patterns, which defeats the purpose of consistent tracking."
+
+**Bad:** "We need a chart." — This describes a solution, not a problem. It gives the team nothing to prioritize against.
+
+### Describe the solution you'd like
+
+*Required*
+
+This field asks for the **what** — the desired outcome from the user's perspective.
+
+**Why it matters:** A clear solution description keeps scope focused and prevents features from expanding during implementation. It gives the developer a concrete user story to build against and the reviewer a scenario to test. Without it, "add insights" could mean anything from a single stat to an entire analytics dashboard.
+
+**Write it well:**
+- Describe what the user will see and do, step by step
+- Stay at the user-experience level — save implementation details for Acceptance Criteria
+- If there are multiple possible approaches, state which one you're proposing and briefly note the alternatives
+
+**Good:** "A new 'Trends' card on the Insights tab that shows a line chart of cycle length over the last 6 cycles. Tapping the card expands it to full-screen with axis labels and the ability to select different metrics."
+
+**Bad:** "Add a chart component." — This is an implementation task, not a user outcome.
+
+### Acceptance Criteria
+
+*Required*
+
+This is the **implementation contract**. It defines what "done" means.
+
+**Why it matters:** This is the section the developer builds against, the reviewer tests against, and the issue closer checks off. Vague criteria lead to incomplete implementations, missed edge cases, and issues that get reopened. The template's module breakdown (Data Model → Persistence → Logic → UI → Testing) mirrors the project's Clean Architecture layers — following it ensures nothing gets missed across the stack.
+
+**Write it well:**
+- Use the template's layer-by-layer structure — it exists to prevent gaps
+- Each bullet should be specific and verifiable: "add a `getCycleLengths(limit: Int): List<Int>` function to `PeriodRepository`" not "add repo method"
+- Include edge cases: what happens with zero data? With one cycle? With 100?
+- The Testing section is not optional in practice — specify what kinds of tests are needed (unit, integration, UI)
+- If a bullet requires a database change, note the migration
+
+**Good:**
+```
+- **Data Model (`shared`):**
+  - Add `CycleLengthTrend` data class with `cycleNumber: Int`, `lengthDays: Int`, `startDate: LocalDate`
+- **Logic (`shared`):**
+  - Add `GetCycleLengthTrendsUseCase` that returns the last N completed cycles with their lengths
+  - Handle edge case: fewer than 2 completed cycles returns empty list
+- **UI (`composeApp`/Compose):**
+  - Add `CycleTrendCard` composable to InsightsScreen
+  - Use Vico `CartesianChartModelProducer` for the line chart
+- **Testing:**
+  - Unit test `GetCycleLengthTrendsUseCase` with 0, 1, and 6+ cycles
+  - Robolectric integration test for `CycleTrendCard` rendering
+```
+
+**Bad:** "Implement the feature and add tests." — This tells the developer nothing they didn't already know.
+
+### Technical Implementation Notes *(optional)*
+
+**Why it matters:** RhythmWise has specific architectural patterns (Koin session scoping, provider interfaces, MVI ViewModels) and security invariants (no network, SQLCipher encryption, passphrase keys never persisted). This field prevents a contributor from reinventing an existing utility, violating a constraint they didn't know about, or choosing an approach that conflicts with the architecture.
+
+**Write it well:**
+- Reference existing code that should be reused or extended (e.g., "reuse `InsightGenerator` interface pattern from `shared/.../domain/insights/`")
+- Call out relevant constraints from CLAUDE.md (e.g., "must remain in session scope — no singleton injection")
+- Mention performance considerations if the feature touches large datasets
+- Suggest libraries only if there's a strong reason to prefer one
+
+**Good:** "The chart should use the existing Vico 2.1.2 dependency — see `ui/insights/charts/` for the established pattern. The use case must be registered in session scope in `AppModule.kt` since it needs DB access via `PeriodRepository`."
+
+**Bad:** "Use a good library." — Not actionable.
+
+### Additional Context *(optional)*
+
+Use this for anything that doesn't fit the other fields: mockups, screenshots, links to related issues, future directions, or design rationale. Keep it supplementary — if information is critical to implementation, it belongs in Acceptance Criteria or Technical Notes.
+
+---
+
+## Bug Report Fields
+
+### Bug Description
+
+*Required*
+
+A clear and concise summary of the defect. What is broken?
+
+**Why it matters:** This is the first thing a triager reads. A good summary lets someone decide priority and assignment in seconds. It also helps duplicate detection — if someone searches for a similar bug, a clear description is more likely to surface your report.
+
+**Write it well:**
+- State what is broken, not just that something is wrong
+- Name the affected feature or screen
+- Keep it to 2–3 sentences — save details for the fields below
+
+**Good:** "Symptoms logged on a day are not persisted. After navigating away from the daily log and returning, the symptom list is empty even though the save confirmation appeared."
+
+**Bad:** "Something is broken in the app."
+
+### Steps to Reproduce
+
+*Required*
+
+A precise, step-by-step recipe for triggering the bug.
+
+**Why it matters:** RhythmWise has no network access, no telemetry, and no crash reporting — by design. The bug report is the **only signal** the team has. If we can't reproduce it, we can't diagnose it, and we can't verify the fix. Every skipped step is a potential dead end.
+
+**Write it well:**
+- Start from a known state (e.g., "with a fresh install" or "with at least 3 logged cycles")
+- Number each step as a discrete action
+- Include exact values you entered, not just "fill in the form"
+
+**Good:**
+```
+1. Open the app with at least one completed cycle
+2. Navigate to Tracker tab
+3. Tap on a day in the current cycle
+4. Log a symptom (e.g., headache, severity 3)
+5. Press back to return to Tracker
+6. Tap the same day again
+7. The symptom logged in step 4 is not shown
+```
+
+**Bad:** "Symptoms disappear sometimes." — This could take hours to reproduce, if it's even possible.
+
+### Expected Behavior
+
+*Required*
+
+What you believed should have happened.
+
+**Why it matters:** Not all unexpected behavior is a bug — sometimes it's an intentional design decision the user disagrees with, or a misunderstanding of the feature. Stating your expectation explicitly removes ambiguity and helps the team distinguish between "broken" and "works differently than expected."
+
+**Good:** "After logging a symptom and returning to the same day, the symptom should still appear in the daily log with the severity I set."
+
+**Bad:** "It should work." — Work how?
+
+### Actual Behavior
+
+*Required*
+
+What actually happened instead.
+
+**Why it matters:** Combined with Expected Behavior, this creates a clear before/after that pinpoints the defect. It also helps the team assess severity — "data is silently lost" is critical; "icon color is slightly off" is cosmetic.
+
+**Write it well:**
+- Be specific: include error messages verbatim, UI states, or data inconsistencies
+- If applicable, note whether the data is actually lost or just not displayed (check by navigating away and back)
+
+**Good:** "The daily log for that day shows no symptoms. Navigating away and back to the day still shows an empty symptom list. The symptom appears to not have been persisted."
+
+**Bad:** "It broke."
+
+### Reproducibility
+
+*Required*
+
+A dropdown indicating how often the bug occurs: Always (100%), Often (~75%), Sometimes (~50%), Rarely (~25%), or Unable to reproduce (happened once).
+
+**Why it matters:** Deterministic bugs (Always) and intermittent bugs (Sometimes/Rarely) require fundamentally different debugging approaches. A 100% reproducible bug can be debugged with a breakpoint; a rare bug may need logging, stress testing, or race-condition analysis. This field lets the team set realistic expectations for turnaround time.
+
+### Severity
+
+*Required*
+
+A dropdown self-assessment of impact: Crash / Data Loss, Major (feature broken, no workaround), Moderate (feature broken, workaround exists), Minor (cosmetic / UI glitch), or Trivial.
+
+**Why it matters:** Combined with Reproducibility, severity drives prioritization. A crash that always happens is a release blocker; a cosmetic glitch that happens rarely goes to the backlog. The structured dropdown also enables filtering the issue list by severity.
+
+**Choose honestly:**
+- **Crash / Data Loss** — The app crashes, force-closes, or user data is lost or corrupted
+- **Major** — A feature is completely broken with no way around it
+- **Moderate** — A feature is broken but there's a workaround
+- **Minor** — Cosmetic issue, misalignment, wrong color, typo
+- **Trivial** — Negligible impact, polish-level issue
+
+### Workaround *(optional)*
+
+Any temporary workaround you've discovered.
+
+**Why it matters:** This field serves double duty. For triage, it signals that a bug may be less urgent if users can work around it. For other users hitting the same bug before a fix ships, it provides immediate relief. Even "None found" is useful — it confirms you looked.
+
+### App Version
+
+*Required*
+
+Found in Settings (e.g., `1.0.0-beta.1`).
+
+**Why it matters:** For a pre-1.0 app with active development, the version is essential context. A bug in `beta.1` may already be fixed in `beta.2`. This field is required because version-less bug reports are nearly impossible to act on during rapid iteration.
+
+### Device and Android Version *(optional but strongly recommended)*
+
+**Why it matters:** SQLCipher encryption, Room database behavior, and Jetpack Compose rendering can vary across Android versions and OEM skins. A bug on a Samsung device running Android 12 may not reproduce on a Pixel running Android 14. These fields help the team determine whether the issue is device-specific, version-specific, or universal — which fundamentally changes the debugging approach and fix strategy.
+
+- **Device:** Manufacturer and model (e.g., `Pixel 8`, `Samsung Galaxy S23`)
+- **Android Version:** OS version (e.g., `Android 14`)
+
+### Screenshots or Recordings *(optional)*
+
+Drag and drop images or screen recordings that show the bug. Especially helpful for UI issues where describing the visual problem in words is less effective than showing it.
+
+### Logs or Stack Traces *(optional)*
+
+If you captured a stack trace or logcat output, paste it in this field. The template auto-formats it as a code block, so you don't need to add markdown fencing.
+
+**Why it matters:** A stack trace can cut debugging time from hours to minutes. If you see a crash dialog or can capture logcat output, include it — even partial traces are valuable.
+
+### Additional Context *(optional)*
+
+Anything that doesn't fit the other fields: related issues, when the bug first appeared, whether it started after an update, or configuration details. Keep it supplementary — if information is critical to reproduction, it belongs in Steps to Reproduce.
+
+### Checklist
+
+Two checkbox items at the bottom of the template:
+
+- **"I have searched existing issues and confirmed this is not a duplicate"** *(required)* — Duplicate bugs are the most common source of issue noise. This prompt ensures the reporter checks first.
+- **"This bug involves data loss or corruption"** *(optional)* — A quick triage signal. Data loss bugs get escalated regardless of the severity dropdown selection, since RhythmWise has no cloud backup or recovery mechanism by design.
+
+---
+
+Thank you for taking the time to write detailed issues. Each well-crafted report directly improves RhythmWise for everyone who uses it.
