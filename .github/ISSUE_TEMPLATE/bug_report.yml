@@ -1,7 +1,8 @@
 name: 🐞 Bug Report
-about: Create a report to help us improve RhythmWise
-title: "[Bug] A brief, descriptive title of the bug"
-labels: bug
+description: Report a defect or unexpected behavior in RhythmWise
+title: "[Bug] Brief, descriptive summary of the bug"
+labels:
+  - bug
 assignees:
   - SmileyBob72801
 
@@ -9,19 +10,31 @@ body:
   - type: markdown
     attributes:
       value: |
-        ### Describe the bug
-        A clear and concise description of what the bug is.
+        Thanks for helping improve **RhythmWise**!
+        Please complete the sections below. Items marked **required** must be filled
+        out before you can submit.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise summary of the defect. What is broken?
+      placeholder: >
+        Describe what you observed and which part of the app is affected.
+    validations:
+      required: true
 
   - type: textarea
     id: steps
     attributes:
       label: Steps to Reproduce
-      description: Please provide detailed steps to reproduce the behavior.
+      description: A precise, numbered recipe for triggering the bug. Start from a known state.
       placeholder: |
-        1. Go to '...'
-        2. Click on '....'
-        3. Scroll down to '....'
-        4. See error
+        1. Open the app with [describe starting state, e.g., "at least one completed cycle"]
+        2. Navigate to [screen]
+        3. Tap on [element]
+        4. ...
+        5. Observe [the bug]
     validations:
       required: true
 
@@ -30,6 +43,8 @@ body:
     attributes:
       label: Expected Behavior
       description: What should have happened?
+      placeholder: >
+        Describe the correct behavior you expected to see.
     validations:
       required: true
 
@@ -37,21 +52,64 @@ body:
     id: actual
     attributes:
       label: Actual Behavior
-      description: What actually happened?
+      description: What actually happened? Include error messages verbatim if applicable.
+      placeholder: >
+        Describe what happened instead. If you saw an error message or crash dialog,
+        paste the exact text here.
     validations:
       required: true
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: Reproducibility
+      description: How often can you reproduce this bug?
+      options:
+        - Always (100%)
+        - Often (~75%)
+        - Sometimes (~50%)
+        - Rarely (~25%)
+        - Unable to reproduce (happened once)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severely does this bug affect your use of the app?
+      options:
+        - Crash / Data Loss
+        - Major (feature broken, no workaround)
+        - Moderate (feature broken, workaround exists)
+        - Minor (cosmetic / UI glitch)
+        - Trivial
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: Have you found a temporary workaround? This helps triage and helps other users hitting the same bug.
+      placeholder: >
+        Describe any steps that avoid or mitigate the bug, or write "None found."
 
   - type: input
     id: app-version
     attributes:
       label: App Version
-      placeholder: e.g., 1.0.1
+      description: Found in Settings (e.g., `1.0.0-beta.1`). Critical for tracking which build introduced the bug.
+      placeholder: e.g., 1.0.0-beta.1
+    validations:
+      required: true
 
   - type: input
     id: device
     attributes:
       label: Device
-      placeholder: e.g., Pixel 8, Samsung S23
+      description: Manufacturer and model.
+      placeholder: e.g., Pixel 8, Samsung Galaxy S23
 
   - type: input
     id: android-version
@@ -60,7 +118,29 @@ body:
       placeholder: e.g., Android 14
 
   - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or Recordings
+      description: Drag and drop images or screen recordings that show the bug. Especially helpful for UI issues.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or Stack Traces
+      description: If you captured a stack trace or logcat output, paste it here. It will be auto-formatted as a code block.
+      render: shell
+
+  - type: textarea
     id: extra
     attributes:
       label: Additional Context
-      description: Add any other context or screenshots here.
+      description: Anything else — related issues, when the bug started, configuration details, etc.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues and confirmed this is not a duplicate.
+          required: true
+        - label: This bug involves data loss or corruption.
