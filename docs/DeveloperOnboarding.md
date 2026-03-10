@@ -138,8 +138,8 @@ shared/src/commonMain/kotlin/com/veleda/cyclewise/domain/
 
 | File | What it does |
 |------|-------------|
-| `composeApp/.../CycleWiseApp.kt` | Top-level `@Composable` — sets up theme, navigation host, and session-aware scaffold |
-| `composeApp/.../MainActivity.kt` | Android `Activity` entry point — initializes Koin and hosts `CycleWiseApp` |
+| `composeApp/.../CycleWiseApp.kt` | `Application` subclass — bootstraps Koin, manages autolock lifecycle |
+| `composeApp/.../MainActivity.kt` | Android `Activity` entry point — calls `setContent { CycleWiseAppUI() }` |
 | `composeApp/.../ui/nav/NavRoutes.kt` | Defines the navigation routes and the four-tab bottom navigation bar |
 
 For the module breakdown, see [1.2 Module Structure](#12-module-structure).
@@ -279,9 +279,8 @@ and [Phase 2 — Architectural Deep Dive](#phase-2--architectural-deep-dive).
 | Branch | Purpose |
 |--------|---------|
 | `main` | Stable release branch — always builds, always passes tests |
-| `develop` | Integration branch — features merge here first |
-| `feature/*` | One branch per feature or fix (branched from `develop`) |
-| `docs/*` | Documentation-only changes |
+| `dev` | Integration branch — features merge here first |
+| `<issue#>-<type>-<description>` | One branch per feature or fix (branched from `dev`), e.g. `35-feature-cycle-phase-calculation` |
 
 ### Commits
 
@@ -300,7 +299,7 @@ Signed-off-by: Your Name <your.email@example.com>
 
 Before opening a pull request, verify:
 
-- [ ] Branch is based on `develop` (not `main`)
+- [ ] Branch is based on `dev` (not `main`)
 - [ ] All tests pass: `./gradlew testDebugUnitTest`
 - [ ] Code follows project style ([`docs/CODE_STYLE.md`](CODE_STYLE.md))
 - [ ] New public members have KDoc comments
@@ -437,6 +436,7 @@ Contains the Jetpack Compose UI and all Android-specific implementations.
 | `androidData/local/entities/` | Room `@Entity` classes, `Converters` (type converters), and `Mappers` (entity ↔ domain) |
 | `androidData/local/draft/` | `LockedWaterDraft` — persists water intake while the DB is locked |
 | `androidData/repository/` | `RoomPeriodRepository` — implements `PeriodRepository` with Room |
+| `domain/usecases/` | Android-specific use cases that depend on platform APIs (e.g., `DeleteAllDataUseCase`) |
 | `ui/auth/` | Passphrase/unlock screen, `WaterTrackerViewModel`, `WaterDraftSyncer` |
 | `ui/tracker/` | Calendar screen — `TrackerScreen`, `TrackerViewModel`, `TrackerEvent`, and supporting composables |
 | `ui/log/` | Daily log screen — `DailyLogScreen`, `DailyLogViewModel`, `DailyLogEvent` |
@@ -448,7 +448,7 @@ Contains the Jetpack Compose UI and all Android-specific implementations.
 | `ui/theme/` | Theme definitions — colors, shapes, typography, dimensions |
 | `di/` | `AppModule.kt` — all Koin DI wiring |
 | `services/` | `PassphraseServiceAndroid` (Argon2 impl), `SaltStorage` |
-| `session/` | `SessionBus` — logout event bus |
+| `session/` | `SessionManager` (a `KoinComponent` for runtime scope management), `SessionBus` (logout event bus), `KeyFingerprintHolder` |
 | `settings/` | `AppSettings` — DataStore preferences wrapper |
 | `reminders/` | `ReminderScheduler`, `ReminderNotifier`, and WorkManager workers |
 
@@ -936,7 +936,7 @@ _dependency rule_: **inner layers never know about outer layers**.
 
 ```
 ┌──────────────────────────────────────────────┐
-│           UI Layer (outermost)                │
+│           UI Layer (outermost)               │
 │  Screens, ViewModels, Compose components     │
 │                                              │
 │  ┌────────────────────────────────────────┐  │
@@ -1126,7 +1126,7 @@ RhythmWise is a **single-activity** Compose application. The launch sequence:
    - Registers a global uncaught exception handler for crash logging
    - Calls `setContent { CycleWiseAppUI() }` — all Compose UI starts here
 
-3. **`CycleWiseAppUI`** (`ui/nav/CycleWiseAppUI.kt`) — The root composable:
+3. **`CycleWiseAppUI`** (`ui/CycleWiseAppUI.kt`) — The root composable:
    - Wraps the app in `RhythmWiseTheme` for Material 3 theming (light/dark)
    - Sets up the Compose `NavHost` with 6 routes and animated transitions
    - Start destination: `NavRoute.Passphrase`
@@ -1136,7 +1136,7 @@ RhythmWise is a **single-activity** Compose application. The launch sequence:
          BottomNavBar(navController)
      }
      ```
-   - Handles `WindowInsets.systemBars` padding so content doesn't overlap system UI
+   - Sets `contentWindowInsets = WindowInsets(0, 0, 0, 0)` on the outer Scaffold — each screen handles its own top insets via its own `Scaffold`/`TopAppBar`
    - On successful unlock, navigates to DailyLogHome and pops Passphrase from the backstack:
      ```kotlin
      PassphraseScreen {
@@ -1298,15 +1298,18 @@ db.openHelper.writableDatabase
 ```
 If the passphrase is wrong, SQLCipher throws here. The exception is caught below.
 
-**9. First-unlock prepopulation**
+**9. Prepopulation**
 ```kotlin
 if (needsPrepopulation) {
-    val repository = sessionScope.get<PeriodRepository>()
     repository.prepopulateSymptomLibrary()
     appSettings.setPrepopulated(true)
 }
+repository.prepopulateMedicationLibrary()
 ```
-Inserts 20 default symptoms (Cramps, Headache, Bloating, etc.) on first unlock.
+On first unlock, inserts 20 default symptoms (Cramps, Headache, Bloating, etc.).
+Medication prepopulation runs unconditionally on every unlock — `INSERT IGNORE`
+makes it idempotent, so existing users who predated the medication library still
+get it populated.
 
 **10. Sync water drafts**
 ```kotlin
@@ -1360,38 +1363,38 @@ created and destroyed is essential.
 │      │                                                          │
 │      ▼                                                          │
 │  ┌─────────────────────────┐                                    │
-│  │    PassphraseScreen     │◄──────────────────────┐            │
-│  │   (no DB, no session)   │                       │            │
-│  └───────────┬─────────────┘                       │            │
-│              │ correct passphrase                   │            │
-│              ▼                                      │            │
-│  ┌─────────────────────────┐              session   │            │
-│  │  Koin Session Scope     │              .close()  │            │
-│  │  CREATED                │                  │     │            │
-│  │  ├─ PeriodDatabase      │                  │     │            │
-│  │  ├─ DAOs (one per table)│                  │     │            │
-│  │  ├─ Repository          │                  │     │            │
-│  │  ├─ Use Cases           │                  │     │            │
-│  │  └─ ViewModels          │                  │     │            │
-│  └───────────┬─────────────┘                  │     │            │
-│              │                                │     │            │
-│              ▼                                │     │            │
-│  ┌─────────────────────────┐                  │     │            │
-│  │    Normal Usage         │                  │     │            │
-│  │  Tracker / Log /        │                  │     │            │
-│  │  Insights / Settings    │──── manual ──────┘     │            │
-│  └───────────┬─────────────┘     lock               │            │
-│              │                                      │            │
-│              │ app backgrounded                      │            │
-│              ▼                                      │            │
-│  ┌─────────────────────────┐                        │            │
-│  │  Background Timer       │                        │            │
-│  │  ON_STOP: record time   │                        │            │
-│  │  ON_START: check        │── timeout exceeded ────┘            │
-│  │    elapsed vs threshold │                                     │
-│  └─────────────────────────┘                                     │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
+│  │    PassphraseScreen     │◄───────────────────────┐           │
+│  │   (no DB, no session)   │                        │           │
+│  └───────────┬─────────────┘                        │           │
+│              │ correct passphrase                   │           │
+│              ▼                                      │           │
+│  ┌─────────────────────────┐              session   │           │
+│  │  Koin Session Scope     │              .close()  │           │
+│  │  CREATED                │                  │     │           │
+│  │  ├─ PeriodDatabase      │                  │     │           │
+│  │  ├─ DAOs (one per table)│                  │     │           │
+│  │  ├─ Repository          │                  │     │           │
+│  │  ├─ Use Cases           │                  │     │           │
+│  │  └─ ViewModels          │                  │     │           │
+│  └───────────┬─────────────┘                  │     │           │
+│              │                                │     │           │
+│              ▼                                │     │           │
+│  ┌─────────────────────────┐                  │     │           │
+│  │    Normal Usage         │                  │     │           │
+│  │  Tracker / Log /        │                  │     │           │
+│  │  Insights / Settings    │──── manual ──────┘     │           │
+│  └───────────┬─────────────┘     lock               │           │
+│              │                                      │           │
+│              │ app backgrounded                     │           │
+│              ▼                                      │           │
+│  ┌─────────────────────────┐                        │           │
+│  │  Background Timer       │                        │           │
+│  │  ON_STOP: record time   │                        │           │
+│  │  ON_START: check        │── timeout exceeded ────┘           │
+│  │    elapsed vs threshold │                                    │
+│  └─────────────────────────┘                                    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Autolock Mechanism
@@ -1757,7 +1760,7 @@ operation rolls back.
 ## 2.7 DailyLogScreen and DailyLogViewModel
 
 `DailyLogViewModel` (`ui/log/DailyLogViewModel.kt`) is the most event-rich ViewModel
-in the codebase, handling 20 distinct event types for editing a single day's log.
+in the codebase. See `DailyLogEvent.kt` for the full sealed interface.
 
 ### Navigation Routes
 
@@ -1874,68 +1877,25 @@ initialization and supports pull-to-refresh for regeneration.
 
 ### Constructor
 
-The ViewModel receives its dependencies via Koin injection:
-```kotlin
-class InsightsViewModel(
-    private val periodRepository: PeriodRepository,
-    private val insightEngine: InsightEngine,
-    private val appSettings: AppSettings,
-    private val educationalContentProvider: EducationalContentProvider,
-) : ViewModel()
-```
-
-Note that `insightEngine` is injected by Koin (registered as a `factory` in
-`AppModule.kt`), not instantiated inline.
+The ViewModel receives its dependencies via Koin injection. See `InsightsViewModel.kt`
+for the current constructor parameters. Key dependency: `insightEngine` is injected
+by Koin (registered as a `factory` in `AppModule.kt`), not instantiated inline.
 
 ### Generation Pipeline
 
-```kotlin
-init {
-    loadInsights(isRefresh = false)
-}
+On init and on pull-to-refresh, `loadInsights()` runs this pipeline:
 
-fun refresh() {
-    loadInsights(isRefresh = true)
-}
+1. **Fetch** — Collects all data in one shot (`Flow.first()` for periods, logs,
+   symptom library, water intakes, medication library, top-symptoms count).
+2. **Generate** — Calls `insightEngine.generateInsights(...)` which returns
+   `List<ScoredInsight>` (insights wrapped with relevance scores).
+3. **Format** — Applies platform-specific date formatting via
+   `toLocalizedDateString()` on insights that contain dates (e.g.,
+   `NextPeriodPrediction`, `SymptomPhasePattern`). This keeps generators in `shared/`
+   free of Android locale APIs.
+4. **Emit** — Updates `_uiState` with the formatted, scored insights.
 
-private fun loadInsights(isRefresh: Boolean) {
-    viewModelScope.launch {
-        _uiState.update {
-            if (isRefresh) it.copy(isRefreshing = true)
-            else it.copy(isLoading = true)
-        }
-
-        // 1. Fetch all data in one shot (Flow.first() for each)
-        val allCycles = periodRepository.getAllPeriods().first()
-        val allLogs = periodRepository.getAllLogs().first()
-        val symptomLibrary = periodRepository.getSymptomLibrary().first()
-        val topSymptomsCount = appSettings.topSymptomsCount.first()
-
-        // 2. Run the InsightEngine
-        val rawInsights = insightEngine.generateInsights(
-            allPeriods = allCycles, allLogs = allLogs,
-            symptomLibrary = symptomLibrary, topSymptomsCount = topSymptomsCount
-        )
-
-        // 3. Apply platform-specific date formatting
-        val formattedInsights = rawInsights.map { insight ->
-            when (insight) {
-                is NextPeriodPrediction ->
-                    insight.copy(formattedDateString = insight.predictedDate.toLocalizedDateString())
-                is SymptomPhasePattern ->
-                    insight.predictedDate?.toLocalizedDateString()?.let {
-                        insight.copy(formattedPredictedDateString = it)
-                    } ?: insight
-                else -> insight
-            }
-        }
-
-        _uiState.update {
-            it.copy(isLoading = false, isRefreshing = false, insights = formattedInsights)
-        }
-    }
-}
-```
+See `InsightsViewModel.kt` for the full implementation.
 
 ### Pull-to-Refresh
 
@@ -1991,10 +1951,11 @@ flows to observe.
 ### 4-Page Swipeable Pager
 
 `SettingsScreen` uses a `HorizontalPager` with 4 pages:
-1. **General** — Autolock toggle, top symptoms count, summary visibility toggles
-   (mood, energy, libido on calendar cells)
-2. **Appearance** — Phase visibility toggles (`PhaseVisibilitySettings`), phase color
-   customization (`PhaseColorSettings`) with hex input and preset swatch grid
+1. **General** — Autolock toggle, top symptoms count, tutorial hint reset, legal
+   dialogs, delete-all-data
+2. **Appearance** — Theme mode, summary visibility toggles (mood, energy, libido),
+   phase visibility toggles (`PhaseVisibilitySettings`), phase color customization
+   (`PhaseColorSettings`) with hex input and preset swatch grid
 3. **Notifications** — Period prediction, medication, and hydration reminder
    configuration (`ReminderSettings`) with POST_NOTIFICATIONS permission handling
 4. **About** — App version, privacy policy, about dialog
@@ -2474,8 +2435,10 @@ fun NewScreen(viewModel: NewScreenViewModel = koinViewModel()) {
 
 1. Create a class implementing `InsightGenerator` in
    `shared/.../domain/insights/generators/`
-2. Define a new `Insight` subtype in `Insight.kt` with a unique `id` and `priority`
-3. Add the generator to the list in `AppModule.kt`'s `InsightEngine` factory registration
+2. Define a new `Insight` sealed interface subtype in `Insight.kt` (must include
+   `category: InsightCategory`)
+3. Add a `when` branch in `InsightCardDispatcher` in `InsightsScreen.kt`
+4. Add the generator to the list in `AppModule.kt`'s `InsightEngine` factory registration
 
 ---
 
@@ -2526,7 +2489,7 @@ This file is the single source of truth for all dependency injection. Reading or
 Key architectural details:
 - **Constructor takes** `appSettings: AppSettings` and `sessionManager: SessionManager`
 - **Delegates to `SessionManager`** — All Koin scope operations (open, close, passphrase
-  change) are centralized in `SessionManager`, the only `KoinComponent` in the app.
+  change) are centralized in `SessionManager`, a `KoinComponent` for runtime scope management.
   This keeps ViewModels decoupled from the DI framework.
 - **Re-entrancy guard** prevents duplicate session creation on double-tap
 - **Scope lifecycle:** `SessionManager.openSession()` always closes the existing scope
@@ -2559,7 +2522,7 @@ Key architectural details:
 
 **File:** `composeApp/src/androidMain/kotlin/com/veleda/cyclewise/androidData/repository/RoomPeriodRepository.kt`
 
-This is the largest file in the codebase. Key sections:
+One of the largest files in the codebase. Key sections:
 
 - **Constructor:** Takes `db` + one DAO per table (all injected by Koin session scope)
 - **`saveFullLog()`:** Uses delete-then-insert transaction semantics
@@ -2731,7 +2694,7 @@ testOptions {
 
 ### CI Pipeline
 
-GitHub Actions runs on every push/PR to `main` or `develop`
+GitHub Actions runs on every push/PR to `main` or `dev`
 (`.github/workflows/test.yml`):
 
 1. **Setup:** Ubuntu, Temurin JDK 17, Gradle
@@ -2822,13 +2785,12 @@ Signed-off-by: Your Name <your@email.com>
 | Branch | Purpose |
 |--------|---------|
 | `main` | Stable release branch. All code here passes tests. |
-| `develop` | Integration branch for feature work. |
-| `feature/*` | Individual feature branches, branched from `develop`. |
-| `docs/*` | Documentation-only branches. |
+| `dev` | Integration branch for feature work. |
+| `<issue#>-<type>-<description>` | Individual feature branches, branched from `dev` (e.g. `35-feature-cycle-phase-calculation`). |
 
 ### PR Requirements
 
-1. Branch from `develop` (or `main` for hotfixes)
+1. Branch from `dev` (or `main` for hotfixes)
 2. Write descriptive PR title using Conventional Commits format
 3. All tests must pass
 4. Code follows the style guide (`docs/CODE_STYLE.md`)
@@ -3133,8 +3095,8 @@ generators in dependency order:
 2. **Phase 2:** All remaining generators run with the prediction available in
    `InsightData.generatedInsights`.
 
-Results are deduplicated by `Insight.id` and sorted by `priority` descending
-(highest priority = shown first).
+Results are deduplicated by `Insight.id`, scored by `InsightScorer`, and returned
+as `ScoredInsight`s sorted by relevance descending.
 
 ### InsightData — The Generator Input
 
@@ -3147,20 +3109,20 @@ data class InsightData(
     val symptomLibrary: List<Symptom>,
     val averageCycleLength: Double?,
     val generatedInsights: List<Insight> = emptyList(),
-    val topSymptomsCount: Int
+    val topSymptomsCount: Int,
+    val waterIntakes: List<WaterIntake> = emptyList(),
+    val medicationLibrary: List<Medication> = emptyList(),
 )
 ```
 
 ### Current Generators
 
 Each generator lives in `shared/.../domain/insights/generators/` and produces one
-`Insight` sealed interface subtype. Each insight has a numeric `priority` that
-determines display order (higher = shown first). For the current list of generators
-and their priorities, see the source files in the `generators/` directory and
-`InsightEngine.kt`.
-
-When adding a new generator, choose a priority that reflects its relative importance
-among existing generators.
+`Insight` sealed interface subtype. After generation, `InsightScorer` wraps each
+insight in a `ScoredInsight` with a multi-factor relevance score (significance,
+temporal relevance, novelty, category diversity). `CycleSummary` is always pinned
+to score 1.0. For the current list of generators, see the source files in the
+`generators/` directory and `InsightEngine.kt`.
 
 ### Adding a New Generator
 
@@ -3288,11 +3250,11 @@ dependencies globally within the same scope ID.
 │                             │ calls use cases, repository        │
 │                             ▼                                    │
 │  ┌────────────────────────────────────────────────────────────┐  │
-│  │                    DOMAIN LAYER                             │  │
-│  │  Use cases (one per business operation)                     │  │
-│  │  InsightEngine + generators (one per insight type)          │  │
-│  │  Library providers (symptom, medication, educational)       │  │
-│  │  Domain models and enums                                    │  │
+│  │                    DOMAIN LAYER                            │  │
+│  │  Use cases (one per business operation)                    │  │
+│  │  InsightEngine + generators (one per insight type)         │  │
+│  │  Library providers (symptom, medication, educational)      │  │
+│  │  Domain models and enums                                   │  │
 │  │  Interfaces: PeriodRepository, PassphraseService           │  │
 │  └──────────────────────────┬─────────────────────────────────┘  │
 │                             │ implements interfaces              │
@@ -3308,7 +3270,7 @@ dependencies globally within the same scope ID.
 │                             │ platform services                  │
 │                             ▼                                    │
 │  ┌────────────────────────────────────────────────────────────┐  │
-│  │                  INFRASTRUCTURE LAYER                       │  │
+│  │                  INFRASTRUCTURE LAYER                      │  │
 │  │  PassphraseServiceAndroid (Argon2id KDF)                   │  │
 │  │  SaltStorage, AppSettings, SessionBus                      │  │
 │  │  LockedWaterDraft (water intake while locked)              │  │
