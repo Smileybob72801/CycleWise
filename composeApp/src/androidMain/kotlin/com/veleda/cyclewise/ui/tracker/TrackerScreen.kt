@@ -144,13 +144,17 @@ fun TrackerScreen(navController: NavController) {
     }
 
     // Detect Tracker walkthrough completion (normal advance past last hint)
-    // and clean up seed data.
+    // and clean up seed data. The cleanup is launched in coroutineScope (not run
+    // inline) because setting trackerWalkthroughActive = false triggers recomposition,
+    // which restarts this LaunchedEffect and cancels any in-flight suspend work.
     LaunchedEffect(activeHint, pendingKey, trackerWalkthroughActive) {
         if (trackerWalkthroughActive && activeHint == null && pendingKey == null) {
             trackerWalkthroughActive = false
-            val sessionScope = koin.getScope("session")
-            val cleanup: TutorialCleanupUseCase = sessionScope.get()
-            runSeedCleanupIfNeeded(appSettings, cleanup)
+            coroutineScope.launch {
+                val sessionScope = koin.getScope("session")
+                val cleanup: TutorialCleanupUseCase = sessionScope.get()
+                runSeedCleanupIfNeeded(appSettings, cleanup)
+            }
         }
     }
 
