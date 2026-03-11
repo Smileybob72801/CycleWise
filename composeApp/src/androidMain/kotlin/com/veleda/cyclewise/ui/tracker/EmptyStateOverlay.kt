@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,7 +33,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import com.veleda.cyclewise.R
-import com.veleda.cyclewise.ui.auth.SCRIM_ALPHA
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -43,6 +43,9 @@ private const val FLING_VELOCITY_THRESHOLD = 500f
 
 /** Fraction of container width at which a drag commits to dismiss. */
 private const val DISMISS_FRACTION = 0.5f
+
+/** Base alpha for the overlay scrim, using surface color for a gentle tonal veil. */
+private const val OVERLAY_SCRIM_ALPHA = 0.7f
 
 /**
  * Full-screen swipeable overlay shown when the tracker has no data.
@@ -66,7 +69,7 @@ fun EmptyStateOverlay(
     modifier: Modifier = Modifier,
 ) {
     val dims = LocalDimensions.current
-    val scrimColor = MaterialTheme.colorScheme.scrim
+    val scrimColor = MaterialTheme.colorScheme.surface
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val coroutineScope = rememberCoroutineScope()
     val offsetX = remember { Animatable(0f) }
@@ -79,7 +82,7 @@ fun EmptyStateOverlay(
         } else {
             0f
         }
-        val scrimAlpha = (1f - swipeProgress) * SCRIM_ALPHA
+        val scrimAlpha = (1f - swipeProgress) * OVERLAY_SCRIM_ALPHA
 
         // Scrim layer — blocks all touches on content beneath.
         Box(
@@ -94,9 +97,9 @@ fun EmptyStateOverlay(
         )
 
         // Swipeable / tappable content card.
-        Column(
+        ElevatedCard(
             modifier = Modifier
-                .fillMaxSize()
+                .align(Alignment.Center)
                 .offset { IntOffset(offsetX.value.roundToInt(), 0) }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
@@ -134,30 +137,32 @@ fun EmptyStateOverlay(
                         }
                     }
                 }
-                .padding(horizontal = dims.md)
                 .testTag("emptyStateContent"),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            shape = MaterialTheme.shapes.medium,
         ) {
-            Icon(
-                imageVector = Icons.Outlined.CalendarMonth,
-                contentDescription = stringResource(R.string.tracker_empty_icon_cd),
-                modifier = Modifier.size(dims.iconLg),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = stringResource(R.string.tracker_empty_title),
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = dims.sm),
-            )
-            Text(
-                text = stringResource(R.string.tracker_empty_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = dims.sm),
-            )
+            Column(
+                modifier = Modifier.padding(dims.lg),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(dims.sm),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CalendarMonth,
+                    contentDescription = stringResource(R.string.tracker_empty_icon_cd),
+                    modifier = Modifier.size(dims.iconLg),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.tracker_empty_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = stringResource(R.string.tracker_empty_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }
