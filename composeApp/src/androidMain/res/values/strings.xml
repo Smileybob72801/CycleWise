@@ -65,7 +65,7 @@
 
     <!-- Tracker calendar empty state -->
     <string name="tracker_empty_title">Your Calendar Is Empty</string>
-    <string name="tracker_empty_body">Tap any day to start logging — track periods, symptoms, mood, and more.</string>
+    <string name="tracker_empty_body">Swipe or tap to dismiss and start logging.</string>
     <string name="tracker_empty_icon_cd">No data logged yet</string>
 
     <!-- Tracker -->
