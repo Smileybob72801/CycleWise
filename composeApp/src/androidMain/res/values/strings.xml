@@ -65,7 +65,7 @@
 
     <!-- Tracker calendar empty state -->
     <string name="tracker_empty_title">Your Calendar Is Empty</string>
-    <string name="tracker_empty_body">Tap any day to start logging — track periods, symptoms, mood, and more.</string>
+    <string name="tracker_empty_body">Swipe or tap to dismiss and start logging.</string>
     <string name="tracker_empty_icon_cd">No data logged yet</string>
 
     <!-- Tracker -->
@@ -137,26 +137,28 @@
     <string name="coach_mark_next">Next</string>
     <string name="coach_mark_got_it">Got it</string>
     <string name="coach_mark_hold_to_skip">Hold to skip</string>
+    <string name="coach_mark_tap_to_continue">Tap this card to continue</string>
+    <string name="coach_mark_tap_to_finish">Tap this card to finish</string>
     <string name="hint_daily_log_welcome_title">Welcome to Your Daily Log</string>
     <string name="hint_daily_log_welcome_body">This is your daily log. We\'ve added demo data so you can explore. Let\'s walk through the features.</string>
     <string name="hint_daily_log_mood_title">Track Your Mood</string>
-    <string name="hint_daily_log_mood_body">Tap a star to rate your mood.</string>
+    <string name="hint_daily_log_mood_body">Tap one of the stars below to rate your mood from 1 to 5.</string>
     <string name="hint_daily_log_energy_title">Log Your Energy</string>
-    <string name="hint_daily_log_energy_body">Rate your energy level.</string>
+    <string name="hint_daily_log_energy_body">Tap one of the stars below to rate your energy level from 1 to 5.</string>
     <string name="hint_daily_log_water_title">Stay Hydrated</string>
-    <string name="hint_daily_log_water_body">Tap + to log a cup of water.</string>
+    <string name="hint_daily_log_water_body">Tap the + button below to log a cup of water.</string>
     <string name="hint_daily_log_explore_tabs_title">Explore the Tabs</string>
-    <string name="hint_daily_log_explore_tabs_body">Each tab focuses on a different part of your day. Swipe or tap a tab to switch between them.</string>
+    <string name="hint_daily_log_explore_tabs_body">Each tab focuses on a different part of your day. You can swipe or tap any tab to switch.</string>
     <string name="hint_daily_log_period_tab_title">The Period Tab</string>
-    <string name="hint_daily_log_period_tab_body">Tap this tab to explore period tracking.</string>
+    <string name="hint_daily_log_period_tab_body">Tap the Period tab above to explore period tracking.</string>
     <string name="hint_daily_log_period_toggle_title">Mark a Period Day</string>
-    <string name="hint_daily_log_period_toggle_body">Toggle this on to mark today as a period day.</string>
+    <string name="hint_daily_log_period_toggle_body">Tap the toggle switch below to mark today as a period day.</string>
     <string name="hint_daily_log_symptoms_tab_title">The Symptoms Tab</string>
-    <string name="hint_daily_log_symptoms_tab_body">Tap this tab to see symptom tracking.</string>
+    <string name="hint_daily_log_symptoms_tab_body">Tap the Symptoms tab above to continue.</string>
     <string name="hint_daily_log_medications_tab_title">The Medications Tab</string>
-    <string name="hint_daily_log_medications_tab_body">Tap this tab to see medication tracking.</string>
+    <string name="hint_daily_log_medications_tab_body">Tap the Medications tab above to continue.</string>
     <string name="hint_daily_log_notes_tab_title">Notes &amp; Tags</string>
-    <string name="hint_daily_log_notes_tab_body">Add freeform notes or quick tags. This is your private journal — write anything you want to remember.</string>
+    <string name="hint_daily_log_notes_tab_body">This is your private journal — add freeform notes or quick tags to remember anything about your day.</string>
     <string name="coach_mark_no_periods">I don\'t have periods</string>
     <string name="coach_mark_no_periods_toast">No problem — you can still track mood, energy, symptoms, and more.</string>
 
@@ -164,17 +166,17 @@
     <string name="hint_tracker_welcome_title">Your Cycle Calendar</string>
     <string name="hint_tracker_welcome_body">Your cycle calendar shows periods, predicted phases, and daily data at a glance.</string>
     <string name="hint_tracker_nav_title">Navigate Months</string>
-    <string name="hint_tracker_nav_body">Use the arrows to move between months, or tap Today to jump back to the current month.</string>
+    <string name="hint_tracker_nav_body">Tap the left or right arrow to move between months, or tap the Today button to jump back.</string>
     <string name="hint_tracker_phase_legend_title">Phase Legend</string>
-    <string name="hint_tracker_phase_legend_body">These colors represent your cycle phases. You can customize them in Settings.</string>
+    <string name="hint_tracker_phase_legend_body">Each color in the legend represents a different cycle phase. You can customize these in Settings.</string>
     <string name="hint_tracker_long_press_title">Mark a Period Day</string>
-    <string name="hint_tracker_long_press_body">Long-press any day to mark it as a period day.</string>
+    <string name="hint_tracker_long_press_body">Press and hold any day on the calendar to mark it as a period day. Try it now!</string>
     <string name="hint_tracker_drag_title">Select a Range</string>
-    <string name="hint_tracker_drag_body">After long-pressing, drag across multiple days to mark or unmark an entire range at once.</string>
+    <string name="hint_tracker_drag_body">After pressing and holding, drag your finger across multiple days to mark or unmark a range at once.</string>
     <string name="hint_tracker_adjust_title">Adjust Period Edges</string>
-    <string name="hint_tracker_adjust_body">Long-press the first or last day of a period and drag inward to shorten it, or outward to extend it.</string>
+    <string name="hint_tracker_adjust_body">Press and hold the first or last day of a period, then drag inward to shorten or outward to extend.</string>
     <string name="hint_tracker_tap_day_title">View Day Details</string>
-    <string name="hint_tracker_tap_day_body">Tap any day to see a summary of what you logged. From there you can open the full daily log to edit.</string>
+    <string name="hint_tracker_tap_day_body">Tap any day on the calendar to see a summary of what you logged. From there you can open the full daily log.</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

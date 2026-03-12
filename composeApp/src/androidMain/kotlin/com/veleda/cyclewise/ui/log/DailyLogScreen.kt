@@ -228,17 +228,22 @@ fun DailyLogScreen(
     // normally. (BackHandler sets walkthroughActive = false first, so this condition
     // cannot fire on a skip.) Navigate to the Tracker walkthrough if it hasn't been
     // seen yet; otherwise clean up seed data here so the bottom nav re-enables.
+    // All suspend work after setting walkthroughActive = false is launched in
+    // coroutineScope because the state write triggers recomposition, which restarts
+    // this LaunchedEffect and cancels any in-flight suspend work.
     LaunchedEffect(activeHint, pendingKey, walkthroughActive) {
         if (walkthroughActive && activeHint == null && pendingKey == null) {
             walkthroughActive = false
-            val trackerSeen = hintPreferences.isHintSeen(HintKey.TRACKER_WELCOME).first()
-            if (!trackerSeen) {
-                onNavigateToTracker()
-            } else {
-                // Tracker walkthrough already completed — clean up seed data directly.
-                val cleanup: TutorialCleanupUseCase = sessionScope.get()
-                val appSettings: AppSettings = koin.get()
-                runSeedCleanupIfNeeded(appSettings, cleanup)
+            coroutineScope.launch {
+                val trackerSeen = hintPreferences.isHintSeen(HintKey.TRACKER_WELCOME).first()
+                if (!trackerSeen) {
+                    onNavigateToTracker()
+                } else {
+                    // Tracker walkthrough already completed — clean up seed data directly.
+                    val cleanup: TutorialCleanupUseCase = sessionScope.get()
+                    val appSettings: AppSettings = koin.get()
+                    runSeedCleanupIfNeeded(appSettings, cleanup)
+                }
             }
         }
     }
@@ -479,6 +484,7 @@ fun DailyLogScreen(
                 CoachMarkOverlay(
                     state = coachMarkState,
                     allDefs = DAILY_LOG_HINTS,
+                    stepList = DAILY_LOG_STEP_LIST,
                     onSkipAll = skipEntireTutorial,
                 )
             }

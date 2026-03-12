@@ -8,18 +8,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -144,13 +140,17 @@ fun TrackerScreen(navController: NavController) {
     }
 
     // Detect Tracker walkthrough completion (normal advance past last hint)
-    // and clean up seed data.
+    // and clean up seed data. The cleanup is launched in coroutineScope (not run
+    // inline) because setting trackerWalkthroughActive = false triggers recomposition,
+    // which restarts this LaunchedEffect and cancels any in-flight suspend work.
     LaunchedEffect(activeHint, pendingKey, trackerWalkthroughActive) {
         if (trackerWalkthroughActive && activeHint == null && pendingKey == null) {
             trackerWalkthroughActive = false
-            val sessionScope = koin.getScope("session")
-            val cleanup: TutorialCleanupUseCase = sessionScope.get()
-            runSeedCleanupIfNeeded(appSettings, cleanup)
+            coroutineScope.launch {
+                val sessionScope = koin.getScope("session")
+                val cleanup: TutorialCleanupUseCase = sessionScope.get()
+                runSeedCleanupIfNeeded(appSettings, cleanup)
+            }
         }
     }
 
@@ -214,6 +214,7 @@ fun TrackerScreen(navController: NavController) {
     }
 
     var showSuccess by remember { mutableStateOf(false) }
+    var emptyOverlayDismissed by remember { mutableStateOf(false) }
 
     // Trigger auto-close logic when the screen is first composed/entered.
     LaunchedEffect(Unit) {
@@ -359,101 +360,80 @@ fun TrackerScreen(navController: NavController) {
                 onMetricSelected = { viewModel.onEvent(TrackerEvent.SelectHeatmapMetric(it)) },
             )
 
-            CalendarGrid(
-                uiState = uiState,
-                calendarState = calendarState,
-                palette = palette,
-                phaseVisible = phaseVisible,
-                today = today,
-                boundsRegistry = boundsRegistry,
-                isDragging = isDragging,
-                dragAnchor = dragAnchor,
-                dragCurrent = dragCurrent,
-                activeHint = activeHint,
-                pendingKey = pendingKey,
-                coachMarkState = coachMarkState,
-                calendarBoxCoords = calendarBoxCoords,
-                onCalendarBoxPositioned = { calendarBoxCoords = it },
-                onDragStateChanged = { anchor, current, dragging ->
-                    dragAnchor = anchor
-                    dragCurrent = current
-                    isDragging = dragging
-                },
-                onEvent = viewModel::onEvent,
-                onTutorialAdvance = {
-                    coroutineScope.launch {
-                        delay(800) // let user see the day color change
-                        coachMarkState.advanceOrDismiss(TRACKER_HINTS)
-                    }
-                },
-                modifier = Modifier.weight(1f),
-            )
+            Box(modifier = Modifier.weight(1f)) {
+                CalendarGrid(
+                    uiState = uiState,
+                    calendarState = calendarState,
+                    palette = palette,
+                    phaseVisible = phaseVisible,
+                    today = today,
+                    boundsRegistry = boundsRegistry,
+                    isDragging = isDragging,
+                    dragAnchor = dragAnchor,
+                    dragCurrent = dragCurrent,
+                    activeHint = activeHint,
+                    pendingKey = pendingKey,
+                    coachMarkState = coachMarkState,
+                    calendarBoxCoords = calendarBoxCoords,
+                    onCalendarBoxPositioned = { calendarBoxCoords = it },
+                    onDragStateChanged = { anchor, current, dragging ->
+                        dragAnchor = anchor
+                        dragCurrent = current
+                        isDragging = dragging
+                    },
+                    onEvent = viewModel::onEvent,
+                    onTutorialAdvance = {
+                        coroutineScope.launch {
+                            delay(800) // let user see the day color change
+                            coachMarkState.advanceOrDismiss(TRACKER_HINTS)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
 
-            Spacer(Modifier.height(dims.md))
-
-            AnimatedVisibility(
-                visible = !uiState.isInitialLoading
-                    && uiState.periods.isEmpty()
-                    && uiState.dayDetails.isEmpty(),
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = dims.md),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(dims.sm),
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = uiState.periods.isNotEmpty() && uiState.ongoingPeriod != null,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.align(Alignment.BottomCenter),
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CalendarMonth,
-                        contentDescription = stringResource(R.string.tracker_empty_icon_cd),
-                        modifier = Modifier.size(dims.iconLg),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    val ongoingStartDate = uiState.ongoingPeriod?.startDate?.toLocalizedDateString() ?: ""
                     Text(
-                        text = stringResource(R.string.tracker_empty_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text(
-                        text = stringResource(R.string.tracker_empty_body),
+                        stringResource(R.string.tracker_ongoing_period, ongoingStartDate),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(dims.sm),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = uiState.periods.isNotEmpty() && uiState.ongoingPeriod == null,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                ) {
+                    Text(
+                        stringResource(R.string.tracker_instructions_drag),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(dims.sm)
                     )
                 }
             }
-            AnimatedVisibility(
-                visible = uiState.periods.isNotEmpty() && uiState.ongoingPeriod != null,
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                val ongoingStartDate = uiState.ongoingPeriod?.startDate?.toLocalizedDateString() ?: ""
-                Text(
-                    stringResource(R.string.tracker_ongoing_period, ongoingStartDate),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(dims.sm),
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            AnimatedVisibility(
-                visible = uiState.periods.isNotEmpty() && uiState.ongoingPeriod == null,
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                Text(
-                    stringResource(R.string.tracker_instructions_drag),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(dims.sm)
-                )
-            }
-            Spacer(Modifier.height(dims.md))
         }
+        }
+
+        // Swipeable empty-state overlay covers all tracker content.
+        val isEmpty = !uiState.isInitialLoading
+            && uiState.periods.isEmpty()
+            && uiState.dayDetails.isEmpty()
+        if (!emptyOverlayDismissed && isEmpty) {
+            EmptyStateOverlay(onDismissed = { emptyOverlayDismissed = true })
         }
 
         // Coach mark overlay draws on top of all screen content.
         CoachMarkOverlay(
             state = coachMarkState,
             allDefs = TRACKER_HINTS,
+            stepList = TRACKER_STEP_LIST,
             onSkipAll = skipTrackerTutorial,
         )
 
