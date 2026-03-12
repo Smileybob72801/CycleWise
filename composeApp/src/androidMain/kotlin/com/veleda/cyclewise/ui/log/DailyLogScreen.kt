@@ -484,6 +484,7 @@ fun DailyLogScreen(
                 CoachMarkOverlay(
                     state = coachMarkState,
                     allDefs = DAILY_LOG_HINTS,
+                    stepList = DAILY_LOG_STEP_LIST,
                     onSkipAll = skipEntireTutorial,
                 )
             }

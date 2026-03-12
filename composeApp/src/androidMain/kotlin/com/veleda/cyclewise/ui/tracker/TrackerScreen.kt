@@ -433,6 +433,7 @@ fun TrackerScreen(navController: NavController) {
         CoachMarkOverlay(
             state = coachMarkState,
             allDefs = TRACKER_HINTS,
+            stepList = TRACKER_STEP_LIST,
             onSkipAll = skipTrackerTutorial,
         )
 

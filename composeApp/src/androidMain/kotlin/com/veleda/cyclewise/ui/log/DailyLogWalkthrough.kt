@@ -3,6 +3,7 @@ package com.veleda.cyclewise.ui.log
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.coachmark.CoachMarkDef
 import com.veleda.cyclewise.ui.coachmark.HintKey
+import com.veleda.cyclewise.ui.coachmark.walkthroughStepList
 
 /**
  * Ten-step guided walkthrough shown on the Daily Log screen the first time a user
@@ -22,6 +23,17 @@ import com.veleda.cyclewise.ui.coachmark.HintKey
  *
  * Each step links to the next via [CoachMarkDef.nextKey]. The last step has `nextKey = null`.
  */
+/**
+ * Ordered list of all [HintKey]s in the Daily Log walkthrough, derived by
+ * following the [CoachMarkDef.nextKey] chain from [HintKey.DAILY_LOG_WELCOME].
+ *
+ * Used by [com.veleda.cyclewise.ui.coachmark.CoachMarkOverlay] to show a
+ * progress indicator across the full walkthrough.
+ */
+val DAILY_LOG_STEP_LIST: List<HintKey> by lazy {
+    walkthroughStepList(HintKey.DAILY_LOG_WELCOME, DAILY_LOG_HINTS)
+}
+
 val DAILY_LOG_HINTS: Map<HintKey, CoachMarkDef> = mapOf(
     HintKey.DAILY_LOG_WELCOME to CoachMarkDef(
         key = HintKey.DAILY_LOG_WELCOME,

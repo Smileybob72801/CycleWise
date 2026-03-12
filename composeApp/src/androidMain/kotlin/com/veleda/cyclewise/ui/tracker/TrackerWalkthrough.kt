@@ -3,6 +3,7 @@ package com.veleda.cyclewise.ui.tracker
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.coachmark.CoachMarkDef
 import com.veleda.cyclewise.ui.coachmark.HintKey
+import com.veleda.cyclewise.ui.coachmark.walkthroughStepList
 
 /**
  * Seven-step guided walkthrough shown on the Tracker screen when the user first
@@ -19,6 +20,17 @@ import com.veleda.cyclewise.ui.coachmark.HintKey
  *
  * Each step links to the next via [CoachMarkDef.nextKey]. The last step has `nextKey = null`.
  */
+/**
+ * Ordered list of all [HintKey]s in the Tracker walkthrough, derived by
+ * following the [CoachMarkDef.nextKey] chain from [HintKey.TRACKER_WELCOME].
+ *
+ * Used by [com.veleda.cyclewise.ui.coachmark.CoachMarkOverlay] to show a
+ * progress indicator across the full walkthrough.
+ */
+val TRACKER_STEP_LIST: List<HintKey> by lazy {
+    walkthroughStepList(HintKey.TRACKER_WELCOME, TRACKER_HINTS)
+}
+
 val TRACKER_HINTS: Map<HintKey, CoachMarkDef> = mapOf(
     HintKey.TRACKER_WELCOME to CoachMarkDef(
         key = HintKey.TRACKER_WELCOME,
