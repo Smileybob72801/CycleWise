@@ -8,8 +8,8 @@ import kotlin.time.Instant
  * Room entity for the `symptom_logs` table.
  *
  * Records a symptom occurrence for a single day. FK to `daily_entries` (CASCADE)
- * and to `symptom_library` (RESTRICT — cannot delete a symptom type while logs reference it).
- * Severity is an integer in the range 1-5.
+ * and to `symptom_library` (CASCADE — deleting a symptom from the library automatically
+ * removes all its log entries). Severity is an integer in the range 1-5.
  */
 @OptIn(ExperimentalTime::class)
 @Entity(
@@ -25,7 +25,7 @@ import kotlin.time.Instant
             entity = SymptomEntity::class,
             parentColumns = ["id"],
             childColumns = ["symptom_id"],
-            onDelete = ForeignKey.RESTRICT
+            onDelete = ForeignKey.CASCADE
         )
     ]
 )

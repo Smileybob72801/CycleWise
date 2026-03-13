@@ -2,11 +2,16 @@ package com.veleda.cyclewise.ui.log.pages
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import com.veleda.cyclewise.RobolectricTestApp
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
@@ -41,6 +46,17 @@ class MedicationsPageTest {
         onToggleMedication: (Medication) -> Unit = {},
         onCreateAndAddMedication: (String) -> Unit = {},
         onShowEducationalSheet: (String) -> Unit = {},
+        medicationForContextMenu: Medication? = null,
+        medicationRenaming: Medication? = null,
+        medicationToDelete: Medication? = null,
+        medicationDeleteLogCount: Int = 0,
+        renameError: String? = null,
+        onMedicationLongPressed: (Medication) -> Unit = {},
+        onRenameClicked: (Medication) -> Unit = {},
+        onRenameConfirmed: (String, String) -> Unit = { _, _ -> },
+        onDeleteClicked: (Medication) -> Unit = {},
+        onDeleteConfirmed: (String) -> Unit = {},
+        onEditDismissed: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalDimensions provides Dimensions()) {
@@ -51,6 +67,17 @@ class MedicationsPageTest {
                         onToggleMedication = onToggleMedication,
                         onCreateAndAddMedication = onCreateAndAddMedication,
                         onShowEducationalSheet = onShowEducationalSheet,
+                        medicationForContextMenu = medicationForContextMenu,
+                        medicationRenaming = medicationRenaming,
+                        medicationToDelete = medicationToDelete,
+                        medicationDeleteLogCount = medicationDeleteLogCount,
+                        renameError = renameError,
+                        onMedicationLongPressed = onMedicationLongPressed,
+                        onRenameClicked = onRenameClicked,
+                        onRenameConfirmed = onRenameConfirmed,
+                        onDeleteClicked = onDeleteClicked,
+                        onDeleteConfirmed = onDeleteConfirmed,
+                        onEditDismissed = onEditDismissed,
                     )
                 }
             }
@@ -143,14 +170,10 @@ class MedicationsPageTest {
         setContent(onCreateAndAddMedication = { captured = it })
 
         // When — type into the text field and tap the add button
-        composeTestRule.onNodeWithText("Add", substring = true, ignoreCase = true)
+        composeTestRule.onNodeWithTag("create-medication-textbox")
             .performTextInput("Aspirin")
 
-        // Find and click the add icon button
-        composeTestRule.onAllNodes(
-            androidx.compose.ui.test.hasContentDescription("Create", substring = true, ignoreCase = true),
-            useUnmergedTree = true,
-        )[0].performClick()
+        composeTestRule.onNodeWithTag("create-medication-button").performClick()
 
         // Then
         assert(captured == "Aspirin") { "Expected 'Aspirin', got '$captured'" }
@@ -174,6 +197,88 @@ class MedicationsPageTest {
 
         // Then
         assert(capturedTag == "Medication") { "Expected 'Medication', got '$capturedTag'" }
+    }
+
+    // endregion
+
+    // region Long-press / Context menu
+
+    @Test
+    fun medicationChip_WHEN_longPressed_THEN_invokesLongPressCallback() {
+        // Given
+        var captured: Medication? = null
+        setContent(onMedicationLongPressed = { captured = it })
+
+        // When
+        composeTestRule.onNodeWithTag("chip-IBUPROFEN").performTouchInput { longClick() }
+
+        // Then
+        assert(captured == ibuprofen) { "Expected Ibuprofen medication on long-press, got $captured" }
+    }
+
+    @Test
+    fun contextMenu_WHEN_renameClicked_THEN_invokesRenameCallback() {
+        // Given
+        var captured: Medication? = null
+        setContent(
+            medicationForContextMenu = ibuprofen,
+            onRenameClicked = { captured = it },
+        )
+
+        // When — tap Rename in the context menu
+        composeTestRule.onNodeWithText("Rename").performClick()
+
+        // Then
+        assert(captured == ibuprofen) { "Expected Ibuprofen medication from Rename click, got $captured" }
+    }
+
+    @Test
+    fun contextMenu_WHEN_medicationForContextMenuSet_THEN_renameAndDeleteVisible() {
+        // Given / When
+        setContent(medicationForContextMenu = ibuprofen)
+
+        // Then
+        composeTestRule.onNodeWithText("Rename").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Delete").assertIsDisplayed()
+    }
+
+    // endregion
+
+    // region Rename dialog
+
+    @Test
+    fun renameDialog_WHEN_medicationRenamingSet_THEN_dialogVisible() {
+        // Given / When
+        setContent(medicationRenaming = ibuprofen)
+
+        // Then — title is unique; "Ibuprofen" appears both as chip label and dialog text field
+        composeTestRule.onNodeWithText("Rename Medication").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Ibuprofen").assertCountEquals(2)
+    }
+
+    // endregion
+
+    // region Delete dialog
+
+    @Test
+    fun deleteDialog_WHEN_medicationToDeleteWithLogs_THEN_showsLogCountWarning() {
+        // Given / When
+        setContent(medicationToDelete = ibuprofen, medicationDeleteLogCount = 3)
+
+        // Then
+        composeTestRule.onNodeWithText("Delete Medication").assertIsDisplayed()
+        composeTestRule.onNodeWithText("3", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun deleteDialog_WHEN_medicationToDeleteWithNoLogs_THEN_showsNoLogsMessage() {
+        // Given / When
+        setContent(medicationToDelete = ibuprofen, medicationDeleteLogCount = 0)
+
+        // Then
+        composeTestRule.onNodeWithText("Delete Medication").assertIsDisplayed()
+        composeTestRule.onNodeWithText("no logged entries", substring = true, ignoreCase = true)
+            .assertIsDisplayed()
     }
 
     // endregion

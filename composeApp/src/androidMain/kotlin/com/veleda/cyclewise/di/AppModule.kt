@@ -44,7 +44,11 @@ import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import com.veleda.cyclewise.domain.usecases.TutorialSeederUseCase
 import org.koin.core.qualifier.named
+import com.veleda.cyclewise.domain.usecases.DeleteMedicationUseCase
+import com.veleda.cyclewise.domain.usecases.DeleteSymptomUseCase
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
+import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
+import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
 import com.veleda.cyclewise.session.KeyFingerprintHolder
 import com.veleda.cyclewise.session.SessionBus
 import com.veleda.cyclewise.session.SessionManager
@@ -325,6 +329,10 @@ val appModule = module {
         scoped { TutorialSeederUseCase(get()) }
         scoped { TutorialCleanupUseCase(get()) }
         scoped { AutoCloseOngoingPeriodUseCase(get()) }
+        scoped { RenameSymptomUseCase(get()) }
+        scoped { DeleteSymptomUseCase(get()) }
+        scoped { RenameMedicationUseCase(get()) }
+        scoped { DeleteMedicationUseCase(get()) }
         // ViewModel Providers
         viewModel {
             TrackerViewModel(
@@ -345,6 +353,10 @@ val appModule = module {
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get(),
                 educationalContentProvider = get(),
+                renameSymptomUseCase = get(),
+                deleteSymptomUseCase = get(),
+                renameMedicationUseCase = get(),
+                deleteMedicationUseCase = get(),
             )
         }
 

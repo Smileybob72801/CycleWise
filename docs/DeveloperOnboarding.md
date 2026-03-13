@@ -1773,8 +1773,8 @@ The daily log has two navigation entry points:
 `DailyLogScreen` uses a 5-page `HorizontalPager` with `ScrollableTabRow` navigation:
 1. **Wellness** — Mood (star rating), energy (star rating), libido (star rating), water intake
 2. **Period** — Period toggle switch, flow intensity, period color, period consistency
-3. **Symptoms** — Symptom library chips with create-and-add
-4. **Medications** — Medication library chips with create-and-add
+3. **Symptoms** — Symptom library chips with create-and-add, long-press to rename/delete
+4. **Medications** — Medication library chips with create-and-add, long-press to rename/delete
 5. **Notes/Tags** — Custom tags with add/remove, free-text note editor
 
 ### Two-Phase Initialization
@@ -1816,8 +1816,10 @@ rather than relying on a navigation parameter.
 All events are defined in `ui/log/DailyLogEvent.kt` as a sealed interface. Each event
 corresponds to a single user action in the daily log — field changes (e.g.,
 `FlowIntensityChanged`, `MoodScoreChanged`), library interactions (e.g.,
-`SymptomToggled`, `CreateAndAddSymptom`), period toggling (`PeriodToggled`), water
-tracking (`WaterIncrement` / `WaterDecrement`), and initialization events (`LogLoaded`,
+`SymptomToggled`, `CreateAndAddSymptom`), library editing (e.g.,
+`SymptomLongPressed`, `RenameSymptomConfirmed`, `DeleteSymptomConfirmed` and
+medication equivalents), period toggling (`PeriodToggled`), water tracking
+(`WaterIncrement` / `WaterDecrement`), and initialization events (`LogLoaded`,
 `LibraryUpdated`). See `DailyLogEvent.kt` for the complete sealed interface.
 
 > **PeriodLog lifecycle:** The `PeriodLog` is created (with null `flowIntensity`) by
@@ -1840,6 +1842,10 @@ launched in `onEvent()` after the state update.
 | `CreateAndAddSymptom` | Returns `currentState` | Yes — creates symptom in library, then updates state |
 | `PeriodToggled` | Yes — creates PeriodLog (null flow) or deletes it | Yes — calls `logPeriodDay` or `unLogPeriodDay` |
 | `WaterIncrement` | Yes (optimistic) | Yes — upserts water intake to DB |
+| `SymptomLongPressed` | Yes — sets `symptomForContextMenu` | No |
+| `RenameSymptomConfirmed` | Returns `currentState` | Yes — calls `RenameSymptomUseCase`, updates state on result |
+| `DeleteSymptomConfirmed` | Returns `currentState` | Yes — calls `DeleteSymptomUseCase`, filters in-memory logs |
+| `LibraryUpdated` | Yes — updates `symptomLibrary` / `medicationLibrary` | No |
 
 ### Auto-Save
 
@@ -2167,16 +2173,43 @@ data class EducationalArticle(
 
 The `ui/components/` package contains shared composables used across multiple screens:
 
-| Component | Purpose |
-|-----------|---------|
-| `EducationalBottomSheet` | Modal bottom sheet for displaying educational articles |
-| `InfoButton` | Small info icon button that triggers educational content display |
-| `MarkdownText` | Renders markdown-formatted text in Compose (used for article bodies) |
-| `MedicalDisclaimer` | Standard disclaimer banner: "This is not medical advice" |
-| `SourceAttribution` | Displays source name and URL for educational content |
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `EducationalBottomSheet` | `ui/components/` | Modal bottom sheet for displaying educational articles |
+| `InfoButton` | `ui/components/` | Small info icon button that triggers educational content display |
+| `MarkdownText` | `ui/components/` | Renders markdown-formatted text in Compose (used for article bodies) |
+| `MedicalDisclaimer` | `ui/components/` | Standard disclaimer banner: "This is not medical advice" |
+| `SourceAttribution` | `ui/components/` | Displays source name and URL for educational content |
+| `LibraryChip` | `ui/log/pages/SymptomsPage.kt` | Chip with tap + long-press support for library items (see below) |
+| `RenameDialog` | `ui/log/pages/SymptomsPage.kt` | AlertDialog with pre-filled OutlinedTextField for renaming library items |
+| `DeleteLibraryItemDialog` | `ui/log/pages/SymptomsPage.kt` | Delete confirmation dialog with log count warning |
 
 These components follow the project convention of one `@Composable` per UI
 responsibility and use `stringResource()` for all user-visible text.
+
+### LibraryChip — Long-Press-Aware Chip
+
+`LibraryChip` replaces `FilterChip` for library items that need both tap (toggle)
+and long-press (context menu) gestures. It uses `Surface` + `combinedClickable`
+directly because **Material3's `FilterChip` internally wraps itself in a `Surface`
+with its own clickable modifier, which consumes all pointer events and prevents
+`combinedClickable` from ever detecting a long-press** — whether placed on the
+chip's modifier or on a parent `Box`.
+
+`LibraryChip` is styled to match `FilterChip` appearance (pill shape, checkmark
+when selected, `secondaryContainer` fill, outline border) and sets proper semantics
+(`selected`, `role = Checkbox`, `stateDescription`, `customActions`) for TalkBack.
+
+### RenameDialog and DeleteLibraryItemDialog
+
+Both dialogs are defined in `SymptomsPage.kt` and reused by `MedicationsPage.kt`
+via direct function call (they are `internal` composables in the same package).
+
+- `RenameDialog`: Pre-fills the current name, validates blank/unchanged input by
+  disabling the Save button, and displays inline errors from the ViewModel's
+  `renameError` state (e.g., "A symptom with this name already exists").
+- `DeleteLibraryItemDialog`: Shows a log count warning ("appears in N daily logs")
+  or a no-logs message, with an error-colored confirm button.
 
 ---
 
@@ -2439,6 +2472,52 @@ fun NewScreen(viewModel: NewScreenViewModel = koinViewModel()) {
    `category: InsightCategory`)
 3. Add a `when` branch in `InsightCardDispatcher` in `InsightsScreen.kt`
 4. Add the generator to the list in `AppModule.kt`'s `InsightEngine` factory registration
+
+### Library Item Edit/Delete Workflow
+
+The symptom and medication libraries support rename and delete via long-press context
+menus. This pattern is reusable for any future library-style feature. The data flow:
+
+```
+UI (long-press chip) → ViewModel event → reduce() shows context menu
+UI (tap Rename/Delete) → ViewModel event → reduce() shows dialog
+UI (confirm) → ViewModel event → onEvent() side effect → UseCase → Repository → DAO
+                                                              ↓
+                                              Room Flow auto-emits updated library
+                                                              ↓
+                                              LibraryUpdated event → reduce() updates state
+                                                              ↓
+                                              UI recomposes with new library
+```
+
+**Key implementation details:**
+
+- **Validation via sealed result types:** `RenameSymptomUseCase` and
+  `RenameMedicationUseCase` return `RenameResult` (a shared sealed interface with
+  `Success`, `BlankName`, `NameAlreadyExists` variants) rather than throwing
+  exceptions. The ViewModel maps these to UI state (`renameError` for inline dialog
+  errors, or clearing the dialog on success).
+
+- **Delete with cascade:** `Migration_11_12` changed the FK on `symptom_logs` and
+  `medication_logs` from `RESTRICT` to `CASCADE`, so deleting a library item
+  automatically removes associated log entries at the database level. The ViewModel
+  also filters the in-memory `FullDailyLog.symptomLogs` / `medicationLogs` to keep
+  the UI state consistent without a full re-fetch.
+
+- **Library reactivity:** The DAO's `getAllSymptoms()` / `getAllMedications()` return
+  `Flow`, so Room automatically emits updated lists after `updateName()` or
+  `deleteById()`. The ViewModel subscribes to these Flows and dispatches
+  `LibraryUpdated` events through `reduce()` to update the chip list.
+
+  > **Gotcha:** The `LibraryUpdated` event must be handled in `reduce()` in **both**
+  > the early-return path (before the log is loaded) **and** the normal path (after
+  > the log is loaded). A bug where `LibraryUpdated` was grouped with the no-op
+  > catch-all in the normal path caused rename/delete to appear non-functional
+  > because the updated library was silently discarded.
+
+- **Delete confirmation with log count:** `DeleteSymptomUseCase.getLogCount()` queries
+  the database for the number of log entries referencing the item, which is displayed
+  in the confirmation dialog to warn users about data loss.
 
 ---
 
@@ -2732,6 +2811,24 @@ class NewUseCase(
 }
 ```
 
+### Validation Result Types
+
+When a use case can fail with user-correctable errors (e.g., blank input, duplicate
+name), prefer returning a sealed interface over throwing exceptions. This keeps the
+ViewModel's `when` handling exhaustive and avoids try/catch boilerplate:
+
+```kotlin
+// RenameResult.kt — shared by RenameSymptomUseCase and RenameMedicationUseCase
+sealed interface RenameResult {
+    data object Success : RenameResult
+    data object BlankName : RenameResult
+    data object NameAlreadyExists : RenameResult
+}
+```
+
+The ViewModel maps each variant to a state update (e.g., setting `renameError` for
+inline dialog feedback or clearing the dialog on `Success`).
+
 ### Registration
 
 Register the use case in `AppModule.kt` inside the session scope:
@@ -2935,6 +3032,32 @@ Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) {
 }
 ```
 
+### 10. Using `FilterChip` with long-press gestures
+
+Material3's `FilterChip` internally wraps itself in a `Surface` with its own
+`clickable` modifier, which consumes all pointer events. `combinedClickable` on the
+chip's modifier or on a parent `Box` will never detect a long-press. Use `LibraryChip`
+(in `SymptomsPage.kt`) instead — it uses `Surface` + `combinedClickable` directly.
+
+### 11. Grouping `LibraryUpdated` with no-op events in `reduce()`
+
+The `reduce()` function must handle `LibraryUpdated` in both the early-return path
+(before the log loads) and the normal `when` block. Grouping it with no-op events
+like `LogLoaded` in the normal path silently discards library updates, making rename
+and delete appear non-functional.
+
+```kotlin
+// WRONG — LibraryUpdated is a no-op after the log loads
+is DailyLogEvent.LogLoaded, is DailyLogEvent.LibraryUpdated -> currentState
+
+// RIGHT — always apply library updates
+is DailyLogEvent.LibraryUpdated -> currentState.copy(
+    symptomLibrary = event.symptoms,
+    medicationLibrary = event.medications,
+)
+is DailyLogEvent.LogLoaded -> currentState
+```
+
 ---
 
 ## 4.9 Database Migrations
@@ -2997,6 +3120,43 @@ CREATE TABLE IF NOT EXISTS new_table (
 -- Create an index
 CREATE INDEX IF NOT EXISTS index_name ON table_name (column_name)
 ```
+
+### Changing Foreign Key Constraints (Table Rebuild)
+
+SQLite has no `ALTER CONSTRAINT` or `DROP FOREIGN KEY`. To change a foreign key's
+`ON DELETE` behavior (e.g., from `RESTRICT` to `CASCADE`), you must rebuild the
+table. This is the pattern used in `Migration_11_12` to enable library item deletion:
+
+```kotlin
+object Migration_11_12 : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // 1. Create temp table with the new FK constraint
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `table_new` (
+                `id` TEXT NOT NULL,
+                `entry_id` TEXT NOT NULL,
+                `item_id` TEXT NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`entry_id`) REFERENCES `daily_entries`(`id`) ON DELETE CASCADE,
+                FOREIGN KEY(`item_id`) REFERENCES `item_library`(`id`) ON DELETE CASCADE
+            )
+        """)
+        // 2. Copy all data
+        db.execSQL("INSERT INTO `table_new` SELECT * FROM `table`")
+        // 3. Drop old table
+        db.execSQL("DROP TABLE `table`")
+        // 4. Rename temp to original name
+        db.execSQL("ALTER TABLE `table_new` RENAME TO `table`")
+        // 5. Recreate all indices
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_table_entry_id` ON `table`(`entry_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_table_item_id` ON `table`(`item_id`)")
+    }
+}
+```
+
+**Important:** After the migration, update the entity class's `@ForeignKey`
+annotation to match the new constraint (e.g., `onDelete = ForeignKey.CASCADE`).
+The annotation and the actual schema must stay in sync.
 
 ---
 

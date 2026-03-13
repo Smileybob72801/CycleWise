@@ -13,8 +13,17 @@ import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.domain.usecases.DeleteMedicationUseCase
+import com.veleda.cyclewise.domain.usecases.DeleteSymptomUseCase
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
+import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
+import com.veleda.cyclewise.domain.usecases.RenameResult
+import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
 import com.veleda.cyclewise.testutil.TestData
+import com.veleda.cyclewise.testutil.buildMedication
+import com.veleda.cyclewise.testutil.buildMedicationLog
+import com.veleda.cyclewise.testutil.buildSymptom
+import com.veleda.cyclewise.testutil.buildSymptomLog
 import android.util.Log
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -40,7 +49,8 @@ import kotlin.test.*
  * Unit tests for [DailyLogViewModel].
  *
  * Covers isPeriodDay initialization from repository state, period toggle
- * dispatching to the repository, and auto-save behavior including note debounce.
+ * dispatching to the repository, auto-save behavior including note debounce,
+ * and symptom/medication library edit and delete operations.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DailyLogViewModelTest {
@@ -55,6 +65,10 @@ class DailyLogViewModelTest {
     private lateinit var mockSymptomProvider: SymptomLibraryProvider
     private lateinit var mockMedicationProvider: MedicationLibraryProvider
     private lateinit var mockEducationalContentProvider: EducationalContentProvider
+    private lateinit var mockRenameSymptomUseCase: RenameSymptomUseCase
+    private lateinit var mockDeleteSymptomUseCase: DeleteSymptomUseCase
+    private lateinit var mockRenameMedicationUseCase: RenameMedicationUseCase
+    private lateinit var mockDeleteMedicationUseCase: DeleteMedicationUseCase
 
     private val testDate = TestData.DATE
     private val testInstant = TestData.INSTANT
@@ -79,6 +93,10 @@ class DailyLogViewModelTest {
         mockSymptomProvider = mockk(relaxed = true)
         mockMedicationProvider = mockk(relaxed = true)
         mockEducationalContentProvider = mockk(relaxed = true)
+        mockRenameSymptomUseCase = mockk(relaxed = true)
+        mockDeleteSymptomUseCase = mockk(relaxed = true)
+        mockRenameMedicationUseCase = mockk(relaxed = true)
+        mockDeleteMedicationUseCase = mockk(relaxed = true)
 
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
@@ -101,6 +119,10 @@ class DailyLogViewModelTest {
             symptomLibraryProvider = mockSymptomProvider,
             medicationLibraryProvider = mockMedicationProvider,
             educationalContentProvider = mockEducationalContentProvider,
+            renameSymptomUseCase = mockRenameSymptomUseCase,
+            deleteSymptomUseCase = mockDeleteSymptomUseCase,
+            renameMedicationUseCase = mockRenameMedicationUseCase,
+            deleteMedicationUseCase = mockDeleteMedicationUseCase,
         )
     }
 
@@ -439,5 +461,209 @@ class DailyLogViewModelTest {
 
         // THEN
         assertNull(vm.uiState.value.educationalArticles)
+    }
+
+    // ── Symptom Library Edit/Delete tests ─────────────────────────────
+
+    @Test
+    fun `onEvent SymptomLongPressed THEN setsSymptomForContextMenu`() = runTest {
+        val symptom = buildSymptom(id = "s1", name = "Headache")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        vm.onEvent(DailyLogEvent.SymptomLongPressed(symptom))
+        advanceUntilIdle()
+
+        assertEquals(symptom, vm.uiState.value.symptomForContextMenu)
+    }
+
+    @Test
+    fun `onEvent SymptomEditDismissed THEN clearsAllSymptomEditState`() = runTest {
+        val symptom = buildSymptom(id = "s1", name = "Headache")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        vm.onEvent(DailyLogEvent.SymptomLongPressed(symptom))
+        advanceUntilIdle()
+        assertNotNull(vm.uiState.value.symptomForContextMenu)
+
+        vm.onEvent(DailyLogEvent.SymptomEditDismissed)
+        advanceUntilIdle()
+
+        assertNull(vm.uiState.value.symptomForContextMenu)
+        assertNull(vm.uiState.value.symptomRenaming)
+        assertNull(vm.uiState.value.symptomToDelete)
+        assertNull(vm.uiState.value.renameError)
+    }
+
+    @Test
+    fun `onEvent RenameSymptomConfirmed WHEN success THEN clearsSymptomRenaming`() = runTest {
+        coEvery { mockRenameSymptomUseCase(any(), any(), any()) } returns RenameResult.Success
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val symptom = buildSymptom(id = "s1", name = "Headache")
+        vm.onEvent(DailyLogEvent.RenameSymptomClicked(symptom))
+        advanceUntilIdle()
+        assertNotNull(vm.uiState.value.symptomRenaming)
+
+        vm.onEvent(DailyLogEvent.RenameSymptomConfirmed("s1", "Migraine"))
+        advanceUntilIdle()
+
+        assertNull(vm.uiState.value.symptomRenaming)
+        assertNull(vm.uiState.value.renameError)
+    }
+
+    @Test
+    fun `onEvent RenameSymptomConfirmed WHEN nameExists THEN setsRenameError`() = runTest {
+        coEvery { mockRenameSymptomUseCase(any(), any(), any()) } returns RenameResult.NameAlreadyExists
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val symptom = buildSymptom(id = "s1", name = "Headache")
+        vm.onEvent(DailyLogEvent.RenameSymptomClicked(symptom))
+        advanceUntilIdle()
+
+        vm.onEvent(DailyLogEvent.RenameSymptomConfirmed("s1", "Cramps"))
+        advanceUntilIdle()
+
+        assertNotNull(vm.uiState.value.renameError)
+        assertNotNull(vm.uiState.value.symptomRenaming, "dialog should remain open on error")
+    }
+
+    @Test
+    fun `onEvent DeleteSymptomClicked THEN fetchesCountAndSetsSymptomToDelete`() = runTest {
+        coEvery { mockDeleteSymptomUseCase.getLogCount("s1") } returns 5
+        val symptom = buildSymptom(id = "s1", name = "Headache")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        vm.onEvent(DailyLogEvent.DeleteSymptomClicked(symptom))
+        advanceUntilIdle()
+
+        assertEquals(symptom, vm.uiState.value.symptomToDelete)
+        assertEquals(5, vm.uiState.value.symptomDeleteLogCount)
+        assertNull(vm.uiState.value.symptomForContextMenu, "context menu should be cleared")
+    }
+
+    @Test
+    fun `onEvent DeleteSymptomConfirmed THEN callsDeleteAndClearsStateAndFiltersLogs`() = runTest {
+        val symptom = buildSymptom(id = "s1", name = "Headache")
+        val symptomLog = buildSymptomLog(symptomId = "s1")
+        val logWithSymptom = testLog.copy(symptomLogs = listOf(symptomLog))
+        coEvery { mockGetOrCreateDailyLog(any()) } returns logWithSymptom
+
+        val vm = createViewModel()
+        advanceUntilIdle()
+        assertEquals(1, vm.uiState.value.log!!.symptomLogs.size)
+
+        vm.onEvent(DailyLogEvent.DeleteSymptomConfirmed("s1"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockDeleteSymptomUseCase("s1") }
+        assertNull(vm.uiState.value.symptomToDelete)
+        assertEquals(0, vm.uiState.value.log!!.symptomLogs.size, "deleted symptom logs should be filtered out")
+    }
+
+    // ── Medication Library Edit/Delete tests ──────────────────────────
+
+    @Test
+    fun `onEvent MedicationLongPressed THEN setsMedicationForContextMenu`() = runTest {
+        val medication = buildMedication(id = "m1", name = "Ibuprofen")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        vm.onEvent(DailyLogEvent.MedicationLongPressed(medication))
+        advanceUntilIdle()
+
+        assertEquals(medication, vm.uiState.value.medicationForContextMenu)
+    }
+
+    @Test
+    fun `onEvent MedicationEditDismissed THEN clearsAllMedicationEditState`() = runTest {
+        val medication = buildMedication(id = "m1", name = "Ibuprofen")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        vm.onEvent(DailyLogEvent.MedicationLongPressed(medication))
+        advanceUntilIdle()
+        assertNotNull(vm.uiState.value.medicationForContextMenu)
+
+        vm.onEvent(DailyLogEvent.MedicationEditDismissed)
+        advanceUntilIdle()
+
+        assertNull(vm.uiState.value.medicationForContextMenu)
+        assertNull(vm.uiState.value.medicationRenaming)
+        assertNull(vm.uiState.value.medicationToDelete)
+        assertNull(vm.uiState.value.renameError)
+    }
+
+    @Test
+    fun `onEvent RenameMedicationConfirmed WHEN success THEN clearsMedicationRenaming`() = runTest {
+        coEvery { mockRenameMedicationUseCase(any(), any(), any()) } returns RenameResult.Success
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val medication = buildMedication(id = "m1", name = "Ibuprofen")
+        vm.onEvent(DailyLogEvent.RenameMedicationClicked(medication))
+        advanceUntilIdle()
+        assertNotNull(vm.uiState.value.medicationRenaming)
+
+        vm.onEvent(DailyLogEvent.RenameMedicationConfirmed("m1", "Naproxen"))
+        advanceUntilIdle()
+
+        assertNull(vm.uiState.value.medicationRenaming)
+        assertNull(vm.uiState.value.renameError)
+    }
+
+    @Test
+    fun `onEvent RenameMedicationConfirmed WHEN nameExists THEN setsRenameError`() = runTest {
+        coEvery { mockRenameMedicationUseCase(any(), any(), any()) } returns RenameResult.NameAlreadyExists
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val medication = buildMedication(id = "m1", name = "Ibuprofen")
+        vm.onEvent(DailyLogEvent.RenameMedicationClicked(medication))
+        advanceUntilIdle()
+
+        vm.onEvent(DailyLogEvent.RenameMedicationConfirmed("m1", "Aspirin"))
+        advanceUntilIdle()
+
+        assertNotNull(vm.uiState.value.renameError)
+        assertNotNull(vm.uiState.value.medicationRenaming, "dialog should remain open on error")
+    }
+
+    @Test
+    fun `onEvent DeleteMedicationClicked THEN fetchesCountAndSetsMedicationToDelete`() = runTest {
+        coEvery { mockDeleteMedicationUseCase.getLogCount("m1") } returns 3
+        val medication = buildMedication(id = "m1", name = "Ibuprofen")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        vm.onEvent(DailyLogEvent.DeleteMedicationClicked(medication))
+        advanceUntilIdle()
+
+        assertEquals(medication, vm.uiState.value.medicationToDelete)
+        assertEquals(3, vm.uiState.value.medicationDeleteLogCount)
+        assertNull(vm.uiState.value.medicationForContextMenu, "context menu should be cleared")
+    }
+
+    @Test
+    fun `onEvent DeleteMedicationConfirmed THEN callsDeleteAndClearsStateAndFiltersLogs`() = runTest {
+        val medication = buildMedication(id = "m1", name = "Ibuprofen")
+        val medicationLog = buildMedicationLog(medicationId = "m1")
+        val logWithMedication = testLog.copy(medicationLogs = listOf(medicationLog))
+        coEvery { mockGetOrCreateDailyLog(any()) } returns logWithMedication
+
+        val vm = createViewModel()
+        advanceUntilIdle()
+        assertEquals(1, vm.uiState.value.log!!.medicationLogs.size)
+
+        vm.onEvent(DailyLogEvent.DeleteMedicationConfirmed("m1"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockDeleteMedicationUseCase("m1") }
+        assertNull(vm.uiState.value.medicationToDelete)
+        assertEquals(0, vm.uiState.value.log!!.medicationLogs.size, "deleted medication logs should be filtered out")
     }
 }
