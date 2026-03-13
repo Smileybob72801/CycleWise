@@ -8,7 +8,11 @@ import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.domain.usecases.DeleteMedicationUseCase
+import com.veleda.cyclewise.domain.usecases.DeleteSymptomUseCase
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
+import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
+import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
 import com.veleda.cyclewise.testutil.TestData
 import com.veleda.cyclewise.ui.log.DailyLogEvent
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
@@ -95,6 +99,10 @@ class WellnessPageEmptyStateTest {
             symptomLibraryProvider = mockSymptomProvider,
             medicationLibraryProvider = mockMedicationProvider,
             educationalContentProvider = mockEducationalContentProvider,
+            renameSymptomUseCase = mockk(relaxed = true),
+            deleteSymptomUseCase = mockk(relaxed = true),
+            renameMedicationUseCase = mockk(relaxed = true),
+            deleteMedicationUseCase = mockk(relaxed = true),
         )
     }
 

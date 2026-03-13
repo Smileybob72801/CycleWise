@@ -181,6 +181,29 @@ interface PeriodRepository {
     /** Returns a one-shot list of all [SymptomLog] entries across all dates. */
     suspend fun getAllSymptomLogs(): List<SymptomLog>
 
+    /**
+     * Renames a symptom in the library.
+     *
+     * @param symptomId UUID of the symptom to rename.
+     * @param newName   the new unique name.
+     */
+    suspend fun renameSymptom(symptomId: String, newName: String)
+
+    /**
+     * Deletes a symptom from the library. CASCADE removes all associated symptom logs.
+     *
+     * @param symptomId UUID of the symptom to delete.
+     */
+    suspend fun deleteSymptom(symptomId: String)
+
+    /**
+     * Returns the number of daily log entries that reference the given symptom.
+     *
+     * @param symptomId UUID of the symptom.
+     * @return count of symptom log entries.
+     */
+    suspend fun getSymptomLogCount(symptomId: String): Int
+
     // ── Medication Library ───────────────────────────────────────────────
 
     /**
@@ -203,6 +226,29 @@ interface PeriodRepository {
 
     /** Returns a one-shot list of all [MedicationLog] entries across all dates. */
     suspend fun getAllMedicationLogs(): List<MedicationLog>
+
+    /**
+     * Renames a medication in the library.
+     *
+     * @param medicationId UUID of the medication to rename.
+     * @param newName      the new unique name.
+     */
+    suspend fun renameMedication(medicationId: String, newName: String)
+
+    /**
+     * Deletes a medication from the library. CASCADE removes all associated medication logs.
+     *
+     * @param medicationId UUID of the medication to delete.
+     */
+    suspend fun deleteMedication(medicationId: String)
+
+    /**
+     * Returns the number of daily log entries that reference the given medication.
+     *
+     * @param medicationId UUID of the medication.
+     * @return count of medication log entries.
+     */
+    suspend fun getMedicationLogCount(medicationId: String): Int
 
     // ── Water Intake ─────────────────────────────────────────────────────
 

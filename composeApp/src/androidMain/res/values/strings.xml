@@ -133,6 +133,25 @@
     <string name="daily_log_symptom_save_error">Failed to save symptom. Please try again.</string>
     <string name="daily_log_medication_save_error">Failed to save medication. Please try again.</string>
 
+    <!-- Library Edit/Delete -->
+    <string name="library_rename">Rename</string>
+    <string name="library_delete">Delete</string>
+    <string name="library_cancel">Cancel</string>
+    <string name="library_rename_save">Save</string>
+    <string name="library_rename_label">New name</string>
+    <string name="library_delete_confirm">Delete</string>
+    <string name="library_rename_symptom_title">Rename Symptom</string>
+    <string name="library_delete_symptom_title">Delete Symptom</string>
+    <string name="library_delete_symptom_message_with_logs">This symptom appears in %d daily logs. Deleting it will permanently remove those log entries.</string>
+    <string name="library_delete_symptom_message_no_logs">This symptom has no logged entries. Delete it from your library?</string>
+    <string name="library_rename_error_blank">Name cannot be blank</string>
+    <string name="library_rename_error_duplicate">A symptom with this name already exists</string>
+    <string name="library_rename_medication_title">Rename Medication</string>
+    <string name="library_delete_medication_title">Delete Medication</string>
+    <string name="library_delete_medication_message_with_logs">This medication appears in %d daily logs. Deleting it will permanently remove those log entries.</string>
+    <string name="library_delete_medication_message_no_logs">This medication has no logged entries. Delete it from your library?</string>
+    <string name="library_rename_error_medication_duplicate">A medication with this name already exists</string>
+
     <!-- Coach Marks -->
     <string name="coach_mark_next">Next</string>
     <string name="coach_mark_got_it">Got it</string>

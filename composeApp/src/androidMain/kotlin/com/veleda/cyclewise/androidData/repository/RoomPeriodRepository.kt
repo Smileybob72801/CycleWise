@@ -457,8 +457,38 @@ class RoomPeriodRepository(
         return symptomLogDao.getAllSymptomLogs().first().map { it.toDomain() }
     }
 
+    /** @see PeriodRepository.renameSymptom */
+    override suspend fun renameSymptom(symptomId: String, newName: String) {
+        symptomDao.updateName(symptomId, newName)
+    }
+
+    /** @see PeriodRepository.deleteSymptom */
+    override suspend fun deleteSymptom(symptomId: String) {
+        symptomDao.deleteById(symptomId)
+    }
+
+    /** @see PeriodRepository.getSymptomLogCount */
+    override suspend fun getSymptomLogCount(symptomId: String): Int {
+        return symptomDao.countLogsForSymptom(symptomId)
+    }
+
     override suspend fun getAllMedicationLogs(): List<MedicationLog> {
         return medicationLogDao.getAllMedicationLogs().first().map { it.toDomain() }
+    }
+
+    /** @see PeriodRepository.renameMedication */
+    override suspend fun renameMedication(medicationId: String, newName: String) {
+        medicationDao.updateName(medicationId, newName)
+    }
+
+    /** @see PeriodRepository.deleteMedication */
+    override suspend fun deleteMedication(medicationId: String) {
+        medicationDao.deleteById(medicationId)
+    }
+
+    /** @see PeriodRepository.getMedicationLogCount */
+    override suspend fun getMedicationLogCount(medicationId: String): Int {
+        return medicationDao.countLogsForMedication(medicationId)
     }
 
     override suspend fun deletePeriod(id: String) {
