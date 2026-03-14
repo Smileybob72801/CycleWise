@@ -73,6 +73,12 @@
     <string name="tracker_delete_message">Are you sure you want to permanently delete this period and all its associated flow logs? This action cannot be undone.</string>
     <string name="tracker_delete_confirm">Delete Period</string>
     <string name="tracker_cancel">Cancel</string>
+    <string name="unmark_period_day_title">Remove Period Day?</string>
+    <string name="unmark_period_day_message">This day has logged flow, color, or consistency data. Removing it as a period day will permanently delete that data.\n\nYour other daily log entries (mood, symptoms, medications, notes) will not be affected.</string>
+    <string name="unmark_period_day_confirm">Remove</string>
+    <string name="unmark_period_range_title">Remove Period Days?</string>
+    <string name="unmark_period_range_message">Remove %1$d period days? %2$d of them have logged flow, color, or consistency data that will be permanently deleted.\n\nYour other daily log entries will not be affected.</string>
+    <string name="unmark_period_range_confirm">Remove %1$d Days</string>
     <string name="tracker_ongoing_period">Ongoing Period: %s</string>
     <string name="tracker_instructions">Long press a day to start/mark your period. Tap to log details.</string>
     <string name="tracker_instructions_drag">Long press a day to toggle period. Press and drag to select a range.</string>

@@ -497,6 +497,12 @@ fun DailyLogScreen(
                 }
                 }
 
+                UnmarkPeriodDayDialog(
+                    showDialog = uiState.showUnmarkPeriodConfirmation,
+                    onConfirm = { viewModel.onEvent(DailyLogEvent.UnmarkPeriodConfirmed) },
+                    onDismiss = { viewModel.onEvent(DailyLogEvent.UnmarkPeriodDismissed) },
+                )
+
                 SnackbarHost(
                     hostState = snackbarHostState,
                     modifier = Modifier.align(Alignment.BottomCenter),

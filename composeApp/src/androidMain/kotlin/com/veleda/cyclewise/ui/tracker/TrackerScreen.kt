@@ -269,6 +269,16 @@ fun TrackerScreen(navController: NavController) {
         onEvent = viewModel::onEvent,
     )
 
+    UnmarkPeriodDayConfirmationDialog(
+        uiState = uiState,
+        onEvent = viewModel::onEvent,
+    )
+
+    UnmarkPeriodRangeConfirmationDialog(
+        uiState = uiState,
+        onEvent = viewModel::onEvent,
+    )
+
     uiState.educationalArticles?.let { articles ->
         EducationalBottomSheet(
             articles = articles,

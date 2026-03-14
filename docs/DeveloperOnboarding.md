@@ -914,6 +914,7 @@ data class TrackerUiState(
 - `PeriodMarkDay(date)` — Long-press to toggle period day
 - `PeriodRangeDragged(anchorDate, releaseDate)` — Long-press-and-drag to mark/shrink a period range
 - `DeletePeriodRequested(periodId)` / `DeletePeriodConfirmed` / `DeletePeriodDismissed` — Delete confirmation flow
+- `UnmarkPeriodDayConfirmed(date)` / `UnmarkPeriodRangeConfirmed(dates)` / `UnmarkPeriodDismissed` — Unmark confirmation flow (shown when removing period days that have logged data)
 - ... and additional events for sheet dismissal, educational content, etc.
 
 **Dispatch:**
@@ -1558,7 +1559,13 @@ When the user interacts with the tracker:
 - **`DayTapped(date)`** — If a log exists for that date, shows a bottom sheet summary.
   If not, navigates to `DailyLogScreen` to create one.
 - **`PeriodMarkDay(date)`** — Long-press toggle. If the date is inside a period,
-  calls `unLogPeriodDay()`. If not, calls `logPeriodDay()`.
+  checks whether the day's `PeriodLog` has user-entered data (`hasData()`). If it
+  does, shows a confirmation dialog (`UnmarkPeriodDayConfirmationDialog`). If not,
+  calls `unLogPeriodDay()` silently. If the date is outside all periods, calls
+  `logPeriodDay()`.
+- **Unmark confirmation flow** — `UnmarkPeriodDayConfirmed(date)` calls
+  `unLogPeriodDay()`. `UnmarkPeriodRangeConfirmed(dates)` calls `unLogPeriodDay()`
+  for each date. `UnmarkPeriodDismissed` resets dialog state without side effects.
 - **Delete flow** — `DeletePeriodRequested` shows a confirmation dialog.
   `DeletePeriodConfirmed` calls `periodRepository.deletePeriod()`.
 
@@ -1579,11 +1586,13 @@ long-press, then tracks drag position. On release:
 
 **Shrink vs Expand logic in TrackerViewModel:** When processing `PeriodRangeDragged`:
 - **Shrink from start:** When anchor equals the start date of an existing period and
-  release is inside the period → calls `unLogPeriodDay()` for each day from anchor up
-  to (but not including) release.
+  release is inside the period → collects the days from anchor up to (but not
+  including) release. If any of those days have `PeriodLog` data (`hasData()`),
+  shows `UnmarkPeriodRangeConfirmationDialog` with counts. If none have data,
+  calls `unLogPeriodDay()` for each day silently.
 - **Shrink from end:** When anchor equals the end date of an existing period and
-  release is inside the period → calls `unLogPeriodDay()` for each day from anchor down
-  to (but not including) release.
+  release is inside the period → same data-check logic as shrink-from-start,
+  applied to the days from anchor down to (but not including) release.
 - **Default (expand/mark):** Otherwise → calls `logPeriodDay()` for every day in the
   anchor-to-release range (inclusive).
 
@@ -1823,10 +1832,12 @@ medication equivalents), period toggling (`PeriodToggled`), water tracking
 `LibraryUpdated`). See `DailyLogEvent.kt` for the complete sealed interface.
 
 > **PeriodLog lifecycle:** The `PeriodLog` is created (with null `flowIntensity`) by
-> `PeriodToggled` and deleted when the user toggles the period OFF. `FlowIntensityChanged`
-> only updates the flow field on an existing `PeriodLog` — it no longer creates or
-> deletes one. This allows users to log period attributes (color, consistency) without
-> first selecting a flow level.
+> `PeriodToggled` and deleted when the user toggles the period OFF. If the existing
+> `PeriodLog` has user-entered data (`hasData()` — flow, color, or consistency),
+> toggling OFF shows `UnmarkPeriodDayDialog` for confirmation instead of deleting
+> immediately. `FlowIntensityChanged` only updates the flow field on an existing
+> `PeriodLog` — it no longer creates or deletes one. This allows users to log period
+> attributes (color, consistency) without first selecting a flow level.
 
 ### The Pure Reducer
 
@@ -1840,7 +1851,9 @@ launched in `onEvent()` after the state update.
 | `MoodScoreChanged` | Yes | No |
 | `SymptomToggled` | Yes | No |
 | `CreateAndAddSymptom` | Returns `currentState` | Yes — creates symptom in library, then updates state |
-| `PeriodToggled` | Yes — creates PeriodLog (null flow) or deletes it | Yes — calls `logPeriodDay` or `unLogPeriodDay` |
+| `PeriodToggled` | Yes — creates PeriodLog (null flow), deletes it, or shows unmark confirmation if it has data | Yes — calls `logPeriodDay` or `unLogPeriodDay` (unless data check triggers dialog) |
+| `UnmarkPeriodConfirmed` | Yes — nulls periodLog, clears confirmation flag | Yes — calls `unLogPeriodDay`, auto-saves |
+| `UnmarkPeriodDismissed` | Yes — clears confirmation flag | No |
 | `WaterIncrement` | Yes (optimistic) | Yes — upserts water intake to DB |
 | `SymptomLongPressed` | Yes — sets `symptomForContextMenu` | No |
 | `RenameSymptomConfirmed` | Returns `currentState` | Yes — calls `RenameSymptomUseCase`, updates state on result |
@@ -2183,6 +2196,9 @@ The `ui/components/` package contains shared composables used across multiple sc
 | `LibraryChip` | `ui/log/pages/SymptomsPage.kt` | Chip with tap + long-press support for library items (see below) |
 | `RenameDialog` | `ui/log/pages/SymptomsPage.kt` | AlertDialog with pre-filled OutlinedTextField for renaming library items |
 | `DeleteLibraryItemDialog` | `ui/log/pages/SymptomsPage.kt` | Delete confirmation dialog with log count warning |
+| `UnmarkPeriodDayConfirmationDialog` | `ui/tracker/UnmarkPeriodConfirmationDialog.kt` | Confirmation dialog for removing a single period day with logged data |
+| `UnmarkPeriodRangeConfirmationDialog` | `ui/tracker/UnmarkPeriodConfirmationDialog.kt` | Confirmation dialog for removing multiple period days via drag-shrink |
+| `UnmarkPeriodDayDialog` | `ui/log/UnmarkPeriodDayDialog.kt` | Confirmation dialog for DailyLog period toggle-off with logged data |
 
 These components follow the project convention of one `@Composable` per UI
 responsibility and use `stringResource()` for all user-visible text.
@@ -2607,6 +2623,8 @@ One of the largest files in the codebase. Key sections:
 - **`saveFullLog()`:** Uses delete-then-insert transaction semantics
 - **`logPeriodDay()`:** The 4-scenario state machine (see [section 2.5](#25-use-cases-to-repository-to-dao))
 - **`unLogPeriodDay()`:** The inverse 4-scenario state machine
+- **`getPeriodLogForDate()`:** Fetches a single `PeriodLog` for a date (used by unmark data check)
+- **`getPeriodLogsForDateRange()`:** Batch fetches `PeriodLog`s for a date range (used by drag-shrink data check)
 - **`observeDayDetails()`:** Combines `getAllPeriods()` and `getAllLogs()` into a
   `Map<LocalDate, DayDetails>` — the single source of truth for the calendar UI
 - **`seedDatabaseForDebug()`:** Generates 6 cycles of realistic data (varied cycle

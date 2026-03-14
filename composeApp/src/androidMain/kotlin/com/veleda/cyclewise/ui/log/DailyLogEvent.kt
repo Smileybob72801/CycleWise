@@ -74,6 +74,12 @@ sealed interface DailyLogEvent {
      */
     data class PeriodToggled(val isOnPeriod: Boolean) : DailyLogEvent
 
+    /** The user confirmed unmarking a period day that had logged data. */
+    data object UnmarkPeriodConfirmed : DailyLogEvent
+
+    /** The user dismissed the unmark-period confirmation dialog. */
+    data object UnmarkPeriodDismissed : DailyLogEvent
+
     /** The user tapped the increment button on the water counter. */
     data object WaterIncrement : DailyLogEvent
 
