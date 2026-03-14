@@ -175,7 +175,7 @@ internal fun CalendarDayCell(
             .testTag("day-$date")
             .drawBehind {
                 if (heatmapColor != null) {
-                    val strokeWidthPx = dims.xxs.toPx()
+                    val strokeWidthPx = dims.xs.toPx()
                     val r = dims.sm.toPx()
                     val halfStroke = strokeWidthPx / 2
                     val extend = r + strokeWidthPx

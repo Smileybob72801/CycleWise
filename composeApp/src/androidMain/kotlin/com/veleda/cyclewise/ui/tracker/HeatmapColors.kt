@@ -1,7 +1,5 @@
 package com.veleda.cyclewise.ui.tracker
 
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import com.veleda.cyclewise.domain.models.HeatmapMetric
@@ -9,23 +7,30 @@ import com.veleda.cyclewise.domain.models.HeatmapMetric
 /**
  * Maps a [HeatmapMetric] to a color gradient for calendar border rendering.
  *
- * Each metric has a distinct hue. Intensity is mapped to alpha and color
- * interpolation between a light baseline and the metric's primary color.
+ * Each metric has a distinct hue from [HeatmapMetricColors]. Intensity is mapped
+ * to alpha interpolation between a 0.3 baseline and a 0.9 maximum.
  *
- * @param metric    The active heatmap metric.
- * @param intensity 0.0-1.0 value for the day.
+ * Callers may supply [customColors] (keyed by [HeatmapMetric.key]) to override the
+ * defaults — values come from the user's heatmap color preferences in Settings.
+ *
+ * @param metric       The active heatmap metric.
+ * @param intensity    0.0-1.0 value for the day.
+ * @param customColors Optional map of metric key → [Color] overrides.
  * @return Color for the calendar cell heatmap border.
  */
-@Composable
-internal fun heatmapColor(metric: HeatmapMetric, intensity: Float): Color {
-    val baseColor = when (metric) {
-        is HeatmapMetric.Mood -> MaterialTheme.colorScheme.primary
-        is HeatmapMetric.Energy -> MaterialTheme.colorScheme.tertiary
-        is HeatmapMetric.Libido -> MaterialTheme.colorScheme.secondary
-        is HeatmapMetric.WaterIntake -> Color(0xFF2196F3) // Blue
-        is HeatmapMetric.SymptomSeverity -> MaterialTheme.colorScheme.error
-        is HeatmapMetric.FlowIntensity -> Color(0xFFE91E63) // Pink
-        is HeatmapMetric.MedicationCount -> Color(0xFF4CAF50) // Green
+internal fun heatmapColor(
+    metric: HeatmapMetric,
+    intensity: Float,
+    customColors: Map<String, Color> = emptyMap(),
+): Color {
+    val baseColor = customColors[metric.key] ?: when (metric) {
+        is HeatmapMetric.Mood -> HeatmapMetricColors.Mood
+        is HeatmapMetric.Energy -> HeatmapMetricColors.Energy
+        is HeatmapMetric.Libido -> HeatmapMetricColors.Libido
+        is HeatmapMetric.WaterIntake -> HeatmapMetricColors.WaterIntake
+        is HeatmapMetric.SymptomSeverity -> HeatmapMetricColors.SymptomSeverity
+        is HeatmapMetric.FlowIntensity -> HeatmapMetricColors.FlowIntensity
+        is HeatmapMetric.MedicationCount -> HeatmapMetricColors.MedicationCount
     }
 
     val maxAlpha = 0.9f

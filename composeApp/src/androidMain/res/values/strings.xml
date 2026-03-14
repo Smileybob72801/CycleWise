@@ -309,6 +309,16 @@
     <string name="insights_charts_section_header">Charts</string>
     <string name="heatmap_off">Off</string>
     <string name="heatmap_section_label">Heatmap</string>
+    <string name="heatmap_colors_title">Heatmap Colors</string>
+    <string name="heatmap_color_mood_label">Mood</string>
+    <string name="heatmap_color_energy_label">Energy</string>
+    <string name="heatmap_color_libido_label">Libido</string>
+    <string name="heatmap_color_water_intake_label">Water</string>
+    <string name="heatmap_color_symptom_severity_label">Symptom Severity</string>
+    <string name="heatmap_color_flow_intensity_label">Flow</string>
+    <string name="heatmap_color_medication_count_label">Medications</string>
+    <string name="heatmap_color_reset_defaults">Reset to Defaults</string>
+    <string name="settings_section_heatmap_colors">Heatmap Colors</string>
 
     <!-- Reminder time labels -->
     <string name="reminder_hour_label">Hour</string>

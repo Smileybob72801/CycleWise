@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
@@ -51,6 +52,7 @@ import kotlinx.datetime.toKotlinLocalDate
  * @param pendingKey          Pending coach mark hint key, if any.
  * @param coachMarkState      Coach mark system state.
  * @param calendarBoxCoords   Layout coordinates of the calendar container.
+ * @param customHeatmapColors Map of metric key → [Color] overrides from user settings.
  * @param onCalendarBoxPositioned Callback when the calendar container is positioned.
  * @param onDragStateChanged  Callback to update drag state (anchor, current, isDragging).
  * @param onEvent             Callback for tracker events.
@@ -73,6 +75,7 @@ internal fun CalendarGrid(
     pendingKey: HintKey?,
     coachMarkState: CoachMarkState,
     calendarBoxCoords: LayoutCoordinates?,
+    customHeatmapColors: Map<String, Color> = emptyMap(),
     onCalendarBoxPositioned: (LayoutCoordinates) -> Unit,
     onDragStateChanged: (anchor: LocalDate?, current: LocalDate?, dragging: Boolean) -> Unit,
     onEvent: (TrackerEvent) -> Unit,
@@ -216,7 +219,7 @@ internal fun CalendarGrid(
 
                 val heatmapOverlay = uiState.selectedHeatmapMetric?.let { metric ->
                     uiState.heatmapIntensities[date]?.let { intensity ->
-                        heatmapColor(metric, intensity)
+                        heatmapColor(metric, intensity, customHeatmapColors)
                     }
                 }
 

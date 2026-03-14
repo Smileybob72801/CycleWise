@@ -13,6 +13,7 @@ import com.veleda.cyclewise.ui.auth.MIN_PASSPHRASE_LENGTH
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.theme.ThemeMode
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
+import com.veleda.cyclewise.ui.tracker.HeatmapMetricColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -90,11 +91,18 @@ data class GeneralSettingsState(
  * @property showFollicular        Whether the Follicular phase tint is visible on the calendar.
  * @property showOvulation         Whether the Ovulation phase tint is visible on the calendar.
  * @property showLuteal            Whether the Luteal phase tint is visible on the calendar.
- * @property menstruationColorHex  6-char hex color for the Menstruation phase.
- * @property follicularColorHex    6-char hex color for the Follicular phase.
- * @property ovulationColorHex     6-char hex color for the Ovulation phase.
- * @property lutealColorHex        6-char hex color for the Luteal phase.
- * @property educationalArticles   Articles to display in the educational bottom sheet, or null when the sheet is hidden.
+ * @property menstruationColorHex           6-char hex color for the Menstruation phase.
+ * @property follicularColorHex             6-char hex color for the Follicular phase.
+ * @property ovulationColorHex              6-char hex color for the Ovulation phase.
+ * @property lutealColorHex                 6-char hex color for the Luteal phase.
+ * @property heatmapMoodColorHex            6-char hex color for the Mood heatmap metric.
+ * @property heatmapEnergyColorHex          6-char hex color for the Energy heatmap metric.
+ * @property heatmapLibidoColorHex          6-char hex color for the Libido heatmap metric.
+ * @property heatmapWaterIntakeColorHex     6-char hex color for the Water Intake heatmap metric.
+ * @property heatmapSymptomSeverityColorHex 6-char hex color for the Symptom Severity heatmap metric.
+ * @property heatmapFlowIntensityColorHex   6-char hex color for the Flow Intensity heatmap metric.
+ * @property heatmapMedicationCountColorHex 6-char hex color for the Medication Count heatmap metric.
+ * @property educationalArticles            Articles to display in the educational bottom sheet, or null when the sheet is hidden.
  */
 data class AppearanceSettingsState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -108,6 +116,13 @@ data class AppearanceSettingsState(
     val follicularColorHex: String = CyclePhaseColors.DEFAULT_FOLLICULAR_HEX,
     val ovulationColorHex: String = CyclePhaseColors.DEFAULT_OVULATION_HEX,
     val lutealColorHex: String = CyclePhaseColors.DEFAULT_LUTEAL_HEX,
+    val heatmapMoodColorHex: String = HeatmapMetricColors.DEFAULT_MOOD_HEX,
+    val heatmapEnergyColorHex: String = HeatmapMetricColors.DEFAULT_ENERGY_HEX,
+    val heatmapLibidoColorHex: String = HeatmapMetricColors.DEFAULT_LIBIDO_HEX,
+    val heatmapWaterIntakeColorHex: String = HeatmapMetricColors.DEFAULT_WATER_INTAKE_HEX,
+    val heatmapSymptomSeverityColorHex: String = HeatmapMetricColors.DEFAULT_SYMPTOM_SEVERITY_HEX,
+    val heatmapFlowIntensityColorHex: String = HeatmapMetricColors.DEFAULT_FLOW_INTENSITY_HEX,
+    val heatmapMedicationCountColorHex: String = HeatmapMetricColors.DEFAULT_MEDICATION_COUNT_HEX,
     val educationalArticles: List<EducationalArticle>? = null,
 )
 
@@ -272,6 +287,34 @@ class SettingsViewModel(
             .onEach { value -> _appearanceState.update { it.copy(lutealColorHex = value) } }
             .launchIn(viewModelScope)
 
+        appSettings.heatmapMoodColor
+            .onEach { value -> _appearanceState.update { it.copy(heatmapMoodColorHex = value) } }
+            .launchIn(viewModelScope)
+
+        appSettings.heatmapEnergyColor
+            .onEach { value -> _appearanceState.update { it.copy(heatmapEnergyColorHex = value) } }
+            .launchIn(viewModelScope)
+
+        appSettings.heatmapLibidoColor
+            .onEach { value -> _appearanceState.update { it.copy(heatmapLibidoColorHex = value) } }
+            .launchIn(viewModelScope)
+
+        appSettings.heatmapWaterIntakeColor
+            .onEach { value -> _appearanceState.update { it.copy(heatmapWaterIntakeColorHex = value) } }
+            .launchIn(viewModelScope)
+
+        appSettings.heatmapSymptomSeverityColor
+            .onEach { value -> _appearanceState.update { it.copy(heatmapSymptomSeverityColorHex = value) } }
+            .launchIn(viewModelScope)
+
+        appSettings.heatmapFlowIntensityColor
+            .onEach { value -> _appearanceState.update { it.copy(heatmapFlowIntensityColorHex = value) } }
+            .launchIn(viewModelScope)
+
+        appSettings.heatmapMedicationCountColor
+            .onEach { value -> _appearanceState.update { it.copy(heatmapMedicationCountColorHex = value) } }
+            .launchIn(viewModelScope)
+
         // ── Notification state collectors ────────────────────────────
         appSettings.reminderPeriodEnabled
             .onEach { value -> _notificationState.update { it.copy(periodReminderEnabled = value) } }
@@ -358,6 +401,8 @@ class SettingsViewModel(
             is SettingsEvent.OvulationColorChanged,
             is SettingsEvent.LutealColorChanged,
             is SettingsEvent.ResetPhaseColorsToDefaults,
+            is SettingsEvent.HeatmapColorChanged,
+            is SettingsEvent.ResetHeatmapColorsToDefaults,
             is SettingsEvent.ShowEducationalSheet,
             is SettingsEvent.DismissEducationalSheet ->
                 _appearanceState.update { reduceAppearance(it, event) }
@@ -464,6 +509,28 @@ class SettingsViewModel(
                     appSettings.setOvulationColor(CyclePhaseColors.DEFAULT_OVULATION_HEX)
                     appSettings.setLutealColor(CyclePhaseColors.DEFAULT_LUTEAL_HEX)
                 }
+            }
+
+            is SettingsEvent.HeatmapColorChanged -> viewModelScope.launch {
+                when (event.metricKey) {
+                    "mood" -> appSettings.setHeatmapMoodColor(event.hex)
+                    "energy" -> appSettings.setHeatmapEnergyColor(event.hex)
+                    "libido" -> appSettings.setHeatmapLibidoColor(event.hex)
+                    "water" -> appSettings.setHeatmapWaterIntakeColor(event.hex)
+                    "symptom_severity" -> appSettings.setHeatmapSymptomSeverityColor(event.hex)
+                    "flow" -> appSettings.setHeatmapFlowIntensityColor(event.hex)
+                    "medications" -> appSettings.setHeatmapMedicationCountColor(event.hex)
+                }
+            }
+
+            is SettingsEvent.ResetHeatmapColorsToDefaults -> viewModelScope.launch {
+                appSettings.setHeatmapMoodColor(HeatmapMetricColors.DEFAULT_MOOD_HEX)
+                appSettings.setHeatmapEnergyColor(HeatmapMetricColors.DEFAULT_ENERGY_HEX)
+                appSettings.setHeatmapLibidoColor(HeatmapMetricColors.DEFAULT_LIBIDO_HEX)
+                appSettings.setHeatmapWaterIntakeColor(HeatmapMetricColors.DEFAULT_WATER_INTAKE_HEX)
+                appSettings.setHeatmapSymptomSeverityColor(HeatmapMetricColors.DEFAULT_SYMPTOM_SEVERITY_HEX)
+                appSettings.setHeatmapFlowIntensityColor(HeatmapMetricColors.DEFAULT_FLOW_INTENSITY_HEX)
+                appSettings.setHeatmapMedicationCountColor(HeatmapMetricColors.DEFAULT_MEDICATION_COUNT_HEX)
             }
 
             is SettingsEvent.ShowEducationalSheet -> {
@@ -697,6 +764,28 @@ class SettingsViewModel(
                     follicularColorHex = CyclePhaseColors.DEFAULT_FOLLICULAR_HEX,
                     ovulationColorHex = CyclePhaseColors.DEFAULT_OVULATION_HEX,
                     lutealColorHex = CyclePhaseColors.DEFAULT_LUTEAL_HEX,
+                )
+
+            is SettingsEvent.HeatmapColorChanged -> when (event.metricKey) {
+                "mood" -> state.copy(heatmapMoodColorHex = event.hex)
+                "energy" -> state.copy(heatmapEnergyColorHex = event.hex)
+                "libido" -> state.copy(heatmapLibidoColorHex = event.hex)
+                "water" -> state.copy(heatmapWaterIntakeColorHex = event.hex)
+                "symptom_severity" -> state.copy(heatmapSymptomSeverityColorHex = event.hex)
+                "flow" -> state.copy(heatmapFlowIntensityColorHex = event.hex)
+                "medications" -> state.copy(heatmapMedicationCountColorHex = event.hex)
+                else -> state
+            }
+
+            is SettingsEvent.ResetHeatmapColorsToDefaults ->
+                state.copy(
+                    heatmapMoodColorHex = HeatmapMetricColors.DEFAULT_MOOD_HEX,
+                    heatmapEnergyColorHex = HeatmapMetricColors.DEFAULT_ENERGY_HEX,
+                    heatmapLibidoColorHex = HeatmapMetricColors.DEFAULT_LIBIDO_HEX,
+                    heatmapWaterIntakeColorHex = HeatmapMetricColors.DEFAULT_WATER_INTAKE_HEX,
+                    heatmapSymptomSeverityColorHex = HeatmapMetricColors.DEFAULT_SYMPTOM_SEVERITY_HEX,
+                    heatmapFlowIntensityColorHex = HeatmapMetricColors.DEFAULT_FLOW_INTENSITY_HEX,
+                    heatmapMedicationCountColorHex = HeatmapMetricColors.DEFAULT_MEDICATION_COUNT_HEX,
                 )
 
             is SettingsEvent.ShowEducationalSheet -> state
