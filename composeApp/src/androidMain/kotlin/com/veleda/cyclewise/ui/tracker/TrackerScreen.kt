@@ -347,29 +347,6 @@ fun TrackerScreen(navController: NavController) {
                 days.subList(firstDayOfWeek.value - 1, days.size) + days.subList(0, firstDayOfWeek.value - 1)
             }
             DaysOfWeekTitle(daysOfWeek = daysOfWeek)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(end = dims.sm)
-                    .coachMarkTarget(HintKey.TRACKER_PHASE_LEGEND, coachMarkState),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                PhaseLegend(
-                    palette = palette,
-                    phaseVisible = phaseVisible,
-                    modifier = Modifier.weight(1f),
-                )
-                InfoButton(
-                    onClick = { viewModel.onEvent(TrackerEvent.ShowEducationalSheet("CyclePhase")) },
-                    contentDescription = stringResource(R.string.educational_info_button_cd, stringResource(R.string.tracker_phase_label)),
-                )
-            }
-
-            HeatmapSelector(
-                selectedMetric = uiState.selectedHeatmapMetric,
-                onMetricSelected = { viewModel.onEvent(TrackerEvent.SelectHeatmapMetric(it)) },
-            )
-
             Box(modifier = Modifier.weight(1f)) {
                 CalendarGrid(
                     uiState = uiState,
@@ -428,6 +405,27 @@ fun TrackerScreen(navController: NavController) {
                     )
                 }
             }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = dims.sm)
+                    .coachMarkTarget(HintKey.TRACKER_PHASE_LEGEND, coachMarkState),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PhaseLegend(
+                    palette = palette,
+                    phaseVisible = phaseVisible,
+                    modifier = Modifier.weight(1f),
+                )
+                InfoButton(
+                    onClick = { viewModel.onEvent(TrackerEvent.ShowEducationalSheet("CyclePhase")) },
+                    contentDescription = stringResource(R.string.educational_info_button_cd, stringResource(R.string.tracker_phase_label)),
+                )
+            }
+            HeatmapSelector(
+                selectedMetric = uiState.selectedHeatmapMetric,
+                onMetricSelected = { viewModel.onEvent(TrackerEvent.SelectHeatmapMetric(it)) },
+            )
         }
         }
 
