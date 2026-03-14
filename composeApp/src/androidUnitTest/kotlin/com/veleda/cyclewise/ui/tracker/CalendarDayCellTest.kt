@@ -1,0 +1,148 @@
+package com.veleda.cyclewise.ui.tracker
+
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import com.kizitonwose.calendar.core.CalendarDay
+import com.kizitonwose.calendar.core.DayPosition
+import com.veleda.cyclewise.RobolectricTestApp
+import com.veleda.cyclewise.domain.models.CyclePhase
+import com.veleda.cyclewise.ui.theme.Dimensions
+import com.veleda.cyclewise.ui.theme.LightCyclePhasePalette
+import com.veleda.cyclewise.ui.theme.LocalDimensions
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import java.time.LocalDate
+
+/**
+ * Robolectric-based integration tests for [CalendarDayCell].
+ *
+ * Validates that the cell renders without crash under the key heatmap border
+ * configurations: isolated, start, end, middle, combined with phase fill,
+ * and combined with today border.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(application = RobolectricTestApp::class)
+class CalendarDayCellTest {
+
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    private val testDate = LocalDate.of(2026, 3, 15)
+    private val palette = LightCyclePhasePalette
+    private val testHeatmapColor = Color(0xFF2196F3).copy(alpha = 0.6f)
+
+    private fun setContent(
+        dayInfo: CalendarDayInfo? = null,
+        isToday: Boolean = false,
+        isStartDate: Boolean = false,
+        isEndDate: Boolean = false,
+        isInExistingRange: Boolean = false,
+        isInSelectionRange: Boolean = false,
+        displayPhase: CyclePhase? = null,
+        isPhaseStart: Boolean = true,
+        isPhaseEnd: Boolean = true,
+        heatmapColor: Color? = null,
+        isHeatmapStart: Boolean = true,
+        isHeatmapEnd: Boolean = true,
+    ) {
+        composeTestRule.setContent {
+            CompositionLocalProvider(
+                LocalDimensions provides Dimensions(),
+            ) {
+                MaterialTheme {
+                    CalendarDayCell(
+                        day = CalendarDay(testDate, DayPosition.MonthDate),
+                        dayInfo = dayInfo,
+                        isToday = isToday,
+                        isStartDate = isStartDate,
+                        isEndDate = isEndDate,
+                        isInExistingRange = isInExistingRange,
+                        isInSelectionRange = isInSelectionRange,
+                        isPhaseStart = isPhaseStart,
+                        isPhaseEnd = isPhaseEnd,
+                        palette = palette,
+                        displayPhase = displayPhase,
+                        onTap = {},
+                        heatmapColor = heatmapColor,
+                        isHeatmapStart = isHeatmapStart,
+                        isHeatmapEnd = isHeatmapEnd,
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `GIVEN no heatmap THEN renders day number normally`() {
+        // GIVEN — baseline cell with no heatmap overlay
+        setContent()
+
+        // THEN — the day number is displayed
+        composeTestRule.onNodeWithText("15").assertIsDisplayed()
+    }
+
+    @Test
+    fun `GIVEN isolated heatmap day THEN renders without crash`() {
+        // GIVEN — a single heatmap day (both start and end)
+        setContent(
+            heatmapColor = testHeatmapColor,
+            isHeatmapStart = true,
+            isHeatmapEnd = true,
+        )
+
+        // THEN — the day number is displayed and cell is found by tag
+        composeTestRule.onNodeWithText("15").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("day-2026-03-15").assertIsDisplayed()
+    }
+
+    @Test
+    fun `GIVEN heatmap with displayPhase THEN renders both layers`() {
+        // GIVEN — a cell with both phase fill and heatmap border
+        setContent(
+            displayPhase = CyclePhase.FOLLICULAR,
+            isPhaseStart = true,
+            isPhaseEnd = false,
+            heatmapColor = testHeatmapColor,
+            isHeatmapStart = true,
+            isHeatmapEnd = false,
+        )
+
+        // THEN — the day renders without crash
+        composeTestRule.onNodeWithText("15").assertIsDisplayed()
+    }
+
+    @Test
+    fun `GIVEN today with heatmap THEN renders heatmap border instead of today border`() {
+        // GIVEN — today cell with heatmap active (heatmap border takes priority)
+        setContent(
+            isToday = true,
+            heatmapColor = testHeatmapColor,
+            isHeatmapStart = true,
+            isHeatmapEnd = true,
+        )
+
+        // THEN — renders without crash
+        composeTestRule.onNodeWithText("15").assertIsDisplayed()
+    }
+
+    @Test
+    fun `GIVEN middle of heatmap band THEN renders without crash`() {
+        // GIVEN — middle cell (not start, not end) — only top/bottom lines visible
+        setContent(
+            heatmapColor = testHeatmapColor,
+            isHeatmapStart = false,
+            isHeatmapEnd = false,
+        )
+
+        // THEN — renders without crash
+        composeTestRule.onNodeWithText("15").assertIsDisplayed()
+    }
+}

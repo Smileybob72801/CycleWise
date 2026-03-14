@@ -26,7 +26,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
@@ -49,7 +55,12 @@ private const val PERIOD_FILL_ALPHA = 0.4f
  *
  * Displays the day number, optional period/phase background colouring,
  * dot indicators for logged symptoms, medications, and notes, a today
- * border ring, and a bounce-scale animation on press.
+ * border ring, an optional heatmap border, and a bounce-scale animation on press.
+ *
+ * When a heatmap metric is active, the cell draws a merged outline border via
+ * [Modifier.drawBehind]. Adjacent heatmap days share a continuous border with no
+ * inner dividers — middle cells extend the drawn rect beyond cell bounds and clip
+ * it so only the top/bottom lines remain.
  *
  * Long-press is handled at the calendar container level (via [DayBoundsRegistry]
  * coordinate look-up), so this cell only handles single-tap via [onTap].
@@ -78,8 +89,11 @@ private const val PERIOD_FILL_ALPHA = 0.4f
  *                          On landscape tablets the calendar container may not have enough vertical
  *                          space for square cells, so [CalendarGrid] computes a wider ratio that
  *                          keeps all six possible rows visible.
- * @param heatmapColor     Optional semi-transparent overlay color for the heatmap feature.
- *                          Drawn as a circle between the phase background and the day number.
+ * @param heatmapColor     Applied as a border around the cell via drawBehind. Adjacent
+ *                          heatmap days share a continuous outline with no inner dividers.
+ *                          Takes priority over the today border when active.
+ * @param isHeatmapStart   True if this date is the first day of a contiguous heatmap data run.
+ * @param isHeatmapEnd     True if this date is the last day of a contiguous heatmap data run.
  */
 @Composable
 internal fun CalendarDayCell(
@@ -100,6 +114,8 @@ internal fun CalendarDayCell(
     boundsRegistry: DayBoundsRegistry? = null,
     cellAspectRatio: Float = 1f,
     heatmapColor: Color? = null,
+    isHeatmapStart: Boolean = true,
+    isHeatmapEnd: Boolean = true,
 ) {
     val dims = LocalDimensions.current
     val date = day.date.toKotlinLocalDate()
@@ -123,11 +139,13 @@ internal fun CalendarDayCell(
     }
 
     val isBandStart = when {
+        heatmapColor != null -> isHeatmapStart
         dayInfo?.isPeriodDay == true || isInSelectionRange -> isStartDate
         hasDisplayPhase -> isPhaseStart
         else -> false
     }
     val isBandEnd = when {
+        heatmapColor != null -> isHeatmapEnd
         dayInfo?.isPeriodDay == true || isInSelectionRange -> isEndDate
         hasDisplayPhase -> isPhaseEnd
         else -> false
@@ -145,8 +163,8 @@ internal fun CalendarDayCell(
         modifier = Modifier
             .aspectRatio(cellAspectRatio)
             .padding(
-                top = if (inRange || hasDisplayPhase) dims.xxs else dims.xs,
-                bottom = if (inRange || hasDisplayPhase) dims.xxs else dims.xs,
+                top = if (inRange || hasDisplayPhase || heatmapColor != null) dims.xxs else dims.xs,
+                bottom = if (inRange || hasDisplayPhase || heatmapColor != null) dims.xxs else dims.xs,
                 start = if (isBandStart) dims.xxs else 0.dp,
                 end = if (isBandEnd) dims.xxs else 0.dp
             )
@@ -155,9 +173,34 @@ internal fun CalendarDayCell(
                 scaleY = scale
             }
             .testTag("day-$date")
+            .drawBehind {
+                if (heatmapColor != null) {
+                    val strokeWidthPx = dims.xxs.toPx()
+                    val r = dims.sm.toPx()
+                    val halfStroke = strokeWidthPx / 2
+                    val extend = r + strokeWidthPx
+
+                    val left = if (isHeatmapStart) halfStroke else -extend
+                    val top = halfStroke
+                    val right = if (isHeatmapEnd) size.width - halfStroke
+                        else size.width + extend
+                    val bottom = size.height - halfStroke
+
+                    clipRect(0f, 0f, size.width, size.height) {
+                        drawRoundRect(
+                            color = heatmapColor,
+                            topLeft = Offset(left, top),
+                            size = Size(right - left, bottom - top),
+                            cornerRadius = CornerRadius(r, r),
+                            style = Stroke(width = strokeWidthPx)
+                        )
+                    }
+                }
+            }
             .border(
-                width = if (isToday) dims.xxs else 0.dp,
-                color = if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent,
+                width = if (isToday && heatmapColor == null) dims.xxs else 0.dp,
+                color = if (isToday && heatmapColor == null)
+                    MaterialTheme.colorScheme.primary else Color.Transparent,
                 shape = CircleShape
             )
             .background(color = bandColor, shape = bgShape)
@@ -174,15 +217,6 @@ internal fun CalendarDayCell(
     ) {
         DisposableEffect(date) {
             onDispose { boundsRegistry?.unregister(date) }
-        }
-        if (heatmapColor != null) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .padding(dims.xxs)
-                    .clip(CircleShape)
-                    .background(heatmapColor)
-            )
         }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -245,7 +279,7 @@ internal fun CalendarDayCell(
  * @param isEnd   True when this cell is the last day of the band.
  * @param radius  Corner radius for the rounded edges.
  */
-private fun bandShape(isStart: Boolean, isEnd: Boolean, radius: Dp): Shape = when {
+internal fun bandShape(isStart: Boolean, isEnd: Boolean, radius: Dp): Shape = when {
     isStart && isEnd -> RoundedCornerShape(radius)
     isStart -> RoundedCornerShape(topStart = radius, bottomStart = radius)
     isEnd -> RoundedCornerShape(topEnd = radius, bottomEnd = radius)

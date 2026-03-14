@@ -220,6 +220,13 @@ internal fun CalendarGrid(
                     }
                 }
 
+                val prevDate = date.minus(1, DateTimeUnit.DAY)
+                val nextDate = date.plus(1, DateTimeUnit.DAY)
+                val isHeatmapStart = heatmapOverlay != null
+                    && uiState.heatmapIntensities[prevDate] == null
+                val isHeatmapEnd = heatmapOverlay != null
+                    && uiState.heatmapIntensities[nextDate] == null
+
                 CalendarDayCell(
                     day = day,
                     dayInfo = dayInfo,
@@ -238,6 +245,8 @@ internal fun CalendarGrid(
                     boundsRegistry = boundsRegistry,
                     cellAspectRatio = cellAspectRatio,
                     heatmapColor = heatmapOverlay,
+                    isHeatmapStart = isHeatmapStart,
+                    isHeatmapEnd = isHeatmapEnd,
                 )
             }
         )

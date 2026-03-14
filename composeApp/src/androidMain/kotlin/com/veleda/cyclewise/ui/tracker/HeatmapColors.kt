@@ -7,14 +7,14 @@ import androidx.compose.ui.graphics.lerp
 import com.veleda.cyclewise.domain.models.HeatmapMetric
 
 /**
- * Maps a [HeatmapMetric] to a color gradient for calendar overlay rendering.
+ * Maps a [HeatmapMetric] to a color gradient for calendar border rendering.
  *
  * Each metric has a distinct hue. Intensity is mapped to alpha and color
  * interpolation between a light baseline and the metric's primary color.
  *
  * @param metric    The active heatmap metric.
  * @param intensity 0.0-1.0 value for the day.
- * @return Semi-transparent color for the calendar cell overlay.
+ * @return Color for the calendar cell heatmap border.
  */
 @Composable
 internal fun heatmapColor(metric: HeatmapMetric, intensity: Float): Color {
@@ -28,6 +28,6 @@ internal fun heatmapColor(metric: HeatmapMetric, intensity: Float): Color {
         is HeatmapMetric.MedicationCount -> Color(0xFF4CAF50) // Green
     }
 
-    val maxAlpha = 0.6f
-    return lerp(baseColor.copy(alpha = 0.1f), baseColor.copy(alpha = maxAlpha), intensity)
+    val maxAlpha = 0.9f
+    return lerp(baseColor.copy(alpha = 0.3f), baseColor.copy(alpha = maxAlpha), intensity)
 }
