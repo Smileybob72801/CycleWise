@@ -28,6 +28,10 @@ interface PeriodLogDao {
     @Query("DELETE FROM period_logs WHERE entry_id = :dailyEntryId")
     suspend fun deleteLogForEntry(dailyEntryId: String)
 
+    /** Returns period logs for multiple daily entries in a single query, avoiding N+1. */
+    @Query("SELECT * FROM period_logs WHERE entry_id IN (:dailyEntryIds)")
+    suspend fun getLogsForEntries(dailyEntryIds: List<String>): List<PeriodLogEntity>
+
     @Query("SELECT * FROM period_logs")
     fun getAllPeriodLogs(): Flow<List<PeriodLogEntity>>
 

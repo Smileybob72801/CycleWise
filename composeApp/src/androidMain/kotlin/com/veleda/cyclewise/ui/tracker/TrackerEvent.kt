@@ -36,6 +36,17 @@ sealed interface TrackerEvent {
     /** Dispatched when the screen is first composed, triggering auto-close period logic. */
     data object ScreenEntered : TrackerEvent
 
+    // ── Unmark Period Confirmation ────────────────────────────────────
+
+    /** The user confirmed unmarking a single period day that had data. */
+    data class UnmarkPeriodDayConfirmed(val date: LocalDate) : TrackerEvent
+
+    /** The user confirmed unmarking multiple period days (drag-shrink) that had data. */
+    data class UnmarkPeriodRangeConfirmed(val dates: List<LocalDate>) : TrackerEvent
+
+    /** The user dismissed the unmark-period confirmation dialog. */
+    data object UnmarkPeriodDismissed : TrackerEvent
+
     // ── Educational ──────────────────────────────────────────────────
 
     /** The user tapped an info button to view educational content for the given [contentTag]. */

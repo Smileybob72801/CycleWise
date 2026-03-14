@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(awk:*)",
+      "Bash(ls:*)",
+      "Bash(./gradlew:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(gh issue list:*)",
+      "WebFetch(domain:m3.material.io)",
+      "Bash(git status:*)",
+      "Bash(test:*)",
+      "Bash(cd:*)",
+      "WebSearch",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:docs.claude.com)",
+      "WebFetch(domain:support.google.com)",
+      "WebFetch(domain:detekt.dev)",
+      "WebFetch(domain:plugins.gradle.org)",
+      "WebFetch(domain:github.com)",
+      "Bash(\"/c/Program Files/Android/Android Studio/jbr/bin/javap.exe\":*)",
+      "WebFetch(domain:guide.vico.patrykandpatrick.com)",
+      "WebFetch(domain:docs.github.com)",
+      "Bash(xargs wc:*)"
+    ]
+  }
+}

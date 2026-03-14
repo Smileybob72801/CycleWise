@@ -67,6 +67,10 @@ data class TrackerUiState(
     val periodIdToDelete: String? = null,
     val waterCupsForSheet: Int? = null,
     val educationalArticles: List<EducationalArticle>? = null,
+    val showUnmarkConfirmation: Boolean = false,
+    val unmarkDate: LocalDate? = null,
+    val unmarkDates: List<LocalDate> = emptyList(),
+    val unmarkDaysWithDataCount: Int = 0,
     val selectedHeatmapMetric: HeatmapMetric? = null,
     val heatmapIntensities: Map<LocalDate, Float> = emptyMap(),
 ) {
@@ -199,11 +203,25 @@ class TrackerViewModel(
                     event.date in (it.startDate..(it.endDate ?: Clock.System.todayIn(TimeZone.currentSystemDefault())))
                 }
                 if (periodForDate != null) {
-                    periodRepository.unLogPeriodDay(event.date)
+                    // Check if the period log has user-entered data before unmarking
+                    val periodLog = periodRepository.getPeriodLogForDate(event.date)
+                    if (periodLog?.hasData() == true) {
+                        _uiState.update {
+                            it.copy(
+                                showUnmarkConfirmation = true,
+                                unmarkDate = event.date,
+                                unmarkDates = emptyList(),
+                                unmarkDaysWithDataCount = 1,
+                            )
+                        }
+                    } else {
+                        periodRepository.unLogPeriodDay(event.date)
+                        _effect.tryEmit(TrackerEffect.PeriodMarked)
+                    }
                 } else {
                     periodRepository.logPeriodDay(event.date)
+                    _effect.tryEmit(TrackerEffect.PeriodMarked)
                 }
-                _effect.tryEmit(TrackerEffect.PeriodMarked)
             }
 
             is TrackerEvent.PeriodRangeDragged -> viewModelScope.launch {
@@ -224,11 +242,11 @@ class TrackerViewModel(
                         && anchor != (anchorPeriod.endDate ?: today)
                         && release > anchor
                         && release <= (anchorPeriod.endDate ?: today) -> {
-                        var d = anchor
-                        while (d < release) {
-                            periodRepository.unLogPeriodDay(d)
-                            d = d.plus(1, DateTimeUnit.DAY)
+                        val datesToRemove = buildList {
+                            var d = anchor
+                            while (d < release) { add(d); d = d.plus(1, DateTimeUnit.DAY) }
                         }
+                        handleShrinkWithDataCheck(datesToRemove)
                     }
                     // Shrink from end: anchor is end of period, release is earlier (inside period).
                     anchorPeriod != null
@@ -236,11 +254,11 @@ class TrackerViewModel(
                         && anchor != anchorPeriod.startDate
                         && release < anchor
                         && release >= anchorPeriod.startDate -> {
-                        var d = anchor
-                        while (d > release) {
-                            periodRepository.unLogPeriodDay(d)
-                            d = d.minus(1, DateTimeUnit.DAY)
+                        val datesToRemove = buildList {
+                            var d = anchor
+                            while (d > release) { add(d); d = d.minus(1, DateTimeUnit.DAY) }
                         }
+                        handleShrinkWithDataCheck(datesToRemove)
                     }
                     // Default: mark all days in range as period days.
                     else -> {
@@ -249,9 +267,9 @@ class TrackerViewModel(
                             periodRepository.logPeriodDay(d)
                             d = d.plus(1, DateTimeUnit.DAY)
                         }
+                        _effect.tryEmit(TrackerEffect.PeriodMarked)
                     }
                 }
-                _effect.tryEmit(TrackerEffect.PeriodMarked)
             }
 
             is TrackerEvent.EditLogClicked -> viewModelScope.launch {
@@ -275,10 +293,23 @@ class TrackerViewModel(
                 }
             }
 
+            is TrackerEvent.UnmarkPeriodDayConfirmed -> viewModelScope.launch {
+                periodRepository.unLogPeriodDay(event.date)
+                _effect.tryEmit(TrackerEffect.PeriodMarked)
+            }
+
+            is TrackerEvent.UnmarkPeriodRangeConfirmed -> viewModelScope.launch {
+                for (date in event.dates) {
+                    periodRepository.unLogPeriodDay(date)
+                }
+                _effect.tryEmit(TrackerEffect.PeriodMarked)
+            }
+
             // State-only events — no side effects needed.
             is TrackerEvent.DismissLogSheet,
             is TrackerEvent.DeletePeriodRequested,
             is TrackerEvent.DeletePeriodDismissed,
+            is TrackerEvent.UnmarkPeriodDismissed,
             is TrackerEvent.DismissEducationalSheet -> { /* state-only */ }
         }
     }
@@ -321,12 +352,58 @@ class TrackerViewModel(
                     periodIdToDelete = null
                 )
             }
+            is TrackerEvent.UnmarkPeriodDayConfirmed -> currentState.copy(
+                showUnmarkConfirmation = false,
+                unmarkDate = null,
+                unmarkDates = emptyList(),
+                unmarkDaysWithDataCount = 0,
+            )
+            is TrackerEvent.UnmarkPeriodRangeConfirmed -> currentState.copy(
+                showUnmarkConfirmation = false,
+                unmarkDate = null,
+                unmarkDates = emptyList(),
+                unmarkDaysWithDataCount = 0,
+            )
+            is TrackerEvent.UnmarkPeriodDismissed -> currentState.copy(
+                showUnmarkConfirmation = false,
+                unmarkDate = null,
+                unmarkDates = emptyList(),
+                unmarkDaysWithDataCount = 0,
+            )
             is TrackerEvent.SelectHeatmapMetric -> currentState.copy(
                 selectedHeatmapMetric = event.metric,
                 heatmapIntensities = if (event.metric == null) emptyMap() else currentState.heatmapIntensities,
             )
             is TrackerEvent.ShowEducationalSheet -> currentState
             is TrackerEvent.DismissEducationalSheet -> currentState.copy(educationalArticles = null)
+        }
+    }
+
+    /**
+     * Checks whether any of the [datesToRemove] have period logs with user-entered data.
+     * If so, shows the multi-day confirmation dialog; otherwise proceeds with silent removal.
+     */
+    private suspend fun handleShrinkWithDataCheck(datesToRemove: List<LocalDate>) {
+        if (datesToRemove.isEmpty()) return
+        val rangeStart = datesToRemove.min()
+        val rangeEnd = datesToRemove.max()
+        val periodLogs = periodRepository.getPeriodLogsForDateRange(rangeStart, rangeEnd)
+        val daysWithData = periodLogs.count { it.hasData() }
+
+        if (daysWithData > 0) {
+            _uiState.update {
+                it.copy(
+                    showUnmarkConfirmation = true,
+                    unmarkDate = null,
+                    unmarkDates = datesToRemove,
+                    unmarkDaysWithDataCount = daysWithData,
+                )
+            }
+        } else {
+            for (date in datesToRemove) {
+                periodRepository.unLogPeriodDay(date)
+            }
+            _effect.tryEmit(TrackerEffect.PeriodMarked)
         }
     }
 

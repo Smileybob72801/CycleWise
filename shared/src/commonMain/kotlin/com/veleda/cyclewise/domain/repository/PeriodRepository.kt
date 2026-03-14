@@ -1,6 +1,7 @@
 package com.veleda.cyclewise.domain.repository
 
 import com.veleda.cyclewise.domain.models.Period
+import com.veleda.cyclewise.domain.models.PeriodLog
 import com.veleda.cyclewise.domain.models.DayDetails
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
@@ -112,6 +113,21 @@ interface PeriodRepository {
      * Also deletes any [PeriodLog] for the date.
      */
     suspend fun unLogPeriodDay(date: LocalDate)
+
+    // ── Period Log Lookup ──────────────────────────────────────────────
+
+    /**
+     * Returns the [PeriodLog] for the given [date], or null if no entry or period log
+     * exists for that date. Used to check whether a period day has user-entered data
+     * before unmarking it.
+     */
+    suspend fun getPeriodLogForDate(date: LocalDate): PeriodLog?
+
+    /**
+     * Returns all [PeriodLog]s whose parent daily entries fall within the given date
+     * range (inclusive). Days with no entry or no period log are omitted.
+     */
+    suspend fun getPeriodLogsForDateRange(startDate: LocalDate, endDate: LocalDate): List<PeriodLog>
 
     // ── Daily Log Access ─────────────────────────────────────────────────
 

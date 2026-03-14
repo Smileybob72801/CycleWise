@@ -76,6 +76,7 @@ data class DailyLogUiState(
     val medicationToDelete: Medication? = null,
     val medicationDeleteLogCount: Int = 0,
     val renameError: String? = null,
+    val showUnmarkPeriodConfirmation: Boolean = false,
 )
 
 /**
@@ -257,13 +258,30 @@ class DailyLogViewModel(
             }
 
             is DailyLogEvent.PeriodToggled -> {
-                viewModelScope.launch {
-                    if (event.isOnPeriod) {
+                if (event.isOnPeriod) {
+                    viewModelScope.launch {
                         periodRepository.logPeriodDay(entryDate)
-                    } else {
-                        periodRepository.unLogPeriodDay(entryDate)
+                        _uiState.update { it.copy(isPeriodDay = true) }
                     }
-                    _uiState.update { it.copy(isPeriodDay = event.isOnPeriod) }
+                    autoSave()
+                } else {
+                    // If the period log has data, show confirmation instead of proceeding
+                    val hasData = _uiState.value.log?.periodLog?.hasData() == true
+                    if (!hasData) {
+                        viewModelScope.launch {
+                            periodRepository.unLogPeriodDay(entryDate)
+                            _uiState.update { it.copy(isPeriodDay = false) }
+                        }
+                        autoSave()
+                    }
+                    // If hasData, the reduce function already set showUnmarkPeriodConfirmation = true
+                }
+            }
+
+            is DailyLogEvent.UnmarkPeriodConfirmed -> {
+                viewModelScope.launch {
+                    periodRepository.unLogPeriodDay(entryDate)
+                    _uiState.update { it.copy(isPeriodDay = false) }
                 }
                 autoSave()
             }
@@ -420,6 +438,7 @@ class DailyLogViewModel(
             }
 
             // No side effects for state-only events.
+            is DailyLogEvent.UnmarkPeriodDismissed,
             is DailyLogEvent.LogLoaded,
             is DailyLogEvent.LibraryUpdated,
             is DailyLogEvent.SymptomNameChanged,
@@ -546,8 +565,21 @@ class DailyLogViewModel(
                     )
                     currentState.copy(log = log.copy(periodLog = newPeriodLog))
                 } else {
-                    currentState.copy(log = log.copy(periodLog = null))
+                    if (log.periodLog?.hasData() == true) {
+                        currentState.copy(showUnmarkPeriodConfirmation = true)
+                    } else {
+                        currentState.copy(log = log.copy(periodLog = null))
+                    }
                 }
+            }
+            is DailyLogEvent.UnmarkPeriodConfirmed -> {
+                currentState.copy(
+                    log = log.copy(periodLog = null),
+                    showUnmarkPeriodConfirmation = false,
+                )
+            }
+            is DailyLogEvent.UnmarkPeriodDismissed -> {
+                currentState.copy(showUnmarkPeriodConfirmation = false)
             }
             is DailyLogEvent.WaterIncrement -> {
                 currentState.copy(waterCups = currentState.waterCups + 1)

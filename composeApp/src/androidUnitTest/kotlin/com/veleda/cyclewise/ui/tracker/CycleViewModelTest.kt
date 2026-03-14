@@ -12,6 +12,7 @@ import com.veleda.cyclewise.domain.repository.PeriodRepository
 import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.testutil.TestData
+import com.veleda.cyclewise.testutil.buildPeriodLog
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -442,5 +443,185 @@ class CycleViewModelTest {
 
         // THEN
         assertNull(viewModel.uiState.value.educationalArticles)
+    }
+
+    // --- Unmark period confirmation tests ---
+
+    @Test
+    fun onEvent_PeriodMarkDay_WHEN_dayHasData_THEN_showsConfirmationAndDoesNotUnlog() = runTest {
+        // GIVEN — a period exists covering the date, and the period log has data
+        val period = Period("p1", today.minus(2, DateTimeUnit.DAY), today.plus(2, DateTimeUnit.DAY), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        val periodLog = buildPeriodLog(flowIntensity = FlowIntensity.HEAVY)
+        coEvery { mockRepository.getPeriodLogForDate(today) } returns periodLog
+
+        // WHEN
+        vm.onEvent(TrackerEvent.PeriodMarkDay(today))
+        advanceUntilIdle()
+
+        // THEN — confirmation dialog shown, unLogPeriodDay NOT called
+        assertTrue(vm.uiState.value.showUnmarkConfirmation)
+        assertEquals(today, vm.uiState.value.unmarkDate)
+        coVerify(exactly = 0) { mockRepository.unLogPeriodDay(any()) }
+    }
+
+    @Test
+    fun onEvent_PeriodMarkDay_WHEN_dayHasNoData_THEN_proceedsSilently() = runTest {
+        // GIVEN — a period exists, period log has no data
+        val period = Period("p1", today.minus(2, DateTimeUnit.DAY), today.plus(2, DateTimeUnit.DAY), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        val periodLog = buildPeriodLog(flowIntensity = null, periodColor = null, periodConsistency = null)
+        coEvery { mockRepository.getPeriodLogForDate(today) } returns periodLog
+
+        // WHEN
+        vm.onEvent(TrackerEvent.PeriodMarkDay(today))
+        advanceUntilIdle()
+
+        // THEN — proceeds silently
+        assertFalse(vm.uiState.value.showUnmarkConfirmation)
+        coVerify(exactly = 1) { mockRepository.unLogPeriodDay(today) }
+    }
+
+    @Test
+    fun onEvent_PeriodMarkDay_WHEN_noPeriodLogExists_THEN_proceedsSilently() = runTest {
+        // GIVEN — a period exists, but no period log for that date
+        val period = Period("p1", today.minus(2, DateTimeUnit.DAY), today.plus(2, DateTimeUnit.DAY), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        coEvery { mockRepository.getPeriodLogForDate(today) } returns null
+
+        // WHEN
+        vm.onEvent(TrackerEvent.PeriodMarkDay(today))
+        advanceUntilIdle()
+
+        // THEN — proceeds silently
+        assertFalse(vm.uiState.value.showUnmarkConfirmation)
+        coVerify(exactly = 1) { mockRepository.unLogPeriodDay(today) }
+    }
+
+    @Test
+    fun onEvent_UnmarkPeriodDayConfirmed_THEN_callsUnLogAndResetsState() = runTest {
+        // GIVEN — confirmation dialog is showing
+        val period = Period("p1", today.minus(2, DateTimeUnit.DAY), today.plus(2, DateTimeUnit.DAY), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        val periodLog = buildPeriodLog(flowIntensity = FlowIntensity.MEDIUM)
+        coEvery { mockRepository.getPeriodLogForDate(today) } returns periodLog
+
+        vm.onEvent(TrackerEvent.PeriodMarkDay(today))
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.showUnmarkConfirmation)
+
+        // WHEN
+        vm.onEvent(TrackerEvent.UnmarkPeriodDayConfirmed(today))
+        advanceUntilIdle()
+
+        // THEN
+        coVerify(exactly = 1) { mockRepository.unLogPeriodDay(today) }
+        assertFalse(vm.uiState.value.showUnmarkConfirmation)
+        assertNull(vm.uiState.value.unmarkDate)
+    }
+
+    @Test
+    fun onEvent_UnmarkPeriodDismissed_THEN_resetsDialogState() = runTest {
+        // GIVEN — confirmation dialog is showing
+        val period = Period("p1", today.minus(2, DateTimeUnit.DAY), today.plus(2, DateTimeUnit.DAY), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        val periodLog = buildPeriodLog(flowIntensity = FlowIntensity.LIGHT)
+        coEvery { mockRepository.getPeriodLogForDate(today) } returns periodLog
+
+        vm.onEvent(TrackerEvent.PeriodMarkDay(today))
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.showUnmarkConfirmation)
+
+        // WHEN
+        vm.onEvent(TrackerEvent.UnmarkPeriodDismissed)
+        advanceUntilIdle()
+
+        // THEN
+        assertFalse(vm.uiState.value.showUnmarkConfirmation)
+        assertNull(vm.uiState.value.unmarkDate)
+        coVerify(exactly = 0) { mockRepository.unLogPeriodDay(any()) }
+    }
+
+    @Test
+    fun onEvent_PeriodRangeDragged_WHEN_shrinkWithDataDays_THEN_showsMultiDayDialog() = runTest {
+        // GIVEN — period June 10–15, some days have data
+        val period = Period("p1", LocalDate(2025, 6, 10), LocalDate(2025, 6, 15), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        // Two period logs with data out of 2 days being removed (June 10, 11)
+        val logsWithData = listOf(
+            buildPeriodLog(entryId = "e1", flowIntensity = FlowIntensity.HEAVY),
+            buildPeriodLog(entryId = "e2", flowIntensity = null, periodColor = null, periodConsistency = null),
+        )
+        coEvery { mockRepository.getPeriodLogsForDateRange(LocalDate(2025, 6, 10), LocalDate(2025, 6, 11)) } returns logsWithData
+
+        // WHEN — shrink from start
+        vm.onEvent(TrackerEvent.PeriodRangeDragged(LocalDate(2025, 6, 10), LocalDate(2025, 6, 12)))
+        advanceUntilIdle()
+
+        // THEN — multi-day confirmation dialog shown
+        assertTrue(vm.uiState.value.showUnmarkConfirmation)
+        assertEquals(2, vm.uiState.value.unmarkDates.size)
+        assertEquals(1, vm.uiState.value.unmarkDaysWithDataCount)
+        coVerify(exactly = 0) { mockRepository.unLogPeriodDay(any()) }
+    }
+
+    @Test
+    fun onEvent_PeriodRangeDragged_WHEN_shrinkWithNoDataDays_THEN_proceedsSilently() = runTest {
+        // GIVEN — period June 10–15, no days have data
+        val period = Period("p1", LocalDate(2025, 6, 10), LocalDate(2025, 6, 15), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        coEvery { mockRepository.getPeriodLogsForDateRange(any(), any()) } returns emptyList()
+
+        // WHEN — shrink from start
+        vm.onEvent(TrackerEvent.PeriodRangeDragged(LocalDate(2025, 6, 10), LocalDate(2025, 6, 12)))
+        advanceUntilIdle()
+
+        // THEN — proceeds silently
+        assertFalse(vm.uiState.value.showUnmarkConfirmation)
+        coVerify(exactly = 1) { mockRepository.unLogPeriodDay(LocalDate(2025, 6, 10)) }
+        coVerify(exactly = 1) { mockRepository.unLogPeriodDay(LocalDate(2025, 6, 11)) }
+    }
+
+    @Test
+    fun onEvent_UnmarkPeriodRangeConfirmed_THEN_callsUnLogForEachDate() = runTest {
+        // GIVEN — multi-day confirmation dialog is showing
+        val period = Period("p1", LocalDate(2025, 6, 10), LocalDate(2025, 6, 15), TestData.INSTANT, TestData.INSTANT)
+        val vm = viewModelWithPeriods(listOf(period))
+        advanceUntilIdle()
+
+        val logsWithData = listOf(
+            buildPeriodLog(flowIntensity = FlowIntensity.HEAVY),
+        )
+        coEvery { mockRepository.getPeriodLogsForDateRange(any(), any()) } returns logsWithData
+
+        vm.onEvent(TrackerEvent.PeriodRangeDragged(LocalDate(2025, 6, 10), LocalDate(2025, 6, 12)))
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.showUnmarkConfirmation)
+
+        // WHEN
+        val datesToRemove = vm.uiState.value.unmarkDates
+        vm.onEvent(TrackerEvent.UnmarkPeriodRangeConfirmed(datesToRemove))
+        advanceUntilIdle()
+
+        // THEN
+        for (date in datesToRemove) {
+            coVerify(exactly = 1) { mockRepository.unLogPeriodDay(date) }
+        }
+        assertFalse(vm.uiState.value.showUnmarkConfirmation)
+        assertTrue(vm.uiState.value.unmarkDates.isEmpty())
     }
 }

@@ -511,6 +511,21 @@ class RoomPeriodRepository(
         }
     }
 
+    /** @see PeriodRepository.getPeriodLogForDate */
+    override suspend fun getPeriodLogForDate(date: LocalDate): PeriodLog? {
+        val entryEntity = dailyEntryDao.getEntryForDate(date).firstOrNull() ?: return null
+        return periodLogDao.getLogForEntry(entryEntity.id).firstOrNull()?.toDomain()
+    }
+
+    /** @see PeriodRepository.getPeriodLogsForDateRange */
+    override suspend fun getPeriodLogsForDateRange(startDate: LocalDate, endDate: LocalDate): List<PeriodLog> {
+        val entryEntities = dailyEntryDao.getEntriesForDateRange(startDate, endDate).firstOrNull()
+            ?: return emptyList()
+        if (entryEntities.isEmpty()) return emptyList()
+        val entryIds = entryEntities.map { it.id }
+        return periodLogDao.getLogsForEntries(entryIds).map { it.toDomain() }
+    }
+
     /**
      * **[DEBUG ONLY]** Clears all user data and seeds the database with 6 completed
      * periods spanning several months, each with daily entries, symptoms, and medications.

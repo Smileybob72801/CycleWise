@@ -27,4 +27,12 @@ data class PeriodLog @OptIn(ExperimentalTime::class) constructor(
     val periodConsistency: PeriodConsistency? = null,
     val createdAt: Instant,
     val updatedAt: Instant
-)
+) {
+    /**
+     * Returns `true` if this log contains any user-entered period detail data
+     * (flow intensity, color, or consistency). A [PeriodLog] can exist with all
+     * fields null when the user toggled "on period" without selecting any details.
+     */
+    fun hasData(): Boolean =
+        flowIntensity != null || periodColor != null || periodConsistency != null
+}
