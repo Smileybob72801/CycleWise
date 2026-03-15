@@ -217,6 +217,8 @@ internal fun CalendarGrid(
                     }
                 }
 
+                val isHeatmapActive = uiState.selectedHeatmapMetric != null
+
                 val heatmapOverlay = uiState.selectedHeatmapMetric?.let { metric ->
                     uiState.heatmapIntensities[date]?.let { intensity ->
                         heatmapColor(metric, intensity, customHeatmapColors)
@@ -230,6 +232,20 @@ internal fun CalendarGrid(
                 val isHeatmapEnd = heatmapOverlay != null
                     && uiState.heatmapIntensities[nextDate] == null
 
+                // Phase border computation — includes all phases (even MENSTRUATION)
+                val rawPhaseForBorder = dayInfo?.cyclePhase
+                val prevPhaseForBorder = prevInfo?.cyclePhase
+                val nextPhaseForBorder = nextInfo?.cyclePhase
+
+                val phaseBorderColor: Color? = if (isHeatmapActive && rawPhaseForBorder != null && phaseVisible[rawPhaseForBorder] != false) {
+                    palette.forPhase(rawPhaseForBorder).fill
+                } else null
+
+                val isPhaseBorderStart = rawPhaseForBorder != null && rawPhaseForBorder != prevPhaseForBorder
+                val isPhaseBorderEnd = rawPhaseForBorder != null && rawPhaseForBorder != nextPhaseForBorder
+
+                val effectiveDisplayPhase = if (isHeatmapActive) null else displayPhase
+
                 CalendarDayCell(
                     day = day,
                     dayInfo = dayInfo,
@@ -240,16 +256,18 @@ internal fun CalendarGrid(
                     isInSelectionRange = inSelectionRange,
                     isInRemovalRange = isInRemovalRange,
                     isDragging = isDragging,
-                    isPhaseStart = displayPhase != null && displayPhase != prevDisplayPhase,
-                    isPhaseEnd = displayPhase != null && displayPhase != nextDisplayPhase,
+                    isPhaseStart = if (isHeatmapActive) isPhaseBorderStart else (displayPhase != null && displayPhase != prevDisplayPhase),
+                    isPhaseEnd = if (isHeatmapActive) isPhaseBorderEnd else (displayPhase != null && displayPhase != nextDisplayPhase),
                     palette = palette,
-                    displayPhase = displayPhase,
+                    displayPhase = effectiveDisplayPhase,
                     onTap = handleTap,
                     boundsRegistry = boundsRegistry,
                     cellAspectRatio = cellAspectRatio,
                     heatmapColor = heatmapOverlay,
                     isHeatmapStart = isHeatmapStart,
                     isHeatmapEnd = isHeatmapEnd,
+                    phaseBorderColor = phaseBorderColor,
+                    isHeatmapModeActive = isHeatmapActive,
                 )
             }
         )

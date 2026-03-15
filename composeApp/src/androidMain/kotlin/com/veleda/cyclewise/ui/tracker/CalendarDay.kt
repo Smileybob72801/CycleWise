@@ -1,8 +1,10 @@
 package com.veleda.cyclewise.ui.tracker
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -53,14 +55,23 @@ private const val PERIOD_FILL_ALPHA = 0.4f
 /**
  * A single calendar-day cell rendered inside the [HorizontalCalendar] grid.
  *
- * Displays the day number, optional period/phase background colouring,
+ * Displays the day number, optional period/phase/heatmap background colouring,
  * dot indicators for logged symptoms, medications, and notes, a today
- * border ring, an optional heatmap border, and a bounce-scale animation on press.
+ * border ring, an optional phase border, and a bounce-scale animation on press.
  *
- * When a heatmap metric is active, the cell draws a merged outline border via
- * [Modifier.drawBehind]. Adjacent heatmap days share a continuous border with no
+ * When a heatmap metric is active, the rendering roles swap: heatmap data takes
+ * over the fill channel (background) and phase colors move to the border channel
+ * via [phaseBorderColor]. When no heatmap is active, the calendar renders in its
+ * normal mode with phase fills and no phase borders. The transition between modes
+ * uses an [animateColorAsState] crossfade on the band color for a smooth visual switch.
+ *
+ * When [phaseBorderColor] is set, the cell draws a merged outline border via
+ * [Modifier.drawBehind]. Adjacent phase days share a continuous border with no
  * inner dividers — middle cells extend the drawn rect beyond cell bounds and clip
- * it so only the top/bottom lines remain.
+ * it so only the top/bottom lines remain. The heatmap fill is also drawn inside
+ * `drawBehind` (rather than via `.background()`) using the same rounded rect as
+ * the border stroke, so fill and border share identical geometry and heatmap
+ * color cannot leak past the border at corners.
  *
  * Long-press is handled at the calendar container level (via [DayBoundsRegistry]
  * coordinate look-up), so this cell only handles single-tap via [onTap].
@@ -89,11 +100,19 @@ private const val PERIOD_FILL_ALPHA = 0.4f
  *                          On landscape tablets the calendar container may not have enough vertical
  *                          space for square cells, so [CalendarGrid] computes a wider ratio that
  *                          keeps all six possible rows visible.
- * @param heatmapColor     Applied as a border around the cell via drawBehind. Adjacent
- *                          heatmap days share a continuous outline with no inner dividers.
- *                          Takes priority over the today border when active.
- * @param isHeatmapStart   True if this date is the first day of a contiguous heatmap data run.
- * @param isHeatmapEnd     True if this date is the last day of a contiguous heatmap data run.
+ * @param heatmapColor      When a heatmap metric is active, used as the cell's background fill
+ *                          for days that have logged data for the selected metric. Adjacent
+ *                          heatmap days share a continuous fill band. When null, normal
+ *                          phase-fill rendering applies (unless [isHeatmapModeActive] suppresses it).
+ * @param isHeatmapStart    True if this date is the first day of a contiguous heatmap data run.
+ * @param isHeatmapEnd      True if this date is the last day of a contiguous heatmap data run.
+ * @param phaseBorderColor  When a heatmap metric is active, the phase color is rendered as a
+ *                          merged outline border instead of a fill. Null when no heatmap is active
+ *                          or the day has no assigned phase.
+ * @param isHeatmapModeActive True when any heatmap metric is globally selected, independent of
+ *                          whether this specific day has heatmap data. Used to suppress period
+ *                          fill and shape overrides so period days are treated uniformly as
+ *                          border-only when the heatmap is active.
  */
 @Composable
 internal fun CalendarDayCell(
@@ -116,37 +135,58 @@ internal fun CalendarDayCell(
     heatmapColor: Color? = null,
     isHeatmapStart: Boolean = true,
     isHeatmapEnd: Boolean = true,
+    phaseBorderColor: Color? = null,
+    isHeatmapModeActive: Boolean = false,
 ) {
     val dims = LocalDimensions.current
     val date = day.date.toKotlinLocalDate()
     val inRange = isInExistingRange || isInSelectionRange
     val hasDisplayPhase = displayPhase != null
 
-    val bandColor = when {
-        dayInfo?.isPeriodDay == true && !isInRemovalRange -> palette.menstruation.fill
+    val rawBandColor = when {
         isInSelectionRange || isInRemovalRange ->
             palette.menstruation.fill.copy(alpha = PERIOD_FILL_ALPHA)
+        !isHeatmapModeActive && dayInfo?.isPeriodDay == true && !isInRemovalRange ->
+            palette.menstruation.fill
+        phaseBorderColor != null -> Color.Transparent // fill drawn in drawBehind
+        heatmapColor != null -> heatmapColor
         hasDisplayPhase -> palette.forPhase(displayPhase!!).fillSubtle
         else -> Color.Transparent
     }
 
+    val bandColor by animateColorAsState(
+        targetValue = rawBandColor,
+        animationSpec = tween(300),
+        label = "bandColorCrossfade",
+    )
+
     val bgShape = when {
-        dayInfo?.isPeriodDay == true || isInSelectionRange ->
+        isInSelectionRange ->
             bandShape(isStart = isStartDate, isEnd = isEndDate, radius = dims.sm)
+        !isHeatmapModeActive && dayInfo?.isPeriodDay == true ->
+            bandShape(isStart = isStartDate, isEnd = isEndDate, radius = dims.sm)
+        phaseBorderColor != null ->
+            bandShape(isStart = isPhaseStart, isEnd = isPhaseEnd, radius = dims.sm)
+        heatmapColor != null ->
+            bandShape(isStart = isHeatmapStart, isEnd = isHeatmapEnd, radius = dims.sm)
         hasDisplayPhase ->
             bandShape(isStart = isPhaseStart, isEnd = isPhaseEnd, radius = dims.sm)
         else -> CircleShape
     }
 
     val isBandStart = when {
+        phaseBorderColor != null -> isPhaseStart
+        isInSelectionRange -> isStartDate
+        !isHeatmapModeActive && dayInfo?.isPeriodDay == true -> isStartDate
         heatmapColor != null -> isHeatmapStart
-        dayInfo?.isPeriodDay == true || isInSelectionRange -> isStartDate
         hasDisplayPhase -> isPhaseStart
         else -> false
     }
     val isBandEnd = when {
+        phaseBorderColor != null -> isPhaseEnd
+        isInSelectionRange -> isEndDate
+        !isHeatmapModeActive && dayInfo?.isPeriodDay == true -> isEndDate
         heatmapColor != null -> isHeatmapEnd
-        dayInfo?.isPeriodDay == true || isInSelectionRange -> isEndDate
         hasDisplayPhase -> isPhaseEnd
         else -> false
     }
@@ -163,8 +203,8 @@ internal fun CalendarDayCell(
         modifier = Modifier
             .aspectRatio(cellAspectRatio)
             .padding(
-                top = if (inRange || hasDisplayPhase || heatmapColor != null) dims.xxs else dims.xs,
-                bottom = if (inRange || hasDisplayPhase || heatmapColor != null) dims.xxs else dims.xs,
+                top = dims.xxs,
+                bottom = dims.xxs,
                 start = if (isBandStart) dims.xxs else 0.dp,
                 end = if (isBandEnd) dims.xxs else 0.dp
             )
@@ -173,22 +213,31 @@ internal fun CalendarDayCell(
                 scaleY = scale
             }
             .testTag("day-$date")
+            .background(color = bandColor, shape = bgShape)
             .drawBehind {
-                if (heatmapColor != null) {
+                if (phaseBorderColor != null) {
                     val strokeWidthPx = dims.xs.toPx()
                     val r = dims.sm.toPx()
                     val halfStroke = strokeWidthPx / 2
                     val extend = r + strokeWidthPx
 
-                    val left = if (isHeatmapStart) halfStroke else -extend
+                    val left = if (isPhaseStart) halfStroke else -extend
                     val top = halfStroke
-                    val right = if (isHeatmapEnd) size.width - halfStroke
+                    val right = if (isPhaseEnd) size.width - halfStroke
                         else size.width + extend
                     val bottom = size.height - halfStroke
 
                     clipRect(0f, 0f, size.width, size.height) {
+                        if (heatmapColor != null && !isInSelectionRange && !isInRemovalRange) {
+                            drawRoundRect(
+                                color = heatmapColor,
+                                topLeft = Offset(left, top),
+                                size = Size(right - left, bottom - top),
+                                cornerRadius = CornerRadius(r, r),
+                            )
+                        }
                         drawRoundRect(
-                            color = heatmapColor,
+                            color = phaseBorderColor,
                             topLeft = Offset(left, top),
                             size = Size(right - left, bottom - top),
                             cornerRadius = CornerRadius(r, r),
@@ -198,12 +247,11 @@ internal fun CalendarDayCell(
                 }
             }
             .border(
-                width = if (isToday && heatmapColor == null) dims.xxs else 0.dp,
-                color = if (isToday && heatmapColor == null)
+                width = if (isToday && heatmapColor == null && phaseBorderColor == null) dims.xxs else 0.dp,
+                color = if (isToday && heatmapColor == null && phaseBorderColor == null)
                     MaterialTheme.colorScheme.primary else Color.Transparent,
                 shape = CircleShape
             )
-            .background(color = bandColor, shape = bgShape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,

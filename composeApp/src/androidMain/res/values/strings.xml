@@ -307,6 +307,8 @@
     <string name="insights_content_description_collapse_category">Collapse %s category</string>
     <string name="insights_content_description_data_progress">Data readiness progress</string>
     <string name="insights_charts_section_header">Charts</string>
+    <string name="heatmap_intensity_low">Low</string>
+    <string name="heatmap_intensity_high">High</string>
     <string name="heatmap_off">Off</string>
     <string name="heatmap_section_label">Heatmap</string>
     <string name="heatmap_colors_title">Heatmap Colors</string>

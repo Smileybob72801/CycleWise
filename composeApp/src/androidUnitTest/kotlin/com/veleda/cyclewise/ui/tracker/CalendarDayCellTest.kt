@@ -52,6 +52,8 @@ class CalendarDayCellTest {
         heatmapColor: Color? = null,
         isHeatmapStart: Boolean = true,
         isHeatmapEnd: Boolean = true,
+        phaseBorderColor: Color? = null,
+        isHeatmapModeActive: Boolean = false,
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(
@@ -74,6 +76,8 @@ class CalendarDayCellTest {
                         heatmapColor = heatmapColor,
                         isHeatmapStart = isHeatmapStart,
                         isHeatmapEnd = isHeatmapEnd,
+                        phaseBorderColor = phaseBorderColor,
+                        isHeatmapModeActive = isHeatmapModeActive,
                     )
                 }
             }
@@ -143,6 +147,101 @@ class CalendarDayCellTest {
         )
 
         // THEN — renders without crash
+        composeTestRule.onNodeWithText("15").assertIsDisplayed()
+    }
+
+    @Test
+    fun `GIVEN phaseBorderColor and no heatmap fill THEN renders without crash`() {
+        // GIVEN — phase border only, no heatmap fill (edge case: no data for this day)
+        setContent(
+            phaseBorderColor = Color(0xFF80CBC4),
+            isPhaseStart = true,
+            isPhaseEnd = false,
+        )
+
+        // THEN — renders without crash
+        composeTestRule.onNodeWithText("15").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("day-2026-03-15").assertIsDisplayed()
+    }
+
+    @Test
+    fun `GIVEN heatmap fill and phaseBorderColor THEN renders both layers`() {
+        // GIVEN — the main use case: heatmap fill + phase border
+        setContent(
+            heatmapColor = testHeatmapColor,
+            isHeatmapStart = true,
+            isHeatmapEnd = false,
+            phaseBorderColor = Color(0xFF80CBC4),
+            isPhaseStart = true,
+            isPhaseEnd = false,
+        )
+
+        // THEN — renders without crash with both layers
+        composeTestRule.onNodeWithText("15").assertIsDisplayed()
+    }
+
+    @Test
+    fun `GIVEN today and phaseBorderColor THEN renders without crash`() {
+        // GIVEN — today cell with phase border active (today ring suppressed)
+        setContent(
+            isToday = true,
+            phaseBorderColor = Color(0xFF80CBC4),
+            isPhaseStart = true,
+            isPhaseEnd = true,
+        )
+
+        // THEN — renders without crash
+        composeTestRule.onNodeWithText("15").assertIsDisplayed()
+    }
+
+    @Test
+    fun `GIVEN period day with heatmap active THEN uses heatmap fill with menstruation border`() {
+        // GIVEN — period day with heatmap data and heatmap mode active:
+        // heatmap fill takes over, menstruation shows as border only
+        setContent(
+            dayInfo = CalendarDayInfo(
+                isPeriodDay = true,
+                hasSymptoms = false,
+                hasMedications = false,
+                hasNotes = false,
+                cyclePhase = CyclePhase.MENSTRUATION,
+            ),
+            isStartDate = true,
+            isEndDate = true,
+            isInExistingRange = true,
+            heatmapColor = testHeatmapColor,
+            isHeatmapStart = true,
+            isHeatmapEnd = true,
+            phaseBorderColor = Color(0xFFEF9A9A),
+            isHeatmapModeActive = true,
+        )
+
+        // THEN — period day tag is still present and renders correctly
+        composeTestRule.onNodeWithTag("period-day-2026-03-15", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `GIVEN period day in heatmap mode without heatmap data THEN renders border only`() {
+        // GIVEN — period day with no heatmap data but heatmap mode active:
+        // menstruation border only, no fill
+        setContent(
+            dayInfo = CalendarDayInfo(
+                isPeriodDay = true,
+                hasSymptoms = false,
+                hasMedications = false,
+                hasNotes = false,
+                cyclePhase = CyclePhase.MENSTRUATION,
+            ),
+            isStartDate = true,
+            isEndDate = true,
+            isInExistingRange = true,
+            heatmapColor = null,
+            phaseBorderColor = palette.menstruation.fill,
+            isHeatmapModeActive = true,
+        )
+
+        // THEN — renders without crash and period day tag is present
+        composeTestRule.onNodeWithTag("period-day-2026-03-15", useUnmergedTree = true).assertExists()
         composeTestRule.onNodeWithText("15").assertIsDisplayed()
     }
 }

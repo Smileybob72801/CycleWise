@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.lerp
 import com.veleda.cyclewise.domain.models.HeatmapMetric
 
 /**
- * Maps a [HeatmapMetric] to a color gradient for calendar border rendering.
+ * Maps a [HeatmapMetric] to a color gradient for calendar fill rendering.
  *
  * Each metric has a distinct hue from [HeatmapMetricColors]. Intensity is mapped
  * to alpha interpolation between a 0.3 baseline and a 0.9 maximum.
@@ -16,7 +16,7 @@ import com.veleda.cyclewise.domain.models.HeatmapMetric
  * @param metric       The active heatmap metric.
  * @param intensity    0.0-1.0 value for the day.
  * @param customColors Optional map of metric key → [Color] overrides.
- * @return Color for the calendar cell heatmap border.
+ * @return Color for the calendar cell heatmap fill.
  */
 internal fun heatmapColor(
     metric: HeatmapMetric,

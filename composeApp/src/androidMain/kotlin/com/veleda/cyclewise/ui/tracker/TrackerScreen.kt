@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
@@ -440,6 +441,7 @@ fun TrackerScreen(navController: NavController) {
                 PhaseLegend(
                     palette = palette,
                     phaseVisible = phaseVisible,
+                    heatmapActive = uiState.selectedHeatmapMetric != null,
                     modifier = Modifier.weight(1f),
                 )
                 InfoButton(
@@ -450,6 +452,18 @@ fun TrackerScreen(navController: NavController) {
             HeatmapSelector(
                 selectedMetric = uiState.selectedHeatmapMetric,
                 onMetricSelected = { viewModel.onEvent(TrackerEvent.SelectHeatmapMetric(it)) },
+            )
+            val selectedMetric = uiState.selectedHeatmapMetric
+            HeatmapIntensityLegend(
+                metricColor = if (selectedMetric != null) {
+                    heatmapColor(selectedMetric, 1f, customHeatmapColors).copy(alpha = 1f)
+                } else {
+                    Color.Transparent
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = dims.md)
+                    .alpha(if (selectedMetric != null) 1f else 0f),
             )
         }
         }
