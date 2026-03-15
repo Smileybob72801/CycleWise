@@ -216,18 +216,19 @@ internal fun CalendarDayCell(
             .background(color = bandColor, shape = bgShape)
             .drawBehind {
                 if (phaseBorderColor != null) {
-                    val strokeWidthPx = dims.xs.toPx()
+                    val strokeWidthPx = kotlin.math.round(dims.xs.toPx())
                     val r = dims.sm.toPx()
                     val halfStroke = strokeWidthPx / 2
                     val extend = r + strokeWidthPx
+                    val cellH = kotlin.math.round(size.height)
 
                     val left = if (isPhaseStart) halfStroke else -extend
                     val top = halfStroke
                     val right = if (isPhaseEnd) size.width - halfStroke
                         else size.width + extend
-                    val bottom = size.height - halfStroke
+                    val bottom = cellH - halfStroke
 
-                    clipRect(0f, 0f, size.width, size.height) {
+                    clipRect(0f, 0f, size.width, cellH) {
                         if (heatmapColor != null && !isInSelectionRange && !isInRemovalRange) {
                             drawRoundRect(
                                 color = heatmapColor,
