@@ -34,7 +34,7 @@ import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
 import com.veleda.cyclewise.ui.tracker.parseHexColor
 
 /** Material 200-shade presets for quick color selection. */
-private val PRESET_COLORS = listOf(
+internal val PRESET_COLORS = listOf(
     "EF9A9A", // Red 200 (default menstruation)
     "F48FB1", // Pink 200
     "CE93D8", // Purple 200
@@ -154,7 +154,7 @@ fun PhaseColorSettings(
     }
 }
 
-private val HEX_FILTER = Regex("[^0-9A-Fa-f]")
+internal val HEX_FILTER = Regex("[^0-9A-Fa-f]")
 
 /**
  * A single row for editing one phase's hex color.
@@ -167,7 +167,7 @@ private val HEX_FILTER = Regex("[^0-9A-Fa-f]")
  * @param onValueChange Callback invoked with the sanitised hex string when the user edits the field.
  */
 @Composable
-private fun PhaseColorRow(
+internal fun PhaseColorRow(
     label: String,
     hexValue: String,
     defaultColor: Color,
@@ -220,7 +220,7 @@ private fun PhaseColorRow(
  * @param onSelect    Callback invoked with the hex string of the tapped preset.
  */
 @Composable
-private fun PresetColorGrid(
+internal fun PresetColorGrid(
     selectedHex: String,
     onSelect: (String) -> Unit
 ) {

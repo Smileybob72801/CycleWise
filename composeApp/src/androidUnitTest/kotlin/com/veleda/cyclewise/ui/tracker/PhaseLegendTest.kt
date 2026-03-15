@@ -41,6 +41,7 @@ class PhaseLegendTest {
     private fun setContent(
         width: Dp,
         phaseVisible: Map<CyclePhase, Boolean> = emptyMap(),
+        heatmapActive: Boolean = false,
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(
@@ -51,6 +52,7 @@ class PhaseLegendTest {
                         PhaseLegend(
                             palette = palette,
                             phaseVisible = phaseVisible,
+                            heatmapActive = heatmapActive,
                         )
                     }
                 }
@@ -133,5 +135,31 @@ class PhaseLegendTest {
         composeTestRule.onNodeWithText("Follicular").assertIsDisplayed()
         composeTestRule.onNodeWithText("Luteal").assertIsDisplayed()
         composeTestRule.onNodeWithText("Ovulation").assertDoesNotExist()
+    }
+
+    // --- Heatmap-active outlined variant ---
+
+    @Test
+    fun `GIVEN heatmapActive true THEN allFourLabelsStillDisplayed`() {
+        // GIVEN heatmap is active — swatches should render as outlined rings
+        setContent(width = 411.dp, heatmapActive = true)
+
+        // THEN all four phase labels are still displayed
+        composeTestRule.onNodeWithText("Period").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Follicular").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Ovulation").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Luteal").assertIsDisplayed()
+    }
+
+    @Test
+    fun `GIVEN heatmapActive false THEN allFourLabelsDisplayed`() {
+        // GIVEN heatmap is inactive — normal filled swatches
+        setContent(width = 411.dp, heatmapActive = false)
+
+        // THEN all four phase labels are displayed
+        composeTestRule.onNodeWithText("Period").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Follicular").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Ovulation").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Luteal").assertIsDisplayed()
     }
 }

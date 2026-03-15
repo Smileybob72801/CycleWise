@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.veleda.cyclewise.domain.usecases.SeedManifest
+import com.veleda.cyclewise.ui.tracker.HeatmapMetricColors
 import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -27,6 +28,15 @@ private val MENSTRUATION_COLOR = stringPreferencesKey("menstruation_color")
 private val FOLLICULAR_COLOR = stringPreferencesKey("follicular_color")
 private val OVULATION_COLOR = stringPreferencesKey("ovulation_color")
 private val LUTEAL_COLOR = stringPreferencesKey("luteal_color")
+
+// --- Heatmap color preferences ---
+private val HEATMAP_MOOD_COLOR = stringPreferencesKey("heatmap_mood_color")
+private val HEATMAP_ENERGY_COLOR = stringPreferencesKey("heatmap_energy_color")
+private val HEATMAP_LIBIDO_COLOR = stringPreferencesKey("heatmap_libido_color")
+private val HEATMAP_WATER_INTAKE_COLOR = stringPreferencesKey("heatmap_water_intake_color")
+private val HEATMAP_SYMPTOM_SEVERITY_COLOR = stringPreferencesKey("heatmap_symptom_severity_color")
+private val HEATMAP_FLOW_INTENSITY_COLOR = stringPreferencesKey("heatmap_flow_intensity_color")
+private val HEATMAP_MEDICATION_COUNT_COLOR = stringPreferencesKey("heatmap_medication_count_color")
 
 // --- Reminder preferences ---
 private val REMINDER_PERIOD_ENABLED = booleanPreferencesKey("reminder_period_enabled")
@@ -75,6 +85,13 @@ private val SEED_MANIFEST_JSON = stringPreferencesKey("seed_manifest_json")
  * @property reminderHydrationStartHour     Active window start hour (0–23, default: 8).
  * @property reminderHydrationEndHour       Active window end hour (0–23, default: 20).
  * @property cachedPredictedPeriodDate      ISO date cache for the period prediction worker (e.g. "2026-03-15").
+ * @property heatmapMoodColor              Custom hex color for the Mood heatmap metric (6-char, no '#'; default: "1976D2").
+ * @property heatmapEnergyColor           Custom hex color for the Energy heatmap metric (6-char, no '#'; default: "F9A825").
+ * @property heatmapLibidoColor           Custom hex color for the Libido heatmap metric (6-char, no '#'; default: "C2185B").
+ * @property heatmapWaterIntakeColor      Custom hex color for the Water Intake heatmap metric (6-char, no '#'; default: "0097A7").
+ * @property heatmapSymptomSeverityColor  Custom hex color for the Symptom Severity heatmap metric (6-char, no '#'; default: "D84315").
+ * @property heatmapFlowIntensityColor    Custom hex color for the Flow Intensity heatmap metric (6-char, no '#'; default: "7B1FA2").
+ * @property heatmapMedicationCountColor  Custom hex color for the Medication Count heatmap metric (6-char, no '#'; default: "388E3C").
  * @property themeMode                     User-selected theme mode key ("system", "light", or "dark"; default: "system").
  */
 class AppSettings(private val context: Context) {
@@ -191,6 +208,71 @@ class AppSettings(private val context: Context) {
     /** Persists the user's custom hex color for the Luteal phase. */
     suspend fun setLutealColor(hex: String) {
         context.dataStore.edit { it[LUTEAL_COLOR] = hex }
+    }
+
+    // ── Heatmap color preferences ─────────────────────────────────────
+
+    /** Custom hex color for the Mood heatmap metric (6-char, no '#'). */
+    val heatmapMoodColor: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[HEATMAP_MOOD_COLOR] ?: HeatmapMetricColors.DEFAULT_MOOD_HEX }
+
+    /** Persists the user's custom hex color for the Mood heatmap metric. */
+    suspend fun setHeatmapMoodColor(hex: String) {
+        context.dataStore.edit { it[HEATMAP_MOOD_COLOR] = hex }
+    }
+
+    /** Custom hex color for the Energy heatmap metric (6-char, no '#'). */
+    val heatmapEnergyColor: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[HEATMAP_ENERGY_COLOR] ?: HeatmapMetricColors.DEFAULT_ENERGY_HEX }
+
+    /** Persists the user's custom hex color for the Energy heatmap metric. */
+    suspend fun setHeatmapEnergyColor(hex: String) {
+        context.dataStore.edit { it[HEATMAP_ENERGY_COLOR] = hex }
+    }
+
+    /** Custom hex color for the Libido heatmap metric (6-char, no '#'). */
+    val heatmapLibidoColor: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[HEATMAP_LIBIDO_COLOR] ?: HeatmapMetricColors.DEFAULT_LIBIDO_HEX }
+
+    /** Persists the user's custom hex color for the Libido heatmap metric. */
+    suspend fun setHeatmapLibidoColor(hex: String) {
+        context.dataStore.edit { it[HEATMAP_LIBIDO_COLOR] = hex }
+    }
+
+    /** Custom hex color for the Water Intake heatmap metric (6-char, no '#'). */
+    val heatmapWaterIntakeColor: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[HEATMAP_WATER_INTAKE_COLOR] ?: HeatmapMetricColors.DEFAULT_WATER_INTAKE_HEX }
+
+    /** Persists the user's custom hex color for the Water Intake heatmap metric. */
+    suspend fun setHeatmapWaterIntakeColor(hex: String) {
+        context.dataStore.edit { it[HEATMAP_WATER_INTAKE_COLOR] = hex }
+    }
+
+    /** Custom hex color for the Symptom Severity heatmap metric (6-char, no '#'). */
+    val heatmapSymptomSeverityColor: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[HEATMAP_SYMPTOM_SEVERITY_COLOR] ?: HeatmapMetricColors.DEFAULT_SYMPTOM_SEVERITY_HEX }
+
+    /** Persists the user's custom hex color for the Symptom Severity heatmap metric. */
+    suspend fun setHeatmapSymptomSeverityColor(hex: String) {
+        context.dataStore.edit { it[HEATMAP_SYMPTOM_SEVERITY_COLOR] = hex }
+    }
+
+    /** Custom hex color for the Flow Intensity heatmap metric (6-char, no '#'). */
+    val heatmapFlowIntensityColor: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[HEATMAP_FLOW_INTENSITY_COLOR] ?: HeatmapMetricColors.DEFAULT_FLOW_INTENSITY_HEX }
+
+    /** Persists the user's custom hex color for the Flow Intensity heatmap metric. */
+    suspend fun setHeatmapFlowIntensityColor(hex: String) {
+        context.dataStore.edit { it[HEATMAP_FLOW_INTENSITY_COLOR] = hex }
+    }
+
+    /** Custom hex color for the Medication Count heatmap metric (6-char, no '#'). */
+    val heatmapMedicationCountColor: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[HEATMAP_MEDICATION_COUNT_COLOR] ?: HeatmapMetricColors.DEFAULT_MEDICATION_COUNT_HEX }
+
+    /** Persists the user's custom hex color for the Medication Count heatmap metric. */
+    suspend fun setHeatmapMedicationCountColor(hex: String) {
+        context.dataStore.edit { it[HEATMAP_MEDICATION_COUNT_COLOR] = hex }
     }
 
     // ── Reminder preferences ──────────────────────────────────────────

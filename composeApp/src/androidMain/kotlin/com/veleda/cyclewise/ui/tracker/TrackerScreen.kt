@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
@@ -190,6 +191,30 @@ fun TrackerScreen(navController: NavController) {
     val ovulationHex by appSettings.ovulationColor.collectAsState(initial = CyclePhaseColors.DEFAULT_OVULATION_HEX)
     val lutealHex by appSettings.lutealColor.collectAsState(initial = CyclePhaseColors.DEFAULT_LUTEAL_HEX)
 
+    val heatmapMoodHex by appSettings.heatmapMoodColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_MOOD_HEX)
+    val heatmapEnergyHex by appSettings.heatmapEnergyColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_ENERGY_HEX)
+    val heatmapLibidoHex by appSettings.heatmapLibidoColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_LIBIDO_HEX)
+    val heatmapWaterIntakeHex by appSettings.heatmapWaterIntakeColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_WATER_INTAKE_HEX)
+    val heatmapSymptomSeverityHex by appSettings.heatmapSymptomSeverityColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_SYMPTOM_SEVERITY_HEX)
+    val heatmapFlowIntensityHex by appSettings.heatmapFlowIntensityColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_FLOW_INTENSITY_HEX)
+    val heatmapMedicationCountHex by appSettings.heatmapMedicationCountColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_MEDICATION_COUNT_HEX)
+
+    val customHeatmapColors: Map<String, Color> = remember(
+        heatmapMoodHex, heatmapEnergyHex, heatmapLibidoHex,
+        heatmapWaterIntakeHex, heatmapSymptomSeverityHex,
+        heatmapFlowIntensityHex, heatmapMedicationCountHex,
+    ) {
+        buildMap {
+            parseHexColor(heatmapMoodHex)?.let { put("mood", it) }
+            parseHexColor(heatmapEnergyHex)?.let { put("energy", it) }
+            parseHexColor(heatmapLibidoHex)?.let { put("libido", it) }
+            parseHexColor(heatmapWaterIntakeHex)?.let { put("water", it) }
+            parseHexColor(heatmapSymptomSeverityHex)?.let { put("symptom_severity", it) }
+            parseHexColor(heatmapFlowIntensityHex)?.let { put("flow", it) }
+            parseHexColor(heatmapMedicationCountHex)?.let { put("medications", it) }
+        }
+    }
+
     val darkTheme = isSystemInDarkTheme()
     val customColors: Map<CyclePhase, Color>? = remember(menstruationHex, follicularHex, ovulationHex, lutealHex) {
         val map = buildMap {
@@ -362,6 +387,7 @@ fun TrackerScreen(navController: NavController) {
                     pendingKey = pendingKey,
                     coachMarkState = coachMarkState,
                     calendarBoxCoords = calendarBoxCoords,
+                    customHeatmapColors = customHeatmapColors,
                     onCalendarBoxPositioned = { calendarBoxCoords = it },
                     onDragStateChanged = { anchor, current, dragging ->
                         dragAnchor = anchor
@@ -415,6 +441,7 @@ fun TrackerScreen(navController: NavController) {
                 PhaseLegend(
                     palette = palette,
                     phaseVisible = phaseVisible,
+                    heatmapActive = uiState.selectedHeatmapMetric != null,
                     modifier = Modifier.weight(1f),
                 )
                 InfoButton(
@@ -425,6 +452,18 @@ fun TrackerScreen(navController: NavController) {
             HeatmapSelector(
                 selectedMetric = uiState.selectedHeatmapMetric,
                 onMetricSelected = { viewModel.onEvent(TrackerEvent.SelectHeatmapMetric(it)) },
+            )
+            val selectedMetric = uiState.selectedHeatmapMetric
+            HeatmapIntensityLegend(
+                metricColor = if (selectedMetric != null) {
+                    heatmapColor(selectedMetric, 1f, customHeatmapColors).copy(alpha = 1f)
+                } else {
+                    Color.Transparent
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = dims.md)
+                    .alpha(if (selectedMetric != null) 1f else 0f),
             )
         }
         }

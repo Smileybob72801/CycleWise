@@ -44,6 +44,60 @@ object CyclePhaseColors {
     val Luteal = Color(0xFFB39DDB)
 }
 
+/**
+ * Default vivid border colors for heatmap metrics on the calendar.
+ *
+ * These are intentionally saturated (700/800-level Material shades) so they
+ * contrast with the pastel 200-level phase fills used by [CyclePhaseColors].
+ * Each metric has a distinct hue to avoid confusion when switching between
+ * heatmap overlays.
+ *
+ * Users may override these via Settings → Appearance → Heatmap Colors.
+ */
+object HeatmapMetricColors {
+    /** Default 6-char hex string for the Mood heatmap metric (Blue 700). */
+    const val DEFAULT_MOOD_HEX = "1976D2"
+
+    /** Default 6-char hex string for the Energy heatmap metric (Yellow 800). */
+    const val DEFAULT_ENERGY_HEX = "F9A825"
+
+    /** Default 6-char hex string for the Libido heatmap metric (Pink 700). */
+    const val DEFAULT_LIBIDO_HEX = "C2185B"
+
+    /** Default 6-char hex string for the Water Intake heatmap metric (Cyan 700). */
+    const val DEFAULT_WATER_INTAKE_HEX = "0097A7"
+
+    /** Default 6-char hex string for the Symptom Severity heatmap metric (Deep Orange 800). */
+    const val DEFAULT_SYMPTOM_SEVERITY_HEX = "D84315"
+
+    /** Default 6-char hex string for the Flow Intensity heatmap metric (Purple 700). */
+    const val DEFAULT_FLOW_INTENSITY_HEX = "7B1FA2"
+
+    /** Default 6-char hex string for the Medication Count heatmap metric (Green 600). */
+    const val DEFAULT_MEDICATION_COUNT_HEX = "388E3C"
+
+    /** Blue 700 — calming, no phase uses blue. */
+    val Mood = Color(0xFF1976D2)
+
+    /** Golden amber — distinct from peachy Orange 200 ovulation. */
+    val Energy = Color(0xFFF9A825)
+
+    /** Deep magenta — distinct from pastel Red 200 menstruation. */
+    val Libido = Color(0xFFC2185B)
+
+    /** Deep cyan — different hue from Teal 200 follicular. */
+    val WaterIntake = Color(0xFF0097A7)
+
+    /** Burnt orange — distinct from both Red and Orange phase fills. */
+    val SymptomSeverity = Color(0xFFD84315)
+
+    /** Deep violet — distinct from pastel Deep Purple 200 luteal. */
+    val FlowIntensity = Color(0xFF7B1FA2)
+
+    /** Forest green — distinct from teal follicular. */
+    val MedicationCount = Color(0xFF388E3C)
+}
+
 private val HEX_REGEX = Regex("^[0-9A-Fa-f]{6}$")
 
 /**
