@@ -5,7 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performScrollTo
+
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,7 +17,7 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
 /**
  * Robolectric-based Compose UI tests for [SettingsContent].
  *
- * Tests the internal [SettingsContent] composable directly with the four sub-state
+ * Tests the internal [SettingsContent] composable directly with the five sub-state
  * objects and event callback, bypassing the Koin-injected [SettingsScreen] wrapper.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -31,8 +31,9 @@ class SettingsScreenTest {
      * Helper that wraps [SettingsContent] with required composition locals.
      */
     private fun setSettingsContent(
-        generalState: GeneralSettingsState = GeneralSettingsState(),
+        securityState: SecuritySettingsState = SecuritySettingsState(),
         appearanceState: AppearanceSettingsState = AppearanceSettingsState(),
+        colorsState: ColorsSettingsState = ColorsSettingsState(),
         notificationState: NotificationSettingsState = NotificationSettingsState(),
         aboutState: AboutSettingsState = AboutSettingsState(),
         onEvent: (SettingsEvent) -> Unit = {},
@@ -45,8 +46,9 @@ class SettingsScreenTest {
             ) {
                 MaterialTheme {
                     SettingsContent(
-                        generalState = generalState,
+                        securityState = securityState,
                         appearanceState = appearanceState,
+                        colorsState = colorsState,
                         notificationState = notificationState,
                         aboutState = aboutState,
                         onEvent = onEvent,
@@ -63,29 +65,29 @@ class SettingsScreenTest {
         // GIVEN — default settings content rendered
         setSettingsContent()
 
-        // THEN — all four page tab labels are visible
-        composeTestRule.onNodeWithText("General").assertIsDisplayed()
+        // THEN — all five page tab labels exist in the scrollable tab row
+        composeTestRule.onNodeWithText("Security").assertIsDisplayed()
         composeTestRule.onNodeWithText("Appearance").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Notifications").assertIsDisplayed()
-        composeTestRule.onNodeWithText("About").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Colors").assertExists()
+        composeTestRule.onNodeWithText("Notifications").assertExists()
+        composeTestRule.onNodeWithText("About").assertExists()
     }
 
     @Test
-    fun generalPage_WHEN_rendered_THEN_showsSecurityAndInsights() {
-        // GIVEN — default settings content rendered (General page is first)
+    fun securityPage_WHEN_rendered_THEN_showsSessionAndAutolock() {
+        // GIVEN — default settings content rendered (Security page is first)
         setSettingsContent()
 
-        // THEN — security section with auto-lock options and insights are visible
-        composeTestRule.onNodeWithText("Security").assertIsDisplayed()
+        // THEN — session section with auto-lock options is visible
+        composeTestRule.onNodeWithText("Session").assertIsDisplayed()
         composeTestRule.onNodeWithText("5 min").assertIsDisplayed()
         composeTestRule.onNodeWithText("10 min").assertIsDisplayed()
         composeTestRule.onNodeWithText("15 min").assertIsDisplayed()
         composeTestRule.onNodeWithText("30 min").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Insight Settings").performScrollTo().assertIsDisplayed()
     }
 
     @Test
-    fun generalPage_WHEN_sessionInactive_THEN_showsLockedMessage() {
+    fun securityPage_WHEN_sessionInactive_THEN_showsLockedMessage() {
         // GIVEN — settings content rendered with inactive session (locked state)
         setSettingsContent(isSessionActive = false)
 
@@ -99,7 +101,7 @@ class SettingsScreenTest {
         //         so we test that the tab label exists and is displayed)
         setSettingsContent()
 
-        // THEN — the About tab is visible
-        composeTestRule.onNodeWithText("About").assertIsDisplayed()
+        // THEN — the About tab exists in the tab row
+        composeTestRule.onNodeWithText("About").assertExists()
     }
 }
