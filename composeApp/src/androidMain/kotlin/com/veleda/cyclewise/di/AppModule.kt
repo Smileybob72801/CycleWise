@@ -357,6 +357,7 @@ val appModule = module {
                 deleteSymptomUseCase = get(),
                 renameMedicationUseCase = get(),
                 deleteMedicationUseCase = get(),
+                hintPreferences = get(),
             )
         }
 

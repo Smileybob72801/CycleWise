@@ -22,6 +22,8 @@ import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
 import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.RenameResult
 import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
+import com.veleda.cyclewise.ui.coachmark.HintKey
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -77,6 +79,8 @@ data class DailyLogUiState(
     val medicationDeleteLogCount: Int = 0,
     val renameError: String? = null,
     val showUnmarkPeriodConfirmation: Boolean = false,
+    /** Whether to display the one-time wellness empty-state prompt. */
+    val showWellnessPrompt: Boolean = false,
 )
 
 /**
@@ -117,6 +121,7 @@ class DailyLogViewModel(
     private val deleteSymptomUseCase: DeleteSymptomUseCase,
     private val renameMedicationUseCase: RenameMedicationUseCase,
     private val deleteMedicationUseCase: DeleteMedicationUseCase,
+    private val hintPreferences: HintPreferences,
 ) : ViewModel()
 {
     private val _uiState = MutableStateFlow(DailyLogUiState())
@@ -158,6 +163,10 @@ class DailyLogViewModel(
 
             onEvent(DailyLogEvent.LogLoaded(loadedLog, initialSymptoms, initialMedications))
             _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0, isPeriodDay = isPeriodDay) }
+
+            val wellnessPromptSeen = hintPreferences
+                .isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT).first()
+            _uiState.update { it.copy(showWellnessPrompt = !wellnessPromptSeen) }
 
             // Persist the backfilled PeriodLog immediately.
             if (isPeriodDay && result.periodLog == null) {
@@ -286,19 +295,8 @@ class DailyLogViewModel(
                 autoSave()
             }
 
-            is DailyLogEvent.WaterIncrement -> viewModelScope.launch {
-                periodRepository.upsertWaterIntake(
-                    WaterIntake(
-                        date = entryDate,
-                        cups = _uiState.value.waterCups,
-                        createdAt = Clock.System.now(),
-                        updatedAt = Clock.System.now()
-                    )
-                )
-            }
-
-            is DailyLogEvent.WaterDecrement -> viewModelScope.launch {
-                if (_uiState.value.waterCups > 0) {
+            is DailyLogEvent.WaterIncrement -> {
+                viewModelScope.launch {
                     periodRepository.upsertWaterIntake(
                         WaterIntake(
                             date = entryDate,
@@ -308,12 +306,34 @@ class DailyLogViewModel(
                         )
                     )
                 }
+                dismissWellnessPromptIfNeeded()
             }
 
-            // Auto-save after state update for data-changing user events.
+            is DailyLogEvent.WaterDecrement -> {
+                viewModelScope.launch {
+                    if (_uiState.value.waterCups > 0) {
+                        periodRepository.upsertWaterIntake(
+                            WaterIntake(
+                                date = entryDate,
+                                cups = _uiState.value.waterCups,
+                                createdAt = Clock.System.now(),
+                                updatedAt = Clock.System.now()
+                            )
+                        )
+                    }
+                }
+                dismissWellnessPromptIfNeeded()
+            }
+
+            // Auto-save for wellness data-changing events (also dismiss prompt).
             is DailyLogEvent.MoodScoreChanged,
             is DailyLogEvent.EnergyLevelChanged,
-            is DailyLogEvent.LibidoScoreChanged,
+            is DailyLogEvent.LibidoScoreChanged -> {
+                autoSave()
+                dismissWellnessPromptIfNeeded()
+            }
+
+            // Auto-save for non-wellness data-changing events.
             is DailyLogEvent.FlowIntensityChanged,
             is DailyLogEvent.PeriodColorChanged,
             is DailyLogEvent.PeriodConsistencyChanged,
@@ -653,6 +673,22 @@ class DailyLogViewModel(
             val currentLog = _uiState.value.log ?: return@launch
             if (!isLogEmpty(currentLog)) {
                 periodRepository.saveFullLog(currentLog)
+            }
+        }
+    }
+
+    /**
+     * Dismisses the one-time wellness empty-state prompt if it is currently showing.
+     *
+     * Called as a side effect when the user first interacts with any wellness metric
+     * (mood, energy, libido, water). Persists the dismissal via [HintPreferences] so
+     * the prompt never reappears.
+     */
+    private fun dismissWellnessPromptIfNeeded() {
+        if (_uiState.value.showWellnessPrompt) {
+            _uiState.update { it.copy(showWellnessPrompt = false) }
+            viewModelScope.launch {
+                hintPreferences.markHintSeen(HintKey.WELLNESS_EMPTY_PROMPT)
             }
         }
     }

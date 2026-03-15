@@ -400,6 +400,7 @@ fun DailyLogScreen(
                                 energyLevel = log.entry.energyLevel,
                                 libidoScore = log.entry.libidoScore,
                                 waterCups = uiState.waterCups,
+                                showWellnessPrompt = uiState.showWellnessPrompt,
                                 onMoodChanged = { score ->
                                     viewModel.onEvent(DailyLogEvent.MoodScoreChanged(score))
                                     if (activeHint?.def?.key == HintKey.DAILY_LOG_MOOD) {

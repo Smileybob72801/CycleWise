@@ -19,6 +19,9 @@ enum class HintKey {
     DAILY_LOG_MEDICATIONS_TAB,
     DAILY_LOG_NOTES_TAB,
 
+    // Daily Log one-time prompts
+    WELLNESS_EMPTY_PROMPT,
+
     // Tracker walkthrough (7 steps)
     TRACKER_WELCOME,
     TRACKER_NAV,

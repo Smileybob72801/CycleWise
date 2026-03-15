@@ -38,6 +38,7 @@ class WellnessPageTest {
         energyLevel: Int? = null,
         libidoScore: Int? = null,
         waterCups: Int = 0,
+        showWellnessPrompt: Boolean = false,
         onMoodChanged: (Int) -> Unit = {},
         onEnergyChanged: (Int) -> Unit = {},
         onLibidoChanged: (Int) -> Unit = {},
@@ -54,6 +55,7 @@ class WellnessPageTest {
                         energyLevel = energyLevel,
                         libidoScore = libidoScore,
                         waterCups = waterCups,
+                        showWellnessPrompt = showWellnessPrompt,
                         onMoodChanged = onMoodChanged,
                         onEnergyChanged = onEnergyChanged,
                         onLibidoChanged = onLibidoChanged,
@@ -70,9 +72,9 @@ class WellnessPageTest {
     // region Empty state
 
     @Test
-    fun emptyState_WHEN_allValuesUnset_THEN_promptIsDisplayed() {
-        // Given / When — all defaults (null/0)
-        setContent()
+    fun emptyState_WHEN_showWellnessPromptTrue_THEN_promptIsDisplayed() {
+        // Given / When
+        setContent(showWellnessPrompt = true)
 
         // Then
         composeTestRule.onNodeWithText("Start by rating", substring = true, ignoreCase = true)
@@ -80,19 +82,9 @@ class WellnessPageTest {
     }
 
     @Test
-    fun emptyState_WHEN_moodIsSet_THEN_promptIsHidden() {
-        // Given / When
-        setContent(moodScore = 3)
-
-        // Then
-        composeTestRule.onNodeWithText("Start by rating", substring = true, ignoreCase = true)
-            .assertDoesNotExist()
-    }
-
-    @Test
-    fun emptyState_WHEN_waterIsPositive_THEN_promptIsHidden() {
-        // Given / When
-        setContent(waterCups = 1)
+    fun emptyState_WHEN_showWellnessPromptFalse_THEN_promptIsHidden() {
+        // Given / When — even with all values unset, prompt is hidden when flag is false
+        setContent(showWellnessPrompt = false)
 
         // Then
         composeTestRule.onNodeWithText("Start by rating", substring = true, ignoreCase = true)
