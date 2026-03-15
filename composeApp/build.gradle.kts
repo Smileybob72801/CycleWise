@@ -97,8 +97,8 @@ android {
         applicationId = "com.veleda.cyclewise"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.0-beta.2"
         testInstrumentationRunner = "com.veleda.cyclewise.CustomTestRunner"
     }
     // This is the standard, safe way to handle duplicate text files
