@@ -19,6 +19,8 @@ import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
 import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.RenameResult
 import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
+import com.veleda.cyclewise.ui.coachmark.HintKey
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.testutil.TestData
 import com.veleda.cyclewise.testutil.buildMedication
 import com.veleda.cyclewise.testutil.buildMedicationLog
@@ -70,6 +72,7 @@ class DailyLogViewModelTest {
     private lateinit var mockDeleteSymptomUseCase: DeleteSymptomUseCase
     private lateinit var mockRenameMedicationUseCase: RenameMedicationUseCase
     private lateinit var mockDeleteMedicationUseCase: DeleteMedicationUseCase
+    private lateinit var mockHintPreferences: HintPreferences
 
     private val testDate = TestData.DATE
     private val testInstant = TestData.INSTANT
@@ -98,6 +101,8 @@ class DailyLogViewModelTest {
         mockDeleteSymptomUseCase = mockk(relaxed = true)
         mockRenameMedicationUseCase = mockk(relaxed = true)
         mockDeleteMedicationUseCase = mockk(relaxed = true)
+        mockHintPreferences = mockk(relaxed = true)
+        every { mockHintPreferences.isHintSeen(any()) } returns flowOf(false)
 
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
@@ -124,6 +129,7 @@ class DailyLogViewModelTest {
             deleteSymptomUseCase = mockDeleteSymptomUseCase,
             renameMedicationUseCase = mockRenameMedicationUseCase,
             deleteMedicationUseCase = mockDeleteMedicationUseCase,
+            hintPreferences = mockHintPreferences,
         )
     }
 
@@ -810,5 +816,98 @@ class DailyLogViewModelTest {
         assertFalse(vm.uiState.value.showUnmarkPeriodConfirmation)
         assertNotNull(vm.uiState.value.log!!.periodLog, "periodLog should be preserved after dismissal")
         coVerify(exactly = 0) { mockRepository.unLogPeriodDay(any()) }
+    }
+
+    // ── Wellness prompt hint tests ────────────────────────────────────
+
+    @Test
+    fun `init WHEN wellnessPromptNotSeen THEN showWellnessPromptTrue`() = runTest {
+        // GIVEN — hint has NOT been seen
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(false)
+
+        // WHEN
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // THEN
+        assertTrue(vm.uiState.value.showWellnessPrompt)
+    }
+
+    @Test
+    fun `init WHEN wellnessPromptAlreadySeen THEN showWellnessPromptFalse`() = runTest {
+        // GIVEN — hint HAS been seen
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(true)
+
+        // WHEN
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // THEN
+        assertFalse(vm.uiState.value.showWellnessPrompt)
+    }
+
+    @Test
+    fun `onEvent MoodScoreChanged WHEN promptShowing THEN dismissesPromptAndMarksHintSeen`() = runTest {
+        // GIVEN — prompt is showing
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(false)
+        val vm = createViewModel()
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.showWellnessPrompt)
+
+        // WHEN
+        vm.onEvent(DailyLogEvent.MoodScoreChanged(score = 4))
+        advanceUntilIdle()
+
+        // THEN
+        assertFalse(vm.uiState.value.showWellnessPrompt)
+        coVerify(exactly = 1) { mockHintPreferences.markHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) }
+    }
+
+    @Test
+    fun `onEvent EnergyLevelChanged WHEN promptShowing THEN dismissesPrompt`() = runTest {
+        // GIVEN
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(false)
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN
+        vm.onEvent(DailyLogEvent.EnergyLevelChanged(level = 3))
+        advanceUntilIdle()
+
+        // THEN
+        assertFalse(vm.uiState.value.showWellnessPrompt)
+        coVerify(exactly = 1) { mockHintPreferences.markHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) }
+    }
+
+    @Test
+    fun `onEvent WaterIncrement WHEN promptShowing THEN dismissesPrompt`() = runTest {
+        // GIVEN
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(false)
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN
+        vm.onEvent(DailyLogEvent.WaterIncrement)
+        advanceUntilIdle()
+
+        // THEN
+        assertFalse(vm.uiState.value.showWellnessPrompt)
+        coVerify(exactly = 1) { mockHintPreferences.markHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) }
+    }
+
+    @Test
+    fun `onEvent MoodScoreChanged WHEN promptAlreadyDismissed THEN doesNotCallMarkHintSeenAgain`() = runTest {
+        // GIVEN — prompt already seen
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(true)
+        val vm = createViewModel()
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.showWellnessPrompt)
+
+        // WHEN
+        vm.onEvent(DailyLogEvent.MoodScoreChanged(score = 3))
+        advanceUntilIdle()
+
+        // THEN — markHintSeen should NOT be called
+        coVerify(exactly = 0) { mockHintPreferences.markHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) }
     }
 }

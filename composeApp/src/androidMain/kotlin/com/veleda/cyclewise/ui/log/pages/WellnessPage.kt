@@ -52,6 +52,9 @@ import com.veleda.cyclewise.ui.theme.RhythmWiseColors
  * @param energyLevel Current energy level (1-5), or `null` if unset.
  * @param libidoScore Current libido score (1-5), or `null` if unset.
  * @param waterCups Current water intake in cups.
+ * @param showWellnessPrompt Whether to display the one-time empty-state prompt.
+ *        Controlled by the ViewModel via [HintPreferences]; once the user logs any
+ *        wellness data, this becomes `false` permanently.
  * @param onMoodChanged Callback when the user selects a mood score.
  * @param onEnergyChanged Callback when the user selects an energy level.
  * @param onLibidoChanged Callback when the user selects a libido score.
@@ -68,6 +71,7 @@ internal fun WellnessPage(
     energyLevel: Int?,
     libidoScore: Int?,
     waterCups: Int,
+    showWellnessPrompt: Boolean = false,
     onMoodChanged: (Int) -> Unit,
     onEnergyChanged: (Int) -> Unit,
     onLibidoChanged: (Int) -> Unit,
@@ -94,11 +98,8 @@ internal fun WellnessPage(
     ) {
         Spacer(Modifier.height(dims.sm))
 
-        val hasNoWellnessData =
-            moodScore == null && energyLevel == null && libidoScore == null && waterCups == 0
-
         AnimatedVisibility(
-            visible = hasNoWellnessData,
+            visible = showWellnessPrompt,
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
