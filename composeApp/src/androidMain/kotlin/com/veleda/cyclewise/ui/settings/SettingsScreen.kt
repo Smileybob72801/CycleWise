@@ -29,23 +29,25 @@ import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.settings.pages.AboutPage
 import com.veleda.cyclewise.ui.settings.pages.AppearancePage
+import com.veleda.cyclewise.ui.settings.pages.ColorsPage
 import com.veleda.cyclewise.domain.usecases.DebugSeederUseCase
 import com.veleda.cyclewise.session.SessionManager
-import com.veleda.cyclewise.ui.settings.pages.GeneralPage
 import com.veleda.cyclewise.ui.settings.pages.NotificationsPage
+import com.veleda.cyclewise.ui.settings.pages.SecurityPage
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.getKoin
 
 /** Number of pages in the settings pager. */
-private const val PAGE_COUNT = 4
+private const val PAGE_COUNT = 5
 
 /** Page indices for the settings pager. */
-private const val PAGE_GENERAL = 0
+private const val PAGE_SECURITY = 0
 private const val PAGE_APPEARANCE = 1
-private const val PAGE_NOTIFICATIONS = 2
-private const val PAGE_ABOUT = 3
+private const val PAGE_COLORS = 2
+private const val PAGE_NOTIFICATIONS = 3
+private const val PAGE_ABOUT = 4
 
 /**
  * Top-level settings screen with Koin-injected dependencies.
@@ -60,8 +62,9 @@ fun SettingsScreen(navController: NavController) {
     val koin = getKoin()
     val viewModel: SettingsViewModel = koinViewModel()
     val sessionManager: SessionManager = koin.get()
-    val generalState by viewModel.generalState.collectAsState()
+    val securityState by viewModel.securityState.collectAsState()
     val appearanceState by viewModel.appearanceState.collectAsState()
+    val colorsState by viewModel.colorsState.collectAsState()
     val notificationState by viewModel.notificationState.collectAsState()
     val aboutState by viewModel.aboutState.collectAsState()
     val context = LocalContext.current
@@ -90,8 +93,9 @@ fun SettingsScreen(navController: NavController) {
         topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }
     ) { padding ->
         SettingsContent(
-            generalState = generalState,
+            securityState = securityState,
             appearanceState = appearanceState,
+            colorsState = colorsState,
             notificationState = notificationState,
             aboutState = aboutState,
             onEvent = viewModel::onEvent,
@@ -114,13 +118,14 @@ fun SettingsScreen(navController: NavController) {
 }
 
 /**
- * Testable content composable that renders the settings UI as a 4-page [HorizontalPager].
+ * Testable content composable that renders the settings UI as a 5-page [HorizontalPager].
  *
- * Accepts the four sub-state objects and an event callback instead of direct dependencies,
+ * Accepts the five sub-state objects and an event callback instead of direct dependencies,
  * so it can be tested in isolation without navigation, DI, or ViewModel concerns.
  *
- * @param generalState       The current General page state from [SettingsViewModel].
+ * @param securityState      The current Security page state from [SettingsViewModel].
  * @param appearanceState    The current Appearance page state from [SettingsViewModel].
+ * @param colorsState        The current Colors page state from [SettingsViewModel].
  * @param notificationState  The current Notifications page state from [SettingsViewModel].
  * @param aboutState         The current About page state from [SettingsViewModel].
  * @param onEvent            Event dispatcher for [SettingsEvent] variants.
@@ -133,8 +138,9 @@ fun SettingsScreen(navController: NavController) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsContent(
-    generalState: GeneralSettingsState,
+    securityState: SecuritySettingsState,
     appearanceState: AppearanceSettingsState,
+    colorsState: ColorsSettingsState,
     notificationState: NotificationSettingsState,
     aboutState: AboutSettingsState,
     onEvent: (SettingsEvent) -> Unit,
@@ -147,17 +153,18 @@ internal fun SettingsContent(
     val pagerState = rememberPagerState(pageCount = { PAGE_COUNT })
     val coroutineScope = rememberCoroutineScope()
 
-    // Predictive back: return to the General page from any sub-tab.
-    // Disabled on the General page so the system handles back normally (navigate out).
+    // Predictive back: return to the Security page from any sub-tab.
+    // Disabled on the Security page so the system handles back normally (navigate out).
     BackHandler(enabled = pagerState.currentPage > 0) {
         coroutineScope.launch {
-            pagerState.animateScrollToPage(PAGE_GENERAL)
+            pagerState.animateScrollToPage(PAGE_SECURITY)
         }
     }
 
     val pageLabels = listOf(
-        stringResource(R.string.settings_page_general),
+        stringResource(R.string.settings_page_security),
         stringResource(R.string.settings_page_appearance),
+        stringResource(R.string.settings_page_colors),
         stringResource(R.string.settings_page_notifications),
         stringResource(R.string.settings_page_about),
     )
@@ -192,8 +199,9 @@ internal fun SettingsContent(
                 modifier = Modifier.fillMaxSize(),
             ) { page ->
                 when (page) {
-                    PAGE_GENERAL -> GeneralPage(generalState, onEvent, isSessionActive, onLockNow)
+                    PAGE_SECURITY -> SecurityPage(securityState, onEvent, isSessionActive, onLockNow)
                     PAGE_APPEARANCE -> AppearancePage(appearanceState, onEvent)
+                    PAGE_COLORS -> ColorsPage(colorsState, onEvent)
                     PAGE_NOTIFICATIONS -> NotificationsPage(notificationState, onEvent)
                     PAGE_ABOUT -> AboutPage(aboutState, onEvent, isSessionActive, onSeedDebugData)
                 }

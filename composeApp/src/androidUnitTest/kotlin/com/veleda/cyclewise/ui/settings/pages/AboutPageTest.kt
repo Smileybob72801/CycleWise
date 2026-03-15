@@ -63,7 +63,7 @@ class AboutPageTest {
         setContent()
 
         // Then — the about description should be visible
-        composeTestRule.onNodeWithText("privacy", substring = true, ignoreCase = true)
+        composeTestRule.onNodeWithText("privacy-first", substring = true, ignoreCase = true)
             .assertIsDisplayed()
     }
 

@@ -42,32 +42,24 @@ sealed interface SettingsEffect {
 }
 
 /**
- * UI state for the General settings page (page 0).
+ * UI state for the Security settings page (page 0).
  *
- * Contains security settings, insights configuration, tutorial hint state,
- * legal dialog visibility, and data management dialog state.
+ * Contains autolock timeout, passphrase change dialog state, and data deletion
+ * confirmation flow.
  *
  * @property autolockMinutes              Auto-lock timeout in minutes (default 10).
- * @property topSymptomsCount             Number of top symptoms shown in insights (default 3).
- * @property showHintResetConfirmation    Whether the hint-reset confirmation toast should show.
- * @property showPrivacyPolicyDialog      Whether the Privacy Policy dialog is visible.
- * @property showTermsOfServiceDialog     Whether the Terms of Service dialog is visible.
  * @property showChangePassphraseDialog   Whether the Change Passphrase dialog is visible.
  * @property changePassphraseError        Error key for the change passphrase dialog (`"wrong_current"`,
  *                                        `"too_short"`, `"mismatch"`, or `null`).
  * @property isChangingPassphrase         Whether a passphrase change is currently in progress.
- * @property showPassphraseSuccessDialog Whether the post-change success dialog is visible.
+ * @property showPassphraseSuccessDialog  Whether the post-change success dialog is visible.
  * @property showDeleteFirstConfirmation  Whether the first "Delete All Data?" warning dialog is visible.
  * @property showDeleteSecondConfirmation Whether the second "type DELETE" confirmation dialog is visible.
  * @property deleteConfirmText            Current text in the second dialog's confirmation field.
  * @property isDeletingData               Whether a data wipe is currently in progress.
  */
-data class GeneralSettingsState(
+data class SecuritySettingsState(
     val autolockMinutes: Int = 10,
-    val topSymptomsCount: Int = 3,
-    val showHintResetConfirmation: Boolean = false,
-    val showPrivacyPolicyDialog: Boolean = false,
-    val showTermsOfServiceDialog: Boolean = false,
     val showChangePassphraseDialog: Boolean = false,
     val changePassphraseError: String? = null,
     val isChangingPassphrase: Boolean = false,
@@ -81,16 +73,34 @@ data class GeneralSettingsState(
 /**
  * UI state for the Appearance settings page (page 1).
  *
- * Contains theme mode, display toggles, phase visibility, phase colors,
- * and educational content state.
+ * Contains theme mode, display toggles, phase visibility, and top symptoms count.
  *
- * @property themeMode             User-selected theme mode (default [ThemeMode.SYSTEM]).
- * @property showMood              Whether mood is shown in the daily log summary.
- * @property showEnergy            Whether energy is shown in the daily log summary.
- * @property showLibido            Whether libido is shown in the daily log summary.
- * @property showFollicular        Whether the Follicular phase tint is visible on the calendar.
- * @property showOvulation         Whether the Ovulation phase tint is visible on the calendar.
- * @property showLuteal            Whether the Luteal phase tint is visible on the calendar.
+ * @property themeMode         User-selected theme mode (default [ThemeMode.SYSTEM]).
+ * @property showMood          Whether mood is shown in the daily log summary.
+ * @property showEnergy        Whether energy is shown in the daily log summary.
+ * @property showLibido        Whether libido is shown in the daily log summary.
+ * @property showFollicular    Whether the Follicular phase tint is visible on the calendar.
+ * @property showOvulation     Whether the Ovulation phase tint is visible on the calendar.
+ * @property showLuteal        Whether the Luteal phase tint is visible on the calendar.
+ * @property topSymptomsCount  Number of top symptoms shown in insights (default 3).
+ */
+data class AppearanceSettingsState(
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val showMood: Boolean = true,
+    val showEnergy: Boolean = true,
+    val showLibido: Boolean = true,
+    val showFollicular: Boolean = true,
+    val showOvulation: Boolean = true,
+    val showLuteal: Boolean = true,
+    val topSymptomsCount: Int = 3,
+)
+
+/**
+ * UI state for the Colors settings page (page 2).
+ *
+ * Contains all phase and heatmap color customization hex values plus the
+ * educational bottom sheet articles.
+ *
  * @property menstruationColorHex           6-char hex color for the Menstruation phase.
  * @property follicularColorHex             6-char hex color for the Follicular phase.
  * @property ovulationColorHex              6-char hex color for the Ovulation phase.
@@ -104,14 +114,7 @@ data class GeneralSettingsState(
  * @property heatmapMedicationCountColorHex 6-char hex color for the Medication Count heatmap metric.
  * @property educationalArticles            Articles to display in the educational bottom sheet, or null when the sheet is hidden.
  */
-data class AppearanceSettingsState(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val showMood: Boolean = true,
-    val showEnergy: Boolean = true,
-    val showLibido: Boolean = true,
-    val showFollicular: Boolean = true,
-    val showOvulation: Boolean = true,
-    val showLuteal: Boolean = true,
+data class ColorsSettingsState(
     val menstruationColorHex: String = CyclePhaseColors.DEFAULT_MENSTRUATION_HEX,
     val follicularColorHex: String = CyclePhaseColors.DEFAULT_FOLLICULAR_HEX,
     val ovulationColorHex: String = CyclePhaseColors.DEFAULT_OVULATION_HEX,
@@ -127,7 +130,7 @@ data class AppearanceSettingsState(
 )
 
 /**
- * UI state for the Notifications settings page (page 2).
+ * UI state for the Notifications settings page (page 3).
  *
  * Contains all reminder configuration and related dialog visibility flags.
  *
@@ -162,21 +165,28 @@ data class NotificationSettingsState(
 )
 
 /**
- * UI state for the About settings page (page 3).
+ * UI state for the About settings page (page 4).
  *
- * @property showAboutDialog Whether the About dialog is visible.
+ * @property showAboutDialog           Whether the About dialog is visible.
+ * @property showPrivacyPolicyDialog   Whether the Privacy Policy dialog is visible.
+ * @property showTermsOfServiceDialog  Whether the Terms of Service dialog is visible.
+ * @property showHintResetConfirmation Whether the hint-reset confirmation toast should show.
  */
 data class AboutSettingsState(
     val showAboutDialog: Boolean = false,
+    val showPrivacyPolicyDialog: Boolean = false,
+    val showTermsOfServiceDialog: Boolean = false,
+    val showHintResetConfirmation: Boolean = false,
 )
 
 /**
  * Settings screen ViewModel following the MVI pattern with pure reduce functions.
  *
- * Exposes four separate [StateFlow]s — one per pager page — so that changes to one
+ * Exposes five separate [StateFlow]s — one per pager page — so that changes to one
  * page's state only trigger recomposition of that page. Each sub-state has a
- * corresponding pure reduce function ([reduceGeneral], [reduceAppearance],
- * [reduceNotification], [reduceAbout]) that handles synchronous state transitions.
+ * corresponding pure reduce function ([reduceSecurity], [reduceAppearance],
+ * [reduceColors], [reduceNotification], [reduceAbout]) that handles synchronous
+ * state transitions.
  *
  * Collects all [AppSettings] preference flows in its `init` block via individual
  * `Flow.onEach { }.launchIn(viewModelScope)` collectors. User interactions are dispatched
@@ -203,15 +213,20 @@ class SettingsViewModel(
     private val sessionManager: SessionManager,
 ) : ViewModel() {
 
-    private val _generalState = MutableStateFlow(GeneralSettingsState())
+    private val _securityState = MutableStateFlow(SecuritySettingsState())
 
-    /** Observable state for the General settings page. */
-    val generalState: StateFlow<GeneralSettingsState> = _generalState.asStateFlow()
+    /** Observable state for the Security settings page. */
+    val securityState: StateFlow<SecuritySettingsState> = _securityState.asStateFlow()
 
     private val _appearanceState = MutableStateFlow(AppearanceSettingsState())
 
     /** Observable state for the Appearance settings page. */
     val appearanceState: StateFlow<AppearanceSettingsState> = _appearanceState.asStateFlow()
+
+    private val _colorsState = MutableStateFlow(ColorsSettingsState())
+
+    /** Observable state for the Colors settings page. */
+    val colorsState: StateFlow<ColorsSettingsState> = _colorsState.asStateFlow()
 
     private val _notificationState = MutableStateFlow(NotificationSettingsState())
 
@@ -233,16 +248,16 @@ class SettingsViewModel(
     val effect: SharedFlow<SettingsEffect> = _effect.asSharedFlow()
 
     init {
-        // ── General state collectors ─────────────────────────────────
+        // ── Security state collectors ────────────────────────────────
         appSettings.autolockMinutes
-            .onEach { value -> _generalState.update { it.copy(autolockMinutes = value) } }
-            .launchIn(viewModelScope)
-
-        appSettings.topSymptomsCount
-            .onEach { value -> _generalState.update { it.copy(topSymptomsCount = value) } }
+            .onEach { value -> _securityState.update { it.copy(autolockMinutes = value) } }
             .launchIn(viewModelScope)
 
         // ── Appearance state collectors ──────────────────────────────
+        appSettings.topSymptomsCount
+            .onEach { value -> _appearanceState.update { it.copy(topSymptomsCount = value) } }
+            .launchIn(viewModelScope)
+
         appSettings.themeMode
             .onEach { value -> _appearanceState.update { it.copy(themeMode = ThemeMode.fromKey(value)) } }
             .launchIn(viewModelScope)
@@ -271,48 +286,49 @@ class SettingsViewModel(
             .onEach { value -> _appearanceState.update { it.copy(showLuteal = value) } }
             .launchIn(viewModelScope)
 
+        // ── Colors state collectors ──────────────────────────────────
         appSettings.menstruationColor
-            .onEach { value -> _appearanceState.update { it.copy(menstruationColorHex = value) } }
+            .onEach { value -> _colorsState.update { it.copy(menstruationColorHex = value) } }
             .launchIn(viewModelScope)
 
         appSettings.follicularColor
-            .onEach { value -> _appearanceState.update { it.copy(follicularColorHex = value) } }
+            .onEach { value -> _colorsState.update { it.copy(follicularColorHex = value) } }
             .launchIn(viewModelScope)
 
         appSettings.ovulationColor
-            .onEach { value -> _appearanceState.update { it.copy(ovulationColorHex = value) } }
+            .onEach { value -> _colorsState.update { it.copy(ovulationColorHex = value) } }
             .launchIn(viewModelScope)
 
         appSettings.lutealColor
-            .onEach { value -> _appearanceState.update { it.copy(lutealColorHex = value) } }
+            .onEach { value -> _colorsState.update { it.copy(lutealColorHex = value) } }
             .launchIn(viewModelScope)
 
         appSettings.heatmapMoodColor
-            .onEach { value -> _appearanceState.update { it.copy(heatmapMoodColorHex = value) } }
+            .onEach { value -> _colorsState.update { it.copy(heatmapMoodColorHex = value) } }
             .launchIn(viewModelScope)
 
         appSettings.heatmapEnergyColor
-            .onEach { value -> _appearanceState.update { it.copy(heatmapEnergyColorHex = value) } }
+            .onEach { value -> _colorsState.update { it.copy(heatmapEnergyColorHex = value) } }
             .launchIn(viewModelScope)
 
         appSettings.heatmapLibidoColor
-            .onEach { value -> _appearanceState.update { it.copy(heatmapLibidoColorHex = value) } }
+            .onEach { value -> _colorsState.update { it.copy(heatmapLibidoColorHex = value) } }
             .launchIn(viewModelScope)
 
         appSettings.heatmapWaterIntakeColor
-            .onEach { value -> _appearanceState.update { it.copy(heatmapWaterIntakeColorHex = value) } }
+            .onEach { value -> _colorsState.update { it.copy(heatmapWaterIntakeColorHex = value) } }
             .launchIn(viewModelScope)
 
         appSettings.heatmapSymptomSeverityColor
-            .onEach { value -> _appearanceState.update { it.copy(heatmapSymptomSeverityColorHex = value) } }
+            .onEach { value -> _colorsState.update { it.copy(heatmapSymptomSeverityColorHex = value) } }
             .launchIn(viewModelScope)
 
         appSettings.heatmapFlowIntensityColor
-            .onEach { value -> _appearanceState.update { it.copy(heatmapFlowIntensityColorHex = value) } }
+            .onEach { value -> _colorsState.update { it.copy(heatmapFlowIntensityColorHex = value) } }
             .launchIn(viewModelScope)
 
         appSettings.heatmapMedicationCountColor
-            .onEach { value -> _appearanceState.update { it.copy(heatmapMedicationCountColorHex = value) } }
+            .onEach { value -> _colorsState.update { it.copy(heatmapMedicationCountColorHex = value) } }
             .launchIn(viewModelScope)
 
         // ── Notification state collectors ────────────────────────────
@@ -369,24 +385,18 @@ class SettingsViewModel(
      */
     fun onEvent(event: SettingsEvent) {
         when (event) {
-            // ── General state events ─────────────────────────────────
+            // ── Security state events ────────────────────────────────
             is SettingsEvent.AutolockChanged,
             is SettingsEvent.ChangePassphraseRequested,
             is SettingsEvent.ChangePassphraseDismissed,
-            is SettingsEvent.TopSymptomsCountChanged,
-            is SettingsEvent.ShowPrivacyPolicyDialog,
-            is SettingsEvent.DismissPrivacyPolicyDialog,
-            is SettingsEvent.ShowTermsOfServiceDialog,
-            is SettingsEvent.DismissTermsOfServiceDialog,
+            is SettingsEvent.ChangePassphraseSubmitted,
+            is SettingsEvent.ChangePassphraseSuccessAcknowledged,
             is SettingsEvent.DeleteAllDataRequested,
             is SettingsEvent.DeleteAllDataCancelled,
             is SettingsEvent.DeleteAllDataFirstConfirmed,
             is SettingsEvent.DeleteConfirmTextChanged,
-            is SettingsEvent.DeleteAllDataConfirmed,
-            is SettingsEvent.ChangePassphraseSuccessAcknowledged,
-            is SettingsEvent.ChangePassphraseSubmitted,
-            is SettingsEvent.ResetTutorialHints ->
-                _generalState.update { reduceGeneral(it, event) }
+            is SettingsEvent.DeleteAllDataConfirmed ->
+                _securityState.update { reduceSecurity(it, event) }
 
             // ── Appearance state events ──────────────────────────────
             is SettingsEvent.ThemeModeChanged,
@@ -396,6 +406,10 @@ class SettingsViewModel(
             is SettingsEvent.ShowFollicularToggled,
             is SettingsEvent.ShowOvulationToggled,
             is SettingsEvent.ShowLutealToggled,
+            is SettingsEvent.TopSymptomsCountChanged ->
+                _appearanceState.update { reduceAppearance(it, event) }
+
+            // ── Colors state events ──────────────────────────────────
             is SettingsEvent.MenstruationColorChanged,
             is SettingsEvent.FollicularColorChanged,
             is SettingsEvent.OvulationColorChanged,
@@ -405,7 +419,7 @@ class SettingsViewModel(
             is SettingsEvent.ResetHeatmapColorsToDefaults,
             is SettingsEvent.ShowEducationalSheet,
             is SettingsEvent.DismissEducationalSheet ->
-                _appearanceState.update { reduceAppearance(it, event) }
+                _colorsState.update { reduceColors(it, event) }
 
             // ── Notification state events ────────────────────────────
             is SettingsEvent.PeriodReminderToggled,
@@ -427,7 +441,12 @@ class SettingsViewModel(
 
             // ── About state events ───────────────────────────────────
             is SettingsEvent.ShowAboutDialog,
-            is SettingsEvent.DismissAboutDialog ->
+            is SettingsEvent.DismissAboutDialog,
+            is SettingsEvent.ShowPrivacyPolicyDialog,
+            is SettingsEvent.DismissPrivacyPolicyDialog,
+            is SettingsEvent.ShowTermsOfServiceDialog,
+            is SettingsEvent.DismissTermsOfServiceDialog,
+            is SettingsEvent.ResetTutorialHints ->
                 _aboutState.update { reduceAbout(it, event) }
         }
 
@@ -440,7 +459,7 @@ class SettingsViewModel(
                 viewModelScope.launch { appSettings.setTopSymptomsCount(event.count) }
 
             is SettingsEvent.ChangePassphraseSubmitted -> {
-                if (_generalState.value.isChangingPassphrase) {
+                if (_securityState.value.isChangingPassphrase) {
                     launchChangePassphrase(event)
                 }
             }
@@ -455,7 +474,7 @@ class SettingsViewModel(
             is SettingsEvent.ResetTutorialHints -> {
                 viewModelScope.launch {
                     hintPreferences.resetAll()
-                    _generalState.update { it.copy(showHintResetConfirmation = true) }
+                    _aboutState.update { it.copy(showHintResetConfirmation = true) }
                 }
             }
 
@@ -535,7 +554,7 @@ class SettingsViewModel(
 
             is SettingsEvent.ShowEducationalSheet -> {
                 val articles = educationalContentProvider.getByTag(event.contentTag)
-                _appearanceState.update { it.copy(educationalArticles = articles.ifEmpty { null }) }
+                _colorsState.update { it.copy(educationalArticles = articles.ifEmpty { null }) }
             }
 
             is SettingsEvent.PeriodReminderToggled -> {
@@ -630,13 +649,13 @@ class SettingsViewModel(
     }
 
     /**
-     * Pure function that returns the new [GeneralSettingsState] for a given event.
+     * Pure function that returns the new [SecuritySettingsState] for a given event.
      *
-     * Handles autolock, top symptoms, passphrase change validation, tutorial hints,
-     * legal dialogs, and data deletion confirmation flow. Contains no side effects.
+     * Handles autolock, passphrase change validation, and data deletion confirmation
+     * flow. Contains no side effects.
      */
     @Suppress("CyclomaticComplexMethod", "LongMethod")
-    private fun reduceGeneral(state: GeneralSettingsState, event: SettingsEvent): GeneralSettingsState {
+    private fun reduceSecurity(state: SecuritySettingsState, event: SettingsEvent): SecuritySettingsState {
         return when (event) {
             is SettingsEvent.AutolockChanged ->
                 state.copy(autolockMinutes = event.minutes)
@@ -667,23 +686,6 @@ class SettingsViewModel(
                     showChangePassphraseDialog = false,
                     showPassphraseSuccessDialog = false,
                 )
-
-            is SettingsEvent.TopSymptomsCountChanged ->
-                state.copy(topSymptomsCount = event.count)
-
-            is SettingsEvent.ResetTutorialHints -> state
-
-            is SettingsEvent.ShowPrivacyPolicyDialog ->
-                state.copy(showPrivacyPolicyDialog = true)
-
-            is SettingsEvent.DismissPrivacyPolicyDialog ->
-                state.copy(showPrivacyPolicyDialog = false)
-
-            is SettingsEvent.ShowTermsOfServiceDialog ->
-                state.copy(showTermsOfServiceDialog = true)
-
-            is SettingsEvent.DismissTermsOfServiceDialog ->
-                state.copy(showTermsOfServiceDialog = false)
 
             is SettingsEvent.DeleteAllDataRequested ->
                 state.copy(showDeleteFirstConfirmation = true)
@@ -719,9 +721,8 @@ class SettingsViewModel(
     /**
      * Pure function that returns the new [AppearanceSettingsState] for a given event.
      *
-     * Handles theme mode, display toggles, phase visibility, phase colors, and
-     * educational sheet visibility. Contains no side effects — content provider
-     * queries and DataStore writes are handled in [onEvent].
+     * Handles theme mode, display toggles, phase visibility, and top symptoms count.
+     * Contains no side effects — DataStore writes are handled in [onEvent].
      */
     private fun reduceAppearance(state: AppearanceSettingsState, event: SettingsEvent): AppearanceSettingsState {
         return when (event) {
@@ -746,6 +747,22 @@ class SettingsViewModel(
             is SettingsEvent.ShowLutealToggled ->
                 state.copy(showLuteal = event.enabled)
 
+            is SettingsEvent.TopSymptomsCountChanged ->
+                state.copy(topSymptomsCount = event.count)
+
+            else -> state
+        }
+    }
+
+    /**
+     * Pure function that returns the new [ColorsSettingsState] for a given event.
+     *
+     * Handles phase colors, heatmap colors, and educational sheet visibility.
+     * Contains no side effects — content provider queries and DataStore writes
+     * are handled in [onEvent].
+     */
+    private fun reduceColors(state: ColorsSettingsState, event: SettingsEvent): ColorsSettingsState {
+        return when (event) {
             is SettingsEvent.MenstruationColorChanged ->
                 state.copy(menstruationColorHex = event.hex)
 
@@ -861,7 +878,8 @@ class SettingsViewModel(
     /**
      * Pure function that returns the new [AboutSettingsState] for a given event.
      *
-     * Handles about dialog visibility. Contains no side effects.
+     * Handles about dialog, legal dialog visibility, and tutorial hint reset.
+     * Contains no side effects.
      */
     private fun reduceAbout(state: AboutSettingsState, event: SettingsEvent): AboutSettingsState {
         return when (event) {
@@ -871,19 +889,33 @@ class SettingsViewModel(
             is SettingsEvent.DismissAboutDialog ->
                 state.copy(showAboutDialog = false)
 
+            is SettingsEvent.ShowPrivacyPolicyDialog ->
+                state.copy(showPrivacyPolicyDialog = true)
+
+            is SettingsEvent.DismissPrivacyPolicyDialog ->
+                state.copy(showPrivacyPolicyDialog = false)
+
+            is SettingsEvent.ShowTermsOfServiceDialog ->
+                state.copy(showTermsOfServiceDialog = true)
+
+            is SettingsEvent.DismissTermsOfServiceDialog ->
+                state.copy(showTermsOfServiceDialog = false)
+
+            is SettingsEvent.ResetTutorialHints -> state
+
             else -> state
         }
     }
 
     /**
-     * Validates inputs via [reduceGeneral] and delegates the passphrase change to [SessionManager].
+     * Validates inputs via [reduceSecurity] and delegates the passphrase change to [SessionManager].
      *
-     * Called only when [reduceGeneral] transitions [GeneralSettingsState.isChangingPassphrase]
+     * Called only when [reduceSecurity] transitions [SecuritySettingsState.isChangingPassphrase]
      * to `true` (validation passed). Delegates to [SessionManager.changePassphrase] which
      * handles key derivation, fingerprint verification, database rekey, and fingerprint
      * update on the IO dispatcher.
      *
-     * On any failure, sets [GeneralSettingsState.changePassphraseError] and clears the
+     * On any failure, sets [SecuritySettingsState.changePassphraseError] and clears the
      * loading state.
      */
     private fun launchChangePassphrase(event: SettingsEvent.ChangePassphraseSubmitted) {
@@ -897,11 +929,11 @@ class SettingsViewModel(
             }
 
             if (errorKey != null) {
-                _generalState.update {
+                _securityState.update {
                     it.copy(changePassphraseError = errorKey, isChangingPassphrase = false)
                 }
             } else {
-                _generalState.update {
+                _securityState.update {
                     it.copy(
                         isChangingPassphrase = false,
                         changePassphraseError = null,

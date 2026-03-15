@@ -887,8 +887,8 @@ top of MVVM components:
   should be consumed exactly once. Exposed as `SharedFlow` with `replay = 0`.
 - **Reducer** (`reduce()`) — A pure function that takes current state + event and returns
   new state with no side effects. All ViewModels use a pure `reduce()` function.
-  `SettingsViewModel` uses four reduce functions — `reduceGeneral()`, `reduceAppearance()`,
-  `reduceNotification()`, `reduceAbout()` — one per sub-state flow. Side effects
+  `SettingsViewModel` uses five reduce functions — `reduceSecurity()`, `reduceAppearance()`,
+  `reduceColors()`, `reduceNotification()`, `reduceAbout()` — one per sub-state flow. Side effects
   (repository writes, scheduler calls, navigation) are launched in `onEvent()` after
   the state update.
 
@@ -1943,21 +1943,23 @@ current constructor parameters.
 
 ### Architecture
 
-- **State:** Four focused sub-state data classes — one per pager page — each exposed
+- **State:** Five focused sub-state data classes — one per pager page — each exposed
   as a separate `StateFlow` to limit recomposition scope:
-  - `GeneralSettingsState` — autolock, top symptoms count, tutorial hint reset, legal
-    dialogs, and delete-all-data confirmation flow.
-  - `AppearanceSettingsState` — theme mode, summary toggles, phase visibility, phase
-    colors, and educational bottom sheet.
+  - `SecuritySettingsState` — autolock, passphrase change dialog, and
+    delete-all-data confirmation flow.
+  - `AppearanceSettingsState` — theme mode, summary toggles, phase visibility,
+    and top symptoms count.
+  - `ColorsSettingsState` — phase colors, heatmap colors, and educational
+    bottom sheet.
   - `NotificationSettingsState` — period, medication, and hydration reminder
     configuration plus permission rationale and privacy dialog.
-  - `AboutSettingsState` — about dialog visibility.
+  - `AboutSettingsState` — about dialog, legal dialogs, and tutorial hint reset.
 - **Events:** `SettingsEvent` — a sealed interface covering every toggle, slider,
   color input, and dialog interaction.
 - **Event routing:** `onEvent()` applies a pure state update via the appropriate
-  reduce function — `reduceGeneral()`, `reduceAppearance()`, `reduceNotification()`,
-  or `reduceAbout()` — then launches side effects (DataStore writes,
-  `ReminderScheduler` calls) in `viewModelScope`.
+  reduce function — `reduceSecurity()`, `reduceAppearance()`, `reduceColors()`,
+  `reduceNotification()`, or `reduceAbout()` — then launches side effects (DataStore
+  writes, `ReminderScheduler` calls) in `viewModelScope`.
 
 ### Initialization Pattern
 
@@ -1967,17 +1969,19 @@ flow. This intentionally avoids `combine()` because Kotlin's `combine()` support
 maximum of 5 parameters without custom extensions, and there are far more settings
 flows to observe.
 
-### 4-Page Swipeable Pager
+### 5-Page Swipeable Pager
 
-`SettingsScreen` uses a `HorizontalPager` with 4 pages:
-1. **General** — Autolock toggle, top symptoms count, tutorial hint reset, legal
-   dialogs, delete-all-data
+`SettingsScreen` uses a `HorizontalPager` with 5 pages:
+1. **Security** — Autolock timeout, change passphrase, lock now, delete all data
 2. **Appearance** — Theme mode, summary visibility toggles (mood, energy, libido),
-   phase visibility toggles (`PhaseVisibilitySettings`), phase color customization
-   (`PhaseColorSettings`) with hex input and preset swatch grid
-3. **Notifications** — Period prediction, medication, and hydration reminder
+   phase visibility toggles (`PhaseVisibilitySettings`), top symptoms count
+3. **Colors** — Phase color customization (`PhaseColorSettings`) with hex input and
+   preset swatch grid, heatmap color customization (`HeatmapColorSettings`),
+   educational bottom sheet
+4. **Notifications** — Period prediction, medication, and hydration reminder
    configuration (`ReminderSettings`) with POST_NOTIFICATIONS permission handling
-4. **About** — App version, privacy policy, about dialog
+5. **About** — App version, about dialog, legal documents (privacy policy, terms of
+   service), reset tutorial hints, developer tools (debug only)
 
 ### Phase Color Customization
 
