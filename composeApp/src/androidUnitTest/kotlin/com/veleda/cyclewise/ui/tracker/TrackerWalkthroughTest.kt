@@ -44,6 +44,13 @@ class TrackerWalkthroughTest {
     }
 
     @Test
+    fun `TRACKER_STEP_LIST has 7 entries from WELCOME to TAP_DAY`() {
+        assertEquals(7, TRACKER_STEP_LIST.size)
+        assertEquals(HintKey.TRACKER_WELCOME, TRACKER_STEP_LIST.first())
+        assertEquals(HintKey.TRACKER_TAP_DAY, TRACKER_STEP_LIST.last())
+    }
+
+    @Test
     fun `TRACKER_LONG_PRESS has requiresAction true`() {
         val def = TRACKER_HINTS[HintKey.TRACKER_LONG_PRESS]
         assertNotNull(def, "TRACKER_LONG_PRESS should exist")

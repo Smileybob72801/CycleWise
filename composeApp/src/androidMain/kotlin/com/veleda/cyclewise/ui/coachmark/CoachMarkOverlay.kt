@@ -4,15 +4,19 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ElevatedCard
@@ -20,6 +24,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,24 +35,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -73,8 +81,17 @@ private val TOOLTIP_MAX_WIDTH_DP = 320.dp
 /** Duration in milliseconds for the long-press skip gesture. */
 private const val SKIP_HOLD_DURATION_MS = 2_000
 
-/** Height of the skip progress indicator bar. */
-private val SKIP_PROGRESS_HEIGHT = 4.dp
+/** Height of the tutorial progress indicator bar. */
+private val PROGRESS_BAR_HEIGHT = 4.dp
+
+/** Stroke width for the circular skip indicator arc. */
+private val SKIP_ARC_STROKE_WIDTH = 3.dp
+
+/** Full sweep angle in degrees for the circular skip indicator. */
+private const val FULL_SWEEP_DEGREES = 360f
+
+/** Start angle (12 o'clock position) for the circular skip indicator. */
+private const val ARC_START_ANGLE = -90f
 
 /**
  * Modifier that reports a composable's root-coordinate bounds to [CoachMarkState]
@@ -116,8 +133,14 @@ fun Modifier.coachMarkTarget(
  * (e.g., tapping the Period tab at step 3). Underlying controls are guarded by per-step
  * logic in the host screen (tab locks, pager scroll disable) rather than by the overlay.
  *
+ * For informational steps (`requiresAction == false`), the card is clickable with a
+ * ripple effect to advance to the next step. Task steps require the user to perform
+ * the action on the highlighted target.
+ *
  * @param state     The per-screen [CoachMarkState] driving this overlay.
  * @param allDefs   The full walkthrough map, used by [CoachMarkState.advanceOrDismiss].
+ * @param stepList  Ordered list of all [HintKey]s in this walkthrough, used to calculate
+ *                  the progress bar position. Obtain via [walkthroughStepList].
  * @param onSkipAll Optional callback invoked after the user completes the "Hold to Skip"
  *                  gesture and the overlay has already called [CoachMarkState.skipAll].
  *                  Host screens use this to run additional cleanup (e.g., marking hints
@@ -127,6 +150,7 @@ fun Modifier.coachMarkTarget(
 fun CoachMarkOverlay(
     state: CoachMarkState,
     allDefs: Map<HintKey, CoachMarkDef>,
+    stepList: List<HintKey>,
     onSkipAll: () -> Unit = {},
 ) {
     val activeCoachMark by state.active.collectAsState()
@@ -178,6 +202,14 @@ fun CoachMarkOverlay(
         (highlightRect.top - tooltipGapPx - estimatedTooltipHeightPx).coerceAtLeast(0f)
     }
 
+    // Calculate walkthrough progress for the progress bar.
+    val currentIndex = stepList.indexOf(active.def.key)
+    val progress = if (stepList.isNotEmpty() && currentIndex >= 0) {
+        (currentIndex + 1).toFloat() / stepList.size
+    } else {
+        0f
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -214,23 +246,45 @@ fun CoachMarkOverlay(
         val tooltipX = highlightRect.left
             .coerceIn(marginPx, (overlayWidthPx - tooltipMaxWidthPx - marginPx).coerceAtLeast(marginPx))
 
+        val isInfoStep = !active.def.requiresAction
+        val cardModifier = Modifier
+            .align(Alignment.TopStart)
+            .offset {
+                IntOffset(
+                    x = tooltipX.roundToInt(),
+                    y = tooltipY.roundToInt(),
+                )
+            }
+            .widthIn(max = TOOLTIP_MAX_WIDTH_DP)
+            .padding(horizontal = dims.md)
+
         ElevatedCard(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset {
-                    IntOffset(
-                        x = tooltipX.roundToInt(),
-                        y = tooltipY.roundToInt(),
-                    )
-                }
-                .widthIn(max = TOOLTIP_MAX_WIDTH_DP)
-                .padding(horizontal = dims.md),
+            modifier = if (isInfoStep) {
+                cardModifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(),
+                    onClick = { state.advanceOrDismiss(allDefs) },
+                )
+            } else {
+                cardModifier
+            },
         ) {
             Column(modifier = Modifier.padding(dims.md)) {
+                // Progress bar at the top of the card.
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(PROGRESS_BAR_HEIGHT)
+                        .clip(RoundedCornerShape(PROGRESS_BAR_HEIGHT / 2)),
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
+
                 Text(
                     text = stringResource(active.def.titleRes),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = dims.sm),
                 )
                 Text(
                     text = stringResource(active.def.bodyRes),
@@ -238,7 +292,21 @@ fun CoachMarkOverlay(
                     modifier = Modifier.padding(top = dims.sm),
                 )
 
-                // Button row: "Hold to skip" on the start, optional skip + primary on the end.
+                // Tap hint for informational steps.
+                if (isInfoStep) {
+                    Text(
+                        text = if (active.def.nextKey != null) {
+                            stringResource(R.string.coach_mark_tap_to_continue)
+                        } else {
+                            stringResource(R.string.coach_mark_tap_to_finish)
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = dims.sm),
+                    )
+                }
+
+                // Button row: "Hold to skip" on the start, optional "I don't have periods" on the end.
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -254,37 +322,22 @@ fun CoachMarkOverlay(
                         modifier = Modifier.weight(1f, fill = false),
                     )
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (active.def.skipButtonRes != null) {
-                            val context = androidx.compose.ui.platform.LocalContext.current
-                            TextButton(
-                                onClick = {
-                                    state.skipToKey(active.def.skipTargetKey!!, allDefs)
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(active.def.skipToastRes!!),
-                                        Toast.LENGTH_LONG,
-                                    ).show()
-                                },
-                            ) {
-                                Text(
-                                    text = stringResource(active.def.skipButtonRes),
-                                    maxLines = 1,
-                                )
-                            }
-                        }
-
-                        // Hide the dismiss button for task steps — the user must
-                        // perform the action to advance.
-                        if (!active.def.requiresAction) {
-                            TextButton(
-                                onClick = { state.advanceOrDismiss(allDefs) },
-                            ) {
-                                Text(
-                                    text = stringResource(active.def.dismissLabelRes),
-                                    maxLines = 1,
-                                )
-                            }
+                    if (active.def.skipButtonRes != null) {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        TextButton(
+                            onClick = {
+                                state.skipToKey(active.def.skipTargetKey!!, allDefs)
+                                Toast.makeText(
+                                    context,
+                                    context.getString(active.def.skipToastRes!!),
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            },
+                        ) {
+                            Text(
+                                text = stringResource(active.def.skipButtonRes),
+                                maxLines = 1,
+                            )
                         }
                     }
                 }
@@ -296,12 +349,12 @@ fun CoachMarkOverlay(
 /**
  * A button that requires a sustained ~2-second press to activate.
  *
- * Shows a linear progress indicator that fills while the user holds down
- * the button. Releasing early resets progress. When the progress reaches
- * 100%, [onSkip] is called to terminate the entire walkthrough.
+ * Shows a circular arc indicator that fills clockwise while the user holds down.
+ * Releasing early resets progress. When the progress reaches 100%, [onSkip] is
+ * called to terminate the entire walkthrough.
  *
  * @param onSkip   Callback invoked when the hold completes successfully.
- * @param modifier [Modifier] applied to the root [Column].
+ * @param modifier [Modifier] applied to the root [Row].
  */
 @Composable
 private fun HoldToSkipButton(
@@ -310,57 +363,72 @@ private fun HoldToSkipButton(
 ) {
     val scope = rememberCoroutineScope()
     val progress = remember { Animatable(0f) }
+    val dims = LocalDimensions.current
 
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val arcColor = MaterialTheme.colorScheme.primary
+    val strokeWidthPx = with(LocalDensity.current) { SKIP_ARC_STROKE_WIDTH.toPx() }
+
+    Row(
+        modifier = modifier
+            .semantics { contentDescription = "Hold to skip tutorial" }
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        // Wait for a finger to press down.
+                        awaitFirstDown(requireUnconsumed = false)
+
+                        // Animate progress from current value to 1f.
+                        val animationJob = scope.launch {
+                            progress.animateTo(
+                                targetValue = 1f,
+                                animationSpec = tween(
+                                    durationMillis = SKIP_HOLD_DURATION_MS,
+                                    easing = LinearEasing,
+                                ),
+                            )
+                        }
+
+                        // Wait until the user lifts or cancels.
+                        val up = waitForUpOrCancellation()
+
+                        animationJob.cancel()
+
+                        if (up != null && progress.value >= 1f) {
+                            // Hold completed — skip the walkthrough.
+                            onSkip()
+                        } else {
+                            // Released early — reset progress.
+                            scope.launch { progress.snapTo(0f) }
+                        }
+                    }
+                }
+            },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(dims.sm),
     ) {
+        Canvas(modifier = Modifier.size(dims.iconSm)) {
+            // Background circle track.
+            drawCircle(
+                color = trackColor,
+                style = Stroke(width = strokeWidthPx),
+            )
+            // Clockwise sweep arc showing hold progress.
+            drawArc(
+                color = arcColor,
+                startAngle = ARC_START_ANGLE,
+                sweepAngle = progress.value * FULL_SWEEP_DEGREES,
+                useCenter = false,
+                style = Stroke(width = strokeWidthPx),
+                topLeft = Offset.Zero,
+                size = Size(size.width, size.height),
+            )
+        }
+
         Text(
             text = stringResource(R.string.coach_mark_hold_to_skip),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            // Wait for a finger to press down.
-                            awaitFirstDown(requireUnconsumed = false)
-
-                            // Animate progress from current value to 1f.
-                            val animationJob = scope.launch {
-                                progress.animateTo(
-                                    targetValue = 1f,
-                                    animationSpec = tween(
-                                        durationMillis = SKIP_HOLD_DURATION_MS,
-                                        easing = LinearEasing,
-                                    ),
-                                )
-                            }
-
-                            // Wait until the user lifts or cancels.
-                            val up = waitForUpOrCancellation()
-
-                            animationJob.cancel()
-
-                            if (up != null && progress.value >= 1f) {
-                                // Hold completed — skip the walkthrough.
-                                onSkip()
-                            } else {
-                                // Released early — reset progress.
-                                scope.launch { progress.snapTo(0f) }
-                            }
-                        }
-                    }
-                },
-        )
-
-        LinearProgressIndicator(
-            progress = { progress.value },
-            modifier = Modifier
-                .padding(top = 2.dp)
-                .height(SKIP_PROGRESS_HEIGHT)
-                .clip(RoundedCornerShape(SKIP_PROGRESS_HEIGHT / 2)),
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
         )
     }
 }

@@ -138,8 +138,8 @@ shared/src/commonMain/kotlin/com/veleda/cyclewise/domain/
 
 | File | What it does |
 |------|-------------|
-| `composeApp/.../CycleWiseApp.kt` | Top-level `@Composable` — sets up theme, navigation host, and session-aware scaffold |
-| `composeApp/.../MainActivity.kt` | Android `Activity` entry point — initializes Koin and hosts `CycleWiseApp` |
+| `composeApp/.../CycleWiseApp.kt` | `Application` subclass — bootstraps Koin, manages autolock lifecycle |
+| `composeApp/.../MainActivity.kt` | Android `Activity` entry point — calls `setContent { CycleWiseAppUI() }` |
 | `composeApp/.../ui/nav/NavRoutes.kt` | Defines the navigation routes and the four-tab bottom navigation bar |
 
 For the module breakdown, see [1.2 Module Structure](#12-module-structure).
@@ -279,9 +279,8 @@ and [Phase 2 — Architectural Deep Dive](#phase-2--architectural-deep-dive).
 | Branch | Purpose |
 |--------|---------|
 | `main` | Stable release branch — always builds, always passes tests |
-| `develop` | Integration branch — features merge here first |
-| `feature/*` | One branch per feature or fix (branched from `develop`) |
-| `docs/*` | Documentation-only changes |
+| `dev` | Integration branch — features merge here first |
+| `<issue#>-<type>-<description>` | One branch per feature or fix (branched from `dev`), e.g. `35-feature-cycle-phase-calculation` |
 
 ### Commits
 
@@ -300,7 +299,7 @@ Signed-off-by: Your Name <your.email@example.com>
 
 Before opening a pull request, verify:
 
-- [ ] Branch is based on `develop` (not `main`)
+- [ ] Branch is based on `dev` (not `main`)
 - [ ] All tests pass: `./gradlew testDebugUnitTest`
 - [ ] Code follows project style ([`docs/CODE_STYLE.md`](CODE_STYLE.md))
 - [ ] New public members have KDoc comments
@@ -437,6 +436,7 @@ Contains the Jetpack Compose UI and all Android-specific implementations.
 | `androidData/local/entities/` | Room `@Entity` classes, `Converters` (type converters), and `Mappers` (entity ↔ domain) |
 | `androidData/local/draft/` | `LockedWaterDraft` — persists water intake while the DB is locked |
 | `androidData/repository/` | `RoomPeriodRepository` — implements `PeriodRepository` with Room |
+| `domain/usecases/` | Android-specific use cases that depend on platform APIs (e.g., `DeleteAllDataUseCase`) |
 | `ui/auth/` | Passphrase/unlock screen, `WaterTrackerViewModel`, `WaterDraftSyncer` |
 | `ui/tracker/` | Calendar screen — `TrackerScreen`, `TrackerViewModel`, `TrackerEvent`, and supporting composables |
 | `ui/log/` | Daily log screen — `DailyLogScreen`, `DailyLogViewModel`, `DailyLogEvent` |
@@ -448,7 +448,7 @@ Contains the Jetpack Compose UI and all Android-specific implementations.
 | `ui/theme/` | Theme definitions — colors, shapes, typography, dimensions |
 | `di/` | `AppModule.kt` — all Koin DI wiring |
 | `services/` | `PassphraseServiceAndroid` (Argon2 impl), `SaltStorage` |
-| `session/` | `SessionBus` — logout event bus |
+| `session/` | `SessionManager` (a `KoinComponent` for runtime scope management), `SessionBus` (logout event bus), `KeyFingerprintHolder` |
 | `settings/` | `AppSettings` — DataStore preferences wrapper |
 | `reminders/` | `ReminderScheduler`, `ReminderNotifier`, and WorkManager workers |
 
@@ -914,6 +914,7 @@ data class TrackerUiState(
 - `PeriodMarkDay(date)` — Long-press to toggle period day
 - `PeriodRangeDragged(anchorDate, releaseDate)` — Long-press-and-drag to mark/shrink a period range
 - `DeletePeriodRequested(periodId)` / `DeletePeriodConfirmed` / `DeletePeriodDismissed` — Delete confirmation flow
+- `UnmarkPeriodDayConfirmed(date)` / `UnmarkPeriodRangeConfirmed(dates)` / `UnmarkPeriodDismissed` — Unmark confirmation flow (shown when removing period days that have logged data)
 - ... and additional events for sheet dismissal, educational content, etc.
 
 **Dispatch:**
@@ -936,7 +937,7 @@ _dependency rule_: **inner layers never know about outer layers**.
 
 ```
 ┌──────────────────────────────────────────────┐
-│           UI Layer (outermost)                │
+│           UI Layer (outermost)               │
 │  Screens, ViewModels, Compose components     │
 │                                              │
 │  ┌────────────────────────────────────────┐  │
@@ -1126,7 +1127,7 @@ RhythmWise is a **single-activity** Compose application. The launch sequence:
    - Registers a global uncaught exception handler for crash logging
    - Calls `setContent { CycleWiseAppUI() }` — all Compose UI starts here
 
-3. **`CycleWiseAppUI`** (`ui/nav/CycleWiseAppUI.kt`) — The root composable:
+3. **`CycleWiseAppUI`** (`ui/CycleWiseAppUI.kt`) — The root composable:
    - Wraps the app in `RhythmWiseTheme` for Material 3 theming (light/dark)
    - Sets up the Compose `NavHost` with 6 routes and animated transitions
    - Start destination: `NavRoute.Passphrase`
@@ -1136,7 +1137,7 @@ RhythmWise is a **single-activity** Compose application. The launch sequence:
          BottomNavBar(navController)
      }
      ```
-   - Handles `WindowInsets.systemBars` padding so content doesn't overlap system UI
+   - Sets `contentWindowInsets = WindowInsets(0, 0, 0, 0)` on the outer Scaffold — each screen handles its own top insets via its own `Scaffold`/`TopAppBar`
    - On successful unlock, navigates to DailyLogHome and pops Passphrase from the backstack:
      ```kotlin
      PassphraseScreen {
@@ -1298,15 +1299,18 @@ db.openHelper.writableDatabase
 ```
 If the passphrase is wrong, SQLCipher throws here. The exception is caught below.
 
-**9. First-unlock prepopulation**
+**9. Prepopulation**
 ```kotlin
 if (needsPrepopulation) {
-    val repository = sessionScope.get<PeriodRepository>()
     repository.prepopulateSymptomLibrary()
     appSettings.setPrepopulated(true)
 }
+repository.prepopulateMedicationLibrary()
 ```
-Inserts 20 default symptoms (Cramps, Headache, Bloating, etc.) on first unlock.
+On first unlock, inserts 20 default symptoms (Cramps, Headache, Bloating, etc.).
+Medication prepopulation runs unconditionally on every unlock — `INSERT IGNORE`
+makes it idempotent, so existing users who predated the medication library still
+get it populated.
 
 **10. Sync water drafts**
 ```kotlin
@@ -1360,38 +1364,38 @@ created and destroyed is essential.
 │      │                                                          │
 │      ▼                                                          │
 │  ┌─────────────────────────┐                                    │
-│  │    PassphraseScreen     │◄──────────────────────┐            │
-│  │   (no DB, no session)   │                       │            │
-│  └───────────┬─────────────┘                       │            │
-│              │ correct passphrase                   │            │
-│              ▼                                      │            │
-│  ┌─────────────────────────┐              session   │            │
-│  │  Koin Session Scope     │              .close()  │            │
-│  │  CREATED                │                  │     │            │
-│  │  ├─ PeriodDatabase      │                  │     │            │
-│  │  ├─ DAOs (one per table)│                  │     │            │
-│  │  ├─ Repository          │                  │     │            │
-│  │  ├─ Use Cases           │                  │     │            │
-│  │  └─ ViewModels          │                  │     │            │
-│  └───────────┬─────────────┘                  │     │            │
-│              │                                │     │            │
-│              ▼                                │     │            │
-│  ┌─────────────────────────┐                  │     │            │
-│  │    Normal Usage         │                  │     │            │
-│  │  Tracker / Log /        │                  │     │            │
-│  │  Insights / Settings    │──── manual ──────┘     │            │
-│  └───────────┬─────────────┘     lock               │            │
-│              │                                      │            │
-│              │ app backgrounded                      │            │
-│              ▼                                      │            │
-│  ┌─────────────────────────┐                        │            │
-│  │  Background Timer       │                        │            │
-│  │  ON_STOP: record time   │                        │            │
-│  │  ON_START: check        │── timeout exceeded ────┘            │
-│  │    elapsed vs threshold │                                     │
-│  └─────────────────────────┘                                     │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
+│  │    PassphraseScreen     │◄───────────────────────┐           │
+│  │   (no DB, no session)   │                        │           │
+│  └───────────┬─────────────┘                        │           │
+│              │ correct passphrase                   │           │
+│              ▼                                      │           │
+│  ┌─────────────────────────┐              session   │           │
+│  │  Koin Session Scope     │              .close()  │           │
+│  │  CREATED                │                  │     │           │
+│  │  ├─ PeriodDatabase      │                  │     │           │
+│  │  ├─ DAOs (one per table)│                  │     │           │
+│  │  ├─ Repository          │                  │     │           │
+│  │  ├─ Use Cases           │                  │     │           │
+│  │  └─ ViewModels          │                  │     │           │
+│  └───────────┬─────────────┘                  │     │           │
+│              │                                │     │           │
+│              ▼                                │     │           │
+│  ┌─────────────────────────┐                  │     │           │
+│  │    Normal Usage         │                  │     │           │
+│  │  Tracker / Log /        │                  │     │           │
+│  │  Insights / Settings    │──── manual ──────┘     │           │
+│  └───────────┬─────────────┘     lock               │           │
+│              │                                      │           │
+│              │ app backgrounded                     │           │
+│              ▼                                      │           │
+│  ┌─────────────────────────┐                        │           │
+│  │  Background Timer       │                        │           │
+│  │  ON_STOP: record time   │                        │           │
+│  │  ON_START: check        │── timeout exceeded ────┘           │
+│  │    elapsed vs threshold │                                    │
+│  └─────────────────────────┘                                    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Autolock Mechanism
@@ -1555,7 +1559,13 @@ When the user interacts with the tracker:
 - **`DayTapped(date)`** — If a log exists for that date, shows a bottom sheet summary.
   If not, navigates to `DailyLogScreen` to create one.
 - **`PeriodMarkDay(date)`** — Long-press toggle. If the date is inside a period,
-  calls `unLogPeriodDay()`. If not, calls `logPeriodDay()`.
+  checks whether the day's `PeriodLog` has user-entered data (`hasData()`). If it
+  does, shows a confirmation dialog (`UnmarkPeriodDayConfirmationDialog`). If not,
+  calls `unLogPeriodDay()` silently. If the date is outside all periods, calls
+  `logPeriodDay()`.
+- **Unmark confirmation flow** — `UnmarkPeriodDayConfirmed(date)` calls
+  `unLogPeriodDay()`. `UnmarkPeriodRangeConfirmed(dates)` calls `unLogPeriodDay()`
+  for each date. `UnmarkPeriodDismissed` resets dialog state without side effects.
 - **Delete flow** — `DeletePeriodRequested` shows a confirmation dialog.
   `DeletePeriodConfirmed` calls `periodRepository.deletePeriod()`.
 
@@ -1576,11 +1586,13 @@ long-press, then tracks drag position. On release:
 
 **Shrink vs Expand logic in TrackerViewModel:** When processing `PeriodRangeDragged`:
 - **Shrink from start:** When anchor equals the start date of an existing period and
-  release is inside the period → calls `unLogPeriodDay()` for each day from anchor up
-  to (but not including) release.
+  release is inside the period → collects the days from anchor up to (but not
+  including) release. If any of those days have `PeriodLog` data (`hasData()`),
+  shows `UnmarkPeriodRangeConfirmationDialog` with counts. If none have data,
+  calls `unLogPeriodDay()` for each day silently.
 - **Shrink from end:** When anchor equals the end date of an existing period and
-  release is inside the period → calls `unLogPeriodDay()` for each day from anchor down
-  to (but not including) release.
+  release is inside the period → same data-check logic as shrink-from-start,
+  applied to the days from anchor down to (but not including) release.
 - **Default (expand/mark):** Otherwise → calls `logPeriodDay()` for every day in the
   anchor-to-release range (inclusive).
 
@@ -1757,7 +1769,7 @@ operation rolls back.
 ## 2.7 DailyLogScreen and DailyLogViewModel
 
 `DailyLogViewModel` (`ui/log/DailyLogViewModel.kt`) is the most event-rich ViewModel
-in the codebase, handling 20 distinct event types for editing a single day's log.
+in the codebase. See `DailyLogEvent.kt` for the full sealed interface.
 
 ### Navigation Routes
 
@@ -1770,8 +1782,8 @@ The daily log has two navigation entry points:
 `DailyLogScreen` uses a 5-page `HorizontalPager` with `ScrollableTabRow` navigation:
 1. **Wellness** — Mood (star rating), energy (star rating), libido (star rating), water intake
 2. **Period** — Period toggle switch, flow intensity, period color, period consistency
-3. **Symptoms** — Symptom library chips with create-and-add
-4. **Medications** — Medication library chips with create-and-add
+3. **Symptoms** — Symptom library chips with create-and-add, long-press to rename/delete
+4. **Medications** — Medication library chips with create-and-add, long-press to rename/delete
 5. **Notes/Tags** — Custom tags with add/remove, free-text note editor
 
 ### Two-Phase Initialization
@@ -1813,15 +1825,19 @@ rather than relying on a navigation parameter.
 All events are defined in `ui/log/DailyLogEvent.kt` as a sealed interface. Each event
 corresponds to a single user action in the daily log — field changes (e.g.,
 `FlowIntensityChanged`, `MoodScoreChanged`), library interactions (e.g.,
-`SymptomToggled`, `CreateAndAddSymptom`), period toggling (`PeriodToggled`), water
-tracking (`WaterIncrement` / `WaterDecrement`), and initialization events (`LogLoaded`,
+`SymptomToggled`, `CreateAndAddSymptom`), library editing (e.g.,
+`SymptomLongPressed`, `RenameSymptomConfirmed`, `DeleteSymptomConfirmed` and
+medication equivalents), period toggling (`PeriodToggled`), water tracking
+(`WaterIncrement` / `WaterDecrement`), and initialization events (`LogLoaded`,
 `LibraryUpdated`). See `DailyLogEvent.kt` for the complete sealed interface.
 
 > **PeriodLog lifecycle:** The `PeriodLog` is created (with null `flowIntensity`) by
-> `PeriodToggled` and deleted when the user toggles the period OFF. `FlowIntensityChanged`
-> only updates the flow field on an existing `PeriodLog` — it no longer creates or
-> deletes one. This allows users to log period attributes (color, consistency) without
-> first selecting a flow level.
+> `PeriodToggled` and deleted when the user toggles the period OFF. If the existing
+> `PeriodLog` has user-entered data (`hasData()` — flow, color, or consistency),
+> toggling OFF shows `UnmarkPeriodDayDialog` for confirmation instead of deleting
+> immediately. `FlowIntensityChanged` only updates the flow field on an existing
+> `PeriodLog` — it no longer creates or deletes one. This allows users to log period
+> attributes (color, consistency) without first selecting a flow level.
 
 ### The Pure Reducer
 
@@ -1835,8 +1851,14 @@ launched in `onEvent()` after the state update.
 | `MoodScoreChanged` | Yes | No |
 | `SymptomToggled` | Yes | No |
 | `CreateAndAddSymptom` | Returns `currentState` | Yes — creates symptom in library, then updates state |
-| `PeriodToggled` | Yes — creates PeriodLog (null flow) or deletes it | Yes — calls `logPeriodDay` or `unLogPeriodDay` |
+| `PeriodToggled` | Yes — creates PeriodLog (null flow), deletes it, or shows unmark confirmation if it has data | Yes — calls `logPeriodDay` or `unLogPeriodDay` (unless data check triggers dialog) |
+| `UnmarkPeriodConfirmed` | Yes — nulls periodLog, clears confirmation flag | Yes — calls `unLogPeriodDay`, auto-saves |
+| `UnmarkPeriodDismissed` | Yes — clears confirmation flag | No |
 | `WaterIncrement` | Yes (optimistic) | Yes — upserts water intake to DB |
+| `SymptomLongPressed` | Yes — sets `symptomForContextMenu` | No |
+| `RenameSymptomConfirmed` | Returns `currentState` | Yes — calls `RenameSymptomUseCase`, updates state on result |
+| `DeleteSymptomConfirmed` | Returns `currentState` | Yes — calls `DeleteSymptomUseCase`, filters in-memory logs |
+| `LibraryUpdated` | Yes — updates `symptomLibrary` / `medicationLibrary` | No |
 
 ### Auto-Save
 
@@ -1874,68 +1896,25 @@ initialization and supports pull-to-refresh for regeneration.
 
 ### Constructor
 
-The ViewModel receives its dependencies via Koin injection:
-```kotlin
-class InsightsViewModel(
-    private val periodRepository: PeriodRepository,
-    private val insightEngine: InsightEngine,
-    private val appSettings: AppSettings,
-    private val educationalContentProvider: EducationalContentProvider,
-) : ViewModel()
-```
-
-Note that `insightEngine` is injected by Koin (registered as a `factory` in
-`AppModule.kt`), not instantiated inline.
+The ViewModel receives its dependencies via Koin injection. See `InsightsViewModel.kt`
+for the current constructor parameters. Key dependency: `insightEngine` is injected
+by Koin (registered as a `factory` in `AppModule.kt`), not instantiated inline.
 
 ### Generation Pipeline
 
-```kotlin
-init {
-    loadInsights(isRefresh = false)
-}
+On init and on pull-to-refresh, `loadInsights()` runs this pipeline:
 
-fun refresh() {
-    loadInsights(isRefresh = true)
-}
+1. **Fetch** — Collects all data in one shot (`Flow.first()` for periods, logs,
+   symptom library, water intakes, medication library, top-symptoms count).
+2. **Generate** — Calls `insightEngine.generateInsights(...)` which returns
+   `List<ScoredInsight>` (insights wrapped with relevance scores).
+3. **Format** — Applies platform-specific date formatting via
+   `toLocalizedDateString()` on insights that contain dates (e.g.,
+   `NextPeriodPrediction`, `SymptomPhasePattern`). This keeps generators in `shared/`
+   free of Android locale APIs.
+4. **Emit** — Updates `_uiState` with the formatted, scored insights.
 
-private fun loadInsights(isRefresh: Boolean) {
-    viewModelScope.launch {
-        _uiState.update {
-            if (isRefresh) it.copy(isRefreshing = true)
-            else it.copy(isLoading = true)
-        }
-
-        // 1. Fetch all data in one shot (Flow.first() for each)
-        val allCycles = periodRepository.getAllPeriods().first()
-        val allLogs = periodRepository.getAllLogs().first()
-        val symptomLibrary = periodRepository.getSymptomLibrary().first()
-        val topSymptomsCount = appSettings.topSymptomsCount.first()
-
-        // 2. Run the InsightEngine
-        val rawInsights = insightEngine.generateInsights(
-            allPeriods = allCycles, allLogs = allLogs,
-            symptomLibrary = symptomLibrary, topSymptomsCount = topSymptomsCount
-        )
-
-        // 3. Apply platform-specific date formatting
-        val formattedInsights = rawInsights.map { insight ->
-            when (insight) {
-                is NextPeriodPrediction ->
-                    insight.copy(formattedDateString = insight.predictedDate.toLocalizedDateString())
-                is SymptomPhasePattern ->
-                    insight.predictedDate?.toLocalizedDateString()?.let {
-                        insight.copy(formattedPredictedDateString = it)
-                    } ?: insight
-                else -> insight
-            }
-        }
-
-        _uiState.update {
-            it.copy(isLoading = false, isRefreshing = false, insights = formattedInsights)
-        }
-    }
-}
-```
+See `InsightsViewModel.kt` for the full implementation.
 
 ### Pull-to-Refresh
 
@@ -1991,10 +1970,11 @@ flows to observe.
 ### 4-Page Swipeable Pager
 
 `SettingsScreen` uses a `HorizontalPager` with 4 pages:
-1. **General** — Autolock toggle, top symptoms count, summary visibility toggles
-   (mood, energy, libido on calendar cells)
-2. **Appearance** — Phase visibility toggles (`PhaseVisibilitySettings`), phase color
-   customization (`PhaseColorSettings`) with hex input and preset swatch grid
+1. **General** — Autolock toggle, top symptoms count, tutorial hint reset, legal
+   dialogs, delete-all-data
+2. **Appearance** — Theme mode, summary visibility toggles (mood, energy, libido),
+   phase visibility toggles (`PhaseVisibilitySettings`), phase color customization
+   (`PhaseColorSettings`) with hex input and preset swatch grid
 3. **Notifications** — Period prediction, medication, and hydration reminder
    configuration (`ReminderSettings`) with POST_NOTIFICATIONS permission handling
 4. **About** — App version, privacy policy, about dialog
@@ -2206,16 +2186,46 @@ data class EducationalArticle(
 
 The `ui/components/` package contains shared composables used across multiple screens:
 
-| Component | Purpose |
-|-----------|---------|
-| `EducationalBottomSheet` | Modal bottom sheet for displaying educational articles |
-| `InfoButton` | Small info icon button that triggers educational content display |
-| `MarkdownText` | Renders markdown-formatted text in Compose (used for article bodies) |
-| `MedicalDisclaimer` | Standard disclaimer banner: "This is not medical advice" |
-| `SourceAttribution` | Displays source name and URL for educational content |
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `EducationalBottomSheet` | `ui/components/` | Modal bottom sheet for displaying educational articles |
+| `InfoButton` | `ui/components/` | Small info icon button that triggers educational content display |
+| `MarkdownText` | `ui/components/` | Renders markdown-formatted text in Compose (used for article bodies) |
+| `MedicalDisclaimer` | `ui/components/` | Standard disclaimer banner: "This is not medical advice" |
+| `SourceAttribution` | `ui/components/` | Displays source name and URL for educational content |
+| `LibraryChip` | `ui/log/pages/SymptomsPage.kt` | Chip with tap + long-press support for library items (see below) |
+| `RenameDialog` | `ui/log/pages/SymptomsPage.kt` | AlertDialog with pre-filled OutlinedTextField for renaming library items |
+| `DeleteLibraryItemDialog` | `ui/log/pages/SymptomsPage.kt` | Delete confirmation dialog with log count warning |
+| `UnmarkPeriodDayConfirmationDialog` | `ui/tracker/UnmarkPeriodConfirmationDialog.kt` | Confirmation dialog for removing a single period day with logged data |
+| `UnmarkPeriodRangeConfirmationDialog` | `ui/tracker/UnmarkPeriodConfirmationDialog.kt` | Confirmation dialog for removing multiple period days via drag-shrink |
+| `UnmarkPeriodDayDialog` | `ui/log/UnmarkPeriodDayDialog.kt` | Confirmation dialog for DailyLog period toggle-off with logged data |
 
 These components follow the project convention of one `@Composable` per UI
 responsibility and use `stringResource()` for all user-visible text.
+
+### LibraryChip — Long-Press-Aware Chip
+
+`LibraryChip` replaces `FilterChip` for library items that need both tap (toggle)
+and long-press (context menu) gestures. It uses `Surface` + `combinedClickable`
+directly because **Material3's `FilterChip` internally wraps itself in a `Surface`
+with its own clickable modifier, which consumes all pointer events and prevents
+`combinedClickable` from ever detecting a long-press** — whether placed on the
+chip's modifier or on a parent `Box`.
+
+`LibraryChip` is styled to match `FilterChip` appearance (pill shape, checkmark
+when selected, `secondaryContainer` fill, outline border) and sets proper semantics
+(`selected`, `role = Checkbox`, `stateDescription`, `customActions`) for TalkBack.
+
+### RenameDialog and DeleteLibraryItemDialog
+
+Both dialogs are defined in `SymptomsPage.kt` and reused by `MedicationsPage.kt`
+via direct function call (they are `internal` composables in the same package).
+
+- `RenameDialog`: Pre-fills the current name, validates blank/unchanged input by
+  disabling the Save button, and displays inline errors from the ViewModel's
+  `renameError` state (e.g., "A symptom with this name already exists").
+- `DeleteLibraryItemDialog`: Shows a log count warning ("appears in N daily logs")
+  or a no-logs message, with an error-colored confirm button.
 
 ---
 
@@ -2474,8 +2484,56 @@ fun NewScreen(viewModel: NewScreenViewModel = koinViewModel()) {
 
 1. Create a class implementing `InsightGenerator` in
    `shared/.../domain/insights/generators/`
-2. Define a new `Insight` subtype in `Insight.kt` with a unique `id` and `priority`
-3. Add the generator to the list in `AppModule.kt`'s `InsightEngine` factory registration
+2. Define a new `Insight` sealed interface subtype in `Insight.kt` (must include
+   `category: InsightCategory`)
+3. Add a `when` branch in `InsightCardDispatcher` in `InsightsScreen.kt`
+4. Add the generator to the list in `AppModule.kt`'s `InsightEngine` factory registration
+
+### Library Item Edit/Delete Workflow
+
+The symptom and medication libraries support rename and delete via long-press context
+menus. This pattern is reusable for any future library-style feature. The data flow:
+
+```
+UI (long-press chip) → ViewModel event → reduce() shows context menu
+UI (tap Rename/Delete) → ViewModel event → reduce() shows dialog
+UI (confirm) → ViewModel event → onEvent() side effect → UseCase → Repository → DAO
+                                                              ↓
+                                              Room Flow auto-emits updated library
+                                                              ↓
+                                              LibraryUpdated event → reduce() updates state
+                                                              ↓
+                                              UI recomposes with new library
+```
+
+**Key implementation details:**
+
+- **Validation via sealed result types:** `RenameSymptomUseCase` and
+  `RenameMedicationUseCase` return `RenameResult` (a shared sealed interface with
+  `Success`, `BlankName`, `NameAlreadyExists` variants) rather than throwing
+  exceptions. The ViewModel maps these to UI state (`renameError` for inline dialog
+  errors, or clearing the dialog on success).
+
+- **Delete with cascade:** `Migration_11_12` changed the FK on `symptom_logs` and
+  `medication_logs` from `RESTRICT` to `CASCADE`, so deleting a library item
+  automatically removes associated log entries at the database level. The ViewModel
+  also filters the in-memory `FullDailyLog.symptomLogs` / `medicationLogs` to keep
+  the UI state consistent without a full re-fetch.
+
+- **Library reactivity:** The DAO's `getAllSymptoms()` / `getAllMedications()` return
+  `Flow`, so Room automatically emits updated lists after `updateName()` or
+  `deleteById()`. The ViewModel subscribes to these Flows and dispatches
+  `LibraryUpdated` events through `reduce()` to update the chip list.
+
+  > **Gotcha:** The `LibraryUpdated` event must be handled in `reduce()` in **both**
+  > the early-return path (before the log is loaded) **and** the normal path (after
+  > the log is loaded). A bug where `LibraryUpdated` was grouped with the no-op
+  > catch-all in the normal path caused rename/delete to appear non-functional
+  > because the updated library was silently discarded.
+
+- **Delete confirmation with log count:** `DeleteSymptomUseCase.getLogCount()` queries
+  the database for the number of log entries referencing the item, which is displayed
+  in the confirmation dialog to warn users about data loss.
 
 ---
 
@@ -2526,7 +2584,7 @@ This file is the single source of truth for all dependency injection. Reading or
 Key architectural details:
 - **Constructor takes** `appSettings: AppSettings` and `sessionManager: SessionManager`
 - **Delegates to `SessionManager`** — All Koin scope operations (open, close, passphrase
-  change) are centralized in `SessionManager`, the only `KoinComponent` in the app.
+  change) are centralized in `SessionManager`, a `KoinComponent` for runtime scope management.
   This keeps ViewModels decoupled from the DI framework.
 - **Re-entrancy guard** prevents duplicate session creation on double-tap
 - **Scope lifecycle:** `SessionManager.openSession()` always closes the existing scope
@@ -2559,12 +2617,14 @@ Key architectural details:
 
 **File:** `composeApp/src/androidMain/kotlin/com/veleda/cyclewise/androidData/repository/RoomPeriodRepository.kt`
 
-This is the largest file in the codebase. Key sections:
+One of the largest files in the codebase. Key sections:
 
 - **Constructor:** Takes `db` + one DAO per table (all injected by Koin session scope)
 - **`saveFullLog()`:** Uses delete-then-insert transaction semantics
 - **`logPeriodDay()`:** The 4-scenario state machine (see [section 2.5](#25-use-cases-to-repository-to-dao))
 - **`unLogPeriodDay()`:** The inverse 4-scenario state machine
+- **`getPeriodLogForDate()`:** Fetches a single `PeriodLog` for a date (used by unmark data check)
+- **`getPeriodLogsForDateRange()`:** Batch fetches `PeriodLog`s for a date range (used by drag-shrink data check)
 - **`observeDayDetails()`:** Combines `getAllPeriods()` and `getAllLogs()` into a
   `Map<LocalDate, DayDetails>` — the single source of truth for the calendar UI
 - **`seedDatabaseForDebug()`:** Generates 6 cycles of realistic data (varied cycle
@@ -2731,7 +2791,7 @@ testOptions {
 
 ### CI Pipeline
 
-GitHub Actions runs on every push/PR to `main` or `develop`
+GitHub Actions runs on every push/PR to `main` or `dev`
 (`.github/workflows/test.yml`):
 
 1. **Setup:** Ubuntu, Temurin JDK 17, Gradle
@@ -2768,6 +2828,24 @@ class NewUseCase(
     }
 }
 ```
+
+### Validation Result Types
+
+When a use case can fail with user-correctable errors (e.g., blank input, duplicate
+name), prefer returning a sealed interface over throwing exceptions. This keeps the
+ViewModel's `when` handling exhaustive and avoids try/catch boilerplate:
+
+```kotlin
+// RenameResult.kt — shared by RenameSymptomUseCase and RenameMedicationUseCase
+sealed interface RenameResult {
+    data object Success : RenameResult
+    data object BlankName : RenameResult
+    data object NameAlreadyExists : RenameResult
+}
+```
+
+The ViewModel maps each variant to a state update (e.g., setting `renameError` for
+inline dialog feedback or clearing the dialog on `Success`).
 
 ### Registration
 
@@ -2822,13 +2900,12 @@ Signed-off-by: Your Name <your@email.com>
 | Branch | Purpose |
 |--------|---------|
 | `main` | Stable release branch. All code here passes tests. |
-| `develop` | Integration branch for feature work. |
-| `feature/*` | Individual feature branches, branched from `develop`. |
-| `docs/*` | Documentation-only branches. |
+| `dev` | Integration branch for feature work. |
+| `<issue#>-<type>-<description>` | Individual feature branches, branched from `dev` (e.g. `35-feature-cycle-phase-calculation`). |
 
 ### PR Requirements
 
-1. Branch from `develop` (or `main` for hotfixes)
+1. Branch from `dev` (or `main` for hotfixes)
 2. Write descriptive PR title using Conventional Commits format
 3. All tests must pass
 4. Code follows the style guide (`docs/CODE_STYLE.md`)
@@ -2973,6 +3050,32 @@ Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) {
 }
 ```
 
+### 10. Using `FilterChip` with long-press gestures
+
+Material3's `FilterChip` internally wraps itself in a `Surface` with its own
+`clickable` modifier, which consumes all pointer events. `combinedClickable` on the
+chip's modifier or on a parent `Box` will never detect a long-press. Use `LibraryChip`
+(in `SymptomsPage.kt`) instead — it uses `Surface` + `combinedClickable` directly.
+
+### 11. Grouping `LibraryUpdated` with no-op events in `reduce()`
+
+The `reduce()` function must handle `LibraryUpdated` in both the early-return path
+(before the log loads) and the normal `when` block. Grouping it with no-op events
+like `LogLoaded` in the normal path silently discards library updates, making rename
+and delete appear non-functional.
+
+```kotlin
+// WRONG — LibraryUpdated is a no-op after the log loads
+is DailyLogEvent.LogLoaded, is DailyLogEvent.LibraryUpdated -> currentState
+
+// RIGHT — always apply library updates
+is DailyLogEvent.LibraryUpdated -> currentState.copy(
+    symptomLibrary = event.symptoms,
+    medicationLibrary = event.medications,
+)
+is DailyLogEvent.LogLoaded -> currentState
+```
+
 ---
 
 ## 4.9 Database Migrations
@@ -3035,6 +3138,43 @@ CREATE TABLE IF NOT EXISTS new_table (
 -- Create an index
 CREATE INDEX IF NOT EXISTS index_name ON table_name (column_name)
 ```
+
+### Changing Foreign Key Constraints (Table Rebuild)
+
+SQLite has no `ALTER CONSTRAINT` or `DROP FOREIGN KEY`. To change a foreign key's
+`ON DELETE` behavior (e.g., from `RESTRICT` to `CASCADE`), you must rebuild the
+table. This is the pattern used in `Migration_11_12` to enable library item deletion:
+
+```kotlin
+object Migration_11_12 : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // 1. Create temp table with the new FK constraint
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `table_new` (
+                `id` TEXT NOT NULL,
+                `entry_id` TEXT NOT NULL,
+                `item_id` TEXT NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`entry_id`) REFERENCES `daily_entries`(`id`) ON DELETE CASCADE,
+                FOREIGN KEY(`item_id`) REFERENCES `item_library`(`id`) ON DELETE CASCADE
+            )
+        """)
+        // 2. Copy all data
+        db.execSQL("INSERT INTO `table_new` SELECT * FROM `table`")
+        // 3. Drop old table
+        db.execSQL("DROP TABLE `table`")
+        // 4. Rename temp to original name
+        db.execSQL("ALTER TABLE `table_new` RENAME TO `table`")
+        // 5. Recreate all indices
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_table_entry_id` ON `table`(`entry_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_table_item_id` ON `table`(`item_id`)")
+    }
+}
+```
+
+**Important:** After the migration, update the entity class's `@ForeignKey`
+annotation to match the new constraint (e.g., `onDelete = ForeignKey.CASCADE`).
+The annotation and the actual schema must stay in sync.
 
 ---
 
@@ -3133,8 +3273,8 @@ generators in dependency order:
 2. **Phase 2:** All remaining generators run with the prediction available in
    `InsightData.generatedInsights`.
 
-Results are deduplicated by `Insight.id` and sorted by `priority` descending
-(highest priority = shown first).
+Results are deduplicated by `Insight.id`, scored by `InsightScorer`, and returned
+as `ScoredInsight`s sorted by relevance descending.
 
 ### InsightData — The Generator Input
 
@@ -3147,20 +3287,20 @@ data class InsightData(
     val symptomLibrary: List<Symptom>,
     val averageCycleLength: Double?,
     val generatedInsights: List<Insight> = emptyList(),
-    val topSymptomsCount: Int
+    val topSymptomsCount: Int,
+    val waterIntakes: List<WaterIntake> = emptyList(),
+    val medicationLibrary: List<Medication> = emptyList(),
 )
 ```
 
 ### Current Generators
 
 Each generator lives in `shared/.../domain/insights/generators/` and produces one
-`Insight` sealed interface subtype. Each insight has a numeric `priority` that
-determines display order (higher = shown first). For the current list of generators
-and their priorities, see the source files in the `generators/` directory and
-`InsightEngine.kt`.
-
-When adding a new generator, choose a priority that reflects its relative importance
-among existing generators.
+`Insight` sealed interface subtype. After generation, `InsightScorer` wraps each
+insight in a `ScoredInsight` with a multi-factor relevance score (significance,
+temporal relevance, novelty, category diversity). `CycleSummary` is always pinned
+to score 1.0. For the current list of generators, see the source files in the
+`generators/` directory and `InsightEngine.kt`.
 
 ### Adding a New Generator
 
@@ -3288,11 +3428,11 @@ dependencies globally within the same scope ID.
 │                             │ calls use cases, repository        │
 │                             ▼                                    │
 │  ┌────────────────────────────────────────────────────────────┐  │
-│  │                    DOMAIN LAYER                             │  │
-│  │  Use cases (one per business operation)                     │  │
-│  │  InsightEngine + generators (one per insight type)          │  │
-│  │  Library providers (symptom, medication, educational)       │  │
-│  │  Domain models and enums                                    │  │
+│  │                    DOMAIN LAYER                            │  │
+│  │  Use cases (one per business operation)                    │  │
+│  │  InsightEngine + generators (one per insight type)         │  │
+│  │  Library providers (symptom, medication, educational)      │  │
+│  │  Domain models and enums                                   │  │
 │  │  Interfaces: PeriodRepository, PassphraseService           │  │
 │  └──────────────────────────┬─────────────────────────────────┘  │
 │                             │ implements interfaces              │
@@ -3308,7 +3448,7 @@ dependencies globally within the same scope ID.
 │                             │ platform services                  │
 │                             ▼                                    │
 │  ┌────────────────────────────────────────────────────────────┐  │
-│  │                  INFRASTRUCTURE LAYER                       │  │
+│  │                  INFRASTRUCTURE LAYER                      │  │
 │  │  PassphraseServiceAndroid (Argon2id KDF)                   │  │
 │  │  SaltStorage, AppSettings, SessionBus                      │  │
 │  │  LockedWaterDraft (water intake while locked)              │  │

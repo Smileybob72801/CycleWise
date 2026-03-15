@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.ui.components.EducationalBottomSheet
+import com.veleda.cyclewise.ui.settings.HeatmapColorSettings
 import com.veleda.cyclewise.ui.settings.PhaseColorSettings
 import com.veleda.cyclewise.ui.settings.PhaseVisibilitySettings
 import com.veleda.cyclewise.ui.settings.AppearanceSettingsState
@@ -142,6 +143,24 @@ internal fun AppearancePage(
                 onOvulationColorChanged = { onEvent(SettingsEvent.OvulationColorChanged(it)) },
                 onLutealColorChanged = { onEvent(SettingsEvent.LutealColorChanged(it)) },
                 onResetDefaults = { onEvent(SettingsEvent.ResetPhaseColorsToDefaults) },
+                showTitle = false,
+            )
+        }
+
+        // ── Heatmap Colors Card ──────────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_section_heatmap_colors)) {
+            HeatmapColorSettings(
+                moodHex = state.heatmapMoodColorHex,
+                energyHex = state.heatmapEnergyColorHex,
+                libidoHex = state.heatmapLibidoColorHex,
+                waterIntakeHex = state.heatmapWaterIntakeColorHex,
+                symptomSeverityHex = state.heatmapSymptomSeverityColorHex,
+                flowIntensityHex = state.heatmapFlowIntensityColorHex,
+                medicationCountHex = state.heatmapMedicationCountColorHex,
+                onColorChanged = { key, hex ->
+                    onEvent(SettingsEvent.HeatmapColorChanged(key, hex))
+                },
+                onResetDefaults = { onEvent(SettingsEvent.ResetHeatmapColorsToDefaults) },
                 showTitle = false,
             )
         }

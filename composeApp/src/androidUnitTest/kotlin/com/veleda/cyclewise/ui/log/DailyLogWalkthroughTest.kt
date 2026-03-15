@@ -90,6 +90,13 @@ class DailyLogWalkthroughTest {
     }
 
     @Test
+    fun `DAILY_LOG_STEP_LIST has 10 entries from WELCOME to NOTES_TAB`() {
+        assertEquals(10, DAILY_LOG_STEP_LIST.size)
+        assertEquals(HintKey.DAILY_LOG_WELCOME, DAILY_LOG_STEP_LIST.first())
+        assertEquals(HintKey.DAILY_LOG_NOTES_TAB, DAILY_LOG_STEP_LIST.last())
+    }
+
+    @Test
     fun `PERIOD_TAB step has skipButtonRes and skipTargetKey targeting SYMPTOMS_TAB`() {
         val periodTab = DAILY_LOG_HINTS[HintKey.DAILY_LOG_PERIOD_TAB]
         assertNotNull(periodTab, "PERIOD_TAB step should exist")

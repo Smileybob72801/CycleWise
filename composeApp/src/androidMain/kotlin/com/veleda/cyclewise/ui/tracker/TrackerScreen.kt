@@ -8,18 +8,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -144,13 +141,17 @@ fun TrackerScreen(navController: NavController) {
     }
 
     // Detect Tracker walkthrough completion (normal advance past last hint)
-    // and clean up seed data.
+    // and clean up seed data. The cleanup is launched in coroutineScope (not run
+    // inline) because setting trackerWalkthroughActive = false triggers recomposition,
+    // which restarts this LaunchedEffect and cancels any in-flight suspend work.
     LaunchedEffect(activeHint, pendingKey, trackerWalkthroughActive) {
         if (trackerWalkthroughActive && activeHint == null && pendingKey == null) {
             trackerWalkthroughActive = false
-            val sessionScope = koin.getScope("session")
-            val cleanup: TutorialCleanupUseCase = sessionScope.get()
-            runSeedCleanupIfNeeded(appSettings, cleanup)
+            coroutineScope.launch {
+                val sessionScope = koin.getScope("session")
+                val cleanup: TutorialCleanupUseCase = sessionScope.get()
+                runSeedCleanupIfNeeded(appSettings, cleanup)
+            }
         }
     }
 
@@ -190,6 +191,30 @@ fun TrackerScreen(navController: NavController) {
     val ovulationHex by appSettings.ovulationColor.collectAsState(initial = CyclePhaseColors.DEFAULT_OVULATION_HEX)
     val lutealHex by appSettings.lutealColor.collectAsState(initial = CyclePhaseColors.DEFAULT_LUTEAL_HEX)
 
+    val heatmapMoodHex by appSettings.heatmapMoodColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_MOOD_HEX)
+    val heatmapEnergyHex by appSettings.heatmapEnergyColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_ENERGY_HEX)
+    val heatmapLibidoHex by appSettings.heatmapLibidoColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_LIBIDO_HEX)
+    val heatmapWaterIntakeHex by appSettings.heatmapWaterIntakeColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_WATER_INTAKE_HEX)
+    val heatmapSymptomSeverityHex by appSettings.heatmapSymptomSeverityColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_SYMPTOM_SEVERITY_HEX)
+    val heatmapFlowIntensityHex by appSettings.heatmapFlowIntensityColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_FLOW_INTENSITY_HEX)
+    val heatmapMedicationCountHex by appSettings.heatmapMedicationCountColor.collectAsState(initial = HeatmapMetricColors.DEFAULT_MEDICATION_COUNT_HEX)
+
+    val customHeatmapColors: Map<String, Color> = remember(
+        heatmapMoodHex, heatmapEnergyHex, heatmapLibidoHex,
+        heatmapWaterIntakeHex, heatmapSymptomSeverityHex,
+        heatmapFlowIntensityHex, heatmapMedicationCountHex,
+    ) {
+        buildMap {
+            parseHexColor(heatmapMoodHex)?.let { put("mood", it) }
+            parseHexColor(heatmapEnergyHex)?.let { put("energy", it) }
+            parseHexColor(heatmapLibidoHex)?.let { put("libido", it) }
+            parseHexColor(heatmapWaterIntakeHex)?.let { put("water", it) }
+            parseHexColor(heatmapSymptomSeverityHex)?.let { put("symptom_severity", it) }
+            parseHexColor(heatmapFlowIntensityHex)?.let { put("flow", it) }
+            parseHexColor(heatmapMedicationCountHex)?.let { put("medications", it) }
+        }
+    }
+
     val darkTheme = isSystemInDarkTheme()
     val customColors: Map<CyclePhase, Color>? = remember(menstruationHex, follicularHex, ovulationHex, lutealHex) {
         val map = buildMap {
@@ -214,6 +239,7 @@ fun TrackerScreen(navController: NavController) {
     }
 
     var showSuccess by remember { mutableStateOf(false) }
+    var emptyOverlayDismissed by remember { mutableStateOf(false) }
 
     // Trigger auto-close logic when the screen is first composed/entered.
     LaunchedEffect(Unit) {
@@ -264,6 +290,16 @@ fun TrackerScreen(navController: NavController) {
     )
 
     DeletePeriodConfirmationDialog(
+        uiState = uiState,
+        onEvent = viewModel::onEvent,
+    )
+
+    UnmarkPeriodDayConfirmationDialog(
+        uiState = uiState,
+        onEvent = viewModel::onEvent,
+    )
+
+    UnmarkPeriodRangeConfirmationDialog(
         uiState = uiState,
         onEvent = viewModel::onEvent,
     )
@@ -336,6 +372,65 @@ fun TrackerScreen(navController: NavController) {
                 days.subList(firstDayOfWeek.value - 1, days.size) + days.subList(0, firstDayOfWeek.value - 1)
             }
             DaysOfWeekTitle(daysOfWeek = daysOfWeek)
+            Box(modifier = Modifier.weight(1f)) {
+                CalendarGrid(
+                    uiState = uiState,
+                    calendarState = calendarState,
+                    palette = palette,
+                    phaseVisible = phaseVisible,
+                    today = today,
+                    boundsRegistry = boundsRegistry,
+                    isDragging = isDragging,
+                    dragAnchor = dragAnchor,
+                    dragCurrent = dragCurrent,
+                    activeHint = activeHint,
+                    pendingKey = pendingKey,
+                    coachMarkState = coachMarkState,
+                    calendarBoxCoords = calendarBoxCoords,
+                    customHeatmapColors = customHeatmapColors,
+                    onCalendarBoxPositioned = { calendarBoxCoords = it },
+                    onDragStateChanged = { anchor, current, dragging ->
+                        dragAnchor = anchor
+                        dragCurrent = current
+                        isDragging = dragging
+                    },
+                    onEvent = viewModel::onEvent,
+                    onTutorialAdvance = {
+                        coroutineScope.launch {
+                            delay(800) // let user see the day color change
+                            coachMarkState.advanceOrDismiss(TRACKER_HINTS)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = uiState.periods.isNotEmpty() && uiState.ongoingPeriod != null,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                ) {
+                    val ongoingStartDate = uiState.ongoingPeriod?.startDate?.toLocalizedDateString() ?: ""
+                    Text(
+                        stringResource(R.string.tracker_ongoing_period, ongoingStartDate),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(dims.sm),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = uiState.periods.isNotEmpty() && uiState.ongoingPeriod == null,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                ) {
+                    Text(
+                        stringResource(R.string.tracker_instructions_drag),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(dims.sm)
+                    )
+                }
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -346,6 +441,7 @@ fun TrackerScreen(navController: NavController) {
                 PhaseLegend(
                     palette = palette,
                     phaseVisible = phaseVisible,
+                    heatmapActive = uiState.selectedHeatmapMetric != null,
                     modifier = Modifier.weight(1f),
                 )
                 InfoButton(
@@ -353,107 +449,38 @@ fun TrackerScreen(navController: NavController) {
                     contentDescription = stringResource(R.string.educational_info_button_cd, stringResource(R.string.tracker_phase_label)),
                 )
             }
-
             HeatmapSelector(
                 selectedMetric = uiState.selectedHeatmapMetric,
                 onMetricSelected = { viewModel.onEvent(TrackerEvent.SelectHeatmapMetric(it)) },
             )
-
-            CalendarGrid(
-                uiState = uiState,
-                calendarState = calendarState,
-                palette = palette,
-                phaseVisible = phaseVisible,
-                today = today,
-                boundsRegistry = boundsRegistry,
-                isDragging = isDragging,
-                dragAnchor = dragAnchor,
-                dragCurrent = dragCurrent,
-                activeHint = activeHint,
-                pendingKey = pendingKey,
-                coachMarkState = coachMarkState,
-                calendarBoxCoords = calendarBoxCoords,
-                onCalendarBoxPositioned = { calendarBoxCoords = it },
-                onDragStateChanged = { anchor, current, dragging ->
-                    dragAnchor = anchor
-                    dragCurrent = current
-                    isDragging = dragging
+            val selectedMetric = uiState.selectedHeatmapMetric
+            HeatmapIntensityLegend(
+                metricColor = if (selectedMetric != null) {
+                    heatmapColor(selectedMetric, 1f, customHeatmapColors).copy(alpha = 1f)
+                } else {
+                    Color.Transparent
                 },
-                onEvent = viewModel::onEvent,
-                onTutorialAdvance = {
-                    coroutineScope.launch {
-                        delay(800) // let user see the day color change
-                        coachMarkState.advanceOrDismiss(TRACKER_HINTS)
-                    }
-                },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = dims.md)
+                    .alpha(if (selectedMetric != null) 1f else 0f),
             )
-
-            Spacer(Modifier.height(dims.md))
-
-            AnimatedVisibility(
-                visible = !uiState.isInitialLoading
-                    && uiState.periods.isEmpty()
-                    && uiState.dayDetails.isEmpty(),
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = dims.md),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(dims.sm),
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CalendarMonth,
-                        contentDescription = stringResource(R.string.tracker_empty_icon_cd),
-                        modifier = Modifier.size(dims.iconLg),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = stringResource(R.string.tracker_empty_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text(
-                        text = stringResource(R.string.tracker_empty_body),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-            AnimatedVisibility(
-                visible = uiState.periods.isNotEmpty() && uiState.ongoingPeriod != null,
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                val ongoingStartDate = uiState.ongoingPeriod?.startDate?.toLocalizedDateString() ?: ""
-                Text(
-                    stringResource(R.string.tracker_ongoing_period, ongoingStartDate),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(dims.sm),
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            AnimatedVisibility(
-                visible = uiState.periods.isNotEmpty() && uiState.ongoingPeriod == null,
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                Text(
-                    stringResource(R.string.tracker_instructions_drag),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(dims.sm)
-                )
-            }
-            Spacer(Modifier.height(dims.md))
         }
+        }
+
+        // Swipeable empty-state overlay covers all tracker content.
+        val isEmpty = !uiState.isInitialLoading
+            && uiState.periods.isEmpty()
+            && uiState.dayDetails.isEmpty()
+        if (!emptyOverlayDismissed && isEmpty) {
+            EmptyStateOverlay(onDismissed = { emptyOverlayDismissed = true })
         }
 
         // Coach mark overlay draws on top of all screen content.
         CoachMarkOverlay(
             state = coachMarkState,
             allDefs = TRACKER_HINTS,
+            stepList = TRACKER_STEP_LIST,
             onSkipAll = skipTrackerTutorial,
         )
 

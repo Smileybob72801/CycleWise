@@ -74,6 +74,12 @@ sealed interface DailyLogEvent {
      */
     data class PeriodToggled(val isOnPeriod: Boolean) : DailyLogEvent
 
+    /** The user confirmed unmarking a period day that had logged data. */
+    data object UnmarkPeriodConfirmed : DailyLogEvent
+
+    /** The user dismissed the unmark-period confirmation dialog. */
+    data object UnmarkPeriodDismissed : DailyLogEvent
+
     /** The user tapped the increment button on the water counter. */
     data object WaterIncrement : DailyLogEvent
 
@@ -90,4 +96,44 @@ sealed interface DailyLogEvent {
 
     /** The user dismissed the transient error message (e.g. Snackbar auto-dismissed). */
     data object ErrorDismissed : DailyLogEvent
+
+    // ── Symptom Library Edit/Delete ─────────────────────────────────
+
+    /** The user long-pressed a symptom chip to open its context menu. */
+    data class SymptomLongPressed(val symptom: Symptom) : DailyLogEvent
+
+    /** The user tapped "Rename" in the symptom context menu. */
+    data class RenameSymptomClicked(val symptom: Symptom) : DailyLogEvent
+
+    /** The user confirmed a symptom rename with the new name. */
+    data class RenameSymptomConfirmed(val symptomId: String, val newName: String) : DailyLogEvent
+
+    /** The user tapped "Delete" in the symptom context menu (fetches log count before showing dialog). */
+    data class DeleteSymptomClicked(val symptom: Symptom) : DailyLogEvent
+
+    /** The user confirmed deletion of a symptom from the library. */
+    data class DeleteSymptomConfirmed(val symptomId: String) : DailyLogEvent
+
+    /** The user dismissed the symptom context menu, rename dialog, or delete dialog. */
+    data object SymptomEditDismissed : DailyLogEvent
+
+    // ── Medication Library Edit/Delete ──────────────────────────────
+
+    /** The user long-pressed a medication chip to open its context menu. */
+    data class MedicationLongPressed(val medication: Medication) : DailyLogEvent
+
+    /** The user tapped "Rename" in the medication context menu. */
+    data class RenameMedicationClicked(val medication: Medication) : DailyLogEvent
+
+    /** The user confirmed a medication rename with the new name. */
+    data class RenameMedicationConfirmed(val medicationId: String, val newName: String) : DailyLogEvent
+
+    /** The user tapped "Delete" in the medication context menu (fetches log count before showing dialog). */
+    data class DeleteMedicationClicked(val medication: Medication) : DailyLogEvent
+
+    /** The user confirmed deletion of a medication from the library. */
+    data class DeleteMedicationConfirmed(val medicationId: String) : DailyLogEvent
+
+    /** The user dismissed the medication context menu, rename dialog, or delete dialog. */
+    data object MedicationEditDismissed : DailyLogEvent
 }

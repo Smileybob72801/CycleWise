@@ -92,6 +92,19 @@ sealed interface SettingsEvent {
     /** User tapped "Reset to Defaults" for all phase colors. */
     data object ResetPhaseColorsToDefaults : SettingsEvent
 
+    // ── Heatmap color customization ──────────────────────────────────
+
+    /**
+     * User changed a heatmap metric color.
+     *
+     * @property metricKey The [HeatmapMetric.key] identifying which metric (e.g. "mood", "energy").
+     * @property hex       The new 6-char hex color string (no '#' prefix).
+     */
+    data class HeatmapColorChanged(val metricKey: String, val hex: String) : SettingsEvent
+
+    /** User tapped "Reset to Defaults" for all heatmap metric colors. */
+    data object ResetHeatmapColorsToDefaults : SettingsEvent
+
     // ── Tutorial ──────────────────────────────────────────────────────
 
     /** User tapped "Reset Tutorial Hints" to re-show guided walkthroughs. */

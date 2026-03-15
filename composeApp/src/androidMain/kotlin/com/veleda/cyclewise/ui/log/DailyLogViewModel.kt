@@ -16,7 +16,12 @@ import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.domain.usecases.DeleteMedicationUseCase
+import com.veleda.cyclewise.domain.usecases.DeleteSymptomUseCase
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
+import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
+import com.veleda.cyclewise.domain.usecases.RenameResult
+import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,7 +46,16 @@ import kotlinx.coroutines.flow.onEach
  * @property isPeriodDay           Whether the date being edited falls within a period.
  * @property waterCups             Water intake count for this date.
  * @property educationalArticles   Articles to display in the educational bottom sheet, or null when the sheet is hidden.
- * @property errorMessage          Transient error for Snackbar display (e.g. failed library save). Cleared by [DailyLogEvent.ErrorDismissed].
+ * @property errorMessage              Transient error for Snackbar display (e.g. failed library save). Cleared by [DailyLogEvent.ErrorDismissed].
+ * @property symptomForContextMenu     Symptom whose context menu (Rename/Delete) is shown, or null.
+ * @property symptomRenaming           Symptom currently being renamed (rename dialog open), or null.
+ * @property symptomToDelete           Symptom pending deletion confirmation, or null.
+ * @property symptomDeleteLogCount     Number of logs referencing the symptom pending deletion (shown in warning).
+ * @property medicationForContextMenu  Medication whose context menu is shown, or null.
+ * @property medicationRenaming        Medication currently being renamed, or null.
+ * @property medicationToDelete        Medication pending deletion confirmation, or null.
+ * @property medicationDeleteLogCount  Number of logs referencing the medication pending deletion.
+ * @property renameError               Inline validation error for the active rename dialog, or null.
  */
 data class DailyLogUiState(
     val isLoading: Boolean = true,
@@ -53,6 +67,16 @@ data class DailyLogUiState(
     val waterCups: Int = 0,
     val educationalArticles: List<EducationalArticle>? = null,
     val errorMessage: String? = null,
+    val symptomForContextMenu: Symptom? = null,
+    val symptomRenaming: Symptom? = null,
+    val symptomToDelete: Symptom? = null,
+    val symptomDeleteLogCount: Int = 0,
+    val medicationForContextMenu: Medication? = null,
+    val medicationRenaming: Medication? = null,
+    val medicationToDelete: Medication? = null,
+    val medicationDeleteLogCount: Int = 0,
+    val renameError: String? = null,
+    val showUnmarkPeriodConfirmation: Boolean = false,
 )
 
 /**
@@ -89,6 +113,10 @@ class DailyLogViewModel(
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private val medicationLibraryProvider: MedicationLibraryProvider,
     private val educationalContentProvider: EducationalContentProvider,
+    private val renameSymptomUseCase: RenameSymptomUseCase,
+    private val deleteSymptomUseCase: DeleteSymptomUseCase,
+    private val renameMedicationUseCase: RenameMedicationUseCase,
+    private val deleteMedicationUseCase: DeleteMedicationUseCase,
 ) : ViewModel()
 {
     private val _uiState = MutableStateFlow(DailyLogUiState())
@@ -230,13 +258,30 @@ class DailyLogViewModel(
             }
 
             is DailyLogEvent.PeriodToggled -> {
-                viewModelScope.launch {
-                    if (event.isOnPeriod) {
+                if (event.isOnPeriod) {
+                    viewModelScope.launch {
                         periodRepository.logPeriodDay(entryDate)
-                    } else {
-                        periodRepository.unLogPeriodDay(entryDate)
+                        _uiState.update { it.copy(isPeriodDay = true) }
                     }
-                    _uiState.update { it.copy(isPeriodDay = event.isOnPeriod) }
+                    autoSave()
+                } else {
+                    // If the period log has data, show confirmation instead of proceeding
+                    val hasData = _uiState.value.log?.periodLog?.hasData() == true
+                    if (!hasData) {
+                        viewModelScope.launch {
+                            periodRepository.unLogPeriodDay(entryDate)
+                            _uiState.update { it.copy(isPeriodDay = false) }
+                        }
+                        autoSave()
+                    }
+                    // If hasData, the reduce function already set showUnmarkPeriodConfirmation = true
+                }
+            }
+
+            is DailyLogEvent.UnmarkPeriodConfirmed -> {
+                viewModelScope.launch {
+                    periodRepository.unLogPeriodDay(entryDate)
+                    _uiState.update { it.copy(isPeriodDay = false) }
                 }
                 autoSave()
             }
@@ -284,12 +329,127 @@ class DailyLogViewModel(
                 _uiState.update { it.copy(educationalArticles = articles.ifEmpty { null }) }
             }
 
-            // No side effects for load/library/symptomName/dismiss/error events.
+            // ── Symptom library edit/delete side effects ──────────────
+            is DailyLogEvent.RenameSymptomConfirmed -> {
+                viewModelScope.launch {
+                    val result = renameSymptomUseCase(
+                        event.symptomId,
+                        event.newName,
+                        _uiState.value.symptomLibrary,
+                    )
+                    _uiState.update {
+                        when (result) {
+                            is RenameResult.Success -> it.copy(
+                                symptomRenaming = null,
+                                renameError = null,
+                            )
+                            is RenameResult.BlankName -> it.copy(
+                                renameError = "Name cannot be blank",
+                            )
+                            is RenameResult.NameAlreadyExists -> it.copy(
+                                renameError = "A symptom with this name already exists",
+                            )
+                        }
+                    }
+                }
+            }
+
+            is DailyLogEvent.DeleteSymptomClicked -> {
+                viewModelScope.launch {
+                    val count = deleteSymptomUseCase.getLogCount(event.symptom.id)
+                    _uiState.update {
+                        it.copy(
+                            symptomForContextMenu = null,
+                            symptomToDelete = event.symptom,
+                            symptomDeleteLogCount = count,
+                        )
+                    }
+                }
+            }
+
+            is DailyLogEvent.DeleteSymptomConfirmed -> {
+                viewModelScope.launch {
+                    deleteSymptomUseCase(event.symptomId)
+                    _uiState.update {
+                        val filteredLogs = it.log?.let { log ->
+                            log.copy(symptomLogs = log.symptomLogs.filterNot { sl -> sl.symptomId == event.symptomId })
+                        }
+                        it.copy(
+                            log = filteredLogs ?: it.log,
+                            symptomToDelete = null,
+                            symptomDeleteLogCount = 0,
+                        )
+                    }
+                }
+            }
+
+            // ── Medication library edit/delete side effects ─────────────
+            is DailyLogEvent.RenameMedicationConfirmed -> {
+                viewModelScope.launch {
+                    val result = renameMedicationUseCase(
+                        event.medicationId,
+                        event.newName,
+                        _uiState.value.medicationLibrary,
+                    )
+                    _uiState.update {
+                        when (result) {
+                            is RenameResult.Success -> it.copy(
+                                medicationRenaming = null,
+                                renameError = null,
+                            )
+                            is RenameResult.BlankName -> it.copy(
+                                renameError = "Name cannot be blank",
+                            )
+                            is RenameResult.NameAlreadyExists -> it.copy(
+                                renameError = "A medication with this name already exists",
+                            )
+                        }
+                    }
+                }
+            }
+
+            is DailyLogEvent.DeleteMedicationClicked -> {
+                viewModelScope.launch {
+                    val count = deleteMedicationUseCase.getLogCount(event.medication.id)
+                    _uiState.update {
+                        it.copy(
+                            medicationForContextMenu = null,
+                            medicationToDelete = event.medication,
+                            medicationDeleteLogCount = count,
+                        )
+                    }
+                }
+            }
+
+            is DailyLogEvent.DeleteMedicationConfirmed -> {
+                viewModelScope.launch {
+                    deleteMedicationUseCase(event.medicationId)
+                    _uiState.update {
+                        val filteredLogs = it.log?.let { log ->
+                            log.copy(medicationLogs = log.medicationLogs.filterNot { ml -> ml.medicationId == event.medicationId })
+                        }
+                        it.copy(
+                            log = filteredLogs ?: it.log,
+                            medicationToDelete = null,
+                            medicationDeleteLogCount = 0,
+                        )
+                    }
+                }
+            }
+
+            // No side effects for state-only events.
+            is DailyLogEvent.UnmarkPeriodDismissed,
             is DailyLogEvent.LogLoaded,
             is DailyLogEvent.LibraryUpdated,
             is DailyLogEvent.SymptomNameChanged,
             is DailyLogEvent.DismissEducationalSheet,
-            is DailyLogEvent.ErrorDismissed -> { /* state-only */ }
+            is DailyLogEvent.ErrorDismissed,
+            is DailyLogEvent.SymptomLongPressed,
+            is DailyLogEvent.RenameSymptomClicked,
+            is DailyLogEvent.SymptomEditDismissed,
+            is DailyLogEvent.MedicationLongPressed,
+            is DailyLogEvent.RenameMedicationClicked,
+            is DailyLogEvent.MedicationEditDismissed -> { /* state-only */ }
         }
     }
 
@@ -405,8 +565,21 @@ class DailyLogViewModel(
                     )
                     currentState.copy(log = log.copy(periodLog = newPeriodLog))
                 } else {
-                    currentState.copy(log = log.copy(periodLog = null))
+                    if (log.periodLog?.hasData() == true) {
+                        currentState.copy(showUnmarkPeriodConfirmation = true)
+                    } else {
+                        currentState.copy(log = log.copy(periodLog = null))
+                    }
                 }
+            }
+            is DailyLogEvent.UnmarkPeriodConfirmed -> {
+                currentState.copy(
+                    log = log.copy(periodLog = null),
+                    showUnmarkPeriodConfirmation = false,
+                )
+            }
+            is DailyLogEvent.UnmarkPeriodDismissed -> {
+                currentState.copy(showUnmarkPeriodConfirmation = false)
             }
             is DailyLogEvent.WaterIncrement -> {
                 currentState.copy(waterCups = currentState.waterCups + 1)
@@ -418,7 +591,54 @@ class DailyLogViewModel(
             is DailyLogEvent.DismissEducationalSheet -> currentState.copy(educationalArticles = null)
             is DailyLogEvent.ErrorDismissed -> currentState.copy(errorMessage = null)
             is DailyLogEvent.ShowEducationalSheet -> currentState
-            is DailyLogEvent.LogLoaded, is DailyLogEvent.LibraryUpdated, is DailyLogEvent.SymptomNameChanged -> currentState
+
+            // ── Symptom library edit/delete reduce ──────────────────
+            is DailyLogEvent.SymptomLongPressed -> currentState.copy(
+                symptomForContextMenu = event.symptom,
+            )
+            is DailyLogEvent.RenameSymptomClicked -> currentState.copy(
+                symptomForContextMenu = null,
+                symptomRenaming = event.symptom,
+                renameError = null,
+            )
+            is DailyLogEvent.SymptomEditDismissed -> currentState.copy(
+                symptomForContextMenu = null,
+                symptomRenaming = null,
+                symptomToDelete = null,
+                symptomDeleteLogCount = 0,
+                renameError = null,
+            )
+            // Side-effect-only events — no state change in reduce.
+            is DailyLogEvent.RenameSymptomConfirmed,
+            is DailyLogEvent.DeleteSymptomClicked,
+            is DailyLogEvent.DeleteSymptomConfirmed -> currentState
+
+            // ── Medication library edit/delete reduce ────────────────
+            is DailyLogEvent.MedicationLongPressed -> currentState.copy(
+                medicationForContextMenu = event.medication,
+            )
+            is DailyLogEvent.RenameMedicationClicked -> currentState.copy(
+                medicationForContextMenu = null,
+                medicationRenaming = event.medication,
+                renameError = null,
+            )
+            is DailyLogEvent.MedicationEditDismissed -> currentState.copy(
+                medicationForContextMenu = null,
+                medicationRenaming = null,
+                medicationToDelete = null,
+                medicationDeleteLogCount = 0,
+                renameError = null,
+            )
+            // Side-effect-only events — no state change in reduce.
+            is DailyLogEvent.RenameMedicationConfirmed,
+            is DailyLogEvent.DeleteMedicationClicked,
+            is DailyLogEvent.DeleteMedicationConfirmed -> currentState
+
+            is DailyLogEvent.LibraryUpdated -> currentState.copy(
+                symptomLibrary = event.symptoms,
+                medicationLibrary = event.medications,
+            )
+            is DailyLogEvent.LogLoaded, is DailyLogEvent.SymptomNameChanged -> currentState
         }
     }
 

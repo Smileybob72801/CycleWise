@@ -23,6 +23,7 @@ import com.veleda.cyclewise.androidData.local.database.migrations.Migration_7_8
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_8_9
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_9_10
 import com.veleda.cyclewise.androidData.local.database.migrations.Migration_10_11
+import com.veleda.cyclewise.androidData.local.database.migrations.Migration_11_12
 import com.veleda.cyclewise.androidData.local.entities.PeriodEntity
 import com.veleda.cyclewise.androidData.local.entities.Converters
 import com.veleda.cyclewise.androidData.local.entities.DailyEntryEntity
@@ -43,7 +44,7 @@ import net.sqlcipher.database.SupportFactory
  * **Security:** All data at rest is AES-256-GCM encrypted via SQLCipher.
  * The database file (`cyclewise.db`) is unreadable without the correct passphrase.
  *
- * **Schema version:** 11. All migrations are registered in [create] and tested individually.
+ * **Schema version:** 12. All migrations are registered in [create] and tested individually.
  */
 @Database(
     entities = [
@@ -56,7 +57,7 @@ import net.sqlcipher.database.SupportFactory
         PeriodLogEntity::class,
         WaterIntakeEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -222,7 +223,8 @@ abstract class PeriodDatabase : RoomDatabase() {
                     Migration_7_8,
                     Migration_8_9,
                     Migration_9_10,
-                    Migration_10_11
+                    Migration_10_11,
+                    Migration_11_12
                 )
                 .build()
         }

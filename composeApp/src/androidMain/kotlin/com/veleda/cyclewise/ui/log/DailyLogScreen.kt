@@ -228,17 +228,22 @@ fun DailyLogScreen(
     // normally. (BackHandler sets walkthroughActive = false first, so this condition
     // cannot fire on a skip.) Navigate to the Tracker walkthrough if it hasn't been
     // seen yet; otherwise clean up seed data here so the bottom nav re-enables.
+    // All suspend work after setting walkthroughActive = false is launched in
+    // coroutineScope because the state write triggers recomposition, which restarts
+    // this LaunchedEffect and cancels any in-flight suspend work.
     LaunchedEffect(activeHint, pendingKey, walkthroughActive) {
         if (walkthroughActive && activeHint == null && pendingKey == null) {
             walkthroughActive = false
-            val trackerSeen = hintPreferences.isHintSeen(HintKey.TRACKER_WELCOME).first()
-            if (!trackerSeen) {
-                onNavigateToTracker()
-            } else {
-                // Tracker walkthrough already completed — clean up seed data directly.
-                val cleanup: TutorialCleanupUseCase = sessionScope.get()
-                val appSettings: AppSettings = koin.get()
-                runSeedCleanupIfNeeded(appSettings, cleanup)
+            coroutineScope.launch {
+                val trackerSeen = hintPreferences.isHintSeen(HintKey.TRACKER_WELCOME).first()
+                if (!trackerSeen) {
+                    onNavigateToTracker()
+                } else {
+                    // Tracker walkthrough already completed — clean up seed data directly.
+                    val cleanup: TutorialCleanupUseCase = sessionScope.get()
+                    val appSettings: AppSettings = koin.get()
+                    runSeedCleanupIfNeeded(appSettings, cleanup)
+                }
             }
         }
     }
@@ -443,6 +448,17 @@ fun DailyLogScreen(
                                 onToggleSymptom = { viewModel.onEvent(DailyLogEvent.SymptomToggled(it)) },
                                 onCreateAndAddSymptom = { viewModel.onEvent(DailyLogEvent.CreateAndAddSymptom(it)) },
                                 onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
+                                symptomForContextMenu = uiState.symptomForContextMenu,
+                                symptomRenaming = uiState.symptomRenaming,
+                                symptomToDelete = uiState.symptomToDelete,
+                                symptomDeleteLogCount = uiState.symptomDeleteLogCount,
+                                renameError = uiState.renameError,
+                                onSymptomLongPressed = { viewModel.onEvent(DailyLogEvent.SymptomLongPressed(it)) },
+                                onRenameClicked = { viewModel.onEvent(DailyLogEvent.RenameSymptomClicked(it)) },
+                                onRenameConfirmed = { id, name -> viewModel.onEvent(DailyLogEvent.RenameSymptomConfirmed(id, name)) },
+                                onDeleteClicked = { viewModel.onEvent(DailyLogEvent.DeleteSymptomClicked(it)) },
+                                onDeleteConfirmed = { viewModel.onEvent(DailyLogEvent.DeleteSymptomConfirmed(it)) },
+                                onEditDismissed = { viewModel.onEvent(DailyLogEvent.SymptomEditDismissed) },
                             )
                             PAGE_MEDICATIONS -> MedicationsPage(
                                 loggedMedications = log.medicationLogs,
@@ -450,6 +466,17 @@ fun DailyLogScreen(
                                 onToggleMedication = { viewModel.onEvent(DailyLogEvent.MedicationToggled(it)) },
                                 onCreateAndAddMedication = { viewModel.onEvent(DailyLogEvent.MedicationCreatedAndAdded(it)) },
                                 onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
+                                medicationForContextMenu = uiState.medicationForContextMenu,
+                                medicationRenaming = uiState.medicationRenaming,
+                                medicationToDelete = uiState.medicationToDelete,
+                                medicationDeleteLogCount = uiState.medicationDeleteLogCount,
+                                renameError = uiState.renameError,
+                                onMedicationLongPressed = { viewModel.onEvent(DailyLogEvent.MedicationLongPressed(it)) },
+                                onRenameClicked = { viewModel.onEvent(DailyLogEvent.RenameMedicationClicked(it)) },
+                                onRenameConfirmed = { id, name -> viewModel.onEvent(DailyLogEvent.RenameMedicationConfirmed(id, name)) },
+                                onDeleteClicked = { viewModel.onEvent(DailyLogEvent.DeleteMedicationClicked(it)) },
+                                onDeleteConfirmed = { viewModel.onEvent(DailyLogEvent.DeleteMedicationConfirmed(it)) },
+                                onEditDismissed = { viewModel.onEvent(DailyLogEvent.MedicationEditDismissed) },
                             )
                             PAGE_NOTES -> NotesTagsPage(
                                 tags = log.entry.customTags,
@@ -470,6 +497,12 @@ fun DailyLogScreen(
                 }
                 }
 
+                UnmarkPeriodDayDialog(
+                    showDialog = uiState.showUnmarkPeriodConfirmation,
+                    onConfirm = { viewModel.onEvent(DailyLogEvent.UnmarkPeriodConfirmed) },
+                    onDismiss = { viewModel.onEvent(DailyLogEvent.UnmarkPeriodDismissed) },
+                )
+
                 SnackbarHost(
                     hostState = snackbarHostState,
                     modifier = Modifier.align(Alignment.BottomCenter),
@@ -479,6 +512,7 @@ fun DailyLogScreen(
                 CoachMarkOverlay(
                     state = coachMarkState,
                     allDefs = DAILY_LOG_HINTS,
+                    stepList = DAILY_LOG_STEP_LIST,
                     onSkipAll = skipEntireTutorial,
                 )
             }

@@ -66,3 +66,24 @@ data class CoachMarkDef(
     val skipToastRes: Int? = null,
     val requiresAction: Boolean = false,
 )
+
+/**
+ * Builds an ordered list of [HintKey]s by following the [CoachMarkDef.nextKey] chain
+ * starting from [startKey].
+ *
+ * Returns an empty list if [startKey] is not present in [allDefs].
+ *
+ * @param startKey The first step of the walkthrough chain.
+ * @param allDefs  The full map of hint definitions for the walkthrough.
+ * @return An ordered list of [HintKey]s representing the full walkthrough sequence.
+ */
+fun walkthroughStepList(startKey: HintKey, allDefs: Map<HintKey, CoachMarkDef>): List<HintKey> {
+    if (startKey !in allDefs) return emptyList()
+    val steps = mutableListOf<HintKey>()
+    var current: HintKey? = startKey
+    while (current != null) {
+        steps.add(current)
+        current = allDefs[current]?.nextKey
+    }
+    return steps
+}
