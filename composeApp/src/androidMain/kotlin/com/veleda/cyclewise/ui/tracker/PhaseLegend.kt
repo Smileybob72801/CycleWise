@@ -1,23 +1,19 @@
 package com.veleda.cyclewise.ui.tracker
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,12 +31,17 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
  * can identify what each background tint represents. Only visible phases
  * (as configured in settings) are shown; Period is always displayed.
  *
- * When [heatmapActive] is true, legend swatches switch from filled dots to outlined
- * rings to visually reflect the fill → border rendering swap on the calendar.
+ * Each chip's background colour matches the corresponding calendar phase fill:
+ * [CyclePhasePalette.menstruation]`.fill` for Period (opaque, matching calendar
+ * period-day cells) and `.fillSubtle` for Follicular, Ovulation, and Luteal
+ * (matching the subtle calendar phase tint). When [heatmapActive] is true, chips
+ * switch to a neutral background with a coloured border, mirroring how calendar
+ * day cells swap phase fills for outline borders in heatmap mode.
  *
- * @param palette        The current [CyclePhasePalette] providing per-phase dot colors.
+ * @param palette        The current [CyclePhasePalette] providing per-phase colours.
  * @param phaseVisible   Map of each [CyclePhase] to its visibility flag.
- * @param heatmapActive  True when a heatmap metric is active — swatches render as outlined rings.
+ * @param heatmapActive  True when a heatmap metric is active — chips render with borders
+ *                       instead of filled backgrounds.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -60,27 +61,31 @@ internal fun PhaseLegend(
         verticalArrangement = Arrangement.spacedBy(dims.xs),
     ) {
         LegendChip(
-            color = palette.menstruation.dot,
+            fillColor = palette.menstruation.fill,
+            borderColor = palette.menstruation.border,
             label = stringResource(R.string.phase_color_period_label),
             outlined = heatmapActive,
         )
         if (phaseVisible[CyclePhase.FOLLICULAR] != false) {
             LegendChip(
-                color = palette.follicular.dot,
+                fillColor = palette.follicular.fillSubtle,
+                borderColor = palette.follicular.border,
                 label = stringResource(R.string.phase_color_follicular_label),
                 outlined = heatmapActive,
             )
         }
         if (phaseVisible[CyclePhase.OVULATION] != false) {
             LegendChip(
-                color = palette.ovulation.dot,
+                fillColor = palette.ovulation.fillSubtle,
+                borderColor = palette.ovulation.border,
                 label = stringResource(R.string.phase_color_ovulation_label),
                 outlined = heatmapActive,
             )
         }
         if (phaseVisible[CyclePhase.LUTEAL] != false) {
             LegendChip(
-                color = palette.luteal.dot,
+                fillColor = palette.luteal.fillSubtle,
+                borderColor = palette.luteal.border,
                 label = stringResource(R.string.phase_color_luteal_label),
                 outlined = heatmapActive,
             )
@@ -89,48 +94,69 @@ internal fun PhaseLegend(
 }
 
 /**
- * Single legend entry rendered as a compact chip: a small coloured swatch
- * followed by a single-line label, wrapped in a [Surface] with `surfaceVariant`
- * background. The label is constrained to one line and ellipsized if it would
- * overflow, preventing vertical character-by-character wrapping on narrow screens.
+ * Single legend entry rendered as a compact chip whose background colour matches
+ * the corresponding calendar phase fill.
  *
- * When [outlined] is true, the swatch renders as a hollow ring with [color] border
- * and transparent fill, mirroring the phase-border rendering on the calendar when
- * a heatmap metric is active.
+ * In **normal mode** ([outlined] = false), the chip's [Surface] background is
+ * [fillColor] — the same colour the calendar uses for that phase's day cells.
+ * Text colour is computed at runtime via [Color.luminance] on the composited
+ * background to guarantee contrast regardless of user-customised colours or
+ * light/dark mode.
  *
- * @param color    The fill (or border, when [outlined]) colour for the swatch.
- * @param label    The text displayed next to the swatch.
- * @param outlined When true, the swatch is drawn as an outlined ring instead of a filled dot.
+ * In **heatmap mode** ([outlined] = true), the chip reverts to a neutral
+ * `surfaceVariant` background with a coloured [borderColor] outline, mirroring
+ * how calendar day cells swap phase fills for outline borders when a heatmap
+ * metric is active.
+ *
+ * The label is constrained to one line and ellipsized if it would overflow,
+ * preventing vertical character-by-character wrapping on narrow screens.
+ *
+ * @param fillColor   Background colour for the chip in normal mode.
+ * @param borderColor Border colour for the chip in heatmap (outlined) mode.
+ * @param label       The phase name displayed inside the chip.
+ * @param outlined    When true, renders a bordered outline instead of a filled background.
  */
 @Composable
-internal fun LegendChip(color: Color, label: String, outlined: Boolean = false) {
+internal fun LegendChip(
+    fillColor: Color,
+    borderColor: Color,
+    label: String,
+    outlined: Boolean = false,
+) {
     val dims = LocalDimensions.current
+    val chipShape = MaterialTheme.shapes.small
 
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.semantics(mergeDescendants = true) { }
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = dims.sm, vertical = dims.xs),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(dims.xs)
+    if (outlined) {
+        Surface(
+            shape = chipShape,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier
+                .semantics(mergeDescendants = true) { }
+                .border(dims.xxs, borderColor, chipShape),
         ) {
-            if (outlined) {
-                Box(
-                    modifier = Modifier
-                        .size(dims.sm)
-                        .border(dims.xxs, color, RoundedCornerShape(dims.xs))
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(dims.sm)
-                        .background(color, RoundedCornerShape(dims.xs))
-                )
-            }
             Text(
                 text = label,
+                modifier = Modifier.padding(horizontal = dims.sm, vertical = dims.xs),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    } else {
+        val surface = MaterialTheme.colorScheme.surface
+        val effectiveColor = fillColor.compositeOver(surface)
+        val textColor = if (effectiveColor.luminance() < 0.5f) Color.White
+            else Color(0xFF1A1113)
+
+        Surface(
+            shape = chipShape,
+            color = fillColor,
+            modifier = Modifier.semantics(mergeDescendants = true) { },
+        ) {
+            Text(
+                text = label,
+                modifier = Modifier.padding(horizontal = dims.sm, vertical = dims.xs),
+                color = textColor,
                 style = MaterialTheme.typography.labelSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
