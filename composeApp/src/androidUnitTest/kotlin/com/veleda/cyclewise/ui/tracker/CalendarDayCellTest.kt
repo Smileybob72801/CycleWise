@@ -244,4 +244,84 @@ class CalendarDayCellTest {
         composeTestRule.onNodeWithTag("period-day-2026-03-15", useUnmergedTree = true).assertExists()
         composeTestRule.onNodeWithText("15").assertIsDisplayed()
     }
+
+    // ── Indicator presence / absence tests ───────────────────────────────
+
+    @Test
+    fun `GIVEN day with symptoms THEN symptom indicator exists`() {
+        // GIVEN — a day with symptoms logged
+        setContent(dayInfo = CalendarDayInfo(hasSymptoms = true))
+
+        // THEN — the symptom indicator tag is present
+        composeTestRule.onNodeWithTag("symptom-indicator-2026-03-15", useUnmergedTree = true)
+            .assertExists()
+    }
+
+    @Test
+    fun `GIVEN day with medications THEN medication indicator exists`() {
+        // GIVEN — a day with medications logged
+        setContent(dayInfo = CalendarDayInfo(hasMedications = true))
+
+        // THEN — the medication indicator tag is present
+        composeTestRule.onNodeWithTag("medication-indicator-2026-03-15", useUnmergedTree = true)
+            .assertExists()
+    }
+
+    @Test
+    fun `GIVEN day with notes THEN notes indicator exists`() {
+        // GIVEN — a day with notes logged
+        setContent(dayInfo = CalendarDayInfo(hasNotes = true))
+
+        // THEN — the notes indicator tag is present
+        composeTestRule.onNodeWithTag("notes-indicator-2026-03-15", useUnmergedTree = true)
+            .assertExists()
+    }
+
+    @Test
+    fun `GIVEN day with all indicators THEN all three indicator tags exist`() {
+        // GIVEN — a day with symptoms, medications, and notes all logged
+        setContent(
+            dayInfo = CalendarDayInfo(
+                hasSymptoms = true,
+                hasMedications = true,
+                hasNotes = true,
+            )
+        )
+
+        // THEN — all three indicator tags are present
+        composeTestRule.onNodeWithTag("symptom-indicator-2026-03-15", useUnmergedTree = true)
+            .assertExists()
+        composeTestRule.onNodeWithTag("medication-indicator-2026-03-15", useUnmergedTree = true)
+            .assertExists()
+        composeTestRule.onNodeWithTag("notes-indicator-2026-03-15", useUnmergedTree = true)
+            .assertExists()
+    }
+
+    @Test
+    fun `GIVEN day with no indicators THEN no indicator tags exist`() {
+        // GIVEN — a day with no symptoms, medications, or notes
+        setContent(dayInfo = CalendarDayInfo())
+
+        // THEN — none of the indicator tags are present
+        composeTestRule.onNodeWithTag("symptom-indicator-2026-03-15", useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeTestRule.onNodeWithTag("medication-indicator-2026-03-15", useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeTestRule.onNodeWithTag("notes-indicator-2026-03-15", useUnmergedTree = true)
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun `GIVEN day with only medications THEN only medication indicator exists`() {
+        // GIVEN — a day with only medications logged (no symptoms or notes)
+        setContent(dayInfo = CalendarDayInfo(hasMedications = true))
+
+        // THEN — only the medication indicator is present
+        composeTestRule.onNodeWithTag("medication-indicator-2026-03-15", useUnmergedTree = true)
+            .assertExists()
+        composeTestRule.onNodeWithTag("symptom-indicator-2026-03-15", useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeTestRule.onNodeWithTag("notes-indicator-2026-03-15", useUnmergedTree = true)
+            .assertDoesNotExist()
+    }
 }
