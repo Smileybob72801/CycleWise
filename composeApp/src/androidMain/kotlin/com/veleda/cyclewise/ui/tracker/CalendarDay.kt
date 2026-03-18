@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +35,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
@@ -56,8 +60,11 @@ private const val PERIOD_FILL_ALPHA = 0.4f
  * A single calendar-day cell rendered inside the [HorizontalCalendar] grid.
  *
  * Displays the day number, optional period/phase/heatmap background colouring,
- * dot indicators for logged symptoms, medications, and notes, a today
- * border ring, an optional phase border, and a bounce-scale animation on press.
+ * shaped indicators for logged symptoms (cross), medications (capsule), and
+ * notes (page with folded corner), a today border ring, an optional phase
+ * border, and a bounce-scale animation on press. The indicator row always
+ * reserves a fixed height so the day number stays vertically stable regardless
+ * of whether indicators are present.
  *
  * When a heatmap metric is active, the rendering roles swap: heatmap data takes
  * over the fill channel (background) and phase colors move to the border channel
@@ -280,34 +287,30 @@ internal fun CalendarDayCell(
             )
 
             Row(
-                modifier = Modifier.padding(top = dims.xxs),
-                horizontalArrangement = Arrangement.spacedBy(dims.xxs)
+                modifier = Modifier
+                    .padding(top = dims.xxs)
+                    .height(dims.sm),
+                horizontalArrangement = Arrangement.spacedBy(dims.xxs),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 if (dayInfo?.hasSymptoms == true) {
-                    Box(
-                        modifier = Modifier
-                            .size(dims.sm)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.secondary)
-                            .testTag("symptom-dot-$date")
+                    SymptomIndicator(
+                        color = MaterialTheme.colorScheme.secondary,
+                        size = dims.sm,
+                        modifier = Modifier.testTag("symptom-indicator-$date")
                     )
                 }
                 if (dayInfo?.hasMedications == true) {
-                    Box(
-                        modifier = Modifier
-                            .size(dims.sm)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.tertiary)
-                            .testTag("medication-dot-$date")
+                    MedicationIndicator(
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.testTag("medication-indicator-$date")
                     )
                 }
                 if (dayInfo?.hasNotes == true) {
-                    Box(
-                        modifier = Modifier
-                            .size(dims.sm)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.outline)
-                            .testTag("notes-dot-$date")
+                    NotesIndicator(
+                        color = MaterialTheme.colorScheme.outline,
+                        size = dims.sm,
+                        modifier = Modifier.testTag("notes-indicator-$date")
                     )
                 }
             }
@@ -315,6 +318,97 @@ internal fun CalendarDayCell(
                 Box(modifier = Modifier.testTag("period-day-$date"))
             }
         }
+    }
+}
+
+/**
+ * Small cross/plus indicator drawn on a [Canvas] to represent logged symptoms.
+ *
+ * Two perpendicular lines with rounded caps form the cross. The stroke width
+ * and arm length are proportional to [size] so the shape scales cleanly.
+ *
+ * @param color    Fill colour for the cross strokes.
+ * @param size     Side length of the square bounding box.
+ * @param modifier Modifier forwarded to the [Canvas] (use for test tags, padding, etc.).
+ */
+@Composable
+private fun SymptomIndicator(color: Color, size: Dp, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(size)) {
+        val strokeWidth = this.size.width * 0.3f
+        val center = this.size.width / 2
+        val arm = this.size.width * 0.4f
+        drawLine(
+            color = color,
+            start = Offset(center - arm, center),
+            end = Offset(center + arm, center),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = color,
+            start = Offset(center, center - arm),
+            end = Offset(center, center + arm),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+/**
+ * Horizontal capsule/pill indicator representing logged medications.
+ *
+ * Rendered as a [Box] with fully rounded ends (`RoundedCornerShape(50)`).
+ * Width is [dims.sm][com.veleda.cyclewise.ui.theme.Dimensions.sm] and height
+ * is [dims.xs][com.veleda.cyclewise.ui.theme.Dimensions.xs], producing an
+ * elongated pill shape that is visually distinct from the cross and page indicators.
+ *
+ * @param color    Fill colour for the capsule.
+ * @param modifier Modifier forwarded to the outer [Box] (use for test tags, padding, etc.).
+ */
+@Composable
+private fun MedicationIndicator(color: Color, modifier: Modifier = Modifier) {
+    val dims = LocalDimensions.current
+    Box(
+        modifier = modifier
+            .size(width = dims.sm, height = dims.xs)
+            .clip(RoundedCornerShape(50))
+            .background(color)
+    )
+}
+
+/**
+ * Page/document indicator drawn on a [Canvas] to represent logged notes.
+ *
+ * A filled vertical rectangle with a triangular fold cut from the top-right
+ * corner. The fold is drawn at 50 % alpha to create a subtle crease effect
+ * that distinguishes this shape from a plain rectangle.
+ *
+ * @param color    Fill colour for the page body and fold.
+ * @param size     Side length of the square bounding box.
+ * @param modifier Modifier forwarded to the [Canvas] (use for test tags, padding, etc.).
+ */
+@Composable
+private fun NotesIndicator(color: Color, size: Dp, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val fold = w * 0.3f
+        val bodyPath = Path().apply {
+            moveTo(0f, 0f)
+            lineTo(w - fold, 0f)
+            lineTo(w, fold)
+            lineTo(w, h)
+            lineTo(0f, h)
+            close()
+        }
+        drawPath(bodyPath, color)
+        val foldPath = Path().apply {
+            moveTo(w - fold, 0f)
+            lineTo(w - fold, fold)
+            lineTo(w, fold)
+            close()
+        }
+        drawPath(foldPath, color, alpha = 0.5f)
     }
 }
 
