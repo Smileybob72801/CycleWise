@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
@@ -197,6 +198,22 @@ class MedicationsPageTest {
 
         // Then
         assert(capturedTag == "Medication") { "Expected 'Medication', got '$capturedTag'" }
+    }
+
+    // endregion
+
+    // region Help button
+
+    @Test
+    fun helpButton_WHEN_rendered_THEN_isDisplayed() {
+        // Given / When
+        setContent()
+
+        // Then — SectionCard help CD is "Usage help for Medications"
+        composeTestRule.onAllNodes(
+            hasContentDescription("Usage help for Medications"),
+            useUnmergedTree = true,
+        )[0].assertIsDisplayed()
     }
 
     // endregion

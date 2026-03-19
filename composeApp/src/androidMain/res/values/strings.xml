@@ -183,9 +183,9 @@
     <string name="hint_daily_log_medications_tab_title">The Medications Tab</string>
     <string name="hint_daily_log_medications_tab_body">Tap the Medications tab above to continue.</string>
     <string name="hint_daily_log_notes_tab_title">Notes &amp; Tags</string>
-    <string name="hint_daily_log_notes_tab_body">This is your private journal — add freeform notes or quick tags to remember anything about your day.</string>
+    <string name="hint_daily_log_notes_tab_body">This is your private journal - add freeform notes or quick tags to remember anything about your day.</string>
     <string name="coach_mark_no_periods">I don\'t have periods</string>
-    <string name="coach_mark_no_periods_toast">No problem — you can still track mood, energy, symptoms, and more.</string>
+    <string name="coach_mark_no_periods_toast">No problem - you can still track mood, energy, symptoms, and more.</string>
 
     <!-- Tracker Coach Marks -->
     <string name="hint_tracker_welcome_title">Your Cycle Calendar</string>
@@ -208,7 +208,7 @@
     <string name="settings_autolock_title">Auto-lock timeout (minutes)</string>
     <string name="settings_security_title">Security</string>
     <string name="settings_lock_button">Lock Now</string>
-    <string name="settings_locked_message">Currently locked — unlock to access secured data.</string>
+    <string name="settings_locked_message">Currently locked - unlock to access secured data.</string>
     <string name="settings_insights_title">Insight Settings</string>
     <string name="settings_top_symptoms">Top Frequent Symptoms to Display: %d</string>
     <string name="settings_developer_title">Developer Options</string>
@@ -348,6 +348,38 @@
     <string name="article_category_wellness">Wellness</string>
     <string name="article_category_when_to_see_doctor">When to See a Doctor</string>
     <string name="educational_info_button_cd">Learn more about %1$s</string>
+
+    <!-- Help buttons -->
+    <string name="help_button_cd">Usage help for %1$s</string>
+    <string name="help_dialog_dismiss">Got it</string>
+
+    <!-- Tracker help -->
+    <string name="help_tracker_title">Tracker Help</string>
+    <string name="help_tracker_tip_tap_day">Tap a day to view or create a daily log</string>
+    <string name="help_tracker_tip_swipe_months">Swipe left or right to change months, or use the arrow buttons</string>
+    <string name="help_tracker_tip_today">Tap \"Today\" to jump back to the current month</string>
+    <string name="help_tracker_tip_longpress">Long-press a day to mark or unmark it as a period day</string>
+    <string name="help_tracker_tip_drag">Long-press and drag across days to select a range of period days</string>
+    <string name="help_tracker_tip_heatmap">Use the heatmap selector below the calendar to overlay data like mood, energy, or flow intensity</string>
+
+    <!-- Symptoms help -->
+    <string name="help_symptoms_title">Symptoms Help</string>
+    <string name="help_symptoms_tip_toggle">Tap a symptom chip to log it for today - tap again to remove</string>
+    <string name="help_symptoms_tip_create">Tap the \"+\" chip to create a new custom symptom</string>
+    <string name="help_symptoms_tip_edit">Long-press a symptom chip to rename or delete it</string>
+
+    <!-- Medications help -->
+    <string name="help_medications_title">Medications Help</string>
+    <string name="help_medications_tip_toggle">Tap a medication chip to log it for today - tap again to remove</string>
+    <string name="help_medications_tip_create">Tap the \"+\" chip to create a new custom medication</string>
+    <string name="help_medications_tip_edit">Long-press a medication chip to rename or delete it</string>
+
+    <!-- Tags & Notes help -->
+    <string name="help_notes_title">Tags &amp; Notes Help</string>
+    <string name="help_notes_tip_toggle">Tap a tag chip to apply it to today\'s log - tap again to remove</string>
+    <string name="help_notes_tip_create">Tap the \"+\" chip to create a new custom tag</string>
+    <string name="help_notes_tip_edit">Long-press a tag chip to rename or delete it</string>
+    <string name="help_notes_tip_freeform">Use the notes field below to write freeform observations about your day</string>
     <string name="educational_sheet_source_label">Source:</string>
     <string name="educational_sheet_dismiss">Close</string>
 
@@ -372,19 +404,19 @@
     <string name="settings_change_passphrase_success">Passphrase changed successfully</string>
     <string name="settings_change_passphrase_submit">Change Passphrase</string>
 
-    <!-- Change Passphrase — Confirmation step -->
+    <!-- Change Passphrase - Confirmation step -->
     <string name="settings_change_passphrase_confirm_title">Confirm Passphrase Change</string>
     <string name="settings_change_passphrase_confirm_body">Are you sure you want to change your passphrase?\n\nThis will re-encrypt your entire database with a new key. If you forget your new passphrase, your data will be permanently inaccessible. There is no recovery mechanism.</string>
     <string name="settings_change_passphrase_confirm_button">Yes, Change It</string>
     <string name="settings_change_passphrase_back">Go Back</string>
     <string name="settings_change_passphrase_progress">Changing passphrase\u2026</string>
 
-    <!-- Change Passphrase — Success dialog -->
+    <!-- Change Passphrase - Success dialog -->
     <string name="settings_change_passphrase_success_title">Passphrase Changed</string>
     <string name="settings_change_passphrase_success_warning">This is your last chance to write down or memorize your new passphrase. Once you dismiss this dialog, it cannot be shown again.\n\nThere is no passphrase recovery.</string>
     <string name="settings_change_passphrase_success_acknowledge">I\'ve Saved My Passphrase</string>
 
-    <!-- Change Passphrase — Error messages -->
+    <!-- Change Passphrase - Error messages -->
     <string name="settings_change_passphrase_error_failed">Something went wrong. Your data is still protected by your current passphrase. Please try again.</string>
     <string name="settings_change_passphrase_error_verification_failed">The change could not be verified and was rolled back. Your current passphrase still works. Please try again.</string>
 

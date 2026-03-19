@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.input.ImeAction
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
+import com.veleda.cyclewise.ui.components.HelpDialog
 import com.veleda.cyclewise.ui.log.MAX_NAME_LENGTH
 import com.veleda.cyclewise.ui.log.components.SectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
@@ -86,6 +88,7 @@ internal fun MedicationsPage(
     onEditDismissed: () -> Unit = {},
 ) {
     val dims = LocalDimensions.current
+    var showHelp by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -106,6 +109,7 @@ internal fun MedicationsPage(
         SectionCard(
             title = stringResource(R.string.daily_log_medications_title),
             icon = Icons.Outlined.MedicalServices,
+            onHelpClick = { showHelp = true },
             onInfoClick = { onShowEducationalSheet("Medication") },
         ) {
             MedicationLogger(
@@ -146,6 +150,18 @@ internal fun MedicationsPage(
             },
             onConfirm = { onDeleteConfirmed(medicationToDelete.id) },
             onDismiss = onEditDismissed,
+        )
+    }
+
+    if (showHelp) {
+        HelpDialog(
+            title = stringResource(R.string.help_medications_title),
+            tips = listOf(
+                stringResource(R.string.help_medications_tip_toggle),
+                stringResource(R.string.help_medications_tip_create),
+                stringResource(R.string.help_medications_tip_edit),
+            ),
+            onDismiss = { showHelp = false },
         )
     }
 }
