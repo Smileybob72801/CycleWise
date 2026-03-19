@@ -374,7 +374,7 @@
     <string name="help_medications_tip_create">Tap the \"+\" chip to create a new custom medication</string>
     <string name="help_medications_tip_edit">Long-press a medication chip to rename or delete it</string>
 
-    <!-- Tags & Notes help -->
+  <!-- Tags & Notes help -->
     <string name="help_notes_title">Tags &amp; Notes Help</string>
     <string name="help_notes_tip_toggle">Tap a tag chip to apply it to today\'s log - tap again to remove</string>
     <string name="help_notes_tip_create">Tap the \"+\" chip to create a new custom tag</string>
