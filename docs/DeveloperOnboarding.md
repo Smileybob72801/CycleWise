@@ -443,7 +443,7 @@ Contains the Jetpack Compose UI and all Android-specific implementations.
 | `ui/insights/` | Insights screen — `InsightsScreen`, `InsightsViewModel` |
 | `ui/settings/` | Settings screen — `SettingsScreen`, `SettingsViewModel`, `SettingsEvent`, and sub-page composables |
 | `ui/coachmark/` | Post-login tutorial overlay system — `CoachMarkDef`, `CoachMarkOverlay`, `CoachMarkState`, `HintPreferences` |
-| `ui/components/` | Reusable UI components (e.g., `EducationalBottomSheet`, `InfoButton`, `MarkdownText`) |
+| `ui/components/` | Reusable UI components (e.g., `EducationalBottomSheet`, `HelpButton`, `HelpDialog`, `InfoButton`, `MarkdownText`) |
 | `ui/nav/` | Navigation routes, bottom nav bar, and `NavHost` wiring |
 | `ui/theme/` | Theme definitions — colors, shapes, typography, dimensions |
 | `di/` | `AppModule.kt` — all Koin DI wiring |
@@ -2181,6 +2181,10 @@ data class EducationalArticle(
 ### UI Components
 
 - **`InfoButton`** — A tappable info icon that dispatches `ShowEducationalSheet(contentTag)`.
+- **`HelpButton`** — A tappable help icon (`Icons.AutoMirrored.Outlined.HelpOutline`)
+  that opens a `HelpDialog` with contextual usage tips.
+- **`HelpDialog`** — Dismissible `AlertDialog` displaying a bulleted list of usage tips.
+  Used alongside `HelpButton` to provide on-demand guidance without consuming layout space.
 - **`EducationalBottomSheet`** — Renders the article body using `MarkdownText`,
   with `SourceAttribution` and `MedicalDisclaimer` at the bottom.
 
@@ -2193,10 +2197,13 @@ The `ui/components/` package contains shared composables used across multiple sc
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | `EducationalBottomSheet` | `ui/components/` | Modal bottom sheet for displaying educational articles |
+| `HelpButton` | `ui/components/` | Compact help icon button that opens a usage-tips dialog |
+| `HelpDialog` | `ui/components/` | Dismissible AlertDialog displaying bulleted tips for a screen or section |
 | `InfoButton` | `ui/components/` | Small info icon button that triggers educational content display |
 | `MarkdownText` | `ui/components/` | Renders markdown-formatted text in Compose (used for article bodies) |
 | `MedicalDisclaimer` | `ui/components/` | Standard disclaimer banner: "This is not medical advice" |
 | `SourceAttribution` | `ui/components/` | Displays source name and URL for educational content |
+| `SectionCard` | `ui/log/components/` | Card wrapper for daily log sections with optional help and info buttons in the title row |
 | `LibraryChip` | `ui/log/pages/SymptomsPage.kt` | Chip with tap + long-press support for library items (see below) |
 | `RenameDialog` | `ui/log/pages/SymptomsPage.kt` | AlertDialog with pre-filled OutlinedTextField for renaming library items |
 | `DeleteLibraryItemDialog` | `ui/log/pages/SymptomsPage.kt` | Delete confirmation dialog with log count warning |
@@ -2230,6 +2237,32 @@ via direct function call (they are `internal` composables in the same package).
   `renameError` state (e.g., "A symptom with this name already exists").
 - `DeleteLibraryItemDialog`: Shows a log count warning ("appears in N daily logs")
   or a no-logs message, with an error-colored confirm button.
+
+### HelpButton and HelpDialog — Contextual Usage Tips
+
+`HelpButton` and `HelpDialog` work together to provide contextual, dismissible
+usage guidance without consuming permanent layout space.
+
+- **`HelpButton`** — A compact icon button using `Icons.AutoMirrored.Outlined.HelpOutline`
+  with `onSurfaceVariant` tint and `iconSm` sizing. Mirrors `InfoButton` styling.
+- **`HelpDialog`** — An `AlertDialog` displaying a title and ordered bulleted tips.
+  Dismissed via "Got it" button.
+
+**Usage pattern:** Define `var showHelp by remember { mutableStateOf(false) }`,
+conditionally render `HelpDialog` when true, and pass `{ showHelp = true }` to
+`HelpButton` or `SectionCard`'s `onHelpClick`.
+
+### SectionCard — Help and Info Buttons
+
+`SectionCard` (`ui/log/components/SectionCard.kt`) wraps daily log sections with
+a consistent card treatment: surfaceVariant background, leading icon, title row, and
+optional trailing buttons.
+
+- `onHelpClick: (() -> Unit)?` — When non-null, renders a `HelpButton` before the info button.
+- `onInfoClick: (() -> Unit)?` — When non-null, renders an `InfoButton`.
+
+Both buttons are end-aligned in the title row. Help callbacks typically open a
+`HelpDialog`; info callbacks dispatch `ShowEducationalSheet` events.
 
 ---
 

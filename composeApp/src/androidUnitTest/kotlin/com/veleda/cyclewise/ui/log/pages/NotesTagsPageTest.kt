@@ -3,6 +3,7 @@ package com.veleda.cyclewise.ui.log.pages
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -114,6 +115,22 @@ class NotesTagsPageTest {
 
         // Then — only the text field label "Add" should exist, not any tag chips
         composeTestRule.onNodeWithText("Exercise").assertDoesNotExist()
+    }
+
+    // endregion
+
+    // region Help button
+
+    @Test
+    fun helpButton_WHEN_rendered_THEN_isDisplayedOnCustomTagsCard() {
+        // Given / When
+        setContent()
+
+        // Then — SectionCard help CD is "Usage help for Custom Tags"
+        composeTestRule.onAllNodes(
+            hasContentDescription("Usage help for Custom Tags"),
+            useUnmergedTree = true,
+        )[0].assertIsDisplayed()
     }
 
     // endregion

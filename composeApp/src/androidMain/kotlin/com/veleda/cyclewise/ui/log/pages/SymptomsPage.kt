@@ -42,6 +42,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.ui.components.HelpDialog
 import com.veleda.cyclewise.ui.log.MAX_NAME_LENGTH
 import com.veleda.cyclewise.ui.log.components.SectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
@@ -108,6 +110,7 @@ internal fun SymptomsPage(
     onEditDismissed: () -> Unit = {},
 ) {
     val dims = LocalDimensions.current
+    var showHelp by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -128,6 +131,7 @@ internal fun SymptomsPage(
         SectionCard(
             title = stringResource(R.string.daily_log_symptoms_title),
             icon = Icons.Outlined.LocalHospital,
+            onHelpClick = { showHelp = true },
             onInfoClick = { onShowEducationalSheet("Symptoms") },
         ) {
             SymptomLogger(
@@ -168,6 +172,18 @@ internal fun SymptomsPage(
             },
             onConfirm = { onDeleteConfirmed(symptomToDelete.id) },
             onDismiss = onEditDismissed,
+        )
+    }
+
+    if (showHelp) {
+        HelpDialog(
+            title = stringResource(R.string.help_symptoms_title),
+            tips = listOf(
+                stringResource(R.string.help_symptoms_tip_toggle),
+                stringResource(R.string.help_symptoms_tip_create),
+                stringResource(R.string.help_symptoms_tip_edit),
+            ),
+            onDismiss = { showHelp = false },
         )
     }
 }

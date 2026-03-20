@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
@@ -270,6 +271,22 @@ class SymptomsPageTest {
         // Then — title is unique; "Headache" appears both as chip label and dialog text field
         composeTestRule.onNodeWithText("Rename Symptom").assertIsDisplayed()
         composeTestRule.onAllNodesWithText("Headache").assertCountEquals(2)
+    }
+
+    // endregion
+
+    // region Help button
+
+    @Test
+    fun helpButton_WHEN_rendered_THEN_isDisplayed() {
+        // Given / When
+        setContent()
+
+        // Then — SectionCard help CD is "Usage help for Symptoms"
+        composeTestRule.onAllNodes(
+            hasContentDescription("Usage help for Symptoms"),
+            useUnmergedTree = true,
+        )[0].assertIsDisplayed()
     }
 
     // endregion
