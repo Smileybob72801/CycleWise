@@ -24,14 +24,14 @@ sealed interface DailyLogEvent {
     /** The user changed the flow intensity for this day's period log. */
     data class FlowIntensityChanged(val intensity: FlowIntensity?) : DailyLogEvent
 
-    /** The user changed the mood score (1-5 scale). */
-    data class MoodScoreChanged(val score: Int) : DailyLogEvent
+    /** The user changed the mood score (1-5 scale), or `null` to clear. */
+    data class MoodScoreChanged(val score: Int?) : DailyLogEvent
 
-    /** The user changed the energy level (1-5 scale). */
-    data class EnergyLevelChanged(val level: Int) : DailyLogEvent
+    /** The user changed the energy level (1-5 scale), or `null` to clear. */
+    data class EnergyLevelChanged(val level: Int?) : DailyLogEvent
 
-    /** The user changed the libido score (1-5 scale). */
-    data class LibidoScoreChanged(val score: Int) : DailyLogEvent
+    /** The user changed the libido score (1-5 scale), or `null` to clear. */
+    data class LibidoScoreChanged(val score: Int?) : DailyLogEvent
 
     /** The user changed the period blood color for this day's period log. */
     data class PeriodColorChanged(val color: PeriodColor?) : DailyLogEvent

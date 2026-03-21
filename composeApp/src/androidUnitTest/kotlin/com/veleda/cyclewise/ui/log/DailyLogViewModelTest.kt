@@ -349,6 +349,74 @@ class DailyLogViewModelTest {
     }
 
     @Test
+    fun `onEvent MoodScoreChanged null THEN setsScoreToNull`() = runTest {
+        // GIVEN — ViewModel with a loaded log that has a mood score
+        val vm = createViewModel()
+        advanceUntilIdle()
+        vm.onEvent(DailyLogEvent.MoodScoreChanged(score = 4))
+        advanceUntilIdle()
+        assertEquals(4, vm.uiState.value.log?.entry?.moodScore)
+
+        // WHEN — mood is deselected
+        vm.onEvent(DailyLogEvent.MoodScoreChanged(score = null))
+        advanceUntilIdle()
+
+        // THEN — mood score is null
+        assertNull(vm.uiState.value.log?.entry?.moodScore)
+    }
+
+    @Test
+    fun `onEvent EnergyLevelChanged null THEN setsLevelToNull`() = runTest {
+        // GIVEN
+        val vm = createViewModel()
+        advanceUntilIdle()
+        vm.onEvent(DailyLogEvent.EnergyLevelChanged(level = 3))
+        advanceUntilIdle()
+        assertEquals(3, vm.uiState.value.log?.entry?.energyLevel)
+
+        // WHEN — energy is deselected
+        vm.onEvent(DailyLogEvent.EnergyLevelChanged(level = null))
+        advanceUntilIdle()
+
+        // THEN
+        assertNull(vm.uiState.value.log?.entry?.energyLevel)
+    }
+
+    @Test
+    fun `onEvent LibidoScoreChanged null THEN setsScoreToNull`() = runTest {
+        // GIVEN
+        val vm = createViewModel()
+        advanceUntilIdle()
+        vm.onEvent(DailyLogEvent.LibidoScoreChanged(score = 2))
+        advanceUntilIdle()
+        assertEquals(2, vm.uiState.value.log?.entry?.libidoScore)
+
+        // WHEN — libido is deselected
+        vm.onEvent(DailyLogEvent.LibidoScoreChanged(score = null))
+        advanceUntilIdle()
+
+        // THEN
+        assertNull(vm.uiState.value.log?.entry?.libidoScore)
+    }
+
+    @Test
+    fun `onEvent MoodScoreChanged null THEN autoSavesLog`() = runTest {
+        // GIVEN — ViewModel with a loaded log that has other data (energy set)
+        val vm = createViewModel()
+        advanceUntilIdle()
+        assertNotNull(vm.uiState.value.log)
+        vm.onEvent(DailyLogEvent.EnergyLevelChanged(level = 3))
+        advanceUntilIdle()
+
+        // WHEN — mood is deselected (log is non-empty because energy is set)
+        vm.onEvent(DailyLogEvent.MoodScoreChanged(score = null))
+        advanceUntilIdle()
+
+        // THEN — saveFullLog is called (auto-save persists null)
+        coVerify(atLeast = 2) { mockRepository.saveFullLog(any()) }
+    }
+
+    @Test
     fun `onEvent NoteChanged THEN debouncesAutoSave`() = runTest {
         // GIVEN — ViewModel with a loaded log
         val vm = createViewModel()
