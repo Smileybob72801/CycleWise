@@ -39,9 +39,9 @@ class WellnessPageTest {
         libidoScore: Int? = null,
         waterCups: Int = 0,
         showWellnessPrompt: Boolean = false,
-        onMoodChanged: (Int) -> Unit = {},
-        onEnergyChanged: (Int) -> Unit = {},
-        onLibidoChanged: (Int) -> Unit = {},
+        onMoodChanged: (Int?) -> Unit = {},
+        onEnergyChanged: (Int?) -> Unit = {},
+        onLibidoChanged: (Int?) -> Unit = {},
         onWaterIncrement: () -> Unit = {},
         onWaterDecrement: () -> Unit = {},
         onShowEducationalSheet: (String) -> Unit = {},
@@ -287,6 +287,67 @@ class WellnessPageTest {
 
         // Then — callback fires (star is enabled)
         assert(captured == 3) { "Expected mood score 3, got $captured" }
+    }
+
+    // endregion
+
+    // region Deselection (toggle) behavior
+
+    @Test
+    fun moodSelector_WHEN_selectedStarTapped_THEN_invokesCallbackWithNull() {
+        // Given — mood is already set to 3
+        var captured: Int? = 3
+        setContent(moodScore = 3, onMoodChanged = { captured = it })
+
+        // When — tap the same star (3)
+        composeTestRule.onAllNodesWithContentDescription("Mood score 3")[0]
+            .performClick()
+
+        // Then — callback receives null (deselect)
+        assert(captured == null) { "Expected null (deselect), got $captured" }
+    }
+
+    @Test
+    fun moodSelector_WHEN_differentStarTapped_THEN_invokesCallbackWithNewScore() {
+        // Given — mood is already set to 3
+        var captured: Int? = null
+        setContent(moodScore = 3, onMoodChanged = { captured = it })
+
+        // When — tap a different star (5)
+        composeTestRule.onAllNodesWithContentDescription("Mood score 5")[0]
+            .performClick()
+
+        // Then — callback receives 5 (change selection)
+        assert(captured == 5) { "Expected 5, got $captured" }
+    }
+
+    @Test
+    fun energySelector_WHEN_selectedStarTapped_THEN_invokesCallbackWithNull() {
+        // Given — energy is already set to 2
+        var captured: Int? = 2
+        setContent(energyLevel = 2, onEnergyChanged = { captured = it })
+
+        // When — tap the same star (2)
+        composeTestRule.onAllNodesWithContentDescription("Energy score 2")[0]
+            .performClick()
+
+        // Then
+        assert(captured == null) { "Expected null (deselect), got $captured" }
+    }
+
+    @Test
+    fun libidoSelector_WHEN_selectedStarTapped_THEN_invokesCallbackWithNull() {
+        // Given — libido is already set to 1
+        var captured: Int? = 1
+        setContent(libidoScore = 1, onLibidoChanged = { captured = it })
+
+        // When — tap the same star (1); libido section may need scrolling
+        composeTestRule.onAllNodesWithContentDescription("Libido score 1")[0]
+            .performScrollTo()
+            .performClick()
+
+        // Then
+        assert(captured == null) { "Expected null (deselect), got $captured" }
     }
 
     // endregion
