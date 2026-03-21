@@ -158,6 +158,13 @@ fun CycleWiseAppUI() {
                                 restoreState = true
                             }
                         },
+                        onDone = {
+                            navController.navigate(NavRoute.Tracker.route) {
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
                     )
                 }
                 composable(NavRoute.Tracker.route) {
@@ -194,6 +201,7 @@ fun CycleWiseAppUI() {
                     if (dateString != null) {
                         DailyLogScreen(
                             date = LocalDate.parse(dateString),
+                            onDone = { navController.popBackStack() },
                         )
                     }
                 }

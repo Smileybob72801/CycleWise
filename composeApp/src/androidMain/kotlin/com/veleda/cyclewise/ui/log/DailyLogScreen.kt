@@ -1,6 +1,9 @@
 package com.veleda.cyclewise.ui.log
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -27,8 +30,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.veleda.cyclewise.R
@@ -92,12 +97,15 @@ private const val TAB_ROW_SETTLE_MS = 500L
  * @param date The calendar date whose daily log is being viewed/edited.
  * @param onNavigateToTracker Callback invoked when the walkthrough completes and the
  *        user should be navigated to the Tracker screen for its walkthrough.
+ * @param onDone Callback invoked when the user taps the "Done" button on any tab page
+ *        to return to the Tracker screen.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DailyLogScreen(
     date: LocalDate,
     onNavigateToTracker: () -> Unit = {},
+    onDone: () -> Unit = {},
 ) {
     val dims = LocalDimensions.current
     val koin = getKoin()
@@ -326,6 +334,25 @@ fun DailyLogScreen(
                             .coachMarkTarget(HintKey.DAILY_LOG_EXPLORE_TABS, coachMarkState),
                     ) {
                         pageLabels.forEachIndexed { index, label ->
+                            val tabHasData = when (index) {
+                                PAGE_WELLNESS -> log.entry.moodScore != null ||
+                                        log.entry.energyLevel != null ||
+                                        log.entry.libidoScore != null ||
+                                        uiState.waterCups > 0
+                                PAGE_PERIOD -> uiState.isPeriodDay
+                                PAGE_SYMPTOMS -> log.symptomLogs.isNotEmpty()
+                                PAGE_MEDICATIONS -> log.medicationLogs.isNotEmpty()
+                                PAGE_NOTES -> log.entry.customTags.isNotEmpty() ||
+                                        !log.entry.note.isNullOrBlank()
+                                else -> false
+                            }
+                            val tintColor by animateColorAsState(
+                                targetValue = if (tabHasData)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                else Color.Transparent,
+                                animationSpec = tween(300),
+                                label = "tabTint_$index",
+                            )
                             Tab(
                                 selected = pagerState.currentPage == index,
                                 onClick = {
@@ -366,22 +393,26 @@ fun DailyLogScreen(
                                         style = MaterialTheme.typography.labelLarge,
                                     )
                                 },
-                                modifier = when (index) {
-                                    PAGE_PERIOD -> Modifier.coachMarkTarget(HintKey.DAILY_LOG_PERIOD_TAB, coachMarkState)
-                                    PAGE_SYMPTOMS -> Modifier.coachMarkTarget(
-                                        HintKey.DAILY_LOG_SYMPTOMS_TAB, coachMarkState,
-                                        enabled = pagerState.currentPage == PAGE_SYMPTOMS,
-                                    )
-                                    PAGE_MEDICATIONS -> Modifier.coachMarkTarget(
-                                        HintKey.DAILY_LOG_MEDICATIONS_TAB, coachMarkState,
-                                        enabled = pagerState.currentPage == PAGE_MEDICATIONS,
-                                    )
-                                    PAGE_NOTES -> Modifier.coachMarkTarget(
-                                        HintKey.DAILY_LOG_NOTES_TAB, coachMarkState,
-                                        enabled = pagerState.currentPage == PAGE_NOTES,
-                                    )
-                                    else -> Modifier
-                                },
+                                modifier = Modifier
+                                    .background(tintColor, RoundedCornerShape(dims.sm))
+                                    .then(
+                                        when (index) {
+                                            PAGE_PERIOD -> Modifier.coachMarkTarget(HintKey.DAILY_LOG_PERIOD_TAB, coachMarkState)
+                                            PAGE_SYMPTOMS -> Modifier.coachMarkTarget(
+                                                HintKey.DAILY_LOG_SYMPTOMS_TAB, coachMarkState,
+                                                enabled = pagerState.currentPage == PAGE_SYMPTOMS,
+                                            )
+                                            PAGE_MEDICATIONS -> Modifier.coachMarkTarget(
+                                                HintKey.DAILY_LOG_MEDICATIONS_TAB, coachMarkState,
+                                                enabled = pagerState.currentPage == PAGE_MEDICATIONS,
+                                            )
+                                            PAGE_NOTES -> Modifier.coachMarkTarget(
+                                                HintKey.DAILY_LOG_NOTES_TAB, coachMarkState,
+                                                enabled = pagerState.currentPage == PAGE_NOTES,
+                                            )
+                                            else -> Modifier
+                                        }
+                                    ),
                             )
                         }
                     }
@@ -421,6 +452,7 @@ fun DailyLogScreen(
                                     }
                                 },
                                 onWaterDecrement = { viewModel.onEvent(DailyLogEvent.WaterDecrement) },
+                                onDone = onDone,
                                 onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
                                 coachMarkState = coachMarkState,
                                 activeHintKey = activeHint?.def?.key,
@@ -439,6 +471,7 @@ fun DailyLogScreen(
                                 onFlowChanged = { viewModel.onEvent(DailyLogEvent.FlowIntensityChanged(it)) },
                                 onColorChanged = { viewModel.onEvent(DailyLogEvent.PeriodColorChanged(it)) },
                                 onConsistencyChanged = { viewModel.onEvent(DailyLogEvent.PeriodConsistencyChanged(it)) },
+                                onDone = onDone,
                                 onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
                                 coachMarkState = coachMarkState,
                                 activeHintKey = activeHint?.def?.key,
@@ -449,6 +482,7 @@ fun DailyLogScreen(
                                 onToggleSymptom = { viewModel.onEvent(DailyLogEvent.SymptomToggled(it)) },
                                 onCreateAndAddSymptom = { viewModel.onEvent(DailyLogEvent.CreateAndAddSymptom(it)) },
                                 onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
+                                onDone = onDone,
                                 symptomForContextMenu = uiState.symptomForContextMenu,
                                 symptomRenaming = uiState.symptomRenaming,
                                 symptomToDelete = uiState.symptomToDelete,
@@ -467,6 +501,7 @@ fun DailyLogScreen(
                                 onToggleMedication = { viewModel.onEvent(DailyLogEvent.MedicationToggled(it)) },
                                 onCreateAndAddMedication = { viewModel.onEvent(DailyLogEvent.MedicationCreatedAndAdded(it)) },
                                 onShowEducationalSheet = { tag -> viewModel.onEvent(DailyLogEvent.ShowEducationalSheet(tag)) },
+                                onDone = onDone,
                                 medicationForContextMenu = uiState.medicationForContextMenu,
                                 medicationRenaming = uiState.medicationRenaming,
                                 medicationToDelete = uiState.medicationToDelete,
@@ -485,6 +520,7 @@ fun DailyLogScreen(
                                 onAddTag = { viewModel.onEvent(DailyLogEvent.TagAdded(it)) },
                                 onRemoveTag = { viewModel.onEvent(DailyLogEvent.TagRemoved(it)) },
                                 onNoteChanged = { viewModel.onEvent(DailyLogEvent.NoteChanged(it)) },
+                                onDone = onDone,
                             )
                         }
                     }
