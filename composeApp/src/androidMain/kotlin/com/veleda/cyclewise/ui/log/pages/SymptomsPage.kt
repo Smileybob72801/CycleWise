@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.LocalHospital
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -78,6 +79,7 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
  * @param onToggleSymptom          Callback when the user toggles a symptom chip.
  * @param onCreateAndAddSymptom    Callback when the user creates and logs a new symptom by name.
  * @param onShowEducationalSheet   Callback to display educational content for the given tag.
+ * @param onDone                   Callback when the user taps the "Done" button to return to the Tracker.
  * @param symptomForContextMenu    Symptom whose context menu is currently shown, or null.
  * @param symptomRenaming          Symptom currently being renamed (dialog open), or null.
  * @param symptomToDelete          Symptom pending deletion confirmation, or null.
@@ -97,6 +99,7 @@ internal fun SymptomsPage(
     onToggleSymptom: (Symptom) -> Unit,
     onCreateAndAddSymptom: (String) -> Unit,
     onShowEducationalSheet: (String) -> Unit,
+    onDone: () -> Unit = {},
     symptomForContextMenu: Symptom? = null,
     symptomRenaming: Symptom? = null,
     symptomToDelete: Symptom? = null,
@@ -145,6 +148,13 @@ internal fun SymptomsPage(
                 onDeleteClicked = onDeleteClicked,
                 onEditDismissed = onEditDismissed,
             )
+        }
+
+        FilledTonalButton(
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.daily_log_done_button))
         }
 
         Spacer(Modifier.height(dims.xl))

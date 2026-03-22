@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MedicalServices
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -56,6 +57,7 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
  * @param onToggleMedication         Callback when the user toggles a medication chip.
  * @param onCreateAndAddMedication   Callback when the user creates and logs a new medication by name.
  * @param onShowEducationalSheet     Callback to display educational content for the given tag.
+ * @param onDone                     Callback when the user taps the "Done" button to return to the Tracker.
  * @param medicationForContextMenu   Medication whose context menu is currently shown, or null.
  * @param medicationRenaming         Medication currently being renamed (dialog open), or null.
  * @param medicationToDelete         Medication pending deletion confirmation, or null.
@@ -75,6 +77,7 @@ internal fun MedicationsPage(
     onToggleMedication: (Medication) -> Unit,
     onCreateAndAddMedication: (String) -> Unit,
     onShowEducationalSheet: (String) -> Unit,
+    onDone: () -> Unit = {},
     medicationForContextMenu: Medication? = null,
     medicationRenaming: Medication? = null,
     medicationToDelete: Medication? = null,
@@ -123,6 +126,13 @@ internal fun MedicationsPage(
                 onDeleteClicked = onDeleteClicked,
                 onEditDismissed = onEditDismissed,
             )
+        }
+
+        FilledTonalButton(
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.daily_log_done_button))
         }
 
         Spacer(Modifier.height(dims.xl))

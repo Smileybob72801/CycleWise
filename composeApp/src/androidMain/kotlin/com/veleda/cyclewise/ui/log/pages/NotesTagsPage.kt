@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -54,6 +55,7 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
  * @param onAddTag Callback when the user adds a new tag.
  * @param onRemoveTag Callback when the user removes an existing tag.
  * @param onNoteChanged Callback when the note text changes.
+ * @param onDone Callback when the user taps the "Done" button to return to the Tracker.
  */
 @Composable
 internal fun NotesTagsPage(
@@ -62,6 +64,7 @@ internal fun NotesTagsPage(
     onAddTag: (String) -> Unit,
     onRemoveTag: (String) -> Unit,
     onNoteChanged: (String) -> Unit,
+    onDone: () -> Unit = {},
 ) {
     val dims = LocalDimensions.current
     var showHelp by remember { mutableStateOf(false) }
@@ -94,6 +97,13 @@ internal fun NotesTagsPage(
                 note = note,
                 onNoteChanged = onNoteChanged,
             )
+        }
+
+        FilledTonalButton(
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.daily_log_done_button))
         }
 
         Spacer(Modifier.height(dims.xl))

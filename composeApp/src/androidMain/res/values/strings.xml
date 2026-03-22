@@ -138,6 +138,7 @@
     <string name="daily_log_create_symptom">Create and Add Symptom</string>
     <string name="daily_log_symptom_save_error">Failed to save symptom. Please try again.</string>
     <string name="daily_log_medication_save_error">Failed to save medication. Please try again.</string>
+    <string name="daily_log_done_button">Done</string>
 
     <!-- Library Edit/Delete -->
     <string name="library_rename">Rename</string>

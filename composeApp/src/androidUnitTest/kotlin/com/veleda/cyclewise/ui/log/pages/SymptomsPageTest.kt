@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import com.veleda.cyclewise.RobolectricTestApp
@@ -53,6 +54,7 @@ class SymptomsPageTest {
         onToggleSymptom: (Symptom) -> Unit = {},
         onCreateAndAddSymptom: (String) -> Unit = {},
         onShowEducationalSheet: (String) -> Unit = {},
+        onDone: () -> Unit = {},
         symptomForContextMenu: Symptom? = null,
         symptomRenaming: Symptom? = null,
         symptomToDelete: Symptom? = null,
@@ -74,6 +76,7 @@ class SymptomsPageTest {
                         onToggleSymptom = onToggleSymptom,
                         onCreateAndAddSymptom = onCreateAndAddSymptom,
                         onShowEducationalSheet = onShowEducationalSheet,
+                        onDone = onDone,
                         symptomForContextMenu = symptomForContextMenu,
                         symptomRenaming = symptomRenaming,
                         symptomToDelete = symptomToDelete,
@@ -312,6 +315,25 @@ class SymptomsPageTest {
         composeTestRule.onNodeWithText("Delete Symptom").assertIsDisplayed()
         composeTestRule.onNodeWithText("no logged entries", substring = true, ignoreCase = true)
             .assertIsDisplayed()
+    }
+
+    // endregion
+
+    // region Done button
+
+    @Test
+    fun doneButton_WHEN_tapped_THEN_invokesCallback() {
+        // Given
+        var invoked = false
+        setContent(onDone = { invoked = true })
+
+        // When
+        composeTestRule.onNodeWithText("Done")
+            .performScrollTo()
+            .performClick()
+
+        // Then
+        assert(invoked) { "onDone was not invoked" }
     }
 
     // endregion

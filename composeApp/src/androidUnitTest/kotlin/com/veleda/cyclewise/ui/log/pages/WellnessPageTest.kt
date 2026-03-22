@@ -44,6 +44,7 @@ class WellnessPageTest {
         onLibidoChanged: (Int?) -> Unit = {},
         onWaterIncrement: () -> Unit = {},
         onWaterDecrement: () -> Unit = {},
+        onDone: () -> Unit = {},
         onShowEducationalSheet: (String) -> Unit = {},
         activeHintKey: HintKey? = null,
     ) {
@@ -61,6 +62,7 @@ class WellnessPageTest {
                         onLibidoChanged = onLibidoChanged,
                         onWaterIncrement = onWaterIncrement,
                         onWaterDecrement = onWaterDecrement,
+                        onDone = onDone,
                         onShowEducationalSheet = onShowEducationalSheet,
                         activeHintKey = activeHintKey,
                     )
@@ -287,6 +289,25 @@ class WellnessPageTest {
 
         // Then — callback fires (star is enabled)
         assert(captured == 3) { "Expected mood score 3, got $captured" }
+    }
+
+    // endregion
+
+    // region Done button
+
+    @Test
+    fun doneButton_WHEN_tapped_THEN_invokesCallback() {
+        // Given
+        var invoked = false
+        setContent(onDone = { invoked = true })
+
+        // When
+        composeTestRule.onNodeWithText("Done")
+            .performScrollTo()
+            .performClick()
+
+        // Then
+        assert(invoked) { "onDone was not invoked" }
     }
 
     // endregion

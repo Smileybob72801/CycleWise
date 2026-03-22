@@ -34,6 +34,7 @@ class NotesTagsPageTest {
         onAddTag: (String) -> Unit = {},
         onRemoveTag: (String) -> Unit = {},
         onNoteChanged: (String) -> Unit = {},
+        onDone: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalDimensions provides Dimensions()) {
@@ -44,6 +45,7 @@ class NotesTagsPageTest {
                         onAddTag = onAddTag,
                         onRemoveTag = onRemoveTag,
                         onNoteChanged = onNoteChanged,
+                        onDone = onDone,
                     )
                 }
             }
@@ -197,6 +199,25 @@ class NotesTagsPageTest {
         composeTestRule.onNodeWithText("Add any notes", substring = true)
             .performScrollTo()
             .assertIsDisplayed()
+    }
+
+    // endregion
+
+    // region Done button
+
+    @Test
+    fun doneButton_WHEN_tapped_THEN_invokesCallback() {
+        // Given
+        var invoked = false
+        setContent(onDone = { invoked = true })
+
+        // When
+        composeTestRule.onNodeWithText("Done")
+            .performScrollTo()
+            .performClick()
+
+        // Then
+        assert(invoked) { "onDone was not invoked" }
     }
 
     // endregion

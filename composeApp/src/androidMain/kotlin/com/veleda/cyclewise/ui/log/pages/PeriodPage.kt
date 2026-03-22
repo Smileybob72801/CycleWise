@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -58,6 +59,7 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
  * @param onFlowChanged Callback when the user selects a flow intensity (or `null` to deselect).
  * @param onColorChanged Callback when the user selects a period color (or `null` to deselect).
  * @param onConsistencyChanged Callback when the user selects a consistency (or `null` to deselect).
+ * @param onDone Callback when the user taps the "Done" button to return to the Tracker.
  * @param onShowEducationalSheet Callback to display educational content for the given tag.
  * @param coachMarkState Optional coach-mark state for walkthrough integration.
  * @param activeHintKey The currently active walkthrough hint key, or `null` when no
@@ -73,6 +75,7 @@ internal fun PeriodPage(
     onFlowChanged: (FlowIntensity?) -> Unit,
     onColorChanged: (PeriodColor?) -> Unit,
     onConsistencyChanged: (PeriodConsistency?) -> Unit,
+    onDone: () -> Unit = {},
     onShowEducationalSheet: (String) -> Unit,
     coachMarkState: CoachMarkState? = null,
     activeHintKey: HintKey? = null,
@@ -178,6 +181,13 @@ internal fun PeriodPage(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+
+        FilledTonalButton(
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.daily_log_done_button))
         }
 
         Spacer(Modifier.height(dims.xl))

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material.icons.outlined.Star as StarOutlined
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +61,7 @@ import com.veleda.cyclewise.ui.theme.RhythmWiseColors
  * @param onLibidoChanged Callback when the user selects or deselects a libido score.
  * @param onWaterIncrement Callback when the user taps the water increment button.
  * @param onWaterDecrement Callback when the user taps the water decrement button.
+ * @param onDone Callback when the user taps the "Done" button to return to the Tracker.
  * @param onShowEducationalSheet Callback to display educational content for the given tag.
  * @param coachMarkState Optional coach-mark state for walkthrough integration.
  * @param activeHintKey The currently active walkthrough hint key, or `null` when no
@@ -77,6 +79,7 @@ internal fun WellnessPage(
     onLibidoChanged: (Int?) -> Unit,
     onWaterIncrement: () -> Unit,
     onWaterDecrement: () -> Unit,
+    onDone: () -> Unit = {},
     onShowEducationalSheet: (String) -> Unit,
     coachMarkState: CoachMarkState? = null,
     activeHintKey: HintKey? = null,
@@ -192,6 +195,13 @@ internal fun WellnessPage(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = waterEnabled,
             )
+        }
+
+        FilledTonalButton(
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.daily_log_done_button))
         }
 
         // Bottom spacer for comfortable scrolling past bottom nav
