@@ -96,6 +96,7 @@
     <string name="tracker_water_cups">%d cups</string>
     <string name="tracker_symptoms_label">Symptoms</string>
     <string name="tracker_medications_label">Medications</string>
+    <string name="tracker_custom_tags_label">Tags</string>
     <string name="tracker_previous_month">Previous month</string>
     <string name="tracker_next_month">Next month</string>
     <string name="tracker_today">Today</string>

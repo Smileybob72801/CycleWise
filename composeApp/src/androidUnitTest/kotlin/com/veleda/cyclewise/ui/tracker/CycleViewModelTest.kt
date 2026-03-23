@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.veleda.cyclewise.domain.models.*
 import com.veleda.cyclewise.domain.models.ArticleCategory
 import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.domain.providers.CustomTagLibraryProvider
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
@@ -47,6 +48,7 @@ class CycleViewModelTest {
     private lateinit var mockRepository: PeriodRepository
     private lateinit var mockSymptomProvider: SymptomLibraryProvider
     private lateinit var mockMedicationProvider: MedicationLibraryProvider
+    private lateinit var mockCustomTagProvider: CustomTagLibraryProvider
     private lateinit var mockAutoCloseUseCase: AutoCloseOngoingPeriodUseCase
     private lateinit var mockAppSettings: AppSettings
     private lateinit var mockEducationalContentProvider: EducationalContentProvider
@@ -59,6 +61,7 @@ class CycleViewModelTest {
         mockRepository = mockk(relaxed = true)
         mockSymptomProvider = mockk(relaxed = true)
         mockMedicationProvider = mockk(relaxed = true)
+        mockCustomTagProvider = mockk { every { customTags } returns flowOf(emptyList()) }
         mockAutoCloseUseCase = mockk(relaxed = true)
         mockAppSettings = mockk(relaxed = true)
         mockEducationalContentProvider = mockk(relaxed = true)
@@ -68,7 +71,7 @@ class CycleViewModelTest {
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
 
-        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider)
+        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockCustomTagProvider, mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider)
     }
 
     @After
@@ -116,7 +119,7 @@ class CycleViewModelTest {
         val fakeLog = FullDailyLog(DailyEntry("log-id", pastDate, 5, createdAt = TestData.INSTANT, updatedAt = TestData.INSTANT))
 
         every { mockRepository.getAllPeriods() } returns flowOf(listOf(fakePeriod))
-        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider)
+        viewModel = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockCustomTagProvider, mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider)
         advanceUntilIdle()
 
         coEvery { mockRepository.getFullLogForDate(pastDate) } returns fakeLog
@@ -147,7 +150,7 @@ class CycleViewModelTest {
         every { mockRepository.observeDayDetails() } returns flowOf(mapOf(date to dayDetails))
 
         // WHEN — a new ViewModel is created and collects the flow
-        val vm = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider)
+        val vm = TrackerViewModel(mockRepository, mockSymptomProvider, mockMedicationProvider, mockCustomTagProvider, mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider)
         advanceUntilIdle()
 
         // THEN — the mapped CalendarDayInfo has hasNotes = true
@@ -171,7 +174,7 @@ class CycleViewModelTest {
         every { mockRepository.getAllPeriods() } returns periodsFlow
 
         val vm = TrackerViewModel(
-            mockRepository, mockSymptomProvider, mockMedicationProvider,
+            mockRepository, mockSymptomProvider, mockMedicationProvider, mockCustomTagProvider,
             mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider
         )
         advanceUntilIdle()
@@ -219,7 +222,7 @@ class CycleViewModelTest {
     private fun viewModelWithPeriods(periods: List<Period>): TrackerViewModel {
         every { mockRepository.getAllPeriods() } returns flowOf(periods)
         return TrackerViewModel(
-            mockRepository, mockSymptomProvider, mockMedicationProvider,
+            mockRepository, mockSymptomProvider, mockMedicationProvider, mockCustomTagProvider,
             mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider
         )
     }

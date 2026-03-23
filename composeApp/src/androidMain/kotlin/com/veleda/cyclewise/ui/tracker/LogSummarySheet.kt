@@ -39,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.models.CyclePhase
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.CustomTag
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.PeriodColor
 import com.veleda.cyclewise.domain.models.PeriodConsistency
@@ -59,6 +60,7 @@ import kotlinx.datetime.LocalDate
  * @param cyclePhase        Computed cycle phase for this date, or null if not determinable.
  * @param symptomLibrary    Library of all symptoms for name resolution.
  * @param medicationLibrary Library of all medications for name resolution.
+ * @param customTagLibrary  Library of all custom tags for name resolution.
  * @param waterCups         Number of water cups logged, or null.
  * @param showMood          Whether to display the mood score row (controlled by user setting).
  * @param showEnergy        Whether to display the energy level row (controlled by user setting).
@@ -74,6 +76,7 @@ internal fun LogSummarySheetContent(
     cyclePhase: CyclePhase? = null,
     symptomLibrary: List<Symptom>,
     medicationLibrary: List<Medication>,
+    customTagLibrary: List<CustomTag>,
     waterCups: Int?,
     showMood: Boolean,
     showEnergy: Boolean,
@@ -271,6 +274,36 @@ internal fun LogSummarySheetContent(
                                 SuggestionChip(
                                     onClick = {},
                                     label = { Text(medicationInfo.name) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (log.customTagLogs.isNotEmpty()) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = MaterialTheme.shapes.small
+            ) {
+                Column(modifier = Modifier.padding(dims.sm)) {
+                    Text(
+                        stringResource(R.string.tracker_custom_tags_label),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(dims.sm),
+                        modifier = Modifier.padding(top = dims.xs)
+                    ) {
+                        items(log.customTagLogs, key = { it.tagId }) { tagLog ->
+                            val tagInfo = customTagLibrary.find { it.id == tagLog.tagId }
+                            if (tagInfo != null) {
+                                SuggestionChip(
+                                    onClick = {},
+                                    label = { Text(tagInfo.name) }
                                 )
                             }
                         }

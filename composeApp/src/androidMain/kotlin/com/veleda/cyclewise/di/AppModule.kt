@@ -349,6 +349,7 @@ val appModule = module {
                 periodRepository = get(),
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get(),
+                customTagLibraryProvider = get(),
                 autoClosePeriodUseCase = get(),
                 appSettings = get(),
                 educationalContentProvider = get(),
