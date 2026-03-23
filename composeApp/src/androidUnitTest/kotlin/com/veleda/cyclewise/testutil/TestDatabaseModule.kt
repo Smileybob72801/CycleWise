@@ -27,4 +27,6 @@ val testDatabaseModule = module {
     single { get<PeriodDatabase>().medicationLogDao() }
     single { get<PeriodDatabase>().periodLogDao() }
     single { get<PeriodDatabase>().waterIntakeDao() }
+    single { get<PeriodDatabase>().customTagDao() }
+    single { get<PeriodDatabase>().customTagLogDao() }
 }

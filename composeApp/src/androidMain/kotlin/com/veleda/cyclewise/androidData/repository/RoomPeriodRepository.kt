@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import com.benasher44.uuid.uuid4
 import com.veleda.cyclewise.androidData.local.dao.PeriodDao
 import com.veleda.cyclewise.androidData.local.dao.DailyEntryDao
+import com.veleda.cyclewise.androidData.local.dao.CustomTagDao
+import com.veleda.cyclewise.androidData.local.dao.CustomTagLogDao
 import com.veleda.cyclewise.androidData.local.dao.MedicationDao
 import com.veleda.cyclewise.androidData.local.dao.MedicationLogDao
 import com.veleda.cyclewise.androidData.local.dao.PeriodLogDao
@@ -16,6 +18,8 @@ import com.veleda.cyclewise.androidData.local.entities.toEntity
 import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FlowIntensity
+import com.veleda.cyclewise.domain.models.CustomTag
+import com.veleda.cyclewise.domain.models.CustomTagLog
 import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.domain.models.WaterIntake
@@ -75,6 +79,8 @@ class RoomPeriodRepository(
     private val symptomLogDao: SymptomLogDao,
     private val periodLogDao: PeriodLogDao,
     private val waterIntakeDao: WaterIntakeDao,
+    private val customTagDao: CustomTagDao,
+    private val customTagLogDao: CustomTagLogDao,
 ) : PeriodRepository {
     /** @see PeriodRepository.getAllPeriods */
     override fun getAllPeriods(): Flow<List<Period>> {
@@ -125,17 +131,19 @@ class RoomPeriodRepository(
         val periodLog = periodLogDao.getLogForEntry(entryEntity.id).firstOrNull()
         val symptomLogs = symptomLogDao.getLogsForEntry(entryEntity.id).firstOrNull() ?: emptyList()
         val medicationLogs = medicationLogDao.getLogsForEntry(entryEntity.id).firstOrNull() ?: emptyList()
+        val customTagLogs = customTagLogDao.getLogsForEntry(entryEntity.id).firstOrNull() ?: emptyList()
         return FullDailyLog(
             entry = entryEntity.toDomain(),
             periodLog = periodLog?.toDomain(),
             symptomLogs = symptomLogs.map { it.toDomain() },
-            medicationLogs = medicationLogs.map { it.toDomain() }
+            medicationLogs = medicationLogs.map { it.toDomain() },
+            customTagLogs = customTagLogs.map { it.toDomain() }
         )
     }
 
     /**
      * Persists a [FullDailyLog] within a Room transaction using delete-then-insert
-     * semantics for child records (period logs, symptom logs, medication logs).
+     * semantics for child records (period logs, symptom logs, medication logs, custom tag logs).
      *
      * @see PeriodRepository.saveFullLog
      */
@@ -157,6 +165,11 @@ class RoomPeriodRepository(
             if (log.medicationLogs.isNotEmpty()) {
                 medicationLogDao.insertAll(log.medicationLogs.map { it.toEntity() })
             }
+
+            customTagLogDao.deleteLogsForEntry(log.entry.id)
+            if (log.customTagLogs.isNotEmpty()) {
+                customTagLogDao.insertAll(log.customTagLogs.map { it.toEntity() })
+            }
         }
     }
 
@@ -170,12 +183,14 @@ class RoomPeriodRepository(
         val entryIds = entryEntities.map { it.id }
         val allSymptomLogs = symptomLogDao.getLogsForEntries(entryIds).firstOrNull()?.groupBy { it.entryId } ?: emptyMap()
         val allMedicationLogs = medicationLogDao.getLogsForEntries(entryIds).firstOrNull()?.groupBy { it.entryId } ?: emptyMap()
+        val allCustomTagLogs = customTagLogDao.getLogsForEntries(entryIds).firstOrNull()?.groupBy { it.entryId } ?: emptyMap()
 
         return entryEntities.map { entryEntity ->
             FullDailyLog(
                 entry = entryEntity.toDomain(),
                 symptomLogs = allSymptomLogs[entryEntity.id]?.map { it.toDomain() } ?: emptyList(),
-                medicationLogs = allMedicationLogs[entryEntity.id]?.map { it.toDomain() } ?: emptyList()
+                medicationLogs = allMedicationLogs[entryEntity.id]?.map { it.toDomain() } ?: emptyList(),
+                customTagLogs = allCustomTagLogs[entryEntity.id]?.map { it.toDomain() } ?: emptyList()
             )
         }
     }
@@ -344,17 +359,20 @@ class RoomPeriodRepository(
                 combine(
                     periodLogDao.getAllPeriodLogs().map { it.groupBy { log -> log.entryId } },
                     symptomLogDao.getLogsForEntries(entryIds),
-                    medicationLogDao.getLogsForEntries(entryIds)
-                ) { periods, symptoms, medications ->
+                    medicationLogDao.getLogsForEntries(entryIds),
+                    customTagLogDao.getLogsForEntries(entryIds)
+                ) { periods, symptoms, medications, customTags ->
                     val symptomsById = symptoms.groupBy { it.entryId }
                     val medicationsById = medications.groupBy { it.entryId }
+                    val customTagsById = customTags.groupBy { it.entryId }
 
                     entries.map { entry ->
                         FullDailyLog(
                             entry = entry.toDomain(),
                             periodLog = periods[entry.id]?.firstOrNull()?.toDomain(),
                             symptomLogs = symptomsById[entry.id]?.map { it.toDomain() } ?: emptyList(),
-                            medicationLogs = medicationsById[entry.id]?.map { it.toDomain() } ?: emptyList()
+                            medicationLogs = medicationsById[entry.id]?.map { it.toDomain() } ?: emptyList(),
+                            customTagLogs = customTagsById[entry.id]?.map { it.toDomain() } ?: emptyList()
                         )
                     }
                 }
@@ -491,6 +509,49 @@ class RoomPeriodRepository(
         return medicationDao.countLogsForMedication(medicationId)
     }
 
+    // ── Custom Tag Library ────────────────────────────────────────────
+
+    /** @see PeriodRepository.getCustomTagLibrary */
+    override fun getCustomTagLibrary(): Flow<List<CustomTag>> {
+        return customTagDao.getAllCustomTags().map { entityList ->
+            entityList.map { it.toDomain() }
+        }
+    }
+
+    /** @see PeriodRepository.createOrGetCustomTagInLibrary */
+    @OptIn(ExperimentalTime::class)
+    override suspend fun createOrGetCustomTagInLibrary(name: String): CustomTag {
+        val existing = customTagDao.getCustomTagByName(name)
+        if (existing != null) return existing.toDomain()
+
+        val newTag = CustomTag(
+            id = uuid4().toString(),
+            name = name,
+            createdAt = Clock.System.now()
+        )
+        customTagDao.insert(newTag.toEntity())
+        return newTag
+    }
+
+    override suspend fun getAllCustomTagLogs(): List<CustomTagLog> {
+        return customTagLogDao.getAllCustomTagLogs().first().map { it.toDomain() }
+    }
+
+    /** @see PeriodRepository.renameCustomTag */
+    override suspend fun renameCustomTag(tagId: String, newName: String) {
+        customTagDao.updateName(tagId, newName)
+    }
+
+    /** @see PeriodRepository.deleteCustomTag */
+    override suspend fun deleteCustomTag(tagId: String) {
+        customTagDao.deleteById(tagId)
+    }
+
+    /** @see PeriodRepository.getCustomTagLogCount */
+    override suspend fun getCustomTagLogCount(tagId: String): Int {
+        return customTagDao.countLogsForTag(tagId)
+    }
+
     override suspend fun deletePeriod(id: String) {
         val periodToDelete = periodDao.getByUuid(id)
         periodToDelete?.let { period ->
@@ -542,6 +603,7 @@ class RoomPeriodRepository(
         val acetaminophen = createOrGetMedicationInLibrary("Acetaminophen")
 
         db.withTransaction {
+            customTagLogDao.deleteAll()
             medicationLogDao.deleteAll()
             symptomLogDao.deleteAll()
             periodLogDao.deleteAll()

@@ -36,6 +36,7 @@ import com.veleda.cyclewise.domain.insights.charts.ChartDataGenerator
 import com.veleda.cyclewise.androidData.local.EducationalContentLoader
 import com.veleda.cyclewise.androidData.local.providers.StaticEducationalContentProvider
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
+import com.veleda.cyclewise.domain.providers.CustomTagLibraryProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.usecases.AutoCloseOngoingPeriodUseCase
@@ -44,9 +45,11 @@ import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.domain.usecases.TutorialCleanupUseCase
 import com.veleda.cyclewise.domain.usecases.TutorialSeederUseCase
 import org.koin.core.qualifier.named
+import com.veleda.cyclewise.domain.usecases.DeleteCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteSymptomUseCase
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
+import com.veleda.cyclewise.domain.usecases.RenameCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
 import com.veleda.cyclewise.session.KeyFingerprintHolder
@@ -303,6 +306,8 @@ val appModule = module {
         scoped { get<PeriodDatabase>().symptomLogDao() }
         scoped { get<PeriodDatabase>().periodLogDao() }
         scoped { get<PeriodDatabase>().waterIntakeDao() }
+        scoped { get<PeriodDatabase>().customTagDao() }
+        scoped { get<PeriodDatabase>().customTagLogDao() }
 
         // Repository Provider
         scoped<PeriodRepository> {
@@ -316,12 +321,15 @@ val appModule = module {
                 symptomLogDao = get(),
                 periodLogDao = get(),
                 waterIntakeDao = get(),
+                customTagDao = get(),
+                customTagLogDao = get(),
             )
         }
 
         // --- LIBRARY PROVIDERS ---
         scoped { SymptomLibraryProvider(get()) }
         scoped { MedicationLibraryProvider(get()) }
+        scoped { CustomTagLibraryProvider(get()) }
 
         // Use Case Providers
         scoped { GetOrCreateDailyLogUseCase(get()) }
@@ -333,6 +341,8 @@ val appModule = module {
         scoped { DeleteSymptomUseCase(get()) }
         scoped { RenameMedicationUseCase(get()) }
         scoped { DeleteMedicationUseCase(get()) }
+        scoped { RenameCustomTagUseCase(get()) }
+        scoped { DeleteCustomTagUseCase(get()) }
         // ViewModel Providers
         viewModel {
             TrackerViewModel(
@@ -352,11 +362,14 @@ val appModule = module {
                 getOrCreateDailyLog = get(),
                 symptomLibraryProvider = get(),
                 medicationLibraryProvider = get(),
+                customTagLibraryProvider = get(),
                 educationalContentProvider = get(),
                 renameSymptomUseCase = get(),
                 deleteSymptomUseCase = get(),
                 renameMedicationUseCase = get(),
                 deleteMedicationUseCase = get(),
+                renameCustomTagUseCase = get(),
+                deleteCustomTagUseCase = get(),
                 hintPreferences = get(),
             )
         }

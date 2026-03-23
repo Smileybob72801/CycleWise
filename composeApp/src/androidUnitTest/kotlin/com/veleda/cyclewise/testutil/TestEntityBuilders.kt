@@ -72,6 +72,19 @@ fun buildMedicationLogEntity(
     createdAt: Instant = TestData.INSTANT
 ) = MedicationLogEntity(id, entryId, medicationId, createdAt)
 
+fun buildCustomTagEntity(
+    id: String = "tag-${uuid4()}",
+    name: String = "TestTag",
+    createdAt: Instant = TestData.INSTANT
+) = CustomTagEntity(id, name, createdAt)
+
+fun buildCustomTagLogEntity(
+    id: String = "ctlog-${uuid4()}",
+    entryId: String = "entry-1",
+    tagId: String = "tag-1",
+    createdAt: Instant = TestData.INSTANT
+) = CustomTagLogEntity(id, entryId, tagId, createdAt)
+
 fun buildPeriodLogEntity(
     id: String = "plog-${uuid4()}",
     entryId: String = "entry-1",

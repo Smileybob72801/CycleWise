@@ -128,9 +128,9 @@
     <string name="daily_log_score">%1$s score %2$d</string>
     <string name="daily_log_add_medication">Add new medication…</string>
     <string name="daily_log_create_medication">Create and Add Medication</string>
-    <string name="daily_log_add_tag">Add a custom tag…</string>
-    <string name="daily_log_add_tag_button">Add Tag</string>
-    <string name="daily_log_remove_tag">Remove %s</string>
+    <string name="daily_log_add_custom_tag">Add a custom tag\u2026</string>
+    <string name="daily_log_create_custom_tag">Create Tag</string>
+    <string name="daily_log_custom_tags_count">%d tag(s) logged</string>
     <string name="daily_log_add_notes">Add any notes…</string>
     <string name="daily_log_notes_placeholder">How are you feeling? Any observations?</string>
     <string name="daily_log_notes_char_count">%1$d / %2$,d</string>
@@ -158,6 +158,11 @@
     <string name="library_delete_medication_message_with_logs">This medication appears in %d daily logs. Deleting it will permanently remove those log entries.</string>
     <string name="library_delete_medication_message_no_logs">This medication has no logged entries. Delete it from your library?</string>
     <string name="library_rename_error_medication_duplicate">A medication with this name already exists</string>
+    <string name="library_rename_custom_tag_title">Rename Tag</string>
+    <string name="library_delete_custom_tag_title">Delete Tag</string>
+    <string name="library_delete_custom_tag_message_with_logs">This tag appears in %d daily logs. Deleting it will permanently remove those log entries.</string>
+    <string name="library_delete_custom_tag_message_no_logs">This tag has no logged entries. Delete it from your library?</string>
+    <string name="library_rename_error_custom_tag_duplicate">A tag with this name already exists</string>
 
     <!-- Coach Marks -->
     <string name="coach_mark_next">Next</string>

@@ -342,7 +342,7 @@ fun DailyLogScreen(
                                 PAGE_PERIOD -> uiState.isPeriodDay
                                 PAGE_SYMPTOMS -> log.symptomLogs.isNotEmpty()
                                 PAGE_MEDICATIONS -> log.medicationLogs.isNotEmpty()
-                                PAGE_NOTES -> log.entry.customTags.isNotEmpty() ||
+                                PAGE_NOTES -> log.customTagLogs.isNotEmpty() ||
                                         !log.entry.note.isNullOrBlank()
                                 else -> false
                             }
@@ -515,12 +515,24 @@ fun DailyLogScreen(
                                 onEditDismissed = { viewModel.onEvent(DailyLogEvent.MedicationEditDismissed) },
                             )
                             PAGE_NOTES -> NotesTagsPage(
-                                tags = log.entry.customTags,
+                                loggedCustomTags = log.customTagLogs,
+                                customTagLibrary = uiState.customTagLibrary,
+                                onToggleCustomTag = { viewModel.onEvent(DailyLogEvent.CustomTagToggled(it)) },
+                                onCreateAndAddCustomTag = { viewModel.onEvent(DailyLogEvent.CustomTagCreatedAndAdded(it)) },
                                 note = log.entry.note ?: "",
-                                onAddTag = { viewModel.onEvent(DailyLogEvent.TagAdded(it)) },
-                                onRemoveTag = { viewModel.onEvent(DailyLogEvent.TagRemoved(it)) },
                                 onNoteChanged = { viewModel.onEvent(DailyLogEvent.NoteChanged(it)) },
                                 onDone = onDone,
+                                customTagForContextMenu = uiState.customTagForContextMenu,
+                                customTagRenaming = uiState.customTagRenaming,
+                                customTagToDelete = uiState.customTagToDelete,
+                                customTagDeleteLogCount = uiState.customTagDeleteLogCount,
+                                renameError = uiState.renameError,
+                                onCustomTagLongPressed = { viewModel.onEvent(DailyLogEvent.CustomTagLongPressed(it)) },
+                                onRenameClicked = { viewModel.onEvent(DailyLogEvent.RenameCustomTagClicked(it)) },
+                                onRenameConfirmed = { id, name -> viewModel.onEvent(DailyLogEvent.RenameCustomTagConfirmed(id, name)) },
+                                onDeleteClicked = { viewModel.onEvent(DailyLogEvent.DeleteCustomTagClicked(it)) },
+                                onDeleteConfirmed = { viewModel.onEvent(DailyLogEvent.DeleteCustomTagConfirmed(it)) },
+                                onEditDismissed = { viewModel.onEvent(DailyLogEvent.CustomTagEditDismissed) },
                             )
                         }
                     }

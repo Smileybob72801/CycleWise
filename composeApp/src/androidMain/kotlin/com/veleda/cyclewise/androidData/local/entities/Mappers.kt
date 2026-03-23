@@ -5,11 +5,12 @@
  * extension (domain -> entity). For [PeriodEntity], the internal auto-generated [PeriodEntity.id]
  * is set to 0 on `toEntity()` so Room auto-generates it on insert.
  *
- * [DailyEntryEntity.customTags] is JSON-serialized/deserialized via kotlinx.serialization.
  * [WaterIntakeEntity.date] is converted between ISO-8601 string and [LocalDate].
  */
 package com.veleda.cyclewise.androidData.local.entities
 
+import com.veleda.cyclewise.domain.models.CustomTag
+import com.veleda.cyclewise.domain.models.CustomTagLog
 import com.veleda.cyclewise.domain.models.Period
 import kotlin.time.ExperimentalTime
 import com.veleda.cyclewise.domain.models.DailyEntry
@@ -20,7 +21,6 @@ import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.domain.models.WaterIntake
 import kotlinx.datetime.LocalDate
-import kotlinx.serialization.json.Json
 
 /** Convert Room entity → shared domain model */
 @OptIn(ExperimentalTime::class)
@@ -48,8 +48,8 @@ fun Period.toEntity(): PeriodEntity =
 /**
  * Converts a [DailyEntryEntity] to the shared [DailyEntry] domain model.
  *
- * Deserializes [DailyEntryEntity.customTags] from its JSON string representation
- * (e.g. `["tag1","tag2"]`) into a `List<String>` via kotlinx.serialization.
+ * The deprecated `custom_tags` JSON column is ignored — custom tags are now stored
+ * in the `custom_tag_logs` join table and accessed via [FullDailyLog.customTagLogs].
  */
 @OptIn(ExperimentalTime::class)
 fun DailyEntryEntity.toDomain(): DailyEntry =
@@ -60,14 +60,18 @@ fun DailyEntryEntity.toDomain(): DailyEntry =
         moodScore = moodScore,
         energyLevel = energyLevel,
         libidoScore = libidoScore,
-        customTags = Json.decodeFromString(customTags),
         note = note,
         cyclePhase = cyclePhase,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
 
-/** Convert shared domain model → DailyEntryEntity */
+/**
+ * Convert shared domain model → DailyEntryEntity.
+ *
+ * The deprecated `custom_tags` column is always written as `"[]"` — custom tags
+ * are now stored in the `custom_tag_logs` join table.
+ */
 @OptIn(ExperimentalTime::class)
 fun DailyEntry.toEntity(): DailyEntryEntity =
     DailyEntryEntity(
@@ -77,7 +81,7 @@ fun DailyEntry.toEntity(): DailyEntryEntity =
         moodScore = moodScore,
         energyLevel = energyLevel,
         libidoScore = libidoScore,
-        customTags = Json.encodeToString(customTags),
+        customTags = "[]",
         note = note,
         cyclePhase = cyclePhase,
         createdAt = createdAt,
@@ -99,6 +103,14 @@ fun Symptom.toEntity(): SymptomEntity = SymptomEntity(id, name, category, create
 // --- Symptom Log Mappers ---
 fun SymptomLogEntity.toDomain(): SymptomLog = SymptomLog(id, entryId, symptomId, severity, createdAt)
 fun SymptomLog.toEntity(): SymptomLogEntity = SymptomLogEntity(id, entryId, symptomId, severity, createdAt)
+
+// --- Custom Tag Library Mappers ---
+fun CustomTagEntity.toDomain(): CustomTag = CustomTag(id, name, createdAt)
+fun CustomTag.toEntity(): CustomTagEntity = CustomTagEntity(id, name, createdAt)
+
+// --- Custom Tag Log Mappers ---
+fun CustomTagLogEntity.toDomain(): CustomTagLog = CustomTagLog(id, entryId, tagId, createdAt)
+fun CustomTagLog.toEntity(): CustomTagLogEntity = CustomTagLogEntity(id, entryId, tagId, createdAt)
 
 // --- Period Log Mappers ---
 @OptIn(ExperimentalTime::class)
