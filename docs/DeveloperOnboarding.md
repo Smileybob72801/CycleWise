@@ -651,6 +651,7 @@ scope(SESSION_SCOPE) {
             symptomDao = get(), medicationDao = get(),
             medicationLogDao = get(), symptomLogDao = get(),
             periodLogDao = get(), waterIntakeDao = get(),
+            customTagDao = get(), customTagLogDao = get(),
         )
     }
 
@@ -1784,7 +1785,7 @@ The daily log has two navigation entry points:
 2. **Period** — Period toggle switch, flow intensity, period color, period consistency
 3. **Symptoms** — Symptom library chips with create-and-add, long-press to rename/delete
 4. **Medications** — Medication library chips with create-and-add, long-press to rename/delete
-5. **Notes/Tags** — Custom tags with add/remove, free-text note editor
+5. **Notes/Tags** — Custom tag library chips with create-and-add, long-press to rename/delete; free-text note editor
 
 ### Two-Phase Initialization
 
@@ -1879,10 +1880,10 @@ private fun isLogEmpty(log: FullDailyLog): Boolean {
     return log.periodLog == null &&
             log.symptomLogs.isEmpty() &&
             log.medicationLogs.isEmpty() &&
+            log.customTagLogs.isEmpty() &&
             entry.moodScore == null &&
             entry.energyLevel == null &&
             entry.libidoScore == null &&
-            entry.customTags.isEmpty() &&
             entry.note.isNullOrBlank()
 }
 ```
@@ -2311,6 +2312,7 @@ scoped<PeriodRepository> {
         symptomDao = get(), medicationDao = get(),
         medicationLogDao = get(), symptomLogDao = get(),
         periodLogDao = get(), waterIntakeDao = get(),
+        customTagDao = get(), customTagLogDao = get(),
     )
 }
 ```
@@ -2730,8 +2732,11 @@ field (exposed to the domain layer). When converting domain → entity, `id` is 
 so Room auto-generates it on insert.
 
 **Key patterns:**
-- **JSON serialization:** `DailyEntry.customTags` (a `List<String>`) is serialized
-  via `Json.encodeToString()` for storage and `Json.decodeFromString()` on retrieval.
+- **Deprecated column:** The `custom_tags` JSON column on `daily_entries` is deprecated
+  but retained to avoid a table rebuild. The mapper always writes `"[]"` to this column.
+  Custom tags are now stored in the `custom_tag_library` and `custom_tag_logs` tables,
+  following the same library pattern as symptoms and medications (see `CustomTag`,
+  `CustomTagLog`, `CustomTagEntity`, `CustomTagLogEntity`).
 - **Date string conversion:** `WaterIntakeEntity.date` is stored as ISO-8601 string,
   converted to/from `LocalDate` in the mapper.
 
