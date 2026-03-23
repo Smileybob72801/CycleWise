@@ -25,12 +25,11 @@ fun buildDailyEntry(
     moodScore: Int? = null,
     energyLevel: Int? = null,
     libidoScore: Int? = null,
-    customTags: List<String> = emptyList(),
     note: String? = null,
     cyclePhase: String? = null,
     createdAt: Instant = TestData.INSTANT,
     updatedAt: Instant = TestData.INSTANT
-) = DailyEntry(id, entryDate, dayInCycle, moodScore, energyLevel, libidoScore, customTags, note, cyclePhase, createdAt, updatedAt)
+) = DailyEntry(id, entryDate, dayInCycle, moodScore, energyLevel, libidoScore, note, cyclePhase, createdAt, updatedAt)
 
 fun buildPeriodLog(
     id: String = uuid4().toString(),
@@ -70,6 +69,19 @@ fun buildMedicationLog(
     createdAt: Instant = TestData.INSTANT
 ) = MedicationLog(id, entryId, medicationId, createdAt)
 
+fun buildCustomTag(
+    id: String = "tag-${uuid4()}",
+    name: String = "TestTag",
+    createdAt: Instant = TestData.INSTANT
+) = CustomTag(id, name, createdAt)
+
+fun buildCustomTagLog(
+    id: String = "ctlog-${uuid4()}",
+    entryId: String = "entry-1",
+    tagId: String = "tag-1",
+    createdAt: Instant = TestData.INSTANT
+) = CustomTagLog(id, entryId, tagId, createdAt)
+
 fun buildWaterIntake(
     date: LocalDate = TestData.DATE,
     cups: Int = 5,
@@ -81,5 +93,6 @@ fun buildFullDailyLog(
     entry: DailyEntry = buildDailyEntry(),
     periodLog: PeriodLog? = null,
     symptomLogs: List<SymptomLog> = emptyList(),
-    medicationLogs: List<MedicationLog> = emptyList()
-) = FullDailyLog(entry, periodLog, symptomLogs, medicationLogs)
+    medicationLogs: List<MedicationLog> = emptyList(),
+    customTagLogs: List<CustomTagLog> = emptyList()
+) = FullDailyLog(entry, periodLog, symptomLogs, medicationLogs, customTagLogs)

@@ -4,6 +4,8 @@ import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.PeriodLog
 import com.veleda.cyclewise.domain.models.DayDetails
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.models.CustomTag
+import com.veleda.cyclewise.domain.models.CustomTagLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
 import com.veleda.cyclewise.domain.models.Symptom
@@ -265,6 +267,46 @@ interface PeriodRepository {
      * @return count of medication log entries.
      */
     suspend fun getMedicationLogCount(medicationId: String): Int
+
+    // ── Custom Tag Library ──────────────────────────────────────────────
+
+    /**
+     * Returns a reactive stream of all custom tags in the library, sorted by name ascending.
+     */
+    fun getCustomTagLibrary(): Flow<List<CustomTag>>
+
+    /**
+     * Returns the existing custom tag with [name], or creates a new one if none exists.
+     *
+     * @return the existing or newly created [CustomTag].
+     */
+    suspend fun createOrGetCustomTagInLibrary(name: String): CustomTag
+
+    /** Returns a one-shot list of all [CustomTagLog] entries across all dates. */
+    suspend fun getAllCustomTagLogs(): List<CustomTagLog>
+
+    /**
+     * Renames a custom tag in the library.
+     *
+     * @param tagId   UUID of the custom tag to rename.
+     * @param newName the new unique name.
+     */
+    suspend fun renameCustomTag(tagId: String, newName: String)
+
+    /**
+     * Deletes a custom tag from the library. CASCADE removes all associated tag logs.
+     *
+     * @param tagId UUID of the custom tag to delete.
+     */
+    suspend fun deleteCustomTag(tagId: String)
+
+    /**
+     * Returns the number of daily log entries that reference the given custom tag.
+     *
+     * @param tagId UUID of the custom tag.
+     * @return count of custom tag log entries.
+     */
+    suspend fun getCustomTagLogCount(tagId: String): Int
 
     // ── Water Intake ─────────────────────────────────────────────────────
 

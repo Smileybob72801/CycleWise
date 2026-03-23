@@ -4,13 +4,16 @@ import android.util.Log
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.providers.CustomTagLibraryProvider
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.domain.usecases.DeleteCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteSymptomUseCase
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
+import com.veleda.cyclewise.domain.usecases.RenameCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
 import com.veleda.cyclewise.testutil.TestData
@@ -104,11 +107,16 @@ class WellnessPageEmptyStateTest {
             getOrCreateDailyLog = mockGetOrCreateDailyLog,
             symptomLibraryProvider = mockSymptomProvider,
             medicationLibraryProvider = mockMedicationProvider,
+            customTagLibraryProvider = mockk {
+                every { customTags } returns flowOf(emptyList())
+            },
             educationalContentProvider = mockEducationalContentProvider,
             renameSymptomUseCase = mockk(relaxed = true),
             deleteSymptomUseCase = mockk(relaxed = true),
             renameMedicationUseCase = mockk(relaxed = true),
             deleteMedicationUseCase = mockk(relaxed = true),
+            renameCustomTagUseCase = mockk(relaxed = true),
+            deleteCustomTagUseCase = mockk(relaxed = true),
             hintPreferences = mockHintPreferences,
         )
     }

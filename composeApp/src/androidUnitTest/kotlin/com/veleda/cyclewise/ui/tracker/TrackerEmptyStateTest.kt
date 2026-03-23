@@ -2,6 +2,7 @@ package com.veleda.cyclewise.ui.tracker
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.veleda.cyclewise.domain.models.Period
+import com.veleda.cyclewise.domain.providers.CustomTagLibraryProvider
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
@@ -43,6 +44,7 @@ class TrackerEmptyStateTest {
     private lateinit var mockRepository: PeriodRepository
     private lateinit var mockSymptomProvider: SymptomLibraryProvider
     private lateinit var mockMedicationProvider: MedicationLibraryProvider
+    private lateinit var mockCustomTagProvider: CustomTagLibraryProvider
     private lateinit var mockAutoCloseUseCase: AutoCloseOngoingPeriodUseCase
     private lateinit var mockAppSettings: AppSettings
     private lateinit var mockEducationalContentProvider: EducationalContentProvider
@@ -54,6 +56,7 @@ class TrackerEmptyStateTest {
         mockRepository = mockk(relaxed = true)
         mockSymptomProvider = mockk(relaxed = true)
         mockMedicationProvider = mockk(relaxed = true)
+        mockCustomTagProvider = mockk { every { customTags } returns flowOf(emptyList()) }
         mockAutoCloseUseCase = mockk(relaxed = true)
         mockAppSettings = mockk(relaxed = true)
         mockEducationalContentProvider = mockk(relaxed = true)
@@ -71,7 +74,7 @@ class TrackerEmptyStateTest {
     private fun createViewModel(periods: List<Period> = emptyList()): TrackerViewModel {
         every { mockRepository.getAllPeriods() } returns flowOf(periods)
         return TrackerViewModel(
-            mockRepository, mockSymptomProvider, mockMedicationProvider,
+            mockRepository, mockSymptomProvider, mockMedicationProvider, mockCustomTagProvider,
             mockAutoCloseUseCase, mockAppSettings, mockEducationalContentProvider,
         )
     }

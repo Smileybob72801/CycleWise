@@ -2,6 +2,7 @@ package com.veleda.cyclewise.ui.tracker
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.veleda.cyclewise.domain.models.CustomTag
 import com.veleda.cyclewise.domain.models.DayHeatmapData
 import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.models.HeatmapMetric
@@ -10,6 +11,7 @@ import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.WaterIntake
+import com.veleda.cyclewise.domain.providers.CustomTagLibraryProvider
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
@@ -47,6 +49,7 @@ import kotlin.time.Clock
  * @property periodIdForSheet    The id of the period that contains the date shown in the bottom sheet, if any.
  * @property symptomLibrary      Complete symptom library for rendering log summaries.
  * @property medicationLibrary   Complete medication library for rendering log summaries.
+ * @property customTagLibrary    Complete custom tag library for rendering log summaries.
  * @property dayDetails          Per-date calendar annotations (period, symptoms, medications, notes, phase).
  * @property showDeleteConfirmation Whether the delete-period confirmation dialog is visible.
  * @property periodIdToDelete    The id of the period the user has requested to delete.
@@ -62,6 +65,7 @@ data class TrackerUiState(
     val periodIdForSheet: String? = null,
     val symptomLibrary: List<Symptom> = emptyList(),
     val medicationLibrary: List<Medication> = emptyList(),
+    val customTagLibrary: List<CustomTag> = emptyList(),
     val dayDetails: Map<LocalDate, CalendarDayInfo> = emptyMap(),
     val showDeleteConfirmation: Boolean = false,
     val periodIdToDelete: String? = null,
@@ -98,6 +102,7 @@ class TrackerViewModel(
     private val periodRepository: PeriodRepository,
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private val medicationLibraryProvider: MedicationLibraryProvider,
+    private val customTagLibraryProvider: CustomTagLibraryProvider,
     private val autoClosePeriodUseCase: AutoCloseOngoingPeriodUseCase,
     private val appSettings: AppSettings,
     private val educationalContentProvider: EducationalContentProvider,
@@ -153,6 +158,12 @@ class TrackerViewModel(
         viewModelScope.launch {
             medicationLibraryProvider.medications.collect { medications ->
                 _uiState.update { it.copy(medicationLibrary = medications) }
+            }
+        }
+
+        viewModelScope.launch {
+            customTagLibraryProvider.customTags.collect { tags ->
+                _uiState.update { it.copy(customTagLibrary = tags) }
             }
         }
     }

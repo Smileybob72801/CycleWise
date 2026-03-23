@@ -15,6 +15,8 @@
 -keep class com.veleda.cyclewise.androidData.local.entities.MedicationEntity { *; }
 -keep class com.veleda.cyclewise.androidData.local.entities.MedicationLogEntity { *; }
 -keep class com.veleda.cyclewise.androidData.local.entities.WaterIntakeEntity { *; }
+-keep class com.veleda.cyclewise.androidData.local.entities.CustomTagEntity { *; }
+-keep class com.veleda.cyclewise.androidData.local.entities.CustomTagLogEntity { *; }
 
 # ----------------------------------------------------------------------------
 # Room — DAOs
@@ -28,6 +30,8 @@
 -keep interface com.veleda.cyclewise.androidData.local.dao.MedicationDao { *; }
 -keep interface com.veleda.cyclewise.androidData.local.dao.MedicationLogDao { *; }
 -keep interface com.veleda.cyclewise.androidData.local.dao.WaterIntakeDao { *; }
+-keep interface com.veleda.cyclewise.androidData.local.dao.CustomTagDao { *; }
+-keep interface com.veleda.cyclewise.androidData.local.dao.CustomTagLogDao { *; }
 
 # ----------------------------------------------------------------------------
 # Room — Database

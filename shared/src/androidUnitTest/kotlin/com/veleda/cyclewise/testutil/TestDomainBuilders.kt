@@ -28,12 +28,11 @@ fun buildDailyEntry(
     moodScore: Int? = null,
     energyLevel: Int? = null,
     libidoScore: Int? = null,
-    customTags: List<String> = emptyList(),
     note: String? = null,
     cyclePhase: String? = null,
     createdAt: Instant = TestData.INSTANT,
     updatedAt: Instant = TestData.INSTANT
-) = DailyEntry(id, entryDate, dayInCycle, moodScore, energyLevel, libidoScore, customTags, note, cyclePhase, createdAt, updatedAt)
+) = DailyEntry(id, entryDate, dayInCycle, moodScore, energyLevel, libidoScore, note, cyclePhase, createdAt, updatedAt)
 
 @OptIn(ExperimentalTime::class)
 fun buildPeriodLog(
@@ -79,6 +78,21 @@ fun buildMedicationLog(
 ) = MedicationLog(id, entryId, medicationId, createdAt)
 
 @OptIn(ExperimentalTime::class)
+fun buildCustomTag(
+    id: String = "tag-${uuid4()}",
+    name: String = "TestTag",
+    createdAt: Instant = TestData.INSTANT
+) = CustomTag(id, name, createdAt)
+
+@OptIn(ExperimentalTime::class)
+fun buildCustomTagLog(
+    id: String = "ctlog-${uuid4()}",
+    entryId: String = "entry-1",
+    tagId: String = "tag-1",
+    createdAt: Instant = TestData.INSTANT
+) = CustomTagLog(id, entryId, tagId, createdAt)
+
+@OptIn(ExperimentalTime::class)
 fun buildWaterIntake(
     date: LocalDate = TestData.DATE,
     cups: Int = 5,
@@ -91,5 +105,6 @@ fun buildFullDailyLog(
     entry: DailyEntry = buildDailyEntry(),
     periodLog: PeriodLog? = null,
     symptomLogs: List<SymptomLog> = emptyList(),
-    medicationLogs: List<MedicationLog> = emptyList()
-) = FullDailyLog(entry, periodLog, symptomLogs, medicationLogs)
+    medicationLogs: List<MedicationLog> = emptyList(),
+    customTagLogs: List<CustomTagLog> = emptyList()
+) = FullDailyLog(entry, periodLog, symptomLogs, medicationLogs, customTagLogs)

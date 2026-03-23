@@ -9,19 +9,27 @@ import com.veleda.cyclewise.domain.models.PeriodLog
 import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.ArticleCategory
 import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.domain.models.CustomTag
+import com.veleda.cyclewise.domain.models.CustomTagLog
+import com.veleda.cyclewise.domain.providers.CustomTagLibraryProvider
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.domain.usecases.DeleteCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteSymptomUseCase
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
+import com.veleda.cyclewise.domain.usecases.RenameCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.RenameResult
 import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
 import com.veleda.cyclewise.ui.coachmark.HintKey
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.testutil.TestData
+import com.veleda.cyclewise.testutil.buildCustomTag
+import com.veleda.cyclewise.testutil.buildCustomTagLog
+import com.veleda.cyclewise.testutil.buildFullDailyLog
 import com.veleda.cyclewise.testutil.buildMedication
 import com.veleda.cyclewise.testutil.buildMedicationLog
 import com.veleda.cyclewise.testutil.buildPeriodLog
@@ -72,6 +80,9 @@ class DailyLogViewModelTest {
     private lateinit var mockDeleteSymptomUseCase: DeleteSymptomUseCase
     private lateinit var mockRenameMedicationUseCase: RenameMedicationUseCase
     private lateinit var mockDeleteMedicationUseCase: DeleteMedicationUseCase
+    private lateinit var mockCustomTagLibraryProvider: CustomTagLibraryProvider
+    private lateinit var mockRenameCustomTagUseCase: RenameCustomTagUseCase
+    private lateinit var mockDeleteCustomTagUseCase: DeleteCustomTagUseCase
     private lateinit var mockHintPreferences: HintPreferences
 
     private val testDate = TestData.DATE
@@ -101,6 +112,11 @@ class DailyLogViewModelTest {
         mockDeleteSymptomUseCase = mockk(relaxed = true)
         mockRenameMedicationUseCase = mockk(relaxed = true)
         mockDeleteMedicationUseCase = mockk(relaxed = true)
+        mockCustomTagLibraryProvider = mockk {
+            every { customTags } returns flowOf(emptyList())
+        }
+        mockRenameCustomTagUseCase = mockk(relaxed = true)
+        mockDeleteCustomTagUseCase = mockk(relaxed = true)
         mockHintPreferences = mockk(relaxed = true)
         every { mockHintPreferences.isHintSeen(any()) } returns flowOf(false)
 
@@ -124,11 +140,14 @@ class DailyLogViewModelTest {
             getOrCreateDailyLog = mockGetOrCreateDailyLog,
             symptomLibraryProvider = mockSymptomProvider,
             medicationLibraryProvider = mockMedicationProvider,
+            customTagLibraryProvider = mockCustomTagLibraryProvider,
             educationalContentProvider = mockEducationalContentProvider,
             renameSymptomUseCase = mockRenameSymptomUseCase,
             deleteSymptomUseCase = mockDeleteSymptomUseCase,
             renameMedicationUseCase = mockRenameMedicationUseCase,
             deleteMedicationUseCase = mockDeleteMedicationUseCase,
+            renameCustomTagUseCase = mockRenameCustomTagUseCase,
+            deleteCustomTagUseCase = mockDeleteCustomTagUseCase,
             hintPreferences = mockHintPreferences,
         )
     }
@@ -740,6 +759,151 @@ class DailyLogViewModelTest {
         coVerify(exactly = 1) { mockDeleteMedicationUseCase("m1") }
         assertNull(vm.uiState.value.medicationToDelete)
         assertEquals(0, vm.uiState.value.log!!.medicationLogs.size, "deleted medication logs should be filtered out")
+    }
+
+    // ── Custom Tag Library Edit/Delete tests ────────────────────────────
+
+    @Test
+    fun `onEvent CustomTagToggled WHEN tagNotLogged THEN addsLogEntry`() = runTest {
+        // GIVEN — ViewModel initialized with a default log (no custom tag logs)
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user toggles a custom tag that is not yet logged
+        vm.onEvent(DailyLogEvent.CustomTagToggled(tag))
+        advanceUntilIdle()
+
+        // THEN — customTagLogs contains the new entry
+        assertEquals(1, vm.uiState.value.log!!.customTagLogs.size)
+        assertEquals("t1", vm.uiState.value.log!!.customTagLogs.first().tagId)
+    }
+
+    @Test
+    fun `onEvent CustomTagToggled WHEN tagAlreadyLogged THEN removesLogEntry`() = runTest {
+        // GIVEN — ViewModel initialized with a log containing a custom tag log
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        val tagLog = buildCustomTagLog(tagId = "t1", entryId = "entry-1")
+        coEvery { mockGetOrCreateDailyLog(any()) } returns buildFullDailyLog(customTagLogs = listOf(tagLog))
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user toggles the same custom tag
+        vm.onEvent(DailyLogEvent.CustomTagToggled(tag))
+        advanceUntilIdle()
+
+        // THEN — customTagLogs is empty (tag was removed)
+        assertEquals(0, vm.uiState.value.log!!.customTagLogs.size)
+    }
+
+    @Test
+    fun `onEvent CustomTagLongPressed THEN setsContextMenu`() = runTest {
+        // GIVEN — ViewModel initialized
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user long-presses a custom tag
+        vm.onEvent(DailyLogEvent.CustomTagLongPressed(tag))
+        advanceUntilIdle()
+
+        // THEN — customTagForContextMenu is set
+        assertEquals(tag, vm.uiState.value.customTagForContextMenu)
+    }
+
+    @Test
+    fun `onEvent RenameCustomTagConfirmed WHEN success THEN clearsRenaming`() = runTest {
+        // GIVEN — rename use case returns success
+        coEvery { mockRenameCustomTagUseCase(any(), any(), any()) } returns RenameResult.Success
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        vm.onEvent(DailyLogEvent.RenameCustomTagClicked(tag))
+        advanceUntilIdle()
+
+        // WHEN — user confirms rename
+        vm.onEvent(DailyLogEvent.RenameCustomTagConfirmed("t1", "Workout"))
+        advanceUntilIdle()
+
+        // THEN — renaming state and error are cleared
+        assertNull(vm.uiState.value.customTagRenaming)
+        assertNull(vm.uiState.value.renameError)
+    }
+
+    @Test
+    fun `onEvent RenameCustomTagConfirmed WHEN nameExists THEN setsRenameError`() = runTest {
+        // GIVEN — rename use case returns name already exists
+        coEvery { mockRenameCustomTagUseCase(any(), any(), any()) } returns RenameResult.NameAlreadyExists
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        vm.onEvent(DailyLogEvent.RenameCustomTagClicked(tag))
+        advanceUntilIdle()
+
+        // WHEN — user confirms rename with a duplicate name
+        vm.onEvent(DailyLogEvent.RenameCustomTagConfirmed("t1", "Workout"))
+        advanceUntilIdle()
+
+        // THEN — rename error is set
+        assertNotNull(vm.uiState.value.renameError)
+    }
+
+    @Test
+    fun `onEvent DeleteCustomTagClicked THEN fetchesCountAndSetsState`() = runTest {
+        // GIVEN — delete use case returns a log count
+        coEvery { mockDeleteCustomTagUseCase.getLogCount("t1") } returns 3
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+
+        // WHEN — user clicks delete on a custom tag
+        vm.onEvent(DailyLogEvent.DeleteCustomTagClicked(tag))
+        advanceUntilIdle()
+
+        // THEN — customTagToDelete and log count are set
+        assertEquals(tag, vm.uiState.value.customTagToDelete)
+        assertEquals(3, vm.uiState.value.customTagDeleteLogCount)
+    }
+
+    @Test
+    fun `onEvent DeleteCustomTagConfirmed THEN deletesAndClearsState`() = runTest {
+        // GIVEN — ViewModel initialized with a log containing a custom tag log
+        val tagLog = buildCustomTagLog(tagId = "t1", entryId = "entry-1")
+        coEvery { mockGetOrCreateDailyLog(any()) } returns buildFullDailyLog(customTagLogs = listOf(tagLog))
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user confirms deletion
+        vm.onEvent(DailyLogEvent.DeleteCustomTagConfirmed("t1"))
+        advanceUntilIdle()
+
+        // THEN — delete use case is called, state is cleared, and logs are filtered
+        coVerify(exactly = 1) { mockDeleteCustomTagUseCase("t1") }
+        assertNull(vm.uiState.value.customTagToDelete)
+        assertEquals(0, vm.uiState.value.log!!.customTagLogs.size)
+    }
+
+    @Test
+    fun `onEvent CustomTagEditDismissed THEN clearsAllDialogState`() = runTest {
+        // GIVEN — ViewModel with a context menu showing for a custom tag
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        vm.onEvent(DailyLogEvent.CustomTagLongPressed(tag))
+        advanceUntilIdle()
+
+        // WHEN — user dismisses the edit dialog
+        vm.onEvent(DailyLogEvent.CustomTagEditDismissed)
+        advanceUntilIdle()
+
+        // THEN — all custom tag dialog state is cleared
+        assertNull(vm.uiState.value.customTagForContextMenu)
+        assertNull(vm.uiState.value.customTagRenaming)
+        assertNull(vm.uiState.value.customTagToDelete)
     }
 
     // ── Unmark Period Confirmation tests ─────────────────────────────
