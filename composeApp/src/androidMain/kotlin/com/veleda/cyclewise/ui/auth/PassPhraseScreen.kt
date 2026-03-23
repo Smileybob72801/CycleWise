@@ -1,5 +1,7 @@
 package com.veleda.cyclewise.ui.auth
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
@@ -46,6 +48,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.ui.backup.BackupErrorDialog
+import com.veleda.cyclewise.ui.backup.BackupMetadataPreviewDialog
+import com.veleda.cyclewise.ui.backup.BackupOverwriteConfirmDialog
+import com.veleda.cyclewise.ui.backup.BackupOverwriteWarningDialog
+import com.veleda.cyclewise.ui.backup.BackupPassphraseDialog
+import com.veleda.cyclewise.ui.backup.BackupProgressDialog
+import com.veleda.cyclewise.ui.backup.BackupSchemaErrorDialog
+import com.veleda.cyclewise.ui.backup.ImportStep
 import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.components.SuccessAnimation
 import com.veleda.cyclewise.ui.theme.LocalDimensions
@@ -76,6 +86,13 @@ fun PassphraseScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showSetupSuccess by remember { mutableStateOf(false) }
 
+    // SAF launcher for import (open an existing file)
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri?.let { viewModel.onEvent(PassphraseEvent.ImportFileSelected(it)) }
+    }
+
     // Collect one-time effects from the ViewModel (shared by both paths)
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -84,6 +101,9 @@ fun PassphraseScreen(
                 is PassphraseEffect.SetupComplete -> { showSetupSuccess = true }
                 is PassphraseEffect.ShowError -> {
                     // ShowError is handled within each sub-screen
+                }
+                is PassphraseEffect.LaunchImportPicker -> {
+                    importLauncher.launch(arrayOf("*/*"))
                 }
             }
         }
@@ -104,6 +124,9 @@ fun PassphraseScreen(
             effect = viewModel.effect,
         )
     }
+
+    // Import dialog flow (shared by both unlock and setup screens)
+    ImportDialogFlow(uiState = uiState, onEvent = viewModel::onEvent)
 
     // Success animation after first-time setup
     SuccessAnimation(
@@ -286,6 +309,20 @@ internal fun UnlockScreen(
                     yesterdayCupsForPrompt = waterState.yesterdayCupsForPrompt
                 )
             }
+
+            Spacer(Modifier.height(dims.md))
+
+            // Import backup button (subtle, de-emphasized)
+            TextButton(
+                onClick = { onEvent(PassphraseEvent.ImportBackupClicked) },
+                modifier = Modifier.testTag("import-backup-button")
+            ) {
+                Text(
+                    stringResource(R.string.passphrase_import_backup),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         }
 
@@ -303,6 +340,87 @@ internal fun UnlockScreen(
                     contentDescription = stringResource(R.string.lottie_cd_loading),
                 )
             }
+        }
+    }
+}
+
+/**
+ * Import dialog flow shared between the unlock and setup screens.
+ *
+ * Displays the appropriate dialog based on [PassphraseUiState.importStep], reusing
+ * the dialog composables from [com.veleda.cyclewise.ui.backup.BackupDialogs].
+ */
+@Composable
+private fun ImportDialogFlow(
+    uiState: PassphraseUiState,
+    onEvent: (PassphraseEvent) -> Unit,
+) {
+    when (uiState.importStep) {
+        ImportStep.METADATA_PREVIEW -> {
+            uiState.importMetadata?.let { metadata ->
+                BackupMetadataPreviewDialog(
+                    metadata = metadata,
+                    onConfirm = { onEvent(PassphraseEvent.ImportMetadataConfirmed) },
+                    onDismiss = { onEvent(PassphraseEvent.ImportDismissed) },
+                )
+            }
+        }
+
+        ImportStep.PASSPHRASE_ENTRY -> {
+            BackupPassphraseDialog(
+                error = if (uiState.importPassphraseError == "wrong_passphrase") {
+                    stringResource(R.string.backup_passphrase_error_wrong)
+                } else {
+                    uiState.importPassphraseError
+                },
+                isVerifying = uiState.isVerifyingPassphrase,
+                onVerify = { onEvent(PassphraseEvent.ImportPassphraseEntered(it)) },
+                onDismiss = { onEvent(PassphraseEvent.ImportDismissed) },
+            )
+        }
+
+        ImportStep.FIRST_WARNING -> {
+            BackupOverwriteWarningDialog(
+                onConfirm = { onEvent(PassphraseEvent.ImportFirstWarningConfirmed) },
+                onDismiss = { onEvent(PassphraseEvent.ImportDismissed) },
+            )
+        }
+
+        ImportStep.SECOND_CONFIRM -> {
+            BackupOverwriteConfirmDialog(
+                confirmText = uiState.importConfirmText,
+                onTextChanged = { onEvent(PassphraseEvent.ImportConfirmTextChanged(it)) },
+                onConfirm = { onEvent(PassphraseEvent.ImportSecondConfirmed) },
+                onDismiss = { onEvent(PassphraseEvent.ImportDismissed) },
+            )
+        }
+
+        ImportStep.IMPORTING -> {
+            BackupProgressDialog(
+                title = stringResource(R.string.backup_progress_importing_title),
+                body = stringResource(R.string.backup_progress_importing_body),
+            )
+        }
+
+        ImportStep.IDLE -> { /* no dialog */ }
+    }
+
+    // Schema error or general error dialog
+    uiState.importError?.let { error ->
+        if (error.startsWith("schema_too_new:")) {
+            val parts = error.split(":")
+            val backupVersion = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val currentVersion = parts.getOrNull(2)?.toIntOrNull() ?: 0
+            BackupSchemaErrorDialog(
+                backupSchemaVersion = backupVersion,
+                currentSchemaVersion = currentVersion,
+                onDismiss = { onEvent(PassphraseEvent.ImportDismissed) },
+            )
+        } else {
+            BackupErrorDialog(
+                message = error,
+                onDismiss = { onEvent(PassphraseEvent.ImportDismissed) },
+            )
         }
     }
 }

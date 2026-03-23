@@ -39,6 +39,8 @@ class SecurityPageTest {
         onEvent: (SettingsEvent) -> Unit = {},
         isSessionActive: Boolean = false,
         onLockNow: () -> Unit = {},
+        onExportClicked: () -> Unit = {},
+        onImportClicked: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalDimensions provides Dimensions()) {
@@ -48,6 +50,8 @@ class SecurityPageTest {
                         onEvent = onEvent,
                         isSessionActive = isSessionActive,
                         onLockNow = onLockNow,
+                        onExportClicked = onExportClicked,
+                        onImportClicked = onImportClicked,
                     )
                 }
             }

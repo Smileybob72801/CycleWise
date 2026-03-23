@@ -1,6 +1,7 @@
 package com.veleda.cyclewise.session
 
 import android.util.Log
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.androidData.local.database.RekeyVerificationFailedException
 import com.veleda.cyclewise.androidData.local.draft.LockedWaterDraft
@@ -113,6 +114,22 @@ class SessionManager(
      */
     val isSessionActive: Boolean
         get() = getKoin().getScopeOrNull("session") != null
+
+    /**
+     * Returns the open [SupportSQLiteDatabase] from the active session, or `null` if
+     * no session is active.
+     *
+     * Used by the backup export flow to checkpoint the WAL before copying the database
+     * file. Since only [SessionManager] is a [KoinComponent], this method provides a
+     * clean way for singleton-scoped ViewModels to access the session database without
+     * becoming Koin-aware themselves.
+     */
+    fun getOpenDatabase(): SupportSQLiteDatabase? {
+        return getKoin().getScopeOrNull("session")
+            ?.get<PeriodDatabase>()
+            ?.openHelper
+            ?.writableDatabase
+    }
 
     /**
      * Changes the database encryption passphrase.

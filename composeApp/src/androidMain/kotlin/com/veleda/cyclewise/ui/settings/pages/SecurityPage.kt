@@ -40,6 +40,14 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.ui.backup.BackupErrorDialog
+import com.veleda.cyclewise.ui.backup.BackupMetadataPreviewDialog
+import com.veleda.cyclewise.ui.backup.BackupOverwriteConfirmDialog
+import com.veleda.cyclewise.ui.backup.BackupOverwriteWarningDialog
+import com.veleda.cyclewise.ui.backup.BackupPassphraseDialog
+import com.veleda.cyclewise.ui.backup.BackupProgressDialog
+import com.veleda.cyclewise.ui.backup.BackupSchemaErrorDialog
+import com.veleda.cyclewise.ui.backup.ImportStep
 import com.veleda.cyclewise.ui.settings.SecuritySettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
 import com.veleda.cyclewise.ui.settings.components.SettingsSectionCard
@@ -55,6 +63,8 @@ internal fun SecurityPage(
     onEvent: (SettingsEvent) -> Unit,
     isSessionActive: Boolean,
     onLockNow: () -> Unit,
+    onExportClicked: () -> Unit,
+    onImportClicked: () -> Unit,
 ) {
     val dims = LocalDimensions.current
 
@@ -134,6 +144,117 @@ internal fun SecurityPage(
         // Change Passphrase dialog
         if (state.showChangePassphraseDialog) {
             ChangePassphraseDialog(state = state, onEvent = onEvent)
+        }
+
+        // ── Backup & Restore Card ─────────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_section_backup)) {
+            Text(
+                stringResource(R.string.settings_backup_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = dims.md)
+            )
+            Spacer(Modifier.height(dims.sm))
+            FilledTonalButton(
+                enabled = isSessionActive && !state.isExporting,
+                onClick = onExportClicked,
+                modifier = Modifier.padding(horizontal = dims.md)
+            ) {
+                Text(stringResource(R.string.settings_export_backup))
+            }
+            Spacer(Modifier.height(dims.sm))
+            FilledTonalButton(
+                onClick = onImportClicked,
+                modifier = Modifier.padding(horizontal = dims.md)
+            ) {
+                Text(stringResource(R.string.settings_import_backup))
+            }
+        }
+
+        // Export progress dialog
+        if (state.isExporting) {
+            BackupProgressDialog(
+                title = stringResource(R.string.backup_progress_exporting_title),
+                body = stringResource(R.string.backup_progress_exporting_body),
+            )
+        }
+
+        // Export error dialog
+        state.exportError?.let { error ->
+            BackupErrorDialog(
+                message = stringResource(R.string.settings_export_error, error),
+                onDismiss = { onEvent(SettingsEvent.ImportDismissed) },
+            )
+        }
+
+        // Import dialog flow driven by importStep
+        when (state.importStep) {
+            ImportStep.METADATA_PREVIEW -> {
+                state.importMetadata?.let { metadata ->
+                    BackupMetadataPreviewDialog(
+                        metadata = metadata,
+                        onConfirm = { onEvent(SettingsEvent.ImportMetadataConfirmed) },
+                        onDismiss = { onEvent(SettingsEvent.ImportDismissed) },
+                    )
+                }
+            }
+
+            ImportStep.PASSPHRASE_ENTRY -> {
+                BackupPassphraseDialog(
+                    error = if (state.importPassphraseError == "wrong_passphrase") {
+                        stringResource(R.string.backup_passphrase_error_wrong)
+                    } else {
+                        state.importPassphraseError
+                    },
+                    isVerifying = state.isVerifyingPassphrase,
+                    onVerify = { onEvent(SettingsEvent.ImportPassphraseEntered(it)) },
+                    onDismiss = { onEvent(SettingsEvent.ImportDismissed) },
+                )
+            }
+
+            ImportStep.FIRST_WARNING -> {
+                BackupOverwriteWarningDialog(
+                    onConfirm = { onEvent(SettingsEvent.ImportFirstWarningConfirmed) },
+                    onDismiss = { onEvent(SettingsEvent.ImportDismissed) },
+                )
+            }
+
+            ImportStep.SECOND_CONFIRM -> {
+                BackupOverwriteConfirmDialog(
+                    confirmText = state.importConfirmText,
+                    onTextChanged = { onEvent(SettingsEvent.ImportConfirmTextChanged(it)) },
+                    onConfirm = { onEvent(SettingsEvent.ImportSecondConfirmed) },
+                    onDismiss = { onEvent(SettingsEvent.ImportDismissed) },
+                )
+            }
+
+            ImportStep.IMPORTING -> {
+                BackupProgressDialog(
+                    title = stringResource(R.string.backup_progress_importing_title),
+                    body = stringResource(R.string.backup_progress_importing_body),
+                )
+            }
+
+            ImportStep.IDLE -> { /* no dialog */ }
+        }
+
+        // Schema error dialog (shown when importError starts with "schema_too_new:")
+        state.importError?.let { error ->
+            if (error.startsWith("schema_too_new:")) {
+                val parts = error.split(":")
+                val backupVersion = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                val currentVersion = parts.getOrNull(2)?.toIntOrNull() ?: 0
+                BackupSchemaErrorDialog(
+                    backupSchemaVersion = backupVersion,
+                    currentSchemaVersion = currentVersion,
+                    onDismiss = { onEvent(SettingsEvent.ImportDismissed) },
+                )
+            } else {
+                BackupErrorDialog(
+                    message = error,
+                    onDismiss = { onEvent(SettingsEvent.ImportDismissed) },
+                )
+            }
         }
 
         // ── Data Management Card ──────────────────────────────────────

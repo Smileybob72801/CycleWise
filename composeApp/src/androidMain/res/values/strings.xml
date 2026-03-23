@@ -427,6 +427,43 @@
     <string name="settings_change_passphrase_error_failed">Something went wrong. Your data is still protected by your current passphrase. Please try again.</string>
     <string name="settings_change_passphrase_error_verification_failed">The change could not be verified and was rolled back. Your current passphrase still works. Please try again.</string>
 
+    <!-- Backup & Restore -->
+    <string name="settings_section_backup">Backup &amp; Restore</string>
+    <string name="settings_backup_description">Export your encrypted database to transfer data between devices. The backup includes your database, encryption salt, and app metadata.</string>
+    <string name="settings_export_backup">Export Backup</string>
+    <string name="settings_import_backup">Import Backup</string>
+    <string name="settings_export_success">Backup exported successfully</string>
+    <string name="settings_export_error">Export failed: %s</string>
+    <string name="backup_metadata_title">Backup Details</string>
+    <string name="backup_metadata_app_version">App Version: %s</string>
+    <string name="backup_metadata_schema_version">Schema Version: %d</string>
+    <string name="backup_metadata_export_date">Export Date: %s</string>
+    <string name="backup_metadata_confirm">Continue</string>
+    <string name="backup_passphrase_title">Enter Backup Passphrase</string>
+    <string name="backup_passphrase_body">Enter the passphrase that was used when this backup was created.</string>
+    <string name="backup_passphrase_label">Backup passphrase</string>
+    <string name="backup_passphrase_verify">Verify</string>
+    <string name="backup_passphrase_error_wrong">Incorrect passphrase for this backup</string>
+    <string name="backup_passphrase_verifying">Verifying passphrase…</string>
+    <string name="backup_overwrite_first_title">Replace All Data?</string>
+    <string name="backup_overwrite_first_body">Importing this backup will permanently replace all existing data. This cannot be undone.\n\nYou will be logged out after import. You will need to log in with the passphrase from the imported backup.</string>
+    <string name="backup_overwrite_first_confirm">Replace Data</string>
+    <string name="backup_overwrite_second_title">Final Confirmation</string>
+    <string name="backup_overwrite_second_body">Type OVERWRITE below to confirm that you want to replace all existing data with the imported backup.</string>
+    <string name="backup_overwrite_field_label">Type OVERWRITE to confirm</string>
+    <string name="backup_progress_exporting_title">Exporting Backup</string>
+    <string name="backup_progress_exporting_body">Creating backup archive…</string>
+    <string name="backup_progress_importing_title">Importing Backup</string>
+    <string name="backup_progress_importing_body">Replacing database and restarting session…</string>
+    <string name="backup_schema_error_title">Incompatible Backup</string>
+    <string name="backup_schema_error_body">This backup was created with a newer version of RhythmWise (schema version %1$d). Your app supports schema version %2$d.\n\nPlease update the app before importing this backup.</string>
+    <string name="backup_error_title">Backup Error</string>
+    <string name="backup_error_invalid">Invalid or corrupted backup file. Please select a valid .rwbackup file.</string>
+    <string name="backup_error_rollback">Import failed. Your previous data has been restored.</string>
+    <string name="backup_import_success">Backup imported successfully. Please log in with the backup passphrase.</string>
+    <string name="passphrase_import_backup">Import Backup</string>
+    <string name="setup_import_instead">Have a backup? Import instead</string>
+
     <!-- Data Management -->
     <string name="settings_section_data_management">Data Management</string>
     <string name="settings_delete_all_data">Delete All Data</string>
