@@ -56,6 +56,8 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
 /**
  * Page 0 — Security: Autolock timeout, passphrase management, and data deletion.
  */
+// Settings page with four section cards and import dialog flow
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SecurityPage(
@@ -278,88 +280,127 @@ internal fun SecurityPage(
             }
         }
 
-        // First confirmation dialog
+        // Delete data confirmation dialogs
         if (state.showDeleteFirstConfirmation) {
-            AlertDialog(
-                onDismissRequest = { onEvent(SettingsEvent.DeleteAllDataCancelled) },
-                title = { Text(stringResource(R.string.settings_delete_first_title)) },
-                text = { Text(stringResource(R.string.settings_delete_first_body)) },
-                confirmButton = {
-                    Button(
-                        onClick = { onEvent(SettingsEvent.DeleteAllDataFirstConfirmed) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError,
-                        ),
-                    ) {
-                        Text(stringResource(R.string.settings_delete_first_confirm))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { onEvent(SettingsEvent.DeleteAllDataCancelled) }) {
-                        Text(stringResource(R.string.settings_delete_first_cancel))
-                    }
-                }
-            )
+            DeleteFirstConfirmDialog(onEvent = onEvent)
         }
 
-        // Second confirmation dialog with text input
         if (state.showDeleteSecondConfirmation) {
-            AlertDialog(
-                onDismissRequest = { onEvent(SettingsEvent.DeleteAllDataCancelled) },
-                title = { Text(stringResource(R.string.settings_delete_second_title)) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(dims.md)) {
-                        Text(stringResource(R.string.settings_delete_second_body))
-                        OutlinedTextField(
-                            value = state.deleteConfirmText,
-                            onValueChange = { onEvent(SettingsEvent.DeleteConfirmTextChanged(it)) },
-                            label = { Text(stringResource(R.string.settings_delete_second_field_label)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = { onEvent(SettingsEvent.DeleteAllDataConfirmed) },
-                        enabled = state.deleteConfirmText == "DELETE",
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError,
-                        ),
-                    ) {
-                        Text(stringResource(R.string.settings_delete_first_confirm))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { onEvent(SettingsEvent.DeleteAllDataCancelled) }) {
-                        Text(stringResource(R.string.settings_delete_first_cancel))
-                    }
-                }
+            DeleteSecondConfirmDialog(
+                deleteConfirmText = state.deleteConfirmText,
+                onEvent = onEvent,
             )
         }
 
-        // Progress dialog while deleting
         if (state.isDeletingData) {
-            AlertDialog(
-                onDismissRequest = { /* non-dismissable */ },
-                title = { Text(stringResource(R.string.settings_delete_progress_title)) },
-                text = {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(dims.md),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                        Text(stringResource(R.string.settings_delete_progress_body))
-                    }
-                },
-                confirmButton = { /* no buttons — non-dismissable */ }
-            )
+            DeleteProgressDialog()
         }
 
         Spacer(Modifier.height(dims.xl))
     }
+}
+
+/**
+ * First step of the data deletion flow — a simple confirmation dialog
+ * asking "Are you sure you want to delete all data?"
+ *
+ * @param onEvent Event dispatcher for [SettingsEvent] variants.
+ */
+@Composable
+private fun DeleteFirstConfirmDialog(onEvent: (SettingsEvent) -> Unit) {
+    AlertDialog(
+        onDismissRequest = { onEvent(SettingsEvent.DeleteAllDataCancelled) },
+        title = { Text(stringResource(R.string.settings_delete_first_title)) },
+        text = { Text(stringResource(R.string.settings_delete_first_body)) },
+        confirmButton = {
+            Button(
+                onClick = { onEvent(SettingsEvent.DeleteAllDataFirstConfirmed) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                ),
+            ) {
+                Text(stringResource(R.string.settings_delete_first_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onEvent(SettingsEvent.DeleteAllDataCancelled) }) {
+                Text(stringResource(R.string.settings_delete_first_cancel))
+            }
+        }
+    )
+}
+
+/**
+ * Second step of the data deletion flow — requires the user to type "DELETE"
+ * before the confirm button is enabled.
+ *
+ * @param deleteConfirmText Current text in the confirmation field.
+ * @param onEvent           Event dispatcher for [SettingsEvent] variants.
+ */
+@Composable
+private fun DeleteSecondConfirmDialog(
+    deleteConfirmText: String,
+    onEvent: (SettingsEvent) -> Unit,
+) {
+    val dims = LocalDimensions.current
+
+    AlertDialog(
+        onDismissRequest = { onEvent(SettingsEvent.DeleteAllDataCancelled) },
+        title = { Text(stringResource(R.string.settings_delete_second_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(dims.md)) {
+                Text(stringResource(R.string.settings_delete_second_body))
+                OutlinedTextField(
+                    value = deleteConfirmText,
+                    onValueChange = { onEvent(SettingsEvent.DeleteConfirmTextChanged(it)) },
+                    label = { Text(stringResource(R.string.settings_delete_second_field_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onEvent(SettingsEvent.DeleteAllDataConfirmed) },
+                enabled = deleteConfirmText == "DELETE",
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                ),
+            ) {
+                Text(stringResource(R.string.settings_delete_first_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onEvent(SettingsEvent.DeleteAllDataCancelled) }) {
+                Text(stringResource(R.string.settings_delete_first_cancel))
+            }
+        }
+    )
+}
+
+/**
+ * Non-dismissable progress dialog shown while data deletion is in progress.
+ */
+@Composable
+private fun DeleteProgressDialog() {
+    val dims = LocalDimensions.current
+
+    AlertDialog(
+        onDismissRequest = { /* non-dismissable */ },
+        title = { Text(stringResource(R.string.settings_delete_progress_title)) },
+        text = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(dims.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Text(stringResource(R.string.settings_delete_progress_body))
+            }
+        },
+        confirmButton = { /* no buttons — non-dismissable */ }
+    )
 }
 
 /**

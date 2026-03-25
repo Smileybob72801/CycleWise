@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.tracker
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -69,6 +70,8 @@ import kotlinx.datetime.LocalDate
  * @param onDeleteClick     Callback when the user taps the delete button.
  * @param onViewFullLogClick Callback when the user taps the "View Full Log" button.
  */
+// Linear null-guarded InfoCard rows for a single cohesive summary sheet
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun LogSummarySheetContent(
     log: FullDailyLog,
@@ -221,96 +224,32 @@ internal fun LogSummarySheetContent(
             )
         }
 
-        if (log.symptomLogs.isNotEmpty()) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                shape = MaterialTheme.shapes.small
-            ) {
-                Column(modifier = Modifier.padding(dims.sm)) {
-                    Text(
-                        stringResource(R.string.tracker_symptoms_label),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(dims.sm),
-                        modifier = Modifier.padding(top = dims.xs)
-                    ) {
-                        items(log.symptomLogs, key = { it.symptomId }) { symptomLog ->
-                            val symptomInfo = symptomLibrary.find { it.id == symptomLog.symptomId }
-                            if (symptomInfo != null) {
-                                SuggestionChip(
-                                    onClick = {},
-                                    label = { Text(symptomInfo.name) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        ChipRowSection(
+            titleResId = R.string.tracker_symptoms_label,
+            items = log.symptomLogs,
+            key = { it.symptomId },
+            resolveName = { symptomLog ->
+                symptomLibrary.find { it.id == symptomLog.symptomId }?.name
+            },
+        )
 
-        if (log.medicationLogs.isNotEmpty()) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                shape = MaterialTheme.shapes.small
-            ) {
-                Column(modifier = Modifier.padding(dims.sm)) {
-                    Text(
-                        stringResource(R.string.tracker_medications_label),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(dims.sm),
-                        modifier = Modifier.padding(top = dims.xs)
-                    ) {
-                        items(log.medicationLogs, key = { it.medicationId }) { medicationLog ->
-                            val medicationInfo =
-                                medicationLibrary.find { it.id == medicationLog.medicationId }
-                            if (medicationInfo != null) {
-                                SuggestionChip(
-                                    onClick = {},
-                                    label = { Text(medicationInfo.name) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        ChipRowSection(
+            titleResId = R.string.tracker_medications_label,
+            items = log.medicationLogs,
+            key = { it.medicationId },
+            resolveName = { medicationLog ->
+                medicationLibrary.find { it.id == medicationLog.medicationId }?.name
+            },
+        )
 
-        if (log.customTagLogs.isNotEmpty()) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                shape = MaterialTheme.shapes.small
-            ) {
-                Column(modifier = Modifier.padding(dims.sm)) {
-                    Text(
-                        stringResource(R.string.tracker_custom_tags_label),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(dims.sm),
-                        modifier = Modifier.padding(top = dims.xs)
-                    ) {
-                        items(log.customTagLogs, key = { it.tagId }) { tagLog ->
-                            val tagInfo = customTagLibrary.find { it.id == tagLog.tagId }
-                            if (tagInfo != null) {
-                                SuggestionChip(
-                                    onClick = {},
-                                    label = { Text(tagInfo.name) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        ChipRowSection(
+            titleResId = R.string.tracker_custom_tags_label,
+            items = log.customTagLogs,
+            key = { it.tagId },
+            resolveName = { tagLog ->
+                customTagLibrary.find { it.id == tagLog.tagId }?.name
+            },
+        )
 
         FilledTonalButton(
             onClick = { onViewFullLogClick(log.entry.entryDate) },
@@ -320,6 +259,56 @@ internal fun LogSummarySheetContent(
         }
 
         Spacer(Modifier.height(dims.md))
+    }
+}
+
+/**
+ * A card with a titled [LazyRow] of [SuggestionChip]s, used for symptom, medication,
+ * and custom tag summaries in the log sheet.
+ *
+ * @param T           The type of log entry items (e.g. SymptomLog, MedicationLog).
+ * @param titleResId  String resource ID for the section title.
+ * @param items       The log entries to display as chips.
+ * @param key         Key selector for [LazyRow] item identity.
+ * @param resolveName Resolves a display name from a log entry, or `null` if unresolvable.
+ */
+@Composable
+private fun <T> ChipRowSection(
+    @StringRes titleResId: Int,
+    items: List<T>,
+    key: (T) -> Any,
+    resolveName: (T) -> String?,
+) {
+    if (items.isEmpty()) return
+
+    val dims = LocalDimensions.current
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        shape = MaterialTheme.shapes.small
+    ) {
+        Column(modifier = Modifier.padding(dims.sm)) {
+            Text(
+                stringResource(titleResId),
+                style = MaterialTheme.typography.titleMedium
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(dims.sm),
+                modifier = Modifier.padding(top = dims.xs)
+            ) {
+                items(items, key = key) { item ->
+                    val name = resolveName(item)
+                    if (name != null) {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text(name) }
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
