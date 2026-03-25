@@ -1,0 +1,71 @@
+name: 🧹 Chore
+description: Propose a maintenance, cleanup, or tooling task for RhythmWise
+title: "[Chore] Imperative summary of the task (e.g., Fix all detekt lint warnings)"
+labels:
+  - chore
+  - maintenance
+assignees:
+  - SmileyBob72801
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve **RhythmWise**!
+        Please complete the sections below. Items marked **required** must be filled
+        out before you can submit.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What maintenance work needs to be done and why? Explain the motivation (code quality, tooling drift, tech debt, etc.).
+      placeholder: >
+        Describe the task and why it matters for the health of the codebase.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope / Affected Areas
+      description: Which modules, packages, or files are affected?
+      placeholder: |
+        - **Module:** shared, composeApp, or both
+        - **Packages/files:** e.g., `ui/settings/`, `domain/usecases/`, specific files
+        - **Tooling:** e.g., detekt, Android Lint, R8/ProGuard
+    validations:
+      required: true
+
+  - type: textarea
+    id: findings
+    attributes:
+      label: Findings / Details
+      description: Tool output, lint report, or detailed list of items to address. Auto-formatted as a code block.
+      render: shell
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: A checklist of what "done" looks like. Break down by category or module where helpful.
+      placeholder: |
+        - [ ] All detekt warnings resolved or explicitly suppressed with justification
+        - [ ] Full test suite passes
+        - [ ] No new warnings introduced
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional Context
+      description: Anything else — related issues, tooling documentation, prior attempts, etc.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues and confirmed this is not a duplicate.
+          required: true
