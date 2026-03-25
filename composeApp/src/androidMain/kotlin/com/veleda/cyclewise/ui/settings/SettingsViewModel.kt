@@ -243,6 +243,8 @@ data class AboutSettingsState(
  * @param deleteAllDataUseCase The [DeleteAllDataUseCase] for wiping all user data.
  * @param sessionManager       The [SessionManager] for session scope lifecycle operations.
  */
+// Five sub-states with extracted reduce functions — splitting would fragment cohesive settings logic
+@Suppress("LargeClass")
 class SettingsViewModel(
     private val appSettings: AppSettings,
     private val reminderScheduler: ReminderScheduler,

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -92,6 +91,7 @@ fun BackupMetadataPreviewDialog(
  * @param onVerify     Called with the entered passphrase when the user taps "Verify".
  * @param onDismiss    Called when the user cancels.
  */
+@Suppress("LongMethod") // Single cohesive dialog — splitting would scatter related UI logic
 @Composable
 fun BackupPassphraseDialog(
     error: String?,
