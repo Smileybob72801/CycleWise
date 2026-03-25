@@ -350,6 +350,7 @@ internal fun UnlockScreen(
  * Displays the appropriate dialog based on [PassphraseUiState.importStep], reusing
  * the dialog composables from [com.veleda.cyclewise.ui.backup.BackupDialogs].
  */
+@Suppress("LongMethod") // Dispatch-only when block — each branch delegates to an extracted dialog composable
 @Composable
 private fun ImportDialogFlow(
     uiState: PassphraseUiState,

@@ -58,6 +58,7 @@ private const val PAGE_ABOUT = 4
  * [SettingsContent] for testability. Session-specific operations (Lock Now, Debug Seeder)
  * are handled at this level via Koin scope access.
  */
+@Suppress("LongMethod") // DI wiring and effect collection — content is already extracted to SettingsContent
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(navController: NavController) {
@@ -172,6 +173,7 @@ fun SettingsScreen(navController: NavController) {
  *                           Only used in debug builds for the developer seeder button.
  * @param modifier           Modifier applied to the root column.
  */
+@Suppress("LongMethod") // Tab row and pager dispatch — already minimal
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsContent(
