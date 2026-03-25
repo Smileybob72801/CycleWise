@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.settings
 
+import android.net.Uri
 import com.veleda.cyclewise.ui.theme.ThemeMode
 
 /**
@@ -45,6 +46,38 @@ sealed interface SettingsEvent {
 
     /** User acknowledged the passphrase change success dialog and confirmed they saved the new passphrase. */
     data object ChangePassphraseSuccessAcknowledged : SettingsEvent
+
+    // ── Security (page 0) — Backup & Restore ────────────────────────
+
+    /** User tapped "Export Backup" to begin the export flow. */
+    data object ExportBackupClicked : SettingsEvent
+
+    /** SAF returned the URI for the export file. */
+    data class ExportToUri(val uri: Uri) : SettingsEvent
+
+    /** User tapped "Import Backup" to begin the import flow. */
+    data object ImportBackupClicked : SettingsEvent
+
+    /** SAF returned the URI of the selected `.rwbackup` file. */
+    data class ImportFileSelected(val uri: Uri) : SettingsEvent
+
+    /** User confirmed the metadata preview dialog to proceed with import. */
+    data object ImportMetadataConfirmed : SettingsEvent
+
+    /** User submitted the passphrase for the backup. */
+    data class ImportPassphraseEntered(val passphrase: String) : SettingsEvent
+
+    /** User confirmed the first overwrite warning dialog. */
+    data object ImportFirstWarningConfirmed : SettingsEvent
+
+    /** User updated the text in the "type OVERWRITE" confirmation field. */
+    data class ImportConfirmTextChanged(val text: String) : SettingsEvent
+
+    /** User typed "OVERWRITE" and tapped confirm — execute the import. */
+    data object ImportSecondConfirmed : SettingsEvent
+
+    /** User cancelled the import at any step. */
+    data object ImportDismissed : SettingsEvent
 
     // ── Appearance (page 1) — Insights ─────────────────────────────
 

@@ -7,6 +7,8 @@ import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.reminders.ReminderScheduler
+import com.veleda.cyclewise.services.BackupManager
+import com.veleda.cyclewise.ui.backup.ImportStep
 import com.veleda.cyclewise.session.ChangePassphraseResult
 import com.veleda.cyclewise.session.SessionManager
 import com.veleda.cyclewise.settings.AppSettings
@@ -59,6 +61,7 @@ class SettingsViewModelTest {
     private lateinit var mockHintPreferences: HintPreferences
     private lateinit var mockDeleteAllDataUseCase: DeleteAllDataUseCase
     private lateinit var mockSessionManager: SessionManager
+    private lateinit var mockBackupManager: BackupManager
 
     @Before
     fun setUp() {
@@ -70,6 +73,7 @@ class SettingsViewModelTest {
         mockHintPreferences = mockk(relaxed = true)
         mockDeleteAllDataUseCase = mockk(relaxed = true)
         mockSessionManager = mockk(relaxed = true)
+        mockBackupManager = mockk(relaxed = true)
 
         // Configure all AppSettings flows to return defaults.
         every { mockAppSettings.themeMode } returns flowOf("system")
@@ -118,6 +122,7 @@ class SettingsViewModelTest {
             hintPreferences = mockHintPreferences,
             deleteAllDataUseCase = mockDeleteAllDataUseCase,
             sessionManager = mockSessionManager,
+            backupManager = mockBackupManager,
         )
     }
 
@@ -1161,5 +1166,100 @@ class SettingsViewModelTest {
 
         // THEN — reduce hides dialog
         assertFalse(viewModel.aboutState.value.showAboutDialog)
+    }
+
+    // ── Backup & Restore ────────────────────────────────────────────
+
+    @Test
+    fun `onEvent ExportBackupClicked THEN emitsLaunchExportPicker`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — export backup clicked
+        viewModel.effect.test {
+            viewModel.onEvent(SettingsEvent.ExportBackupClicked)
+            advanceUntilIdle()
+
+            // THEN — LaunchExportPicker effect is emitted
+            val effect = awaitItem()
+            assertTrue(effect is SettingsEffect.LaunchExportPicker)
+        }
+    }
+
+    @Test
+    fun `onEvent ImportBackupClicked THEN emitsLaunchImportPicker`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — import backup clicked
+        viewModel.effect.test {
+            viewModel.onEvent(SettingsEvent.ImportBackupClicked)
+            advanceUntilIdle()
+
+            // THEN — LaunchImportPicker effect is emitted
+            assertEquals(SettingsEffect.LaunchImportPicker, awaitItem())
+        }
+    }
+
+    @Test
+    fun `onEvent ImportDismissed THEN resetsImportState`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — import dismissed
+        viewModel.onEvent(SettingsEvent.ImportDismissed)
+
+        // THEN — all import fields are reset to defaults
+        val state = viewModel.securityState.value
+        assertEquals(ImportStep.IDLE, state.importStep)
+        assertNull(state.importMetadata)
+        assertNull(state.importUri)
+        assertNull(state.importPassphraseError)
+        assertEquals("", state.importConfirmText)
+        assertNull(state.importError)
+        assertFalse(state.isVerifyingPassphrase)
+        assertNull(state.importPassphrase)
+    }
+
+    @Test
+    fun `onEvent ImportMetadataConfirmed THEN advancesToPassphraseEntry`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — import metadata confirmed
+        viewModel.onEvent(SettingsEvent.ImportMetadataConfirmed)
+
+        // THEN — importStep advances to PASSPHRASE_ENTRY
+        assertEquals(ImportStep.PASSPHRASE_ENTRY, viewModel.securityState.value.importStep)
+    }
+
+    @Test
+    fun `onEvent ImportFirstWarningConfirmed THEN advancesToSecondConfirm`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — import first warning confirmed
+        viewModel.onEvent(SettingsEvent.ImportFirstWarningConfirmed)
+
+        // THEN — importStep advances to SECOND_CONFIRM
+        assertEquals(ImportStep.SECOND_CONFIRM, viewModel.securityState.value.importStep)
+    }
+
+    @Test
+    fun `onEvent ImportConfirmTextChanged THEN updatesText`() = runTest {
+        // GIVEN — ViewModel with defaults
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — import confirm text changed
+        viewModel.onEvent(SettingsEvent.ImportConfirmTextChanged("OV"))
+
+        // THEN — importConfirmText is updated
+        assertEquals("OV", viewModel.securityState.value.importConfirmText)
     }
 }

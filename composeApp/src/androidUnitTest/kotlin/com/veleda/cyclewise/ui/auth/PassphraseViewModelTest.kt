@@ -1,8 +1,11 @@
 package com.veleda.cyclewise.ui.auth
 
+import app.cash.turbine.test
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import android.util.Log
+import com.veleda.cyclewise.services.BackupManager
 import com.veleda.cyclewise.session.SessionManager
+import com.veleda.cyclewise.ui.backup.ImportStep
 import com.veleda.cyclewise.settings.AppSettings
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -44,12 +47,14 @@ class PassphraseViewModelTest {
 
     private lateinit var mockAppSettings: AppSettings
     private lateinit var mockSessionManager: SessionManager
+    private lateinit var mockBackupManager: BackupManager
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         mockAppSettings = mockk(relaxed = true)
         mockSessionManager = mockk(relaxed = true)
+        mockBackupManager = mockk(relaxed = true)
 
         // Mock android.util.Log which throws RuntimeException("Stub!") in
         // plain JUnit tests. The unlock() catch block calls Log.e().
@@ -66,6 +71,7 @@ class PassphraseViewModelTest {
         return PassphraseViewModel(
             appSettings = mockAppSettings,
             sessionManager = mockSessionManager,
+            backupManager = mockBackupManager,
         )
     }
 
@@ -278,5 +284,46 @@ class PassphraseViewModelTest {
         assertNull(state.passphraseError)
         assertNull(state.confirmationError)
         coVerify(exactly = 1) { mockSessionManager.openSession("validpassphrase") }
+    }
+
+    // ── Backup Import ────────────────────────────────────────────────
+
+    @Test
+    fun `onEvent ImportBackupClicked THEN emitsLaunchImportPicker`() = runTest {
+        // GIVEN — returning user
+        every { mockAppSettings.isPrepopulated } returns flowOf(true)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — import backup clicked
+        viewModel.effect.test {
+            viewModel.onEvent(PassphraseEvent.ImportBackupClicked)
+            advanceUntilIdle()
+
+            // THEN — LaunchImportPicker effect is emitted
+            assertEquals(PassphraseEffect.LaunchImportPicker, awaitItem())
+        }
+    }
+
+    @Test
+    fun `onEvent ImportDismissed THEN resetsImportState`() = runTest {
+        // GIVEN — returning user
+        every { mockAppSettings.isPrepopulated } returns flowOf(true)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — import dismissed
+        viewModel.onEvent(PassphraseEvent.ImportDismissed)
+
+        // THEN — all import fields are reset to defaults
+        val state = viewModel.uiState.value
+        assertEquals(ImportStep.IDLE, state.importStep)
+        assertNull(state.importMetadata)
+        assertNull(state.importUri)
+        assertNull(state.importPassphraseError)
+        assertEquals("", state.importConfirmText)
+        assertNull(state.importError)
+        assertFalse(state.isVerifyingPassphrase)
+        assertNull(state.importPassphrase)
     }
 }

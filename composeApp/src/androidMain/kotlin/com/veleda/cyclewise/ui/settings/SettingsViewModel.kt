@@ -1,15 +1,21 @@
 package com.veleda.cyclewise.ui.settings
 
+import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.veleda.cyclewise.domain.models.BackupMetadata
 import com.veleda.cyclewise.domain.models.EducationalArticle
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.usecases.DeleteAllDataUseCase
 import com.veleda.cyclewise.reminders.ReminderScheduler
+import com.veleda.cyclewise.services.BackupException
+import com.veleda.cyclewise.services.BackupManager
 import com.veleda.cyclewise.session.ChangePassphraseResult
 import com.veleda.cyclewise.session.SessionManager
 import com.veleda.cyclewise.settings.AppSettings
 import com.veleda.cyclewise.ui.auth.MIN_PASSPHRASE_LENGTH
+import com.veleda.cyclewise.ui.backup.ImportStep
 import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.theme.ThemeMode
 import com.veleda.cyclewise.ui.tracker.CyclePhaseColors
@@ -39,6 +45,18 @@ sealed interface SettingsEffect {
 
     /** The passphrase was changed successfully; the UI should show a confirmation toast. */
     data object PassphraseChanged : SettingsEffect
+
+    /** Launch the SAF file picker for creating a backup file. */
+    data class LaunchExportPicker(val suggestedName: String) : SettingsEffect
+
+    /** Launch the SAF file picker for selecting a `.rwbackup` file to import. */
+    data object LaunchImportPicker : SettingsEffect
+
+    /** Backup was exported successfully; show a success message. */
+    data object ExportSuccess : SettingsEffect
+
+    /** Backup was imported successfully; navigate to passphrase screen for re-login. */
+    data object BackupImported : SettingsEffect
 }
 
 /**
@@ -57,6 +75,17 @@ sealed interface SettingsEffect {
  * @property showDeleteSecondConfirmation Whether the second "type DELETE" confirmation dialog is visible.
  * @property deleteConfirmText            Current text in the second dialog's confirmation field.
  * @property isDeletingData               Whether a data wipe is currently in progress.
+ * @property isExporting                  Whether a backup export is in progress.
+ * @property exportError                  Error message from the last export attempt, or `null`.
+ * @property importStep                   Current step in the multi-dialog import flow.
+ * @property importMetadata               Parsed metadata from the selected backup archive.
+ * @property importUri                    SAF URI of the selected backup file.
+ * @property importPassphraseError        Inline error for the backup passphrase dialog.
+ * @property importConfirmText            Current text in the "type OVERWRITE" confirmation field.
+ * @property importError                  Error message from the import flow, or `null`.
+ * @property isVerifyingPassphrase        Whether passphrase verification is in progress.
+ * @property importPassphrase             The verified passphrase for the import (stored transiently
+ *                                        during the confirmation flow, cleared after import).
  */
 data class SecuritySettingsState(
     val autolockMinutes: Int = 10,
@@ -68,6 +97,16 @@ data class SecuritySettingsState(
     val showDeleteSecondConfirmation: Boolean = false,
     val deleteConfirmText: String = "",
     val isDeletingData: Boolean = false,
+    val isExporting: Boolean = false,
+    val exportError: String? = null,
+    val importStep: ImportStep = ImportStep.IDLE,
+    val importMetadata: BackupMetadata? = null,
+    val importUri: Uri? = null,
+    val importPassphraseError: String? = null,
+    val importConfirmText: String = "",
+    val importError: String? = null,
+    val isVerifyingPassphrase: Boolean = false,
+    val importPassphrase: String? = null,
 )
 
 /**
@@ -211,6 +250,7 @@ class SettingsViewModel(
     private val hintPreferences: HintPreferences,
     private val deleteAllDataUseCase: DeleteAllDataUseCase,
     private val sessionManager: SessionManager,
+    private val backupManager: BackupManager,
 ) : ViewModel() {
 
     private val _securityState = MutableStateFlow(SecuritySettingsState())
@@ -395,7 +435,17 @@ class SettingsViewModel(
             is SettingsEvent.DeleteAllDataCancelled,
             is SettingsEvent.DeleteAllDataFirstConfirmed,
             is SettingsEvent.DeleteConfirmTextChanged,
-            is SettingsEvent.DeleteAllDataConfirmed ->
+            is SettingsEvent.DeleteAllDataConfirmed,
+            is SettingsEvent.ExportBackupClicked,
+            is SettingsEvent.ExportToUri,
+            is SettingsEvent.ImportBackupClicked,
+            is SettingsEvent.ImportFileSelected,
+            is SettingsEvent.ImportMetadataConfirmed,
+            is SettingsEvent.ImportPassphraseEntered,
+            is SettingsEvent.ImportFirstWarningConfirmed,
+            is SettingsEvent.ImportConfirmTextChanged,
+            is SettingsEvent.ImportSecondConfirmed,
+            is SettingsEvent.ImportDismissed ->
                 _securityState.update { reduceSecurity(it, event) }
 
             // ── Appearance state events ──────────────────────────────
@@ -627,6 +677,26 @@ class SettingsViewModel(
             is SettingsEvent.HydrationEndHourChanged ->
                 viewModelScope.launch { appSettings.setReminderHydrationEndHour(event.hour) }
 
+            is SettingsEvent.ExportBackupClicked -> {
+                viewModelScope.launch {
+                    _effect.emit(
+                        SettingsEffect.LaunchExportPicker(BackupManager.suggestedFilename()),
+                    )
+                }
+            }
+
+            is SettingsEvent.ExportToUri -> launchExport(event.uri)
+
+            is SettingsEvent.ImportBackupClicked -> {
+                viewModelScope.launch { _effect.emit(SettingsEffect.LaunchImportPicker) }
+            }
+
+            is SettingsEvent.ImportFileSelected -> launchValidateBackup(event.uri)
+
+            is SettingsEvent.ImportPassphraseEntered -> launchVerifyPassphrase(event.passphrase)
+
+            is SettingsEvent.ImportSecondConfirmed -> launchImport()
+
             // State-only events — no side effects needed.
             is SettingsEvent.ChangePassphraseRequested,
             is SettingsEvent.ChangePassphraseDismissed,
@@ -644,7 +714,11 @@ class SettingsViewModel(
             is SettingsEvent.ShowPermissionRationale,
             is SettingsEvent.DismissPermissionRationale,
             is SettingsEvent.ShowAboutDialog,
-            is SettingsEvent.DismissAboutDialog -> { /* state-only */ }
+            is SettingsEvent.DismissAboutDialog,
+            is SettingsEvent.ImportMetadataConfirmed,
+            is SettingsEvent.ImportFirstWarningConfirmed,
+            is SettingsEvent.ImportConfirmTextChanged,
+            is SettingsEvent.ImportDismissed -> { /* state-only */ }
         }
     }
 
@@ -713,6 +787,40 @@ class SettingsViewModel(
                     deleteConfirmText = "",
                     isDeletingData = true,
                 )
+
+            // ── Backup & Restore ────────────────────────────────────────
+
+            is SettingsEvent.ExportBackupClicked -> state // effect-only
+            is SettingsEvent.ExportToUri -> state.copy(isExporting = true, exportError = null)
+
+            is SettingsEvent.ImportBackupClicked -> state // effect-only
+            is SettingsEvent.ImportFileSelected -> state // side effect validates
+
+            is SettingsEvent.ImportMetadataConfirmed ->
+                state.copy(importStep = ImportStep.PASSPHRASE_ENTRY, importPassphraseError = null)
+
+            is SettingsEvent.ImportPassphraseEntered ->
+                state.copy(isVerifyingPassphrase = true, importPassphraseError = null)
+
+            is SettingsEvent.ImportFirstWarningConfirmed ->
+                state.copy(importStep = ImportStep.SECOND_CONFIRM, importConfirmText = "")
+
+            is SettingsEvent.ImportConfirmTextChanged ->
+                state.copy(importConfirmText = event.text)
+
+            is SettingsEvent.ImportSecondConfirmed ->
+                state.copy(importStep = ImportStep.IMPORTING, importConfirmText = "")
+
+            is SettingsEvent.ImportDismissed -> state.copy(
+                importStep = ImportStep.IDLE,
+                importMetadata = null,
+                importUri = null,
+                importPassphraseError = null,
+                importConfirmText = "",
+                importError = null,
+                isVerifyingPassphrase = false,
+                importPassphrase = null,
+            )
 
             else -> state
         }
@@ -938,6 +1046,130 @@ class SettingsViewModel(
                         isChangingPassphrase = false,
                         changePassphraseError = null,
                         showPassphraseSuccessDialog = true,
+                    )
+                }
+            }
+        }
+    }
+
+    // ── Backup & Restore side effects ───────────────────────────────
+
+    /**
+     * Exports the encrypted database to the SAF URI.
+     *
+     * Gets the open database from [SessionManager], runs WAL checkpoint and
+     * ZIP creation via [BackupManager], then emits [SettingsEffect.ExportSuccess]
+     * or updates state with the error.
+     */
+    private fun launchExport(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val db = sessionManager.getOpenDatabase()
+                    ?: throw BackupException.IoError("No active session")
+                backupManager.exportBackup(uri, db)
+                _securityState.update { it.copy(isExporting = false) }
+                _effect.emit(SettingsEffect.ExportSuccess)
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                Log.e("SettingsVM", "Export failed", e)
+                _securityState.update {
+                    it.copy(isExporting = false, exportError = e.message)
+                }
+            }
+        }
+    }
+
+    /**
+     * Validates the selected backup file and shows the metadata preview dialog.
+     */
+    private fun launchValidateBackup(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val metadata = backupManager.validateBackup(uri)
+                _securityState.update {
+                    it.copy(
+                        importStep = ImportStep.METADATA_PREVIEW,
+                        importMetadata = metadata,
+                        importUri = uri,
+                        importError = null,
+                    )
+                }
+            } catch (e: BackupException.SchemaVersionTooNew) {
+                _securityState.update {
+                    it.copy(importError = "schema_too_new:${e.backup}:${e.current}")
+                }
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                Log.e("SettingsVM", "Backup validation failed", e)
+                _securityState.update { it.copy(importError = e.message) }
+            }
+        }
+    }
+
+    /**
+     * Verifies the passphrase against the imported backup's database.
+     *
+     * On success, advances to the first overwrite warning step.
+     * On failure, shows an inline error on the passphrase dialog.
+     */
+    private fun launchVerifyPassphrase(passphrase: String) {
+        viewModelScope.launch {
+            val uri = _securityState.value.importUri ?: return@launch
+            try {
+                backupManager.verifyPassphrase(uri, passphrase)
+                _securityState.update {
+                    it.copy(
+                        importStep = ImportStep.FIRST_WARNING,
+                        isVerifyingPassphrase = false,
+                        importPassphraseError = null,
+                        importPassphrase = passphrase,
+                    )
+                }
+            } catch (e: BackupException.WrongPassphrase) {
+                _securityState.update {
+                    it.copy(
+                        isVerifyingPassphrase = false,
+                        importPassphraseError = "wrong_passphrase",
+                    )
+                }
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                Log.e("SettingsVM", "Passphrase verification failed", e)
+                _securityState.update {
+                    it.copy(
+                        isVerifyingPassphrase = false,
+                        importPassphraseError = e.message,
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Executes the import: closes the session, replaces the database and salt,
+     * and emits [SettingsEffect.BackupImported] to navigate to the passphrase screen.
+     */
+    private fun launchImport() {
+        viewModelScope.launch {
+            val uri = _securityState.value.importUri ?: return@launch
+            try {
+                withContext(Dispatchers.IO) {
+                    sessionManager.closeSession()
+                    backupManager.importBackup(uri)
+                }
+                _securityState.update {
+                    it.copy(
+                        importStep = ImportStep.IDLE,
+                        importMetadata = null,
+                        importUri = null,
+                        importPassphrase = null,
+                    )
+                }
+                _effect.emit(SettingsEffect.BackupImported)
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                Log.e("SettingsVM", "Import failed", e)
+                _securityState.update {
+                    it.copy(
+                        importStep = ImportStep.IDLE,
+                        importError = e.message,
+                        importPassphrase = null,
                     )
                 }
             }

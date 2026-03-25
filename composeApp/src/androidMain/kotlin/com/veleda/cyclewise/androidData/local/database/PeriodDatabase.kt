@@ -180,6 +180,14 @@ abstract class PeriodDatabase : RoomDatabase() {
 
     companion object {
         /**
+         * Current Room schema version — must stay in sync with [Database.version] above.
+         *
+         * Exposed as a constant so that [BackupManager] can embed it in the backup
+         * metadata and check imported backups without reflection.
+         */
+        const val SCHEMA_VERSION = 13
+
+        /**
          * Creates (or opens) the encrypted database backed by SQLCipher.
          *
          * ## Security: SupportFactory reference semantics

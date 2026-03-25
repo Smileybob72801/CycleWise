@@ -39,6 +39,29 @@ class SaltStorage(context: Context) {
         return salt
     }
 
+    /**
+     * Replaces the persisted salt with [salt], which must be exactly [SALT_SIZE] bytes.
+     *
+     * Used during backup import to restore the salt that was active when the database
+     * was exported. After calling this, subsequent [getOrCreateSalt] calls will return
+     * the imported salt instead of generating a new one.
+     *
+     * @throws IllegalArgumentException if [salt] is not exactly [SALT_SIZE] bytes.
+     */
+    fun setSalt(salt: ByteArray) {
+        require(salt.size == SALT_SIZE) { "Salt must be $SALT_SIZE bytes, got ${salt.size}" }
+        val encoded = Base64.encodeToString(salt, Base64.NO_WRAP)
+        prefs.edit { putString(SALT_KEY, encoded) }
+    }
+
+    /**
+     * Returns the Base64-encoded salt string, or `null` if no salt has been persisted.
+     *
+     * Used by [BackupManager] to include the raw salt in backup archives without
+     * decoding and re-encoding.
+     */
+    fun getSaltBase64(): String? = prefs.getString(SALT_KEY, null)
+
     /** Removes the persisted salt, forcing a new one to be generated on the next unlock. */
     fun clear() {
         prefs.edit().clear().apply()

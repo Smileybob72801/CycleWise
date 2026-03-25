@@ -11,6 +11,7 @@ import org.koin.core.module.dsl.*
 import org.koin.dsl.module
 import org.koin.android.ext.koin.androidContext
 import com.veleda.cyclewise.domain.services.PassphraseService
+import com.veleda.cyclewise.services.BackupManager
 import com.veleda.cyclewise.services.PassphraseServiceAndroid
 import com.veleda.cyclewise.androidData.local.database.PeriodDatabase
 import com.veleda.cyclewise.androidData.local.database.rekeyRaw
@@ -244,9 +245,17 @@ val appModule = module {
 
     single { SessionManager(appSettings = get(), lockedWaterDraft = get()) }
 
+    single { BackupManager(context = androidContext(), saltStorage = get()) }
+
     viewModel { WaterTrackerViewModel(lockedWaterDraft = get()) }
 
-    viewModel { PassphraseViewModel(appSettings = get(), sessionManager = get()) }
+    viewModel {
+        PassphraseViewModel(
+            appSettings = get(),
+            sessionManager = get(),
+            backupManager = get(),
+        )
+    }
 
     viewModel {
         SettingsViewModel(
@@ -256,6 +265,7 @@ val appModule = module {
             hintPreferences = get(),
             deleteAllDataUseCase = get(),
             sessionManager = get(),
+            backupManager = get(),
         )
     }
 

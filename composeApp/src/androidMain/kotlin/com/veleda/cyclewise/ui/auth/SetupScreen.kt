@@ -456,5 +456,19 @@ private fun CreatePassphrasePage(
         ) {
             Text(stringResource(R.string.setup_create_button))
         }
+
+        Spacer(Modifier.height(dims.md))
+
+        // Import backup link
+        TextButton(
+            onClick = { onEvent(PassphraseEvent.ImportBackupClicked) },
+            modifier = Modifier.testTag("setup-import-button"),
+        ) {
+            Text(
+                stringResource(R.string.setup_import_instead),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }

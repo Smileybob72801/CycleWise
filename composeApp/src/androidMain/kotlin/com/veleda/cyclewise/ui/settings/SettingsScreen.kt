@@ -2,6 +2,8 @@ package com.veleda.cyclewise.ui.settings
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -69,6 +71,22 @@ fun SettingsScreen(navController: NavController) {
     val aboutState by viewModel.aboutState.collectAsState()
     val context = LocalContext.current
     val passphraseChangedMessage = stringResource(R.string.settings_change_passphrase_success)
+    val exportSuccessMessage = stringResource(R.string.settings_export_success)
+    val importSuccessMessage = stringResource(R.string.backup_import_success)
+
+    // SAF launcher for export (create a new file)
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        uri?.let { viewModel.onEvent(SettingsEvent.ExportToUri(it)) }
+    }
+
+    // SAF launcher for import (open an existing file)
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri?.let { viewModel.onEvent(SettingsEvent.ImportFileSelected(it)) }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -81,6 +99,25 @@ fun SettingsScreen(navController: NavController) {
 
                 is SettingsEffect.PassphraseChanged -> {
                     Toast.makeText(context, passphraseChangedMessage, Toast.LENGTH_SHORT).show()
+                    navController.navigate(NavRoute.Passphrase.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+
+                is SettingsEffect.LaunchExportPicker -> {
+                    exportLauncher.launch(effect.suggestedName)
+                }
+
+                is SettingsEffect.LaunchImportPicker -> {
+                    importLauncher.launch(arrayOf("*/*"))
+                }
+
+                is SettingsEffect.ExportSuccess -> {
+                    Toast.makeText(context, exportSuccessMessage, Toast.LENGTH_SHORT).show()
+                }
+
+                is SettingsEffect.BackupImported -> {
+                    Toast.makeText(context, importSuccessMessage, Toast.LENGTH_LONG).show()
                     navController.navigate(NavRoute.Passphrase.route) {
                         popUpTo(0) { inclusive = true }
                     }
@@ -146,6 +183,8 @@ internal fun SettingsContent(
     onEvent: (SettingsEvent) -> Unit,
     isSessionActive: Boolean,
     onLockNow: () -> Unit,
+    onExportClicked: () -> Unit = { onEvent(SettingsEvent.ExportBackupClicked) },
+    onImportClicked: () -> Unit = { onEvent(SettingsEvent.ImportBackupClicked) },
     onSeedDebugData: (() -> DebugSeederUseCase?)? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -199,7 +238,14 @@ internal fun SettingsContent(
                 modifier = Modifier.fillMaxSize(),
             ) { page ->
                 when (page) {
-                    PAGE_SECURITY -> SecurityPage(securityState, onEvent, isSessionActive, onLockNow)
+                    PAGE_SECURITY -> SecurityPage(
+                        securityState,
+                        onEvent,
+                        isSessionActive,
+                        onLockNow,
+                        onExportClicked,
+                        onImportClicked,
+                    )
                     PAGE_APPEARANCE -> AppearancePage(appearanceState, onEvent)
                     PAGE_COLORS -> ColorsPage(colorsState, onEvent)
                     PAGE_NOTIFICATIONS -> NotificationsPage(notificationState, onEvent)
