@@ -4,12 +4,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import com.veleda.cyclewise.RobolectricTestApp
@@ -46,6 +48,7 @@ class MedicationsPageTest {
         onToggleMedication: (Medication) -> Unit = {},
         onCreateAndAddMedication: (String) -> Unit = {},
         onShowEducationalSheet: (String) -> Unit = {},
+        onDone: () -> Unit = {},
         medicationForContextMenu: Medication? = null,
         medicationRenaming: Medication? = null,
         medicationToDelete: Medication? = null,
@@ -67,6 +70,7 @@ class MedicationsPageTest {
                         onToggleMedication = onToggleMedication,
                         onCreateAndAddMedication = onCreateAndAddMedication,
                         onShowEducationalSheet = onShowEducationalSheet,
+                        onDone = onDone,
                         medicationForContextMenu = medicationForContextMenu,
                         medicationRenaming = medicationRenaming,
                         medicationToDelete = medicationToDelete,
@@ -201,6 +205,22 @@ class MedicationsPageTest {
 
     // endregion
 
+    // region Help button
+
+    @Test
+    fun helpButton_WHEN_rendered_THEN_isDisplayed() {
+        // Given / When
+        setContent()
+
+        // Then — SectionCard help CD is "Usage help for Medications"
+        composeTestRule.onAllNodes(
+            hasContentDescription("Usage help for Medications"),
+            useUnmergedTree = true,
+        )[0].assertIsDisplayed()
+    }
+
+    // endregion
+
     // region Long-press / Context menu
 
     @Test
@@ -279,6 +299,25 @@ class MedicationsPageTest {
         composeTestRule.onNodeWithText("Delete Medication").assertIsDisplayed()
         composeTestRule.onNodeWithText("no logged entries", substring = true, ignoreCase = true)
             .assertIsDisplayed()
+    }
+
+    // endregion
+
+    // region Done button
+
+    @Test
+    fun doneButton_WHEN_tapped_THEN_invokesCallback() {
+        // Given
+        var invoked = false
+        setContent(onDone = { invoked = true })
+
+        // When
+        composeTestRule.onNodeWithText("Done")
+            .performScrollTo()
+            .performClick()
+
+        // Then
+        assert(invoked) { "onDone was not invoked" }
     }
 
     // endregion

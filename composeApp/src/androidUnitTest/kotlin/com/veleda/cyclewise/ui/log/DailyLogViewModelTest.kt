@@ -9,17 +9,27 @@ import com.veleda.cyclewise.domain.models.PeriodLog
 import com.veleda.cyclewise.domain.models.Period
 import com.veleda.cyclewise.domain.models.ArticleCategory
 import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.domain.models.CustomTag
+import com.veleda.cyclewise.domain.models.CustomTagLog
+import com.veleda.cyclewise.domain.providers.CustomTagLibraryProvider
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.domain.usecases.DeleteCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteSymptomUseCase
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
+import com.veleda.cyclewise.domain.usecases.RenameCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.RenameResult
 import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
+import com.veleda.cyclewise.ui.coachmark.HintKey
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.testutil.TestData
+import com.veleda.cyclewise.testutil.buildCustomTag
+import com.veleda.cyclewise.testutil.buildCustomTagLog
+import com.veleda.cyclewise.testutil.buildFullDailyLog
 import com.veleda.cyclewise.testutil.buildMedication
 import com.veleda.cyclewise.testutil.buildMedicationLog
 import com.veleda.cyclewise.testutil.buildPeriodLog
@@ -70,6 +80,10 @@ class DailyLogViewModelTest {
     private lateinit var mockDeleteSymptomUseCase: DeleteSymptomUseCase
     private lateinit var mockRenameMedicationUseCase: RenameMedicationUseCase
     private lateinit var mockDeleteMedicationUseCase: DeleteMedicationUseCase
+    private lateinit var mockCustomTagLibraryProvider: CustomTagLibraryProvider
+    private lateinit var mockRenameCustomTagUseCase: RenameCustomTagUseCase
+    private lateinit var mockDeleteCustomTagUseCase: DeleteCustomTagUseCase
+    private lateinit var mockHintPreferences: HintPreferences
 
     private val testDate = TestData.DATE
     private val testInstant = TestData.INSTANT
@@ -98,6 +112,13 @@ class DailyLogViewModelTest {
         mockDeleteSymptomUseCase = mockk(relaxed = true)
         mockRenameMedicationUseCase = mockk(relaxed = true)
         mockDeleteMedicationUseCase = mockk(relaxed = true)
+        mockCustomTagLibraryProvider = mockk {
+            every { customTags } returns flowOf(emptyList())
+        }
+        mockRenameCustomTagUseCase = mockk(relaxed = true)
+        mockDeleteCustomTagUseCase = mockk(relaxed = true)
+        mockHintPreferences = mockk(relaxed = true)
+        every { mockHintPreferences.isHintSeen(any()) } returns flowOf(false)
 
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
@@ -119,11 +140,15 @@ class DailyLogViewModelTest {
             getOrCreateDailyLog = mockGetOrCreateDailyLog,
             symptomLibraryProvider = mockSymptomProvider,
             medicationLibraryProvider = mockMedicationProvider,
+            customTagLibraryProvider = mockCustomTagLibraryProvider,
             educationalContentProvider = mockEducationalContentProvider,
             renameSymptomUseCase = mockRenameSymptomUseCase,
             deleteSymptomUseCase = mockDeleteSymptomUseCase,
             renameMedicationUseCase = mockRenameMedicationUseCase,
             deleteMedicationUseCase = mockDeleteMedicationUseCase,
+            renameCustomTagUseCase = mockRenameCustomTagUseCase,
+            deleteCustomTagUseCase = mockDeleteCustomTagUseCase,
+            hintPreferences = mockHintPreferences,
         )
     }
 
@@ -340,6 +365,74 @@ class DailyLogViewModelTest {
 
         // THEN — saveFullLog is called (auto-save)
         coVerify(atLeast = 1) { mockRepository.saveFullLog(any()) }
+    }
+
+    @Test
+    fun `onEvent MoodScoreChanged null THEN setsScoreToNull`() = runTest {
+        // GIVEN — ViewModel with a loaded log that has a mood score
+        val vm = createViewModel()
+        advanceUntilIdle()
+        vm.onEvent(DailyLogEvent.MoodScoreChanged(score = 4))
+        advanceUntilIdle()
+        assertEquals(4, vm.uiState.value.log?.entry?.moodScore)
+
+        // WHEN — mood is deselected
+        vm.onEvent(DailyLogEvent.MoodScoreChanged(score = null))
+        advanceUntilIdle()
+
+        // THEN — mood score is null
+        assertNull(vm.uiState.value.log?.entry?.moodScore)
+    }
+
+    @Test
+    fun `onEvent EnergyLevelChanged null THEN setsLevelToNull`() = runTest {
+        // GIVEN
+        val vm = createViewModel()
+        advanceUntilIdle()
+        vm.onEvent(DailyLogEvent.EnergyLevelChanged(level = 3))
+        advanceUntilIdle()
+        assertEquals(3, vm.uiState.value.log?.entry?.energyLevel)
+
+        // WHEN — energy is deselected
+        vm.onEvent(DailyLogEvent.EnergyLevelChanged(level = null))
+        advanceUntilIdle()
+
+        // THEN
+        assertNull(vm.uiState.value.log?.entry?.energyLevel)
+    }
+
+    @Test
+    fun `onEvent LibidoScoreChanged null THEN setsScoreToNull`() = runTest {
+        // GIVEN
+        val vm = createViewModel()
+        advanceUntilIdle()
+        vm.onEvent(DailyLogEvent.LibidoScoreChanged(score = 2))
+        advanceUntilIdle()
+        assertEquals(2, vm.uiState.value.log?.entry?.libidoScore)
+
+        // WHEN — libido is deselected
+        vm.onEvent(DailyLogEvent.LibidoScoreChanged(score = null))
+        advanceUntilIdle()
+
+        // THEN
+        assertNull(vm.uiState.value.log?.entry?.libidoScore)
+    }
+
+    @Test
+    fun `onEvent MoodScoreChanged null THEN autoSavesLog`() = runTest {
+        // GIVEN — ViewModel with a loaded log that has other data (energy set)
+        val vm = createViewModel()
+        advanceUntilIdle()
+        assertNotNull(vm.uiState.value.log)
+        vm.onEvent(DailyLogEvent.EnergyLevelChanged(level = 3))
+        advanceUntilIdle()
+
+        // WHEN — mood is deselected (log is non-empty because energy is set)
+        vm.onEvent(DailyLogEvent.MoodScoreChanged(score = null))
+        advanceUntilIdle()
+
+        // THEN — saveFullLog is called (auto-save persists null)
+        coVerify(atLeast = 2) { mockRepository.saveFullLog(any()) }
     }
 
     @Test
@@ -668,6 +761,151 @@ class DailyLogViewModelTest {
         assertEquals(0, vm.uiState.value.log!!.medicationLogs.size, "deleted medication logs should be filtered out")
     }
 
+    // ── Custom Tag Library Edit/Delete tests ────────────────────────────
+
+    @Test
+    fun `onEvent CustomTagToggled WHEN tagNotLogged THEN addsLogEntry`() = runTest {
+        // GIVEN — ViewModel initialized with a default log (no custom tag logs)
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user toggles a custom tag that is not yet logged
+        vm.onEvent(DailyLogEvent.CustomTagToggled(tag))
+        advanceUntilIdle()
+
+        // THEN — customTagLogs contains the new entry
+        assertEquals(1, vm.uiState.value.log!!.customTagLogs.size)
+        assertEquals("t1", vm.uiState.value.log!!.customTagLogs.first().tagId)
+    }
+
+    @Test
+    fun `onEvent CustomTagToggled WHEN tagAlreadyLogged THEN removesLogEntry`() = runTest {
+        // GIVEN — ViewModel initialized with a log containing a custom tag log
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        val tagLog = buildCustomTagLog(tagId = "t1", entryId = "entry-1")
+        coEvery { mockGetOrCreateDailyLog(any()) } returns buildFullDailyLog(customTagLogs = listOf(tagLog))
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user toggles the same custom tag
+        vm.onEvent(DailyLogEvent.CustomTagToggled(tag))
+        advanceUntilIdle()
+
+        // THEN — customTagLogs is empty (tag was removed)
+        assertEquals(0, vm.uiState.value.log!!.customTagLogs.size)
+    }
+
+    @Test
+    fun `onEvent CustomTagLongPressed THEN setsContextMenu`() = runTest {
+        // GIVEN — ViewModel initialized
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user long-presses a custom tag
+        vm.onEvent(DailyLogEvent.CustomTagLongPressed(tag))
+        advanceUntilIdle()
+
+        // THEN — customTagForContextMenu is set
+        assertEquals(tag, vm.uiState.value.customTagForContextMenu)
+    }
+
+    @Test
+    fun `onEvent RenameCustomTagConfirmed WHEN success THEN clearsRenaming`() = runTest {
+        // GIVEN — rename use case returns success
+        coEvery { mockRenameCustomTagUseCase(any(), any(), any()) } returns RenameResult.Success
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        vm.onEvent(DailyLogEvent.RenameCustomTagClicked(tag))
+        advanceUntilIdle()
+
+        // WHEN — user confirms rename
+        vm.onEvent(DailyLogEvent.RenameCustomTagConfirmed("t1", "Workout"))
+        advanceUntilIdle()
+
+        // THEN — renaming state and error are cleared
+        assertNull(vm.uiState.value.customTagRenaming)
+        assertNull(vm.uiState.value.renameError)
+    }
+
+    @Test
+    fun `onEvent RenameCustomTagConfirmed WHEN nameExists THEN setsRenameError`() = runTest {
+        // GIVEN — rename use case returns name already exists
+        coEvery { mockRenameCustomTagUseCase(any(), any(), any()) } returns RenameResult.NameAlreadyExists
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        vm.onEvent(DailyLogEvent.RenameCustomTagClicked(tag))
+        advanceUntilIdle()
+
+        // WHEN — user confirms rename with a duplicate name
+        vm.onEvent(DailyLogEvent.RenameCustomTagConfirmed("t1", "Workout"))
+        advanceUntilIdle()
+
+        // THEN — rename error is set
+        assertNotNull(vm.uiState.value.renameError)
+    }
+
+    @Test
+    fun `onEvent DeleteCustomTagClicked THEN fetchesCountAndSetsState`() = runTest {
+        // GIVEN — delete use case returns a log count
+        coEvery { mockDeleteCustomTagUseCase.getLogCount("t1") } returns 3
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+
+        // WHEN — user clicks delete on a custom tag
+        vm.onEvent(DailyLogEvent.DeleteCustomTagClicked(tag))
+        advanceUntilIdle()
+
+        // THEN — customTagToDelete and log count are set
+        assertEquals(tag, vm.uiState.value.customTagToDelete)
+        assertEquals(3, vm.uiState.value.customTagDeleteLogCount)
+    }
+
+    @Test
+    fun `onEvent DeleteCustomTagConfirmed THEN deletesAndClearsState`() = runTest {
+        // GIVEN — ViewModel initialized with a log containing a custom tag log
+        val tagLog = buildCustomTagLog(tagId = "t1", entryId = "entry-1")
+        coEvery { mockGetOrCreateDailyLog(any()) } returns buildFullDailyLog(customTagLogs = listOf(tagLog))
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN — user confirms deletion
+        vm.onEvent(DailyLogEvent.DeleteCustomTagConfirmed("t1"))
+        advanceUntilIdle()
+
+        // THEN — delete use case is called, state is cleared, and logs are filtered
+        coVerify(exactly = 1) { mockDeleteCustomTagUseCase("t1") }
+        assertNull(vm.uiState.value.customTagToDelete)
+        assertEquals(0, vm.uiState.value.log!!.customTagLogs.size)
+    }
+
+    @Test
+    fun `onEvent CustomTagEditDismissed THEN clearsAllDialogState`() = runTest {
+        // GIVEN — ViewModel with a context menu showing for a custom tag
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        val tag = buildCustomTag(id = "t1", name = "Exercise")
+        vm.onEvent(DailyLogEvent.CustomTagLongPressed(tag))
+        advanceUntilIdle()
+
+        // WHEN — user dismisses the edit dialog
+        vm.onEvent(DailyLogEvent.CustomTagEditDismissed)
+        advanceUntilIdle()
+
+        // THEN — all custom tag dialog state is cleared
+        assertNull(vm.uiState.value.customTagForContextMenu)
+        assertNull(vm.uiState.value.customTagRenaming)
+        assertNull(vm.uiState.value.customTagToDelete)
+    }
+
     // ── Unmark Period Confirmation tests ─────────────────────────────
 
     @Test
@@ -810,5 +1048,98 @@ class DailyLogViewModelTest {
         assertFalse(vm.uiState.value.showUnmarkPeriodConfirmation)
         assertNotNull(vm.uiState.value.log!!.periodLog, "periodLog should be preserved after dismissal")
         coVerify(exactly = 0) { mockRepository.unLogPeriodDay(any()) }
+    }
+
+    // ── Wellness prompt hint tests ────────────────────────────────────
+
+    @Test
+    fun `init WHEN wellnessPromptNotSeen THEN showWellnessPromptTrue`() = runTest {
+        // GIVEN — hint has NOT been seen
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(false)
+
+        // WHEN
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // THEN
+        assertTrue(vm.uiState.value.showWellnessPrompt)
+    }
+
+    @Test
+    fun `init WHEN wellnessPromptAlreadySeen THEN showWellnessPromptFalse`() = runTest {
+        // GIVEN — hint HAS been seen
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(true)
+
+        // WHEN
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // THEN
+        assertFalse(vm.uiState.value.showWellnessPrompt)
+    }
+
+    @Test
+    fun `onEvent MoodScoreChanged WHEN promptShowing THEN dismissesPromptAndMarksHintSeen`() = runTest {
+        // GIVEN — prompt is showing
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(false)
+        val vm = createViewModel()
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.showWellnessPrompt)
+
+        // WHEN
+        vm.onEvent(DailyLogEvent.MoodScoreChanged(score = 4))
+        advanceUntilIdle()
+
+        // THEN
+        assertFalse(vm.uiState.value.showWellnessPrompt)
+        coVerify(exactly = 1) { mockHintPreferences.markHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) }
+    }
+
+    @Test
+    fun `onEvent EnergyLevelChanged WHEN promptShowing THEN dismissesPrompt`() = runTest {
+        // GIVEN
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(false)
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN
+        vm.onEvent(DailyLogEvent.EnergyLevelChanged(level = 3))
+        advanceUntilIdle()
+
+        // THEN
+        assertFalse(vm.uiState.value.showWellnessPrompt)
+        coVerify(exactly = 1) { mockHintPreferences.markHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) }
+    }
+
+    @Test
+    fun `onEvent WaterIncrement WHEN promptShowing THEN dismissesPrompt`() = runTest {
+        // GIVEN
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(false)
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        // WHEN
+        vm.onEvent(DailyLogEvent.WaterIncrement)
+        advanceUntilIdle()
+
+        // THEN
+        assertFalse(vm.uiState.value.showWellnessPrompt)
+        coVerify(exactly = 1) { mockHintPreferences.markHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) }
+    }
+
+    @Test
+    fun `onEvent MoodScoreChanged WHEN promptAlreadyDismissed THEN doesNotCallMarkHintSeenAgain`() = runTest {
+        // GIVEN — prompt already seen
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(true)
+        val vm = createViewModel()
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.showWellnessPrompt)
+
+        // WHEN
+        vm.onEvent(DailyLogEvent.MoodScoreChanged(score = 3))
+        advanceUntilIdle()
+
+        // THEN — markHintSeen should NOT be called
+        coVerify(exactly = 0) { mockHintPreferences.markHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) }
     }
 }

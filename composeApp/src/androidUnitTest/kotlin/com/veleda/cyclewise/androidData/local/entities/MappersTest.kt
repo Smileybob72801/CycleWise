@@ -6,7 +6,6 @@ import kotlinx.datetime.LocalDate
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class MappersTest {
 
@@ -79,7 +78,6 @@ class MappersTest {
         // ASSERT
         assertEquals("entry-uuid-1", dailyEntryDomain.id)
         assertEquals(4, dailyEntryDomain.libidoScore, "Integer should map directly")
-        assertEquals(listOf("tag1", "tag2"), dailyEntryDomain.customTags, "JSON String should be converted to List")
         assertEquals(4, dailyEntryDomain.moodScore)
     }
 
@@ -93,7 +91,6 @@ class MappersTest {
             moodScore = 4,
             energyLevel = 3,
             libidoScore = 4,
-            customTags = listOf("tag1", "tag2"),
             note = "Test note",
             cyclePhase = "OVULATION",
             createdAt = testNow,
@@ -106,7 +103,7 @@ class MappersTest {
         // ASSERT
         assertEquals("entry-uuid-1", dailyEntryEntity.id)
         assertEquals(4, dailyEntryEntity.libidoScore, "Integer should map directly")
-        assertEquals("""["tag1","tag2"]""", dailyEntryEntity.customTags, "List should be converted to JSON String")
+        assertEquals("[]", dailyEntryEntity.customTags, "Deprecated column should always be empty JSON array")
         assertEquals(4, dailyEntryEntity.moodScore)
     }
 
@@ -139,32 +136,12 @@ class MappersTest {
     }
 
     @Test
-    fun toDomain_WHEN_dailyEntryHasEmptyCustomTags_THEN_mapsToEmptyList() {
-        // ARRANGE
-        val entity = DailyEntryEntity(
-            id = "entry-empty-tags",
-            entryDate = testDate,
-            dayInCycle = 1,
-            customTags = "[]",
-            createdAt = testNow,
-            updatedAt = testNow
-        )
-
-        // ACT
-        val domain = entity.toDomain()
-
-        // ASSERT
-        assertTrue(domain.customTags.isEmpty())
-    }
-
-    @Test
-    fun toEntity_WHEN_dailyEntryHasEmptyTagsList_THEN_mapsToEmptyJsonArray() {
+    fun toEntity_WHEN_dailyEntryMapped_THEN_deprecatedCustomTagsColumnIsAlwaysEmptyJsonArray() {
         // ARRANGE
         val domain = DailyEntry(
             id = "entry-empty-tags",
             entryDate = testDate,
             dayInCycle = 1,
-            customTags = emptyList(),
             createdAt = testNow,
             updatedAt = testNow
         )
@@ -172,7 +149,7 @@ class MappersTest {
         // ACT
         val entity = domain.toEntity()
 
-        // ASSERT
+        // ASSERT — deprecated column is always "[]"
         assertEquals("[]", entity.customTags)
     }
 
@@ -325,5 +302,67 @@ class MappersTest {
 
         // ASSERT
         assertEquals(entity.id, domain.id)
+    }
+
+    // --- Tests for CustomTag mappers ---
+
+    @Test
+    fun toDomain_WHEN_calledOnCustomTagEntity_THEN_mapsAllFieldsCorrectly() {
+        // ARRANGE
+        val entity = CustomTagEntity(id = "tag-uuid", name = "Exercise", createdAt = testNow)
+
+        // ACT
+        val domain = entity.toDomain()
+
+        // ASSERT
+        assertEquals("tag-uuid", domain.id)
+        assertEquals("Exercise", domain.name)
+        assertEquals(testNow, domain.createdAt)
+    }
+
+    @Test
+    fun toEntity_WHEN_calledOnCustomTag_THEN_mapsAllFieldsCorrectly() {
+        // ARRANGE
+        val domain = CustomTag(id = "tag-uuid", name = "Exercise", createdAt = testNow)
+
+        // ACT
+        val entity = domain.toEntity()
+
+        // ASSERT
+        assertEquals("tag-uuid", entity.id)
+        assertEquals("Exercise", entity.name)
+        assertEquals(testNow, entity.createdAt)
+    }
+
+    // --- Tests for CustomTagLog mappers ---
+
+    @Test
+    fun toDomain_WHEN_calledOnCustomTagLogEntity_THEN_mapsAllFieldsCorrectly() {
+        // ARRANGE
+        val entity = CustomTagLogEntity(id = "log-uuid", entryId = "entry-uuid", tagId = "tag-uuid", createdAt = testNow)
+
+        // ACT
+        val domain = entity.toDomain()
+
+        // ASSERT
+        assertEquals("log-uuid", domain.id)
+        assertEquals("entry-uuid", domain.entryId)
+        assertEquals("tag-uuid", domain.tagId)
+        assertEquals(testNow, domain.createdAt)
+    }
+
+    @Test
+    fun toEntity_WHEN_calledOnCustomTagLog_THEN_mapsAllFieldsCorrectly() {
+        // ARRANGE
+        val domain = CustomTagLog(id = "log-uuid", entryId = "entry-uuid", tagId = "tag-uuid", createdAt = testNow)
+
+        // ACT
+        val entity = domain.toEntity()
+
+        // ASSERT
+        assertEquals("log-uuid", entity.id)
+        assertEquals("entry-uuid", entity.entryId)
+        assertEquals("tag-uuid", entity.tagId)
+        assertEquals(testNow, entity.createdAt)
     }
 }

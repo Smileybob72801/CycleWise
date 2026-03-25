@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.draw.alpha
@@ -56,6 +57,8 @@ import com.veleda.cyclewise.ui.coachmark.coachMarkTarget
 import com.veleda.cyclewise.ui.nav.NavRoute
 import com.veleda.cyclewise.ui.components.ContentContainer
 import com.veleda.cyclewise.ui.components.EducationalBottomSheet
+import com.veleda.cyclewise.ui.components.HelpButton
+import com.veleda.cyclewise.ui.components.HelpDialog
 import com.veleda.cyclewise.ui.components.InfoButton
 import com.veleda.cyclewise.ui.components.SuccessAnimation
 import kotlinx.coroutines.delay
@@ -240,6 +243,7 @@ fun TrackerScreen(navController: NavController) {
 
     var showSuccess by remember { mutableStateOf(false) }
     var emptyOverlayDismissed by remember { mutableStateOf(false) }
+    var showTrackerHelp by remember { mutableStateOf(false) }
 
     // Trigger auto-close logic when the screen is first composed/entered.
     LaunchedEffect(Unit) {
@@ -311,6 +315,21 @@ fun TrackerScreen(navController: NavController) {
         )
     }
 
+    if (showTrackerHelp) {
+        HelpDialog(
+            title = stringResource(R.string.help_tracker_title),
+            tips = listOf(
+                stringResource(R.string.help_tracker_tip_tap_day),
+                stringResource(R.string.help_tracker_tip_swipe_months),
+                stringResource(R.string.help_tracker_tip_today),
+                stringResource(R.string.help_tracker_tip_longpress),
+                stringResource(R.string.help_tracker_tip_drag),
+                stringResource(R.string.help_tracker_tip_heatmap),
+            ),
+            onDismiss = { showTrackerHelp = false },
+        )
+    }
+
     Scaffold(contentWindowInsets = WindowInsets.statusBars) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
         ContentContainer(maxWidth = dims.gridMaxWidth) {
@@ -357,14 +376,35 @@ fun TrackerScreen(navController: NavController) {
                 }
             }
 
-            FilledTonalButton(
-                onClick = {
-                    coroutineScope.launch {
-                        calendarState.animateScrollToMonth(currentMonth)
-                    }
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = dims.md),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(stringResource(R.string.tracker_today))
+                Spacer(Modifier.weight(1f))
+                FilledTonalButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            calendarState.animateScrollToMonth(currentMonth)
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.tracker_today))
+                }
+                Spacer(Modifier.weight(1f))
+                HelpButton(
+                    onClick = { showTrackerHelp = true },
+                    contentDescription = stringResource(
+                        R.string.help_button_cd,
+                        stringResource(R.string.help_tracker_title),
+                    ),
+                )
+                InfoButton(
+                    onClick = { viewModel.onEvent(TrackerEvent.ShowEducationalSheet("CyclePhase")) },
+                    contentDescription = stringResource(
+                        R.string.educational_info_button_cd,
+                        stringResource(R.string.tracker_phase_label),
+                    ),
+                )
             }
 
             val daysOfWeek = remember(firstDayOfWeek) {
@@ -418,23 +458,10 @@ fun TrackerScreen(navController: NavController) {
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = uiState.periods.isNotEmpty() && uiState.ongoingPeriod == null,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                ) {
-                    Text(
-                        stringResource(R.string.tracker_instructions_drag),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(dims.sm)
-                    )
-                }
             }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(end = dims.sm)
                     .coachMarkTarget(HintKey.TRACKER_PHASE_LEGEND, coachMarkState),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -443,10 +470,6 @@ fun TrackerScreen(navController: NavController) {
                     phaseVisible = phaseVisible,
                     heatmapActive = uiState.selectedHeatmapMetric != null,
                     modifier = Modifier.weight(1f),
-                )
-                InfoButton(
-                    onClick = { viewModel.onEvent(TrackerEvent.ShowEducationalSheet("CyclePhase")) },
-                    contentDescription = stringResource(R.string.educational_info_button_cd, stringResource(R.string.tracker_phase_label)),
                 )
             }
             HeatmapSelector(

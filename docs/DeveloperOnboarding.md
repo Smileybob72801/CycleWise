@@ -443,7 +443,7 @@ Contains the Jetpack Compose UI and all Android-specific implementations.
 | `ui/insights/` | Insights screen — `InsightsScreen`, `InsightsViewModel` |
 | `ui/settings/` | Settings screen — `SettingsScreen`, `SettingsViewModel`, `SettingsEvent`, and sub-page composables |
 | `ui/coachmark/` | Post-login tutorial overlay system — `CoachMarkDef`, `CoachMarkOverlay`, `CoachMarkState`, `HintPreferences` |
-| `ui/components/` | Reusable UI components (e.g., `EducationalBottomSheet`, `InfoButton`, `MarkdownText`) |
+| `ui/components/` | Reusable UI components (e.g., `EducationalBottomSheet`, `HelpButton`, `HelpDialog`, `InfoButton`, `MarkdownText`) |
 | `ui/nav/` | Navigation routes, bottom nav bar, and `NavHost` wiring |
 | `ui/theme/` | Theme definitions — colors, shapes, typography, dimensions |
 | `di/` | `AppModule.kt` — all Koin DI wiring |
@@ -651,6 +651,7 @@ scope(SESSION_SCOPE) {
             symptomDao = get(), medicationDao = get(),
             medicationLogDao = get(), symptomLogDao = get(),
             periodLogDao = get(), waterIntakeDao = get(),
+            customTagDao = get(), customTagLogDao = get(),
         )
     }
 
@@ -887,8 +888,8 @@ top of MVVM components:
   should be consumed exactly once. Exposed as `SharedFlow` with `replay = 0`.
 - **Reducer** (`reduce()`) — A pure function that takes current state + event and returns
   new state with no side effects. All ViewModels use a pure `reduce()` function.
-  `SettingsViewModel` uses four reduce functions — `reduceGeneral()`, `reduceAppearance()`,
-  `reduceNotification()`, `reduceAbout()` — one per sub-state flow. Side effects
+  `SettingsViewModel` uses five reduce functions — `reduceSecurity()`, `reduceAppearance()`,
+  `reduceColors()`, `reduceNotification()`, `reduceAbout()` — one per sub-state flow. Side effects
   (repository writes, scheduler calls, navigation) are launched in `onEvent()` after
   the state update.
 
@@ -1784,7 +1785,7 @@ The daily log has two navigation entry points:
 2. **Period** — Period toggle switch, flow intensity, period color, period consistency
 3. **Symptoms** — Symptom library chips with create-and-add, long-press to rename/delete
 4. **Medications** — Medication library chips with create-and-add, long-press to rename/delete
-5. **Notes/Tags** — Custom tags with add/remove, free-text note editor
+5. **Notes/Tags** — Custom tag library chips with create-and-add, long-press to rename/delete; free-text note editor
 
 ### Two-Phase Initialization
 
@@ -1879,10 +1880,10 @@ private fun isLogEmpty(log: FullDailyLog): Boolean {
     return log.periodLog == null &&
             log.symptomLogs.isEmpty() &&
             log.medicationLogs.isEmpty() &&
+            log.customTagLogs.isEmpty() &&
             entry.moodScore == null &&
             entry.energyLevel == null &&
             entry.libidoScore == null &&
-            entry.customTags.isEmpty() &&
             entry.note.isNullOrBlank()
 }
 ```
@@ -1943,21 +1944,23 @@ current constructor parameters.
 
 ### Architecture
 
-- **State:** Four focused sub-state data classes — one per pager page — each exposed
+- **State:** Five focused sub-state data classes — one per pager page — each exposed
   as a separate `StateFlow` to limit recomposition scope:
-  - `GeneralSettingsState` — autolock, top symptoms count, tutorial hint reset, legal
-    dialogs, and delete-all-data confirmation flow.
-  - `AppearanceSettingsState` — theme mode, summary toggles, phase visibility, phase
-    colors, and educational bottom sheet.
+  - `SecuritySettingsState` — autolock, passphrase change dialog, and
+    delete-all-data confirmation flow.
+  - `AppearanceSettingsState` — theme mode, summary toggles, phase visibility,
+    and top symptoms count.
+  - `ColorsSettingsState` — phase colors, heatmap colors, and educational
+    bottom sheet.
   - `NotificationSettingsState` — period, medication, and hydration reminder
     configuration plus permission rationale and privacy dialog.
-  - `AboutSettingsState` — about dialog visibility.
+  - `AboutSettingsState` — about dialog, legal dialogs, and tutorial hint reset.
 - **Events:** `SettingsEvent` — a sealed interface covering every toggle, slider,
   color input, and dialog interaction.
 - **Event routing:** `onEvent()` applies a pure state update via the appropriate
-  reduce function — `reduceGeneral()`, `reduceAppearance()`, `reduceNotification()`,
-  or `reduceAbout()` — then launches side effects (DataStore writes,
-  `ReminderScheduler` calls) in `viewModelScope`.
+  reduce function — `reduceSecurity()`, `reduceAppearance()`, `reduceColors()`,
+  `reduceNotification()`, or `reduceAbout()` — then launches side effects (DataStore
+  writes, `ReminderScheduler` calls) in `viewModelScope`.
 
 ### Initialization Pattern
 
@@ -1967,17 +1970,19 @@ flow. This intentionally avoids `combine()` because Kotlin's `combine()` support
 maximum of 5 parameters without custom extensions, and there are far more settings
 flows to observe.
 
-### 4-Page Swipeable Pager
+### 5-Page Swipeable Pager
 
-`SettingsScreen` uses a `HorizontalPager` with 4 pages:
-1. **General** — Autolock toggle, top symptoms count, tutorial hint reset, legal
-   dialogs, delete-all-data
+`SettingsScreen` uses a `HorizontalPager` with 5 pages:
+1. **Security** — Autolock timeout, change passphrase, lock now, delete all data
 2. **Appearance** — Theme mode, summary visibility toggles (mood, energy, libido),
-   phase visibility toggles (`PhaseVisibilitySettings`), phase color customization
-   (`PhaseColorSettings`) with hex input and preset swatch grid
-3. **Notifications** — Period prediction, medication, and hydration reminder
+   phase visibility toggles (`PhaseVisibilitySettings`), top symptoms count
+3. **Colors** — Phase color customization (`PhaseColorSettings`) with hex input and
+   preset swatch grid, heatmap color customization (`HeatmapColorSettings`),
+   educational bottom sheet
+4. **Notifications** — Period prediction, medication, and hydration reminder
    configuration (`ReminderSettings`) with POST_NOTIFICATIONS permission handling
-4. **About** — App version, privacy policy, about dialog
+5. **About** — App version, about dialog, legal documents (privacy policy, terms of
+   service), reset tutorial hints, developer tools (debug only)
 
 ### Phase Color Customization
 
@@ -2177,6 +2182,10 @@ data class EducationalArticle(
 ### UI Components
 
 - **`InfoButton`** — A tappable info icon that dispatches `ShowEducationalSheet(contentTag)`.
+- **`HelpButton`** — A tappable help icon (`Icons.AutoMirrored.Outlined.HelpOutline`)
+  that opens a `HelpDialog` with contextual usage tips.
+- **`HelpDialog`** — Dismissible `AlertDialog` displaying a bulleted list of usage tips.
+  Used alongside `HelpButton` to provide on-demand guidance without consuming layout space.
 - **`EducationalBottomSheet`** — Renders the article body using `MarkdownText`,
   with `SourceAttribution` and `MedicalDisclaimer` at the bottom.
 
@@ -2189,10 +2198,13 @@ The `ui/components/` package contains shared composables used across multiple sc
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | `EducationalBottomSheet` | `ui/components/` | Modal bottom sheet for displaying educational articles |
+| `HelpButton` | `ui/components/` | Compact help icon button that opens a usage-tips dialog |
+| `HelpDialog` | `ui/components/` | Dismissible AlertDialog displaying bulleted tips for a screen or section |
 | `InfoButton` | `ui/components/` | Small info icon button that triggers educational content display |
 | `MarkdownText` | `ui/components/` | Renders markdown-formatted text in Compose (used for article bodies) |
 | `MedicalDisclaimer` | `ui/components/` | Standard disclaimer banner: "This is not medical advice" |
 | `SourceAttribution` | `ui/components/` | Displays source name and URL for educational content |
+| `SectionCard` | `ui/log/components/` | Card wrapper for daily log sections with optional help and info buttons in the title row |
 | `LibraryChip` | `ui/log/pages/SymptomsPage.kt` | Chip with tap + long-press support for library items (see below) |
 | `RenameDialog` | `ui/log/pages/SymptomsPage.kt` | AlertDialog with pre-filled OutlinedTextField for renaming library items |
 | `DeleteLibraryItemDialog` | `ui/log/pages/SymptomsPage.kt` | Delete confirmation dialog with log count warning |
@@ -2226,6 +2238,32 @@ via direct function call (they are `internal` composables in the same package).
   `renameError` state (e.g., "A symptom with this name already exists").
 - `DeleteLibraryItemDialog`: Shows a log count warning ("appears in N daily logs")
   or a no-logs message, with an error-colored confirm button.
+
+### HelpButton and HelpDialog — Contextual Usage Tips
+
+`HelpButton` and `HelpDialog` work together to provide contextual, dismissible
+usage guidance without consuming permanent layout space.
+
+- **`HelpButton`** — A compact icon button using `Icons.AutoMirrored.Outlined.HelpOutline`
+  with `onSurfaceVariant` tint and `iconSm` sizing. Mirrors `InfoButton` styling.
+- **`HelpDialog`** — An `AlertDialog` displaying a title and ordered bulleted tips.
+  Dismissed via "Got it" button.
+
+**Usage pattern:** Define `var showHelp by remember { mutableStateOf(false) }`,
+conditionally render `HelpDialog` when true, and pass `{ showHelp = true }` to
+`HelpButton` or `SectionCard`'s `onHelpClick`.
+
+### SectionCard — Help and Info Buttons
+
+`SectionCard` (`ui/log/components/SectionCard.kt`) wraps daily log sections with
+a consistent card treatment: surfaceVariant background, leading icon, title row, and
+optional trailing buttons.
+
+- `onHelpClick: (() -> Unit)?` — When non-null, renders a `HelpButton` before the info button.
+- `onInfoClick: (() -> Unit)?` — When non-null, renders an `InfoButton`.
+
+Both buttons are end-aligned in the title row. Help callbacks typically open a
+`HelpDialog`; info callbacks dispatch `ShowEducationalSheet` events.
 
 ---
 
@@ -2274,6 +2312,7 @@ scoped<PeriodRepository> {
         symptomDao = get(), medicationDao = get(),
         medicationLogDao = get(), symptomLogDao = get(),
         periodLogDao = get(), waterIntakeDao = get(),
+        customTagDao = get(), customTagLogDao = get(),
     )
 }
 ```
@@ -2693,8 +2732,11 @@ field (exposed to the domain layer). When converting domain → entity, `id` is 
 so Room auto-generates it on insert.
 
 **Key patterns:**
-- **JSON serialization:** `DailyEntry.customTags` (a `List<String>`) is serialized
-  via `Json.encodeToString()` for storage and `Json.decodeFromString()` on retrieval.
+- **Deprecated column:** The `custom_tags` JSON column on `daily_entries` is deprecated
+  but retained to avoid a table rebuild. The mapper always writes `"[]"` to this column.
+  Custom tags are now stored in the `custom_tag_library` and `custom_tag_logs` tables,
+  following the same library pattern as symptoms and medications (see `CustomTag`,
+  `CustomTagLog`, `CustomTagEntity`, `CustomTagLogEntity`).
 - **Date string conversion:** `WaterIntakeEntity.date` is stored as ISO-8601 string,
   converted to/from `LocalDate` in the mapper.
 

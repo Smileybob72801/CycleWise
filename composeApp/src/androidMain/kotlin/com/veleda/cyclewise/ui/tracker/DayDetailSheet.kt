@@ -47,6 +47,7 @@ internal fun DayDetailSheet(
                 cyclePhase = sheetPhase,
                 symptomLibrary = uiState.symptomLibrary,
                 medicationLibrary = uiState.medicationLibrary,
+                customTagLibrary = uiState.customTagLibrary,
                 waterCups = uiState.waterCupsForSheet,
                 showMood = showMood,
                 showEnergy = showEnergy,

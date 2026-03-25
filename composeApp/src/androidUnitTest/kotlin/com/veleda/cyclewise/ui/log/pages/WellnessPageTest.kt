@@ -38,11 +38,13 @@ class WellnessPageTest {
         energyLevel: Int? = null,
         libidoScore: Int? = null,
         waterCups: Int = 0,
-        onMoodChanged: (Int) -> Unit = {},
-        onEnergyChanged: (Int) -> Unit = {},
-        onLibidoChanged: (Int) -> Unit = {},
+        showWellnessPrompt: Boolean = false,
+        onMoodChanged: (Int?) -> Unit = {},
+        onEnergyChanged: (Int?) -> Unit = {},
+        onLibidoChanged: (Int?) -> Unit = {},
         onWaterIncrement: () -> Unit = {},
         onWaterDecrement: () -> Unit = {},
+        onDone: () -> Unit = {},
         onShowEducationalSheet: (String) -> Unit = {},
         activeHintKey: HintKey? = null,
     ) {
@@ -54,11 +56,13 @@ class WellnessPageTest {
                         energyLevel = energyLevel,
                         libidoScore = libidoScore,
                         waterCups = waterCups,
+                        showWellnessPrompt = showWellnessPrompt,
                         onMoodChanged = onMoodChanged,
                         onEnergyChanged = onEnergyChanged,
                         onLibidoChanged = onLibidoChanged,
                         onWaterIncrement = onWaterIncrement,
                         onWaterDecrement = onWaterDecrement,
+                        onDone = onDone,
                         onShowEducationalSheet = onShowEducationalSheet,
                         activeHintKey = activeHintKey,
                     )
@@ -70,9 +74,9 @@ class WellnessPageTest {
     // region Empty state
 
     @Test
-    fun emptyState_WHEN_allValuesUnset_THEN_promptIsDisplayed() {
-        // Given / When — all defaults (null/0)
-        setContent()
+    fun emptyState_WHEN_showWellnessPromptTrue_THEN_promptIsDisplayed() {
+        // Given / When
+        setContent(showWellnessPrompt = true)
 
         // Then
         composeTestRule.onNodeWithText("Start by rating", substring = true, ignoreCase = true)
@@ -80,19 +84,9 @@ class WellnessPageTest {
     }
 
     @Test
-    fun emptyState_WHEN_moodIsSet_THEN_promptIsHidden() {
-        // Given / When
-        setContent(moodScore = 3)
-
-        // Then
-        composeTestRule.onNodeWithText("Start by rating", substring = true, ignoreCase = true)
-            .assertDoesNotExist()
-    }
-
-    @Test
-    fun emptyState_WHEN_waterIsPositive_THEN_promptIsHidden() {
-        // Given / When
-        setContent(waterCups = 1)
+    fun emptyState_WHEN_showWellnessPromptFalse_THEN_promptIsHidden() {
+        // Given / When — even with all values unset, prompt is hidden when flag is false
+        setContent(showWellnessPrompt = false)
 
         // Then
         composeTestRule.onNodeWithText("Start by rating", substring = true, ignoreCase = true)
@@ -295,6 +289,86 @@ class WellnessPageTest {
 
         // Then — callback fires (star is enabled)
         assert(captured == 3) { "Expected mood score 3, got $captured" }
+    }
+
+    // endregion
+
+    // region Done button
+
+    @Test
+    fun doneButton_WHEN_tapped_THEN_invokesCallback() {
+        // Given
+        var invoked = false
+        setContent(onDone = { invoked = true })
+
+        // When
+        composeTestRule.onNodeWithText("Done")
+            .performScrollTo()
+            .performClick()
+
+        // Then
+        assert(invoked) { "onDone was not invoked" }
+    }
+
+    // endregion
+
+    // region Deselection (toggle) behavior
+
+    @Test
+    fun moodSelector_WHEN_selectedStarTapped_THEN_invokesCallbackWithNull() {
+        // Given — mood is already set to 3
+        var captured: Int? = 3
+        setContent(moodScore = 3, onMoodChanged = { captured = it })
+
+        // When — tap the same star (3)
+        composeTestRule.onAllNodesWithContentDescription("Mood score 3")[0]
+            .performClick()
+
+        // Then — callback receives null (deselect)
+        assert(captured == null) { "Expected null (deselect), got $captured" }
+    }
+
+    @Test
+    fun moodSelector_WHEN_differentStarTapped_THEN_invokesCallbackWithNewScore() {
+        // Given — mood is already set to 3
+        var captured: Int? = null
+        setContent(moodScore = 3, onMoodChanged = { captured = it })
+
+        // When — tap a different star (5)
+        composeTestRule.onAllNodesWithContentDescription("Mood score 5")[0]
+            .performClick()
+
+        // Then — callback receives 5 (change selection)
+        assert(captured == 5) { "Expected 5, got $captured" }
+    }
+
+    @Test
+    fun energySelector_WHEN_selectedStarTapped_THEN_invokesCallbackWithNull() {
+        // Given — energy is already set to 2
+        var captured: Int? = 2
+        setContent(energyLevel = 2, onEnergyChanged = { captured = it })
+
+        // When — tap the same star (2)
+        composeTestRule.onAllNodesWithContentDescription("Energy score 2")[0]
+            .performClick()
+
+        // Then
+        assert(captured == null) { "Expected null (deselect), got $captured" }
+    }
+
+    @Test
+    fun libidoSelector_WHEN_selectedStarTapped_THEN_invokesCallbackWithNull() {
+        // Given — libido is already set to 1
+        var captured: Int? = 1
+        setContent(libidoScore = 1, onLibidoChanged = { captured = it })
+
+        // When — tap the same star (1); libido section may need scrolling
+        composeTestRule.onAllNodesWithContentDescription("Libido score 1")[0]
+            .performScrollTo()
+            .performClick()
+
+        // Then
+        assert(captured == null) { "Expected null (deselect), got $captured" }
     }
 
     // endregion

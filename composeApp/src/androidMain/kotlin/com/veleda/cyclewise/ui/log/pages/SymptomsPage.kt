@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.LocalHospital
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -42,6 +43,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import com.veleda.cyclewise.R
 import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
+import com.veleda.cyclewise.ui.components.HelpDialog
 import com.veleda.cyclewise.ui.log.MAX_NAME_LENGTH
 import com.veleda.cyclewise.ui.log.components.SectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
@@ -76,6 +79,7 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
  * @param onToggleSymptom          Callback when the user toggles a symptom chip.
  * @param onCreateAndAddSymptom    Callback when the user creates and logs a new symptom by name.
  * @param onShowEducationalSheet   Callback to display educational content for the given tag.
+ * @param onDone                   Callback when the user taps the "Done" button to return to the Tracker.
  * @param symptomForContextMenu    Symptom whose context menu is currently shown, or null.
  * @param symptomRenaming          Symptom currently being renamed (dialog open), or null.
  * @param symptomToDelete          Symptom pending deletion confirmation, or null.
@@ -95,6 +99,7 @@ internal fun SymptomsPage(
     onToggleSymptom: (Symptom) -> Unit,
     onCreateAndAddSymptom: (String) -> Unit,
     onShowEducationalSheet: (String) -> Unit,
+    onDone: () -> Unit = {},
     symptomForContextMenu: Symptom? = null,
     symptomRenaming: Symptom? = null,
     symptomToDelete: Symptom? = null,
@@ -108,6 +113,7 @@ internal fun SymptomsPage(
     onEditDismissed: () -> Unit = {},
 ) {
     val dims = LocalDimensions.current
+    var showHelp by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -128,6 +134,7 @@ internal fun SymptomsPage(
         SectionCard(
             title = stringResource(R.string.daily_log_symptoms_title),
             icon = Icons.Outlined.LocalHospital,
+            onHelpClick = { showHelp = true },
             onInfoClick = { onShowEducationalSheet("Symptoms") },
         ) {
             SymptomLogger(
@@ -141,6 +148,13 @@ internal fun SymptomsPage(
                 onDeleteClicked = onDeleteClicked,
                 onEditDismissed = onEditDismissed,
             )
+        }
+
+        FilledTonalButton(
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.daily_log_done_button))
         }
 
         Spacer(Modifier.height(dims.xl))
@@ -168,6 +182,18 @@ internal fun SymptomsPage(
             },
             onConfirm = { onDeleteConfirmed(symptomToDelete.id) },
             onDismiss = onEditDismissed,
+        )
+    }
+
+    if (showHelp) {
+        HelpDialog(
+            title = stringResource(R.string.help_symptoms_title),
+            tips = listOf(
+                stringResource(R.string.help_symptoms_tip_toggle),
+                stringResource(R.string.help_symptoms_tip_create),
+                stringResource(R.string.help_symptoms_tip_edit),
+            ),
+            onDismiss = { showHelp = false },
         )
     }
 }

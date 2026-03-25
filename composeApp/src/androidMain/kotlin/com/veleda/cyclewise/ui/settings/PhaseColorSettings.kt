@@ -18,7 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -145,7 +145,7 @@ fun PhaseColorSettings(
         )
 
         Spacer(Modifier.height(dims.sm))
-        TextButton(
+        FilledTonalButton(
             onClick = onResetDefaults,
             modifier = Modifier.padding(horizontal = dims.md)
         ) {

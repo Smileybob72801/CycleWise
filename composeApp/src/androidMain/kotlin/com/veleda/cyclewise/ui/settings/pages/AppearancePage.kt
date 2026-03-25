@@ -2,6 +2,7 @@ package com.veleda.cyclewise.ui.settings.pages
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,30 +11,29 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import com.veleda.cyclewise.R
-import com.veleda.cyclewise.ui.components.EducationalBottomSheet
-import com.veleda.cyclewise.ui.settings.HeatmapColorSettings
-import com.veleda.cyclewise.ui.settings.PhaseColorSettings
 import com.veleda.cyclewise.ui.settings.PhaseVisibilitySettings
 import com.veleda.cyclewise.ui.settings.AppearanceSettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
 import com.veleda.cyclewise.ui.settings.components.SettingsSectionCard
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 import com.veleda.cyclewise.ui.theme.ThemeMode
+import kotlin.math.roundToInt
 
 /**
- * Page 1 — Appearance: Display toggles, phase visibility, and phase colors.
+ * Page 1 — Appearance: Theme, display toggles, calendar phase visibility, and insights display.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,9 +114,10 @@ internal fun AppearancePage(
                     )
                 }
             )
+        }
 
-            HorizontalDivider(modifier = Modifier.padding(horizontal = dims.md))
-
+        // ── Calendar Display Card ────────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_section_calendar_display)) {
             PhaseVisibilitySettings(
                 showFollicular = state.showFollicular,
                 showOvulation = state.showOvulation,
@@ -128,50 +129,44 @@ internal fun AppearancePage(
             )
         }
 
-        // ── Customization Card ───────────────────────────────────────
-        SettingsSectionCard(
-            title = stringResource(R.string.settings_section_customization),
-            onInfoClick = { onEvent(SettingsEvent.ShowEducationalSheet("CyclePhase.Colors")) },
-        ) {
-            PhaseColorSettings(
-                menstruationHex = state.menstruationColorHex,
-                follicularHex = state.follicularColorHex,
-                ovulationHex = state.ovulationColorHex,
-                lutealHex = state.lutealColorHex,
-                onMenstruationColorChanged = { onEvent(SettingsEvent.MenstruationColorChanged(it)) },
-                onFollicularColorChanged = { onEvent(SettingsEvent.FollicularColorChanged(it)) },
-                onOvulationColorChanged = { onEvent(SettingsEvent.OvulationColorChanged(it)) },
-                onLutealColorChanged = { onEvent(SettingsEvent.LutealColorChanged(it)) },
-                onResetDefaults = { onEvent(SettingsEvent.ResetPhaseColorsToDefaults) },
-                showTitle = false,
+        // ── Insights Display Card ────────────────────────────────────
+        SettingsSectionCard(title = stringResource(R.string.settings_section_insights_display)) {
+            Text(
+                stringResource(R.string.settings_top_symptoms, state.topSymptomsCount),
+                modifier = Modifier.padding(horizontal = dims.md)
             )
-        }
-
-        // ── Heatmap Colors Card ──────────────────────────────────────
-        SettingsSectionCard(title = stringResource(R.string.settings_section_heatmap_colors)) {
-            HeatmapColorSettings(
-                moodHex = state.heatmapMoodColorHex,
-                energyHex = state.heatmapEnergyColorHex,
-                libidoHex = state.heatmapLibidoColorHex,
-                waterIntakeHex = state.heatmapWaterIntakeColorHex,
-                symptomSeverityHex = state.heatmapSymptomSeverityColorHex,
-                flowIntensityHex = state.heatmapFlowIntensityColorHex,
-                medicationCountHex = state.heatmapMedicationCountColorHex,
-                onColorChanged = { key, hex ->
-                    onEvent(SettingsEvent.HeatmapColorChanged(key, hex))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = dims.md),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                (1..5).forEach { value ->
+                    Text(
+                        text = value.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (value == state.topSymptomsCount)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (value == state.topSymptomsCount)
+                            FontWeight.Bold
+                        else
+                            FontWeight.Normal
+                    )
+                }
+            }
+            Slider(
+                value = state.topSymptomsCount.toFloat(),
+                onValueChange = { newValue ->
+                    onEvent(SettingsEvent.TopSymptomsCountChanged(newValue.roundToInt()))
                 },
-                onResetDefaults = { onEvent(SettingsEvent.ResetHeatmapColorsToDefaults) },
-                showTitle = false,
+                valueRange = 1f..5f,
+                steps = 3,
+                modifier = Modifier.padding(horizontal = dims.md)
             )
         }
 
         Spacer(Modifier.height(dims.xl))
-    }
-
-    state.educationalArticles?.let { articles ->
-        EducationalBottomSheet(
-            articles = articles,
-            onDismiss = { onEvent(SettingsEvent.DismissEducationalSheet) },
-        )
     }
 }

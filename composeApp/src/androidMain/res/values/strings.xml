@@ -96,6 +96,7 @@
     <string name="tracker_water_cups">%d cups</string>
     <string name="tracker_symptoms_label">Symptoms</string>
     <string name="tracker_medications_label">Medications</string>
+    <string name="tracker_custom_tags_label">Tags</string>
     <string name="tracker_previous_month">Previous month</string>
     <string name="tracker_next_month">Next month</string>
     <string name="tracker_today">Today</string>
@@ -128,9 +129,9 @@
     <string name="daily_log_score">%1$s score %2$d</string>
     <string name="daily_log_add_medication">Add new medication…</string>
     <string name="daily_log_create_medication">Create and Add Medication</string>
-    <string name="daily_log_add_tag">Add a custom tag…</string>
-    <string name="daily_log_add_tag_button">Add Tag</string>
-    <string name="daily_log_remove_tag">Remove %s</string>
+    <string name="daily_log_add_custom_tag">Add a custom tag\u2026</string>
+    <string name="daily_log_create_custom_tag">Create Tag</string>
+    <string name="daily_log_custom_tags_count">%d tag(s) logged</string>
     <string name="daily_log_add_notes">Add any notes…</string>
     <string name="daily_log_notes_placeholder">How are you feeling? Any observations?</string>
     <string name="daily_log_notes_char_count">%1$d / %2$,d</string>
@@ -138,6 +139,7 @@
     <string name="daily_log_create_symptom">Create and Add Symptom</string>
     <string name="daily_log_symptom_save_error">Failed to save symptom. Please try again.</string>
     <string name="daily_log_medication_save_error">Failed to save medication. Please try again.</string>
+    <string name="daily_log_done_button">Done</string>
 
     <!-- Library Edit/Delete -->
     <string name="library_rename">Rename</string>
@@ -157,6 +159,11 @@
     <string name="library_delete_medication_message_with_logs">This medication appears in %d daily logs. Deleting it will permanently remove those log entries.</string>
     <string name="library_delete_medication_message_no_logs">This medication has no logged entries. Delete it from your library?</string>
     <string name="library_rename_error_medication_duplicate">A medication with this name already exists</string>
+    <string name="library_rename_custom_tag_title">Rename Tag</string>
+    <string name="library_delete_custom_tag_title">Delete Tag</string>
+    <string name="library_delete_custom_tag_message_with_logs">This tag appears in %d daily logs. Deleting it will permanently remove those log entries.</string>
+    <string name="library_delete_custom_tag_message_no_logs">This tag has no logged entries. Delete it from your library?</string>
+    <string name="library_rename_error_custom_tag_duplicate">A tag with this name already exists</string>
 
     <!-- Coach Marks -->
     <string name="coach_mark_next">Next</string>
@@ -183,9 +190,9 @@
     <string name="hint_daily_log_medications_tab_title">The Medications Tab</string>
     <string name="hint_daily_log_medications_tab_body">Tap the Medications tab above to continue.</string>
     <string name="hint_daily_log_notes_tab_title">Notes &amp; Tags</string>
-    <string name="hint_daily_log_notes_tab_body">This is your private journal — add freeform notes or quick tags to remember anything about your day.</string>
+    <string name="hint_daily_log_notes_tab_body">This is your private journal - add freeform notes or quick tags to remember anything about your day.</string>
     <string name="coach_mark_no_periods">I don\'t have periods</string>
-    <string name="coach_mark_no_periods_toast">No problem — you can still track mood, energy, symptoms, and more.</string>
+    <string name="coach_mark_no_periods_toast">No problem - you can still track mood, energy, symptoms, and more.</string>
 
     <!-- Tracker Coach Marks -->
     <string name="hint_tracker_welcome_title">Your Cycle Calendar</string>
@@ -208,7 +215,7 @@
     <string name="settings_autolock_title">Auto-lock timeout (minutes)</string>
     <string name="settings_security_title">Security</string>
     <string name="settings_lock_button">Lock Now</string>
-    <string name="settings_locked_message">Currently locked — unlock to access secured data.</string>
+    <string name="settings_locked_message">Currently locked - unlock to access secured data.</string>
     <string name="settings_insights_title">Insight Settings</string>
     <string name="settings_top_symptoms">Top Frequent Symptoms to Display: %d</string>
     <string name="settings_developer_title">Developer Options</string>
@@ -224,10 +231,18 @@
     <string name="theme_mode_system">System</string>
     <string name="theme_mode_light">Light</string>
     <string name="theme_mode_dark">Dark</string>
-    <string name="settings_page_general">General</string>
+    <string name="settings_page_security">Security</string>
     <string name="settings_page_appearance">Appearance</string>
+    <string name="settings_page_colors">Colors</string>
     <string name="settings_page_notifications">Notifications</string>
     <string name="settings_page_about">About</string>
+    <string name="settings_section_session">Session</string>
+    <string name="settings_section_passphrase">Passphrase</string>
+    <string name="settings_section_insights_display">Insights Display</string>
+    <string name="settings_section_calendar_display">Calendar Display</string>
+    <string name="settings_section_app_info">App Info</string>
+    <string name="settings_section_utilities">Utilities</string>
+    <string name="settings_section_phase_colors">Phase Colors</string>
     <string name="settings_autolock_description">Lock the app after inactivity</string>
     <string name="settings_autolock_minutes_unit">min</string>
     <string name="show_mood_description">Display mood score in daily log summary</string>
@@ -340,6 +355,38 @@
     <string name="article_category_wellness">Wellness</string>
     <string name="article_category_when_to_see_doctor">When to See a Doctor</string>
     <string name="educational_info_button_cd">Learn more about %1$s</string>
+
+    <!-- Help buttons -->
+    <string name="help_button_cd">Usage help for %1$s</string>
+    <string name="help_dialog_dismiss">Got it</string>
+
+    <!-- Tracker help -->
+    <string name="help_tracker_title">Tracker Help</string>
+    <string name="help_tracker_tip_tap_day">Tap a day to view or create a daily log</string>
+    <string name="help_tracker_tip_swipe_months">Swipe left or right to change months, or use the arrow buttons</string>
+    <string name="help_tracker_tip_today">Tap \"Today\" to jump back to the current month</string>
+    <string name="help_tracker_tip_longpress">Long-press a day to mark or unmark it as a period day</string>
+    <string name="help_tracker_tip_drag">Long-press and drag across days to select a range of period days</string>
+    <string name="help_tracker_tip_heatmap">Use the heatmap selector below the calendar to overlay data like mood, energy, or flow intensity</string>
+
+    <!-- Symptoms help -->
+    <string name="help_symptoms_title">Symptoms Help</string>
+    <string name="help_symptoms_tip_toggle">Tap a symptom chip to log it for today - tap again to remove</string>
+    <string name="help_symptoms_tip_create">Tap the \"+\" chip to create a new custom symptom</string>
+    <string name="help_symptoms_tip_edit">Long-press a symptom chip to rename or delete it</string>
+
+    <!-- Medications help -->
+    <string name="help_medications_title">Medications Help</string>
+    <string name="help_medications_tip_toggle">Tap a medication chip to log it for today - tap again to remove</string>
+    <string name="help_medications_tip_create">Tap the \"+\" chip to create a new custom medication</string>
+    <string name="help_medications_tip_edit">Long-press a medication chip to rename or delete it</string>
+
+  <!-- Tags & Notes help -->
+    <string name="help_notes_title">Tags &amp; Notes Help</string>
+    <string name="help_notes_tip_toggle">Tap a tag chip to apply it to today\'s log - tap again to remove</string>
+    <string name="help_notes_tip_create">Tap the \"+\" chip to create a new custom tag</string>
+    <string name="help_notes_tip_edit">Long-press a tag chip to rename or delete it</string>
+    <string name="help_notes_tip_freeform">Use the notes field below to write freeform observations about your day</string>
     <string name="educational_sheet_source_label">Source:</string>
     <string name="educational_sheet_dismiss">Close</string>
 
@@ -364,21 +411,58 @@
     <string name="settings_change_passphrase_success">Passphrase changed successfully</string>
     <string name="settings_change_passphrase_submit">Change Passphrase</string>
 
-    <!-- Change Passphrase — Confirmation step -->
+    <!-- Change Passphrase - Confirmation step -->
     <string name="settings_change_passphrase_confirm_title">Confirm Passphrase Change</string>
     <string name="settings_change_passphrase_confirm_body">Are you sure you want to change your passphrase?\n\nThis will re-encrypt your entire database with a new key. If you forget your new passphrase, your data will be permanently inaccessible. There is no recovery mechanism.</string>
     <string name="settings_change_passphrase_confirm_button">Yes, Change It</string>
     <string name="settings_change_passphrase_back">Go Back</string>
     <string name="settings_change_passphrase_progress">Changing passphrase\u2026</string>
 
-    <!-- Change Passphrase — Success dialog -->
+    <!-- Change Passphrase - Success dialog -->
     <string name="settings_change_passphrase_success_title">Passphrase Changed</string>
     <string name="settings_change_passphrase_success_warning">This is your last chance to write down or memorize your new passphrase. Once you dismiss this dialog, it cannot be shown again.\n\nThere is no passphrase recovery.</string>
     <string name="settings_change_passphrase_success_acknowledge">I\'ve Saved My Passphrase</string>
 
-    <!-- Change Passphrase — Error messages -->
+    <!-- Change Passphrase - Error messages -->
     <string name="settings_change_passphrase_error_failed">Something went wrong. Your data is still protected by your current passphrase. Please try again.</string>
     <string name="settings_change_passphrase_error_verification_failed">The change could not be verified and was rolled back. Your current passphrase still works. Please try again.</string>
+
+    <!-- Backup & Restore -->
+    <string name="settings_section_backup">Backup &amp; Restore</string>
+    <string name="settings_backup_description">Export your encrypted database to transfer data between devices. The backup includes your database, encryption salt, and app metadata.</string>
+    <string name="settings_export_backup">Export Backup</string>
+    <string name="settings_import_backup">Import Backup</string>
+    <string name="settings_export_success">Backup exported successfully</string>
+    <string name="settings_export_error">Export failed: %s</string>
+    <string name="backup_metadata_title">Backup Details</string>
+    <string name="backup_metadata_app_version">App Version: %s</string>
+    <string name="backup_metadata_schema_version">Schema Version: %d</string>
+    <string name="backup_metadata_export_date">Export Date: %s</string>
+    <string name="backup_metadata_confirm">Continue</string>
+    <string name="backup_passphrase_title">Enter Backup Passphrase</string>
+    <string name="backup_passphrase_body">Enter the passphrase that was used when this backup was created.</string>
+    <string name="backup_passphrase_label">Backup passphrase</string>
+    <string name="backup_passphrase_verify">Verify</string>
+    <string name="backup_passphrase_error_wrong">Incorrect passphrase for this backup</string>
+    <string name="backup_passphrase_verifying">Verifying passphrase…</string>
+    <string name="backup_overwrite_first_title">Replace All Data?</string>
+    <string name="backup_overwrite_first_body">Importing this backup will permanently replace all existing data. This cannot be undone.\n\nYou will be logged out after import. You will need to log in with the passphrase from the imported backup.</string>
+    <string name="backup_overwrite_first_confirm">Replace Data</string>
+    <string name="backup_overwrite_second_title">Final Confirmation</string>
+    <string name="backup_overwrite_second_body">Type OVERWRITE below to confirm that you want to replace all existing data with the imported backup.</string>
+    <string name="backup_overwrite_field_label">Type OVERWRITE to confirm</string>
+    <string name="backup_progress_exporting_title">Exporting Backup</string>
+    <string name="backup_progress_exporting_body">Creating backup archive…</string>
+    <string name="backup_progress_importing_title">Importing Backup</string>
+    <string name="backup_progress_importing_body">Replacing database and restarting session…</string>
+    <string name="backup_schema_error_title">Incompatible Backup</string>
+    <string name="backup_schema_error_body">This backup was created with a newer version of RhythmWise (schema version %1$d). Your app supports schema version %2$d.\n\nPlease update the app before importing this backup.</string>
+    <string name="backup_error_title">Backup Error</string>
+    <string name="backup_error_invalid">Invalid or corrupted backup file. Please select a valid .rwbackup file.</string>
+    <string name="backup_error_rollback">Import failed. Your previous data has been restored.</string>
+    <string name="backup_import_success">Backup imported successfully. Please log in with the backup passphrase.</string>
+    <string name="passphrase_import_backup">Import Backup</string>
+    <string name="setup_import_instead">Have a backup? Import instead</string>
 
     <!-- Data Management -->
     <string name="settings_section_data_management">Data Management</string>

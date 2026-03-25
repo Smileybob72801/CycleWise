@@ -1,5 +1,7 @@
 package com.veleda.cyclewise.ui.auth
 
+import android.net.Uri
+
 /**
  * Defines all user interactions that can occur on the Passphrase screen.
  */
@@ -22,6 +24,32 @@ sealed interface PassphraseEvent {
         val passphrase: String,
         val confirmation: String,
     ) : PassphraseEvent
+
+    // ── Backup Import ───────────────────────────────────────────────
+
+    /** User tapped "Import Backup" from the unlock or setup screen. */
+    data object ImportBackupClicked : PassphraseEvent
+
+    /** SAF returned the URI of the selected `.rwbackup` file. */
+    data class ImportFileSelected(val uri: Uri) : PassphraseEvent
+
+    /** User confirmed the metadata preview dialog. */
+    data object ImportMetadataConfirmed : PassphraseEvent
+
+    /** User submitted the passphrase for the backup. */
+    data class ImportPassphraseEntered(val passphrase: String) : PassphraseEvent
+
+    /** User confirmed the first overwrite warning dialog. */
+    data object ImportFirstWarningConfirmed : PassphraseEvent
+
+    /** User updated the text in the "type OVERWRITE" confirmation field. */
+    data class ImportConfirmTextChanged(val text: String) : PassphraseEvent
+
+    /** User typed "OVERWRITE" and confirmed — execute the import. */
+    data object ImportSecondConfirmed : PassphraseEvent
+
+    /** User cancelled the import at any step. */
+    data object ImportDismissed : PassphraseEvent
 }
 
 /**
@@ -57,4 +85,7 @@ sealed interface PassphraseEffect {
      *           toast or inline error on the passphrase screen.
      */
     data class ShowError(val message: String) : PassphraseEffect
+
+    /** Launch the SAF file picker for selecting a `.rwbackup` file to import. */
+    data object LaunchImportPicker : PassphraseEffect
 }

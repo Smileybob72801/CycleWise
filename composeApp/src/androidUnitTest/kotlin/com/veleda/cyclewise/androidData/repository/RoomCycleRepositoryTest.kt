@@ -39,7 +39,9 @@ class RoomCycleRepositoryTest : KoinTest {
                 medicationDao = get(),
                 medicationLogDao = get(),
                 periodLogDao = get(),
-                waterIntakeDao = get()
+                waterIntakeDao = get(),
+                customTagDao = get(),
+                customTagLogDao = get()
             )
         }
     }

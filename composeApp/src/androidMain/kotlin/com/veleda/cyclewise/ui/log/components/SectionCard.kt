@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.veleda.cyclewise.R
+import com.veleda.cyclewise.ui.components.HelpButton
 import com.veleda.cyclewise.ui.components.InfoButton
 import com.veleda.cyclewise.ui.theme.LocalDimensions
 
@@ -28,6 +29,8 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
  *
  * @param title       Section heading text.
  * @param icon        Leading icon displayed beside the title.
+ * @param onHelpClick Optional callback for a help button aligned to the end of the title row.
+ *                    When non-null, a [HelpButton] is displayed before the info button.
  * @param onInfoClick Optional callback for an info button aligned to the end of the title row.
  *                    When non-null, an [InfoButton] is displayed. When null, no button is shown.
  * @param content     Slot for the section's interactive content.
@@ -36,6 +39,7 @@ import com.veleda.cyclewise.ui.theme.LocalDimensions
 internal fun SectionCard(
     title: String,
     icon: ImageVector,
+    onHelpClick: (() -> Unit)? = null,
     onInfoClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
@@ -68,6 +72,12 @@ internal fun SectionCard(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+                if (onHelpClick != null) {
+                    HelpButton(
+                        onClick = onHelpClick,
+                        contentDescription = stringResource(R.string.help_button_cd, title),
                     )
                 }
                 if (onInfoClick != null) {

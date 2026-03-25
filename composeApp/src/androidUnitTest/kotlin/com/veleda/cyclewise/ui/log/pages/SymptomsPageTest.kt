@@ -8,12 +8,14 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import com.veleda.cyclewise.RobolectricTestApp
@@ -52,6 +54,7 @@ class SymptomsPageTest {
         onToggleSymptom: (Symptom) -> Unit = {},
         onCreateAndAddSymptom: (String) -> Unit = {},
         onShowEducationalSheet: (String) -> Unit = {},
+        onDone: () -> Unit = {},
         symptomForContextMenu: Symptom? = null,
         symptomRenaming: Symptom? = null,
         symptomToDelete: Symptom? = null,
@@ -73,6 +76,7 @@ class SymptomsPageTest {
                         onToggleSymptom = onToggleSymptom,
                         onCreateAndAddSymptom = onCreateAndAddSymptom,
                         onShowEducationalSheet = onShowEducationalSheet,
+                        onDone = onDone,
                         symptomForContextMenu = symptomForContextMenu,
                         symptomRenaming = symptomRenaming,
                         symptomToDelete = symptomToDelete,
@@ -274,6 +278,22 @@ class SymptomsPageTest {
 
     // endregion
 
+    // region Help button
+
+    @Test
+    fun helpButton_WHEN_rendered_THEN_isDisplayed() {
+        // Given / When
+        setContent()
+
+        // Then — SectionCard help CD is "Usage help for Symptoms"
+        composeTestRule.onAllNodes(
+            hasContentDescription("Usage help for Symptoms"),
+            useUnmergedTree = true,
+        )[0].assertIsDisplayed()
+    }
+
+    // endregion
+
     // region Delete dialog
 
     @Test
@@ -295,6 +315,25 @@ class SymptomsPageTest {
         composeTestRule.onNodeWithText("Delete Symptom").assertIsDisplayed()
         composeTestRule.onNodeWithText("no logged entries", substring = true, ignoreCase = true)
             .assertIsDisplayed()
+    }
+
+    // endregion
+
+    // region Done button
+
+    @Test
+    fun doneButton_WHEN_tapped_THEN_invokesCallback() {
+        // Given
+        var invoked = false
+        setContent(onDone = { invoked = true })
+
+        // When
+        composeTestRule.onNodeWithText("Done")
+            .performScrollTo()
+            .performClick()
+
+        // Then
+        assert(invoked) { "onDone was not invoked" }
     }
 
     // endregion

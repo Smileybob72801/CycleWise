@@ -1,5 +1,6 @@
 package com.veleda.cyclewise.ui.log
 
+import com.veleda.cyclewise.domain.models.CustomTag
 import com.veleda.cyclewise.domain.models.FlowIntensity
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
@@ -15,23 +16,23 @@ import com.veleda.cyclewise.domain.models.Symptom
  * Every user-interaction event auto-saves to the repository — there is no manual save event.
  */
 sealed interface DailyLogEvent {
-    /** Internal event dispatched when the initial log, symptom library, and medication library have been fetched. */
-    data class LogLoaded(val log: FullDailyLog, val initialSymptoms: List<Symptom>, val initialMedications: List<Medication>) : DailyLogEvent
+    /** Internal event dispatched when the initial log, symptom library, medication library, and custom tag library have been fetched. */
+    data class LogLoaded(val log: FullDailyLog, val initialSymptoms: List<Symptom>, val initialMedications: List<Medication>, val initialCustomTags: List<CustomTag>) : DailyLogEvent
 
-    /** Internal event dispatched when the symptom or medication library changes after init. */
-    data class LibraryUpdated(val symptoms: List<Symptom>, val medications: List<Medication>) : DailyLogEvent
+    /** Internal event dispatched when the symptom, medication, or custom tag library changes after init. */
+    data class LibraryUpdated(val symptoms: List<Symptom>, val medications: List<Medication>, val customTags: List<CustomTag>) : DailyLogEvent
 
     /** The user changed the flow intensity for this day's period log. */
     data class FlowIntensityChanged(val intensity: FlowIntensity?) : DailyLogEvent
 
-    /** The user changed the mood score (1-5 scale). */
-    data class MoodScoreChanged(val score: Int) : DailyLogEvent
+    /** The user changed the mood score (1-5 scale), or `null` to clear. */
+    data class MoodScoreChanged(val score: Int?) : DailyLogEvent
 
-    /** The user changed the energy level (1-5 scale). */
-    data class EnergyLevelChanged(val level: Int) : DailyLogEvent
+    /** The user changed the energy level (1-5 scale), or `null` to clear. */
+    data class EnergyLevelChanged(val level: Int?) : DailyLogEvent
 
-    /** The user changed the libido score (1-5 scale). */
-    data class LibidoScoreChanged(val score: Int) : DailyLogEvent
+    /** The user changed the libido score (1-5 scale), or `null` to clear. */
+    data class LibidoScoreChanged(val score: Int?) : DailyLogEvent
 
     /** The user changed the period blood color for this day's period log. */
     data class PeriodColorChanged(val color: PeriodColor?) : DailyLogEvent
@@ -41,12 +42,6 @@ sealed interface DailyLogEvent {
 
     /** The user edited the free-text note. Debounced before auto-save. */
     data class NoteChanged(val text: String) : DailyLogEvent
-
-    /** The user added a custom tag to this day's entry. */
-    data class TagAdded(val tag: String) : DailyLogEvent
-
-    /** The user removed a custom tag from this day's entry. */
-    data class TagRemoved(val tag: String) : DailyLogEvent
 
     /** The user toggled an existing symptom on or off for this day. */
     data class SymptomToggled(val symptom: Symptom) : DailyLogEvent
@@ -62,6 +57,14 @@ sealed interface DailyLogEvent {
 
     /** The user submitted a new medication name to create in the library and immediately log. */
     data class MedicationCreatedAndAdded(val name: String) : DailyLogEvent
+
+    // ── Custom Tag Library ───────────────────────────────────────────
+
+    /** The user toggled an existing custom tag on or off for this day. */
+    data class CustomTagToggled(val customTag: CustomTag) : DailyLogEvent
+
+    /** The user submitted a new custom tag name to create in the library and immediately log. */
+    data class CustomTagCreatedAndAdded(val name: String) : DailyLogEvent
 
     /**
      * Toggles the period state for this day.
@@ -136,4 +139,24 @@ sealed interface DailyLogEvent {
 
     /** The user dismissed the medication context menu, rename dialog, or delete dialog. */
     data object MedicationEditDismissed : DailyLogEvent
+
+    // ── Custom Tag Library Edit/Delete ───────────────────────────────
+
+    /** The user long-pressed a custom tag chip to open its context menu. */
+    data class CustomTagLongPressed(val customTag: CustomTag) : DailyLogEvent
+
+    /** The user tapped "Rename" in the custom tag context menu. */
+    data class RenameCustomTagClicked(val customTag: CustomTag) : DailyLogEvent
+
+    /** The user confirmed a custom tag rename with the new name. */
+    data class RenameCustomTagConfirmed(val tagId: String, val newName: String) : DailyLogEvent
+
+    /** The user tapped "Delete" in the custom tag context menu (fetches log count before showing dialog). */
+    data class DeleteCustomTagClicked(val customTag: CustomTag) : DailyLogEvent
+
+    /** The user confirmed deletion of a custom tag from the library. */
+    data class DeleteCustomTagConfirmed(val tagId: String) : DailyLogEvent
+
+    /** The user dismissed the custom tag context menu, rename dialog, or delete dialog. */
+    data object CustomTagEditDismissed : DailyLogEvent
 }

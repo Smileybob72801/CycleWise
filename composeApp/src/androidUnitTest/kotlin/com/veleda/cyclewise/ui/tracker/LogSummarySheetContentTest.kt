@@ -14,7 +14,10 @@ import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.PeriodColor
 import com.veleda.cyclewise.domain.models.PeriodConsistency
+import com.veleda.cyclewise.domain.models.CustomTag
 import com.veleda.cyclewise.domain.models.Symptom
+import com.veleda.cyclewise.testutil.buildCustomTag
+import com.veleda.cyclewise.testutil.buildCustomTagLog
 import com.veleda.cyclewise.testutil.buildDailyEntry
 import com.veleda.cyclewise.testutil.buildFullDailyLog
 import com.veleda.cyclewise.testutil.buildMedication
@@ -44,6 +47,7 @@ class LogSummarySheetContentTest {
     private val headache = buildSymptom(id = "s1", name = "Headache")
     private val cramps = buildSymptom(id = "s2", name = "Cramps")
     private val ibuprofen = buildMedication(id = "m1", name = "Ibuprofen")
+    private val exercise = buildCustomTag(id = "t1", name = "Exercise")
 
     private fun setContent(
         log: FullDailyLog = buildFullDailyLog(),
@@ -51,6 +55,7 @@ class LogSummarySheetContentTest {
         cyclePhase: CyclePhase? = null,
         symptomLibrary: List<Symptom> = listOf(headache, cramps),
         medicationLibrary: List<Medication> = listOf(ibuprofen),
+        customTagLibrary: List<CustomTag> = listOf(exercise),
         waterCups: Int? = null,
         showMood: Boolean = true,
         showEnergy: Boolean = true,
@@ -68,6 +73,7 @@ class LogSummarySheetContentTest {
                         cyclePhase = cyclePhase,
                         symptomLibrary = symptomLibrary,
                         medicationLibrary = medicationLibrary,
+                        customTagLibrary = customTagLibrary,
                         waterCups = waterCups,
                         showMood = showMood,
                         showEnergy = showEnergy,
@@ -446,6 +452,24 @@ class LogSummarySheetContentTest {
 
         // Then
         composeTestRule.onNodeWithText("Ibuprofen").assertIsDisplayed()
+    }
+
+    // endregion
+
+    // region Custom tag chips
+
+    @Test
+    fun customTagChips_WHEN_customTagsLogged_THEN_displayed() {
+        // Given
+        val log = buildFullDailyLog(
+            customTagLogs = listOf(buildCustomTagLog(tagId = "t1")),
+        )
+
+        // When
+        setContent(log = log)
+
+        // Then
+        composeTestRule.onNodeWithText("Exercise").assertIsDisplayed()
     }
 
     // endregion

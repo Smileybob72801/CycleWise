@@ -108,7 +108,7 @@ class UnlockCreateLogE2ETest {
         click("save_log_button")
         waitForExists("calendar-root", timeoutMillis = longWait)
 
-        val dotTag = "symptom-dot-$today"
+        val dotTag = "symptom-indicator-$today"
         waitForExists(dotTag, useUnmerged = true, timeoutMillis = longWait)
         compose.onNodeWithTag(dotTag, useUnmergedTree = true).assertIsDisplayed()
     }

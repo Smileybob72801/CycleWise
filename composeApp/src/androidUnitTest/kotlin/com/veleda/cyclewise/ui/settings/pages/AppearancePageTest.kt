@@ -116,18 +116,18 @@ class AppearancePageTest {
 
     // endregion
 
-    // region Customization section
+    // region Calendar Display section
 
     @Test
-    fun customizationSection_WHEN_rendered_THEN_titleDisplayed() {
+    fun calendarDisplaySection_WHEN_rendered_THEN_titleDisplayed() {
         setContent()
-        composeTestRule.onNodeWithText("Customization").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Calendar Display").performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun phaseVisibility_WHEN_rendered_THEN_follicularLabelDisplayed() {
         setContent()
-        composeTestRule.onAllNodesWithText("Follicular")[0].performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Follicular", substring = true).performScrollTo().assertIsDisplayed()
     }
 
     // endregion

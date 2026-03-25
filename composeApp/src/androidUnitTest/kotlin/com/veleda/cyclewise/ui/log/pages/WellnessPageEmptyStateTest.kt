@@ -4,16 +4,21 @@ import android.util.Log
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.veleda.cyclewise.domain.models.DailyEntry
 import com.veleda.cyclewise.domain.models.FullDailyLog
+import com.veleda.cyclewise.domain.providers.CustomTagLibraryProvider
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.domain.usecases.DeleteCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteSymptomUseCase
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
+import com.veleda.cyclewise.domain.usecases.RenameCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
 import com.veleda.cyclewise.testutil.TestData
+import com.veleda.cyclewise.ui.coachmark.HintKey
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import com.veleda.cyclewise.ui.log.DailyLogEvent
 import com.veleda.cyclewise.ui.log.DailyLogViewModel
 import io.mockk.coEvery
@@ -34,8 +39,9 @@ import kotlin.test.*
 /**
  * Tests the conditions that drive the WellnessPage empty-state prompt visibility.
  *
- * The prompt is visible when `moodScore == null && energyLevel == null &&
- * libidoScore == null && waterCups == 0` and hidden otherwise.
+ * The prompt is controlled by a one-time [HintKey.WELLNESS_EMPTY_PROMPT] flag
+ * persisted via [HintPreferences]. It shows only if the user has never logged
+ * wellness data, and is permanently dismissed on the first wellness interaction.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class WellnessPageEmptyStateTest {
@@ -50,6 +56,7 @@ class WellnessPageEmptyStateTest {
     private lateinit var mockSymptomProvider: SymptomLibraryProvider
     private lateinit var mockMedicationProvider: MedicationLibraryProvider
     private lateinit var mockEducationalContentProvider: EducationalContentProvider
+    private lateinit var mockHintPreferences: HintPreferences
 
     private val testDate = TestData.DATE
     private val testInstant = TestData.INSTANT
@@ -77,6 +84,8 @@ class WellnessPageEmptyStateTest {
         mockSymptomProvider = mockk(relaxed = true)
         mockMedicationProvider = mockk(relaxed = true)
         mockEducationalContentProvider = mockk(relaxed = true)
+        mockHintPreferences = mockk(relaxed = true)
+        every { mockHintPreferences.isHintSeen(any()) } returns flowOf(false)
 
         every { mockSymptomProvider.symptoms } returns flowOf(emptyList())
         every { mockMedicationProvider.medications } returns flowOf(emptyList())
@@ -98,77 +107,75 @@ class WellnessPageEmptyStateTest {
             getOrCreateDailyLog = mockGetOrCreateDailyLog,
             symptomLibraryProvider = mockSymptomProvider,
             medicationLibraryProvider = mockMedicationProvider,
+            customTagLibraryProvider = mockk {
+                every { customTags } returns flowOf(emptyList())
+            },
             educationalContentProvider = mockEducationalContentProvider,
             renameSymptomUseCase = mockk(relaxed = true),
             deleteSymptomUseCase = mockk(relaxed = true),
             renameMedicationUseCase = mockk(relaxed = true),
             deleteMedicationUseCase = mockk(relaxed = true),
+            renameCustomTagUseCase = mockk(relaxed = true),
+            deleteCustomTagUseCase = mockk(relaxed = true),
+            hintPreferences = mockHintPreferences,
         )
     }
 
     @Test
-    fun `empty state visible WHEN all wellness fields are unset`() = runTest {
-        // GIVEN — daily log has no mood, energy, libido, and zero water
+    fun `showWellnessPrompt true WHEN hint not seen`() = runTest {
+        // GIVEN — hint has NOT been seen
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(false)
+
+        // WHEN
         val vm = createViewModel()
         advanceUntilIdle()
 
-        val state = vm.uiState.value
-
-        // THEN — all fields that drive empty-state visibility are in their "empty" state
-        assertNull(state.log?.entry?.moodScore, "moodScore should be null")
-        assertNull(state.log?.entry?.energyLevel, "energyLevel should be null")
-        assertNull(state.log?.entry?.libidoScore, "libidoScore should be null")
-        assertEquals(0, state.waterCups, "waterCups should be 0")
+        // THEN
+        assertTrue(vm.uiState.value.showWellnessPrompt, "prompt should show when hint not seen")
     }
 
     @Test
-    fun `empty state hidden WHEN mood is set`() = runTest {
-        // GIVEN — daily log with mood already set
-        val entryWithMood = emptyEntry.copy(moodScore = 3)
-        val logWithMood = FullDailyLog(entry = entryWithMood)
-        coEvery { mockGetOrCreateDailyLog(any()) } returns logWithMood
+    fun `showWellnessPrompt false WHEN hint already seen`() = runTest {
+        // GIVEN — hint HAS been seen
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(true)
 
-        // WHEN — ViewModel is created
+        // WHEN
         val vm = createViewModel()
         advanceUntilIdle()
 
-        val state = vm.uiState.value
-
-        // THEN — moodScore is non-null, so the empty state condition is false
-        assertNotNull(state.log?.entry?.moodScore, "moodScore should be set")
-        assertEquals(3, state.log?.entry?.moodScore)
+        // THEN
+        assertFalse(vm.uiState.value.showWellnessPrompt, "prompt should hide when hint already seen")
     }
 
     @Test
-    fun `empty state hidden WHEN mood changed via event`() = runTest {
-        // GIVEN — ViewModel starts with empty wellness data
+    fun `showWellnessPrompt dismissed WHEN mood changed via event`() = runTest {
+        // GIVEN — prompt is showing
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(false)
         val vm = createViewModel()
         advanceUntilIdle()
-
-        // Pre-condition: all wellness fields empty
-        assertNull(vm.uiState.value.log?.entry?.moodScore)
+        assertTrue(vm.uiState.value.showWellnessPrompt)
 
         // WHEN — user changes mood score
         vm.onEvent(DailyLogEvent.MoodScoreChanged(4))
         advanceUntilIdle()
 
-        // THEN — moodScore is now set, breaking the empty-state condition
-        val state = vm.uiState.value
-        assertEquals(4, state.log?.entry?.moodScore, "moodScore should be 4 after change")
+        // THEN — prompt is dismissed
+        assertFalse(vm.uiState.value.showWellnessPrompt, "prompt should be dismissed after mood change")
     }
 
     @Test
-    fun `empty state hidden WHEN water incremented`() = runTest {
-        // GIVEN — ViewModel starts with zero water
+    fun `showWellnessPrompt dismissed WHEN water incremented`() = runTest {
+        // GIVEN — prompt is showing
+        every { mockHintPreferences.isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT) } returns flowOf(false)
         val vm = createViewModel()
         advanceUntilIdle()
-        assertEquals(0, vm.uiState.value.waterCups)
+        assertTrue(vm.uiState.value.showWellnessPrompt)
 
         // WHEN — user increments water
         vm.onEvent(DailyLogEvent.WaterIncrement)
         advanceUntilIdle()
 
-        // THEN — waterCups > 0, breaking the empty-state condition
-        assertEquals(1, vm.uiState.value.waterCups, "waterCups should be 1 after increment")
+        // THEN — prompt is dismissed
+        assertFalse(vm.uiState.value.showWellnessPrompt, "prompt should be dismissed after water increment")
     }
 }

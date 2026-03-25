@@ -44,6 +44,7 @@ class PeriodPageTest {
         onFlowChanged: (FlowIntensity?) -> Unit = {},
         onColorChanged: (PeriodColor?) -> Unit = {},
         onConsistencyChanged: (PeriodConsistency?) -> Unit = {},
+        onDone: () -> Unit = {},
         onShowEducationalSheet: (String) -> Unit = {},
         activeHintKey: HintKey? = null,
     ) {
@@ -59,6 +60,7 @@ class PeriodPageTest {
                         onFlowChanged = onFlowChanged,
                         onColorChanged = onColorChanged,
                         onConsistencyChanged = onConsistencyChanged,
+                        onDone = onDone,
                         onShowEducationalSheet = onShowEducationalSheet,
                         activeHintKey = activeHintKey,
                     )
@@ -249,6 +251,25 @@ class PeriodPageTest {
 
         // Then
         assert(captured == true) { "Expected onPeriodToggled(true), got $captured" }
+    }
+
+    // endregion
+
+    // region Done button
+
+    @Test
+    fun doneButton_WHEN_tapped_THEN_invokesCallback() {
+        // Given
+        var invoked = false
+        setContent(onDone = { invoked = true })
+
+        // When
+        composeTestRule.onNodeWithText("Done")
+            .performScrollTo()
+            .performClick()
+
+        // Then
+        assert(invoked) { "onDone was not invoked" }
     }
 
     // endregion

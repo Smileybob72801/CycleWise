@@ -14,7 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.veleda.cyclewise.RobolectricTestApp
-import com.veleda.cyclewise.ui.settings.GeneralSettingsState
+import com.veleda.cyclewise.ui.settings.SecuritySettingsState
 import com.veleda.cyclewise.ui.settings.SettingsEvent
 import com.veleda.cyclewise.ui.theme.Dimensions
 import com.veleda.cyclewise.ui.theme.LocalDimensions
@@ -25,29 +25,33 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Robolectric-based Compose UI tests for [GeneralPage].
+ * Robolectric-based Compose UI tests for [SecurityPage].
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = RobolectricTestApp::class)
-class GeneralPageTest {
+class SecurityPageTest {
 
     @get:Rule
     val composeTestRule = createComposeRule()
 
     private fun setContent(
-        state: GeneralSettingsState = GeneralSettingsState(),
+        state: SecuritySettingsState = SecuritySettingsState(),
         onEvent: (SettingsEvent) -> Unit = {},
         isSessionActive: Boolean = false,
         onLockNow: () -> Unit = {},
+        onExportClicked: () -> Unit = {},
+        onImportClicked: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalDimensions provides Dimensions()) {
                 MaterialTheme {
-                    GeneralPage(
+                    SecurityPage(
                         state = state,
                         onEvent = onEvent,
                         isSessionActive = isSessionActive,
                         onLockNow = onLockNow,
+                        onExportClicked = onExportClicked,
+                        onImportClicked = onImportClicked,
                     )
                 }
             }
@@ -57,9 +61,9 @@ class GeneralPageTest {
     // region Security section
 
     @Test
-    fun securitySection_WHEN_rendered_THEN_titleDisplayed() {
+    fun sessionSection_WHEN_rendered_THEN_titleDisplayed() {
         setContent()
-        composeTestRule.onNodeWithText("Security").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Session").assertIsDisplayed()
     }
 
     @Test
@@ -74,7 +78,7 @@ class GeneralPageTest {
 
     @Test
     fun autolockOption_WHEN_selected_THEN_isSelectedState() {
-        setContent(state = GeneralSettingsState(autolockMinutes = 10))
+        setContent(state = SecuritySettingsState(autolockMinutes = 10))
         composeTestRule.onAllNodesWithText("10 min", substring = true)[0].assertIsSelected()
     }
 
@@ -98,110 +102,6 @@ class GeneralPageTest {
     fun lockedMessage_WHEN_sessionNull_THEN_displayed() {
         setContent(isSessionActive = false)
         composeTestRule.onNodeWithText("Currently locked", substring = true, ignoreCase = true)
-            .assertIsDisplayed()
-    }
-
-    // endregion
-
-    // region Insights section
-
-    @Test
-    fun insightsSection_WHEN_rendered_THEN_titleDisplayed() {
-        setContent()
-        composeTestRule.onNodeWithText("Insight Settings", substring = true, ignoreCase = true)
-            .assertIsDisplayed()
-    }
-
-    @Test
-    fun topSymptomsCount_WHEN_rendered_THEN_valueLabelsDisplayed() {
-        setContent()
-        composeTestRule.onAllNodesWithText("1")[0].performScrollTo().assertIsDisplayed()
-        composeTestRule.onAllNodesWithText("5")[0].performScrollTo().assertIsDisplayed()
-    }
-
-    // endregion
-
-    // region Tutorial section
-
-    @Test
-    fun tutorialSection_WHEN_rendered_THEN_resetHintsDisplayed() {
-        setContent()
-        composeTestRule.onNodeWithText("Reset Tutorial Hints")
-            .performScrollTo()
-            .assertIsDisplayed()
-    }
-
-    @Test
-    fun resetHints_WHEN_tapped_THEN_dispatchesEvent() {
-        val events = mutableListOf<SettingsEvent>()
-        setContent(onEvent = { events.add(it) })
-        composeTestRule.onNodeWithText("Reset Tutorial Hints")
-            .performScrollTo()
-            .performClick()
-        assert(events.any { it is SettingsEvent.ResetTutorialHints }) {
-            "Expected ResetTutorialHints event"
-        }
-    }
-
-    @Test
-    fun resetHints_WHEN_rendered_THEN_descriptionTextDisplayed() {
-        setContent()
-        composeTestRule.onNodeWithText("tutorial hints", substring = true, ignoreCase = true)
-            .performScrollTo()
-            .assertIsDisplayed()
-    }
-
-    @Test
-    fun resetHintsButton_WHEN_rendered_THEN_isEnabled() {
-        setContent()
-        composeTestRule.onNode(
-            hasText("Reset Tutorial Hints").and(hasClickAction()),
-        ).performScrollTo().assertIsEnabled()
-    }
-
-    // endregion
-
-    // region Legal section
-
-    @Test
-    fun legalSection_WHEN_rendered_THEN_privacyPolicyDisplayed() {
-        setContent()
-        composeTestRule.onNodeWithText("Privacy Policy")
-            .performScrollTo()
-            .assertIsDisplayed()
-    }
-
-    @Test
-    fun legalSection_WHEN_rendered_THEN_termsOfServiceDisplayed() {
-        setContent()
-        composeTestRule.onNodeWithText("Terms of Service")
-            .performScrollTo()
-            .assertIsDisplayed()
-    }
-
-    @Test
-    fun privacyPolicyItem_WHEN_tapped_THEN_dispatchesShowEvent() {
-        val events = mutableListOf<SettingsEvent>()
-        setContent(onEvent = { events.add(it) })
-        composeTestRule.onNodeWithText("Privacy Policy")
-            .performScrollTo()
-            .performClick()
-        assert(events.any { it is SettingsEvent.ShowPrivacyPolicyDialog }) {
-            "Expected ShowPrivacyPolicyDialog event"
-        }
-    }
-
-    @Test
-    fun privacyPolicyDialog_WHEN_showTrue_THEN_isDisplayed() {
-        setContent(state = GeneralSettingsState(showPrivacyPolicyDialog = true))
-        composeTestRule.onNodeWithText("Close", substring = true, ignoreCase = true)
-            .assertIsDisplayed()
-    }
-
-    @Test
-    fun termsOfServiceDialog_WHEN_showTrue_THEN_isDisplayed() {
-        setContent(state = GeneralSettingsState(showTermsOfServiceDialog = true))
-        composeTestRule.onNodeWithText("Close", substring = true, ignoreCase = true)
             .assertIsDisplayed()
     }
 
@@ -231,20 +131,20 @@ class GeneralPageTest {
 
     @Test
     fun firstConfirmDialog_WHEN_showTrue_THEN_isDisplayed() {
-        setContent(state = GeneralSettingsState(showDeleteFirstConfirmation = true))
+        setContent(state = SecuritySettingsState(showDeleteFirstConfirmation = true))
         composeTestRule.onAllNodesWithText("Cancel")[0].assertIsDisplayed()
     }
 
     @Test
     fun secondConfirmDialog_WHEN_showTrue_THEN_textFieldDisplayed() {
-        setContent(state = GeneralSettingsState(showDeleteSecondConfirmation = true))
+        setContent(state = SecuritySettingsState(showDeleteSecondConfirmation = true))
         composeTestRule.onNodeWithText("Type DELETE to confirm").assertIsDisplayed()
     }
 
     @Test
     fun secondConfirmDialog_WHEN_textNotDelete_THEN_confirmButtonDisabled() {
         setContent(
-            state = GeneralSettingsState(
+            state = SecuritySettingsState(
                 showDeleteSecondConfirmation = true,
                 deleteConfirmText = "DELE",
             ),
@@ -256,7 +156,7 @@ class GeneralPageTest {
 
     @Test
     fun deletingProgress_WHEN_isDeletingTrue_THEN_progressDisplayed() {
-        setContent(state = GeneralSettingsState(isDeletingData = true))
+        setContent(state = SecuritySettingsState(isDeletingData = true))
         composeTestRule.onNodeWithText("Deleting Data", substring = true, ignoreCase = true)
             .assertIsDisplayed()
     }
@@ -287,7 +187,7 @@ class GeneralPageTest {
 
     @Test
     fun changePassphraseDialog_WHEN_showTrue_THEN_fieldsDisplayed() {
-        setContent(state = GeneralSettingsState(showChangePassphraseDialog = true))
+        setContent(state = SecuritySettingsState(showChangePassphraseDialog = true))
         composeTestRule.onNodeWithText("Current passphrase").assertIsDisplayed()
         composeTestRule.onNodeWithText("New passphrase").assertIsDisplayed()
         composeTestRule.onNodeWithText("Confirm new passphrase").assertIsDisplayed()
@@ -295,7 +195,7 @@ class GeneralPageTest {
 
     @Test
     fun changePassphraseDialog_WHEN_showTrue_THEN_submitButtonDisplayed() {
-        setContent(state = GeneralSettingsState(showChangePassphraseDialog = true))
+        setContent(state = SecuritySettingsState(showChangePassphraseDialog = true))
         // The dialog title contains "Change Passphrase" — verifying the dialog rendered
         composeTestRule.onNodeWithText("Cancel").assertIsDisplayed()
     }
@@ -303,7 +203,7 @@ class GeneralPageTest {
     @Test
     fun changePassphraseDialog_WHEN_errorWrongCurrent_THEN_errorDisplayed() {
         setContent(
-            state = GeneralSettingsState(
+            state = SecuritySettingsState(
                 showChangePassphraseDialog = true,
                 changePassphraseError = "wrong_current",
             ),
@@ -315,7 +215,7 @@ class GeneralPageTest {
     @Test
     fun changePassphraseDialog_WHEN_errorTooShort_THEN_errorDisplayed() {
         setContent(
-            state = GeneralSettingsState(
+            state = SecuritySettingsState(
                 showChangePassphraseDialog = true,
                 changePassphraseError = "too_short",
             ),
@@ -327,7 +227,7 @@ class GeneralPageTest {
     @Test
     fun changePassphraseDialog_WHEN_errorMismatch_THEN_errorDisplayed() {
         setContent(
-            state = GeneralSettingsState(
+            state = SecuritySettingsState(
                 showChangePassphraseDialog = true,
                 changePassphraseError = "mismatch",
             ),
@@ -339,7 +239,7 @@ class GeneralPageTest {
     @Test
     fun changePassphraseDialog_WHEN_isChanging_THEN_progressDisplayed() {
         setContent(
-            state = GeneralSettingsState(
+            state = SecuritySettingsState(
                 showChangePassphraseDialog = true,
                 isChangingPassphrase = true,
             ),
@@ -351,7 +251,7 @@ class GeneralPageTest {
     @Test
     fun changePassphraseDialog_WHEN_errorFailed_THEN_generalErrorDisplayed() {
         setContent(
-            state = GeneralSettingsState(
+            state = SecuritySettingsState(
                 showChangePassphraseDialog = true,
                 changePassphraseError = "failed",
             ),
@@ -363,7 +263,7 @@ class GeneralPageTest {
     @Test
     fun changePassphraseDialog_WHEN_errorVerificationFailed_THEN_generalErrorDisplayed() {
         setContent(
-            state = GeneralSettingsState(
+            state = SecuritySettingsState(
                 showChangePassphraseDialog = true,
                 changePassphraseError = "verification_failed",
             ),
@@ -375,7 +275,7 @@ class GeneralPageTest {
     @Test
     fun changePassphraseSuccessDialog_WHEN_showTrue_THEN_warningAndAcknowledgeDisplayed() {
         setContent(
-            state = GeneralSettingsState(
+            state = SecuritySettingsState(
                 showChangePassphraseDialog = true,
                 showPassphraseSuccessDialog = true,
             ),
@@ -390,7 +290,7 @@ class GeneralPageTest {
     fun changePassphraseSuccessDialog_WHEN_acknowledged_THEN_dispatchesEvent() {
         val events = mutableListOf<SettingsEvent>()
         setContent(
-            state = GeneralSettingsState(
+            state = SecuritySettingsState(
                 showChangePassphraseDialog = true,
                 showPassphraseSuccessDialog = true,
             ),

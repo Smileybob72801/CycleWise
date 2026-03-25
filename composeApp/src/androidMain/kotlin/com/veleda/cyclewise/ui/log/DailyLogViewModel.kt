@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.benasher44.uuid.uuid4
+import com.veleda.cyclewise.domain.models.CustomTag
+import com.veleda.cyclewise.domain.models.CustomTagLog
 import com.veleda.cyclewise.domain.models.FullDailyLog
 import com.veleda.cyclewise.domain.models.Medication
 import com.veleda.cyclewise.domain.models.MedicationLog
@@ -12,16 +14,21 @@ import com.veleda.cyclewise.domain.models.Symptom
 import com.veleda.cyclewise.domain.models.SymptomLog
 import com.veleda.cyclewise.domain.models.WaterIntake
 import com.veleda.cyclewise.domain.models.EducationalArticle
+import com.veleda.cyclewise.domain.providers.CustomTagLibraryProvider
 import com.veleda.cyclewise.domain.providers.EducationalContentProvider
 import com.veleda.cyclewise.domain.providers.MedicationLibraryProvider
 import com.veleda.cyclewise.domain.providers.SymptomLibraryProvider
 import com.veleda.cyclewise.domain.repository.PeriodRepository
+import com.veleda.cyclewise.domain.usecases.DeleteCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.DeleteSymptomUseCase
 import com.veleda.cyclewise.domain.usecases.GetOrCreateDailyLogUseCase
+import com.veleda.cyclewise.domain.usecases.RenameCustomTagUseCase
 import com.veleda.cyclewise.domain.usecases.RenameMedicationUseCase
 import com.veleda.cyclewise.domain.usecases.RenameResult
 import com.veleda.cyclewise.domain.usecases.RenameSymptomUseCase
+import com.veleda.cyclewise.ui.coachmark.HintKey
+import com.veleda.cyclewise.ui.coachmark.HintPreferences
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +62,11 @@ import kotlinx.coroutines.flow.onEach
  * @property medicationRenaming        Medication currently being renamed, or null.
  * @property medicationToDelete        Medication pending deletion confirmation, or null.
  * @property medicationDeleteLogCount  Number of logs referencing the medication pending deletion.
+ * @property customTagLibrary          Current custom tag library for the toggle list.
+ * @property customTagForContextMenu   Custom tag whose context menu is shown, or null.
+ * @property customTagRenaming         Custom tag currently being renamed, or null.
+ * @property customTagToDelete         Custom tag pending deletion confirmation, or null.
+ * @property customTagDeleteLogCount   Number of logs referencing the custom tag pending deletion.
  * @property renameError               Inline validation error for the active rename dialog, or null.
  */
 data class DailyLogUiState(
@@ -63,6 +75,7 @@ data class DailyLogUiState(
     val error: String? = null,
     val symptomLibrary: List<Symptom> = emptyList(),
     val medicationLibrary: List<Medication> = emptyList(),
+    val customTagLibrary: List<CustomTag> = emptyList(),
     val isPeriodDay: Boolean = false,
     val waterCups: Int = 0,
     val educationalArticles: List<EducationalArticle>? = null,
@@ -75,8 +88,14 @@ data class DailyLogUiState(
     val medicationRenaming: Medication? = null,
     val medicationToDelete: Medication? = null,
     val medicationDeleteLogCount: Int = 0,
+    val customTagForContextMenu: CustomTag? = null,
+    val customTagRenaming: CustomTag? = null,
+    val customTagToDelete: CustomTag? = null,
+    val customTagDeleteLogCount: Int = 0,
     val renameError: String? = null,
     val showUnmarkPeriodConfirmation: Boolean = false,
+    /** Whether to display the one-time wellness empty-state prompt. */
+    val showWellnessPrompt: Boolean = false,
 )
 
 /**
@@ -112,11 +131,15 @@ class DailyLogViewModel(
     private val getOrCreateDailyLog: GetOrCreateDailyLogUseCase,
     private val symptomLibraryProvider: SymptomLibraryProvider,
     private val medicationLibraryProvider: MedicationLibraryProvider,
+    private val customTagLibraryProvider: CustomTagLibraryProvider,
     private val educationalContentProvider: EducationalContentProvider,
     private val renameSymptomUseCase: RenameSymptomUseCase,
     private val deleteSymptomUseCase: DeleteSymptomUseCase,
     private val renameMedicationUseCase: RenameMedicationUseCase,
     private val deleteMedicationUseCase: DeleteMedicationUseCase,
+    private val renameCustomTagUseCase: RenameCustomTagUseCase,
+    private val deleteCustomTagUseCase: DeleteCustomTagUseCase,
+    private val hintPreferences: HintPreferences,
 ) : ViewModel()
 {
     private val _uiState = MutableStateFlow(DailyLogUiState())
@@ -131,6 +154,7 @@ class DailyLogViewModel(
             _uiState.update { it.copy(isLoading = true) }
             val initialSymptoms = symptomLibraryProvider.symptoms.first()
             val initialMedications = medicationLibraryProvider.medications.first()
+            val initialCustomTags = customTagLibraryProvider.customTags.first()
             val result = getOrCreateDailyLog(entryDate)
             val waterIntake = periodRepository.getWaterIntakeForDates(listOf(entryDate)).firstOrNull()
 
@@ -156,8 +180,12 @@ class DailyLogViewModel(
                 result
             }
 
-            onEvent(DailyLogEvent.LogLoaded(loadedLog, initialSymptoms, initialMedications))
+            onEvent(DailyLogEvent.LogLoaded(loadedLog, initialSymptoms, initialMedications, initialCustomTags))
             _uiState.update { it.copy(waterCups = waterIntake?.cups ?: 0, isPeriodDay = isPeriodDay) }
+
+            val wellnessPromptSeen = hintPreferences
+                .isHintSeen(HintKey.WELLNESS_EMPTY_PROMPT).first()
+            _uiState.update { it.copy(showWellnessPrompt = !wellnessPromptSeen) }
 
             // Persist the backfilled PeriodLog immediately.
             if (isPeriodDay && result.periodLog == null) {
@@ -167,11 +195,15 @@ class DailyLogViewModel(
 
         // 2. Subsequent library changes also dispatch events instead of mutating state directly.
         symptomLibraryProvider.symptoms
-            .onEach { symptoms -> onEvent(DailyLogEvent.LibraryUpdated(symptoms, _uiState.value.medicationLibrary)) }
+            .onEach { symptoms -> onEvent(DailyLogEvent.LibraryUpdated(symptoms, _uiState.value.medicationLibrary, _uiState.value.customTagLibrary)) }
             .launchIn(viewModelScope)
 
         medicationLibraryProvider.medications
-            .onEach { medications -> onEvent(DailyLogEvent.LibraryUpdated(_uiState.value.symptomLibrary, medications)) }
+            .onEach { medications -> onEvent(DailyLogEvent.LibraryUpdated(_uiState.value.symptomLibrary, medications, _uiState.value.customTagLibrary)) }
+            .launchIn(viewModelScope)
+
+        customTagLibraryProvider.customTags
+            .onEach { tags -> onEvent(DailyLogEvent.LibraryUpdated(_uiState.value.symptomLibrary, _uiState.value.medicationLibrary, tags)) }
             .launchIn(viewModelScope)
     }
 
@@ -257,6 +289,38 @@ class DailyLogViewModel(
                 }
             }
 
+            is DailyLogEvent.CustomTagCreatedAndAdded -> {
+                val name = event.name.trim()
+                if (name.isBlank()) return
+                viewModelScope.launch {
+                    try {
+                        val newTag = periodRepository.createOrGetCustomTagInLibrary(name)
+                        val newLogEntry = CustomTagLog(
+                            id = uuid4().toString(),
+                            entryId = _uiState.value.log!!.entry.id,
+                            tagId = newTag.id,
+                            createdAt = Clock.System.now()
+                        )
+                        _uiState.update {
+                            val updatedLogs = it.log!!.customTagLogs + newLogEntry
+                            val updatedLibrary = if (it.customTagLibrary.any { t -> t.id == newTag.id }) {
+                                it.customTagLibrary
+                            } else {
+                                it.customTagLibrary + newTag
+                            }
+                            it.copy(
+                                log = it.log.copy(customTagLogs = updatedLogs),
+                                customTagLibrary = updatedLibrary
+                            )
+                        }
+                        autoSave()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to create custom tag '$name'", e)
+                        _uiState.update { it.copy(errorMessage = "Failed to save tag. Please try again.") }
+                    }
+                }
+            }
+
             is DailyLogEvent.PeriodToggled -> {
                 if (event.isOnPeriod) {
                     viewModelScope.launch {
@@ -286,19 +350,8 @@ class DailyLogViewModel(
                 autoSave()
             }
 
-            is DailyLogEvent.WaterIncrement -> viewModelScope.launch {
-                periodRepository.upsertWaterIntake(
-                    WaterIntake(
-                        date = entryDate,
-                        cups = _uiState.value.waterCups,
-                        createdAt = Clock.System.now(),
-                        updatedAt = Clock.System.now()
-                    )
-                )
-            }
-
-            is DailyLogEvent.WaterDecrement -> viewModelScope.launch {
-                if (_uiState.value.waterCups > 0) {
+            is DailyLogEvent.WaterIncrement -> {
+                viewModelScope.launch {
                     periodRepository.upsertWaterIntake(
                         WaterIntake(
                             date = entryDate,
@@ -308,19 +361,40 @@ class DailyLogViewModel(
                         )
                     )
                 }
+                dismissWellnessPromptIfNeeded()
             }
 
-            // Auto-save after state update for data-changing user events.
+            is DailyLogEvent.WaterDecrement -> {
+                viewModelScope.launch {
+                    if (_uiState.value.waterCups > 0) {
+                        periodRepository.upsertWaterIntake(
+                            WaterIntake(
+                                date = entryDate,
+                                cups = _uiState.value.waterCups,
+                                createdAt = Clock.System.now(),
+                                updatedAt = Clock.System.now()
+                            )
+                        )
+                    }
+                }
+                dismissWellnessPromptIfNeeded()
+            }
+
+            // Auto-save for wellness data-changing events (also dismiss prompt).
             is DailyLogEvent.MoodScoreChanged,
             is DailyLogEvent.EnergyLevelChanged,
-            is DailyLogEvent.LibidoScoreChanged,
+            is DailyLogEvent.LibidoScoreChanged -> {
+                autoSave()
+                dismissWellnessPromptIfNeeded()
+            }
+
+            // Auto-save for non-wellness data-changing events.
             is DailyLogEvent.FlowIntensityChanged,
             is DailyLogEvent.PeriodColorChanged,
             is DailyLogEvent.PeriodConsistencyChanged,
             is DailyLogEvent.SymptomToggled,
             is DailyLogEvent.MedicationToggled,
-            is DailyLogEvent.TagAdded,
-            is DailyLogEvent.TagRemoved -> autoSave()
+            is DailyLogEvent.CustomTagToggled -> autoSave()
 
             is DailyLogEvent.NoteChanged -> debouncedAutoSave()
 
@@ -437,6 +511,60 @@ class DailyLogViewModel(
                 }
             }
 
+            // ── Custom tag library edit/delete side effects ────────────
+            is DailyLogEvent.RenameCustomTagConfirmed -> {
+                viewModelScope.launch {
+                    val result = renameCustomTagUseCase(
+                        event.tagId,
+                        event.newName,
+                        _uiState.value.customTagLibrary,
+                    )
+                    _uiState.update {
+                        when (result) {
+                            is RenameResult.Success -> it.copy(
+                                customTagRenaming = null,
+                                renameError = null,
+                            )
+                            is RenameResult.BlankName -> it.copy(
+                                renameError = "Name cannot be blank",
+                            )
+                            is RenameResult.NameAlreadyExists -> it.copy(
+                                renameError = "A tag with this name already exists",
+                            )
+                        }
+                    }
+                }
+            }
+
+            is DailyLogEvent.DeleteCustomTagClicked -> {
+                viewModelScope.launch {
+                    val count = deleteCustomTagUseCase.getLogCount(event.customTag.id)
+                    _uiState.update {
+                        it.copy(
+                            customTagForContextMenu = null,
+                            customTagToDelete = event.customTag,
+                            customTagDeleteLogCount = count,
+                        )
+                    }
+                }
+            }
+
+            is DailyLogEvent.DeleteCustomTagConfirmed -> {
+                viewModelScope.launch {
+                    deleteCustomTagUseCase(event.tagId)
+                    _uiState.update {
+                        val filteredLogs = it.log?.let { log ->
+                            log.copy(customTagLogs = log.customTagLogs.filterNot { tl -> tl.tagId == event.tagId })
+                        }
+                        it.copy(
+                            log = filteredLogs ?: it.log,
+                            customTagToDelete = null,
+                            customTagDeleteLogCount = 0,
+                        )
+                    }
+                }
+            }
+
             // No side effects for state-only events.
             is DailyLogEvent.UnmarkPeriodDismissed,
             is DailyLogEvent.LogLoaded,
@@ -449,7 +577,10 @@ class DailyLogViewModel(
             is DailyLogEvent.SymptomEditDismissed,
             is DailyLogEvent.MedicationLongPressed,
             is DailyLogEvent.RenameMedicationClicked,
-            is DailyLogEvent.MedicationEditDismissed -> { /* state-only */ }
+            is DailyLogEvent.MedicationEditDismissed,
+            is DailyLogEvent.CustomTagLongPressed,
+            is DailyLogEvent.RenameCustomTagClicked,
+            is DailyLogEvent.CustomTagEditDismissed -> { /* state-only */ }
         }
     }
 
@@ -473,11 +604,13 @@ class DailyLogViewModel(
                     log = event.log,
                     symptomLibrary = event.initialSymptoms,
                     medicationLibrary = event.initialMedications,
+                    customTagLibrary = event.initialCustomTags,
                     error = null
                 )
                 is DailyLogEvent.LibraryUpdated -> currentState.copy(
                     symptomLibrary = event.symptoms,
-                    medicationLibrary = event.medications
+                    medicationLibrary = event.medications,
+                    customTagLibrary = event.customTags
                 )
                 else -> currentState
             }
@@ -521,19 +654,16 @@ class DailyLogViewModel(
                 val updatedEntry = log.entry.copy(note = event.text)
                 currentState.copy(log = log.copy(entry = updatedEntry))
             }
-            is DailyLogEvent.TagAdded -> {
-                if (event.tag.isBlank() || log.entry.customTags.contains(event.tag.trim())) {
-                    return currentState
+            is DailyLogEvent.CustomTagToggled -> {
+                val existingLog = log.customTagLogs.find { it.tagId == event.customTag.id }
+                val newLogs = if (existingLog != null) {
+                    log.customTagLogs.filterNot { it.id == existingLog.id }
+                } else {
+                    log.customTagLogs + CustomTagLog(uuid4().toString(), log.entry.id, event.customTag.id, Clock.System.now())
                 }
-                val newTags = log.entry.customTags + event.tag.trim()
-                val newEntry = log.entry.copy(customTags = newTags)
-                currentState.copy(log = log.copy(entry = newEntry))
+                currentState.copy(log = log.copy(customTagLogs = newLogs))
             }
-            is DailyLogEvent.TagRemoved -> {
-                val newTags = log.entry.customTags.filterNot { it == event.tag }
-                val newEntry = log.entry.copy(customTags = newTags)
-                currentState.copy(log = log.copy(entry = newEntry))
-            }
+            is DailyLogEvent.CustomTagCreatedAndAdded -> currentState
             is DailyLogEvent.SymptomToggled -> {
                 val existingLog = log.symptomLogs.find { it.symptomId == event.symptom.id }
                 val newLogs = if (existingLog != null) {
@@ -634,9 +764,31 @@ class DailyLogViewModel(
             is DailyLogEvent.DeleteMedicationClicked,
             is DailyLogEvent.DeleteMedicationConfirmed -> currentState
 
+            // ── Custom tag library edit/delete reduce ─────────────────
+            is DailyLogEvent.CustomTagLongPressed -> currentState.copy(
+                customTagForContextMenu = event.customTag,
+            )
+            is DailyLogEvent.RenameCustomTagClicked -> currentState.copy(
+                customTagForContextMenu = null,
+                customTagRenaming = event.customTag,
+                renameError = null,
+            )
+            is DailyLogEvent.CustomTagEditDismissed -> currentState.copy(
+                customTagForContextMenu = null,
+                customTagRenaming = null,
+                customTagToDelete = null,
+                customTagDeleteLogCount = 0,
+                renameError = null,
+            )
+            // Side-effect-only events — no state change in reduce.
+            is DailyLogEvent.RenameCustomTagConfirmed,
+            is DailyLogEvent.DeleteCustomTagClicked,
+            is DailyLogEvent.DeleteCustomTagConfirmed -> currentState
+
             is DailyLogEvent.LibraryUpdated -> currentState.copy(
                 symptomLibrary = event.symptoms,
                 medicationLibrary = event.medications,
+                customTagLibrary = event.customTags,
             )
             is DailyLogEvent.LogLoaded, is DailyLogEvent.SymptomNameChanged -> currentState
         }
@@ -653,6 +805,22 @@ class DailyLogViewModel(
             val currentLog = _uiState.value.log ?: return@launch
             if (!isLogEmpty(currentLog)) {
                 periodRepository.saveFullLog(currentLog)
+            }
+        }
+    }
+
+    /**
+     * Dismisses the one-time wellness empty-state prompt if it is currently showing.
+     *
+     * Called as a side effect when the user first interacts with any wellness metric
+     * (mood, energy, libido, water). Persists the dismissal via [HintPreferences] so
+     * the prompt never reappears.
+     */
+    private fun dismissWellnessPromptIfNeeded() {
+        if (_uiState.value.showWellnessPrompt) {
+            _uiState.update { it.copy(showWellnessPrompt = false) }
+            viewModelScope.launch {
+                hintPreferences.markHintSeen(HintKey.WELLNESS_EMPTY_PROMPT)
             }
         }
     }
@@ -679,10 +847,10 @@ class DailyLogViewModel(
         return log.periodLog == null &&
                 log.symptomLogs.isEmpty() &&
                 log.medicationLogs.isEmpty() &&
+                log.customTagLogs.isEmpty() &&
                 entry.moodScore == null &&
                 entry.energyLevel == null &&
                 entry.libidoScore == null &&
-                entry.customTags.isEmpty() &&
                 entry.note.isNullOrBlank()
     }
 

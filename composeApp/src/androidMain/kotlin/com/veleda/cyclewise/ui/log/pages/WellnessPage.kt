@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material.icons.outlined.Star as StarOutlined
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,11 +53,15 @@ import com.veleda.cyclewise.ui.theme.RhythmWiseColors
  * @param energyLevel Current energy level (1-5), or `null` if unset.
  * @param libidoScore Current libido score (1-5), or `null` if unset.
  * @param waterCups Current water intake in cups.
- * @param onMoodChanged Callback when the user selects a mood score.
- * @param onEnergyChanged Callback when the user selects an energy level.
- * @param onLibidoChanged Callback when the user selects a libido score.
+ * @param showWellnessPrompt Whether to display the one-time empty-state prompt.
+ *        Controlled by the ViewModel via [HintPreferences]; once the user logs any
+ *        wellness data, this becomes `false` permanently.
+ * @param onMoodChanged Callback when the user selects or deselects a mood score.
+ * @param onEnergyChanged Callback when the user selects or deselects an energy level.
+ * @param onLibidoChanged Callback when the user selects or deselects a libido score.
  * @param onWaterIncrement Callback when the user taps the water increment button.
  * @param onWaterDecrement Callback when the user taps the water decrement button.
+ * @param onDone Callback when the user taps the "Done" button to return to the Tracker.
  * @param onShowEducationalSheet Callback to display educational content for the given tag.
  * @param coachMarkState Optional coach-mark state for walkthrough integration.
  * @param activeHintKey The currently active walkthrough hint key, or `null` when no
@@ -68,11 +73,13 @@ internal fun WellnessPage(
     energyLevel: Int?,
     libidoScore: Int?,
     waterCups: Int,
-    onMoodChanged: (Int) -> Unit,
-    onEnergyChanged: (Int) -> Unit,
-    onLibidoChanged: (Int) -> Unit,
+    showWellnessPrompt: Boolean = false,
+    onMoodChanged: (Int?) -> Unit,
+    onEnergyChanged: (Int?) -> Unit,
+    onLibidoChanged: (Int?) -> Unit,
     onWaterIncrement: () -> Unit,
     onWaterDecrement: () -> Unit,
+    onDone: () -> Unit = {},
     onShowEducationalSheet: (String) -> Unit,
     coachMarkState: CoachMarkState? = null,
     activeHintKey: HintKey? = null,
@@ -94,11 +101,8 @@ internal fun WellnessPage(
     ) {
         Spacer(Modifier.height(dims.sm))
 
-        val hasNoWellnessData =
-            moodScore == null && energyLevel == null && libidoScore == null && waterCups == 0
-
         AnimatedVisibility(
-            visible = hasNoWellnessData,
+            visible = showWellnessPrompt,
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
@@ -193,6 +197,13 @@ internal fun WellnessPage(
             )
         }
 
+        FilledTonalButton(
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.daily_log_done_button))
+        }
+
         // Bottom spacer for comfortable scrolling past bottom nav
         Spacer(Modifier.height(dims.xl))
     }
@@ -203,15 +214,16 @@ internal fun WellnessPage(
  *
  * Renders a row of star icons; filled stars indicate the selected score,
  * outlined stars indicate unselected values. Tapping a star sets that score.
+ * Tapping the already-selected star clears the rating back to `null`.
  *
  * @param selectedMood Currently selected mood score (1-5), or `null` if unset.
- * @param onSelectionChanged Callback invoked with the tapped score.
+ * @param onSelectionChanged Callback invoked with the tapped score, or `null` when deselecting.
  * @param enabled Whether the selector is interactive. When `false`, taps are ignored.
  */
 @Composable
 internal fun MoodSelector(
     selectedMood: Int?,
-    onSelectionChanged: (Int) -> Unit,
+    onSelectionChanged: (Int?) -> Unit,
     enabled: Boolean = true,
 ) {
     Row(
@@ -220,7 +232,7 @@ internal fun MoodSelector(
     ) {
         (1..5).forEach { score ->
             IconButton(
-                onClick = { onSelectionChanged(score) },
+                onClick = { onSelectionChanged(if (score == selectedMood) null else score) },
                 enabled = enabled,
             ) {
                 val icon = if (score <= (selectedMood ?: 0)) Icons.Filled.Star else Icons.Outlined.StarOutlined
@@ -241,15 +253,17 @@ internal fun MoodSelector(
 /**
  * Reusable 1-5 star rating selector for numeric wellness scores (energy, libido).
  *
+ * Tapping the already-selected star clears the rating back to `null`.
+ *
  * @param selectedScore Currently selected score (1-5), or null if unset.
- * @param onSelectionChanged Callback invoked when the user taps a score.
+ * @param onSelectionChanged Callback invoked with the tapped score, or `null` when deselecting.
  * @param contentDescriptionPrefix Prefix for accessibility labels (e.g., "Energy").
  * @param enabled Whether the selector is interactive. When `false`, taps are ignored.
  */
 @Composable
 internal fun ScoreSelector(
     selectedScore: Int?,
-    onSelectionChanged: (Int) -> Unit,
+    onSelectionChanged: (Int?) -> Unit,
     contentDescriptionPrefix: String,
     enabled: Boolean = true,
 ) {
@@ -259,7 +273,7 @@ internal fun ScoreSelector(
     ) {
         (1..5).forEach { score ->
             IconButton(
-                onClick = { onSelectionChanged(score) },
+                onClick = { onSelectionChanged(if (score == selectedScore) null else score) },
                 enabled = enabled,
             ) {
                 val icon = if (score <= (selectedScore ?: 0)) Icons.Filled.Star else Icons.Outlined.StarOutlined

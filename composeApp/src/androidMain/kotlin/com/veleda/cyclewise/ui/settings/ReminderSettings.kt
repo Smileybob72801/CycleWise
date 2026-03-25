@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -119,49 +120,41 @@ fun ReminderSettings(
 
         // ── Period Prediction ───────────────────────────────────────
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    stringResource(R.string.reminder_period_label),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Text(
-                    stringResource(R.string.reminder_period_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.reminder_period_label)) },
+            supportingContent = { Text(stringResource(R.string.reminder_period_description)) },
+            trailingContent = {
+                Switch(
+                    checked = periodEnabled,
+                    onCheckedChange = { checked ->
+                        if (checked) {
+                            ensurePermissionThen {
+                                if (periodPrivacyAccepted) {
+                                    onEvent(SettingsEvent.PeriodReminderToggled(true))
+                                } else {
+                                    onEvent(SettingsEvent.ShowPrivacyDialog)
+                                }
+                            }
+                        } else {
+                            onEvent(SettingsEvent.PeriodReminderToggled(false))
+                        }
+                    }
                 )
             }
-            Switch(
-                checked = periodEnabled,
-                onCheckedChange = { checked ->
-                    if (checked) {
-                        ensurePermissionThen {
-                            if (periodPrivacyAccepted) {
-                                onEvent(SettingsEvent.PeriodReminderToggled(true))
-                            } else {
-                                onEvent(SettingsEvent.ShowPrivacyDialog)
-                            }
-                        }
-                    } else {
-                        onEvent(SettingsEvent.PeriodReminderToggled(false))
-                    }
-                }
-            )
-        }
+        )
 
         if (periodEnabled) {
-            Spacer(Modifier.height(dims.sm))
-            Text(stringResource(R.string.reminder_period_days_before_label, periodDaysBefore))
-            Row(horizontalArrangement = Arrangement.spacedBy(dims.sm)) {
-                listOf(1, 2, 3).forEach { days ->
-                    FilterChip(
-                        selected = periodDaysBefore == days,
-                        onClick = { onEvent(SettingsEvent.PeriodDaysBeforeChanged(days)) },
-                        label = { Text("$days") }
-                    )
+            Column(modifier = Modifier.padding(start = dims.lg)) {
+                Spacer(Modifier.height(dims.sm))
+                Text(stringResource(R.string.reminder_period_days_before_label, periodDaysBefore))
+                Row(horizontalArrangement = Arrangement.spacedBy(dims.sm)) {
+                    listOf(1, 2, 3).forEach { days ->
+                        FilterChip(
+                            selected = periodDaysBefore == days,
+                            onClick = { onEvent(SettingsEvent.PeriodDaysBeforeChanged(days)) },
+                            label = { Text("$days") }
+                        )
+                    }
                 }
             }
         }
@@ -170,75 +163,67 @@ fun ReminderSettings(
 
         // ── Daily Medication ────────────────────────────────────────
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    stringResource(R.string.reminder_medication_label),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Text(
-                    stringResource(R.string.reminder_medication_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.reminder_medication_label)) },
+            supportingContent = { Text(stringResource(R.string.reminder_medication_description)) },
+            trailingContent = {
+                Switch(
+                    checked = medicationEnabled,
+                    onCheckedChange = { checked ->
+                        if (checked) {
+                            ensurePermissionThen {
+                                onEvent(SettingsEvent.MedicationReminderToggled(true))
+                            }
+                        } else {
+                            onEvent(SettingsEvent.MedicationReminderToggled(false))
+                        }
+                    }
                 )
             }
-            Switch(
-                checked = medicationEnabled,
-                onCheckedChange = { checked ->
-                    if (checked) {
-                        ensurePermissionThen {
-                            onEvent(SettingsEvent.MedicationReminderToggled(true))
-                        }
-                    } else {
-                        onEvent(SettingsEvent.MedicationReminderToggled(false))
-                    }
-                }
-            )
-        }
+        )
 
         if (medicationEnabled) {
-            Spacer(Modifier.height(dims.sm))
-            Text(stringResource(R.string.reminder_medication_time_label))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(dims.sm)
-            ) {
-                Text(
-                    "%02d:%02d".format(medicationHour, medicationMinute),
-                    style = MaterialTheme.typography.titleLarge
-                )
-                Spacer(Modifier.width(dims.sm))
-                Column {
-                    Text(stringResource(R.string.reminder_hour_label), style = MaterialTheme.typography.labelSmall)
-                    Slider(
-                        value = medicationHour.toFloat(),
-                        onValueChange = { newHour ->
-                            onEvent(SettingsEvent.MedicationHourChanged(newHour.roundToInt()))
-                        },
-                        valueRange = 0f..23f,
-                        steps = 22,
-                        modifier = Modifier.fillMaxWidth()
+            Column(modifier = Modifier.padding(start = dims.lg)) {
+                Spacer(Modifier.height(dims.sm))
+                Text(stringResource(R.string.reminder_medication_time_label))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(dims.sm)
+                ) {
+                    Text(
+                        "%02d:%02d".format(medicationHour, medicationMinute),
+                        style = MaterialTheme.typography.titleLarge
                     )
+                    Spacer(Modifier.width(dims.sm))
+                    Column {
+                        Text(stringResource(R.string.reminder_hour_label), style = MaterialTheme.typography.labelSmall)
+                        Slider(
+                            value = medicationHour.toFloat(),
+                            onValueChange = { newHour ->
+                                onEvent(SettingsEvent.MedicationHourChanged(newHour.roundToInt()))
+                            },
+                            valueRange = 0f..23f,
+                            steps = 22,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(dims.sm)
-            ) {
-                Column {
-                    Text(stringResource(R.string.reminder_minute_label), style = MaterialTheme.typography.labelSmall)
-                    Slider(
-                        value = medicationMinute.toFloat(),
-                        onValueChange = { newMinute ->
-                            onEvent(SettingsEvent.MedicationMinuteChanged(newMinute.roundToInt()))
-                        },
-                        valueRange = 0f..59f,
-                        steps = 58,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(dims.sm)
+                ) {
+                    Column {
+                        Text(stringResource(R.string.reminder_minute_label), style = MaterialTheme.typography.labelSmall)
+                        Slider(
+                            value = medicationMinute.toFloat(),
+                            onValueChange = { newMinute ->
+                                onEvent(SettingsEvent.MedicationMinuteChanged(newMinute.roundToInt()))
+                            },
+                            valueRange = 0f..59f,
+                            steps = 58,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }
@@ -247,92 +232,84 @@ fun ReminderSettings(
 
         // ── Hydration ───────────────────────────────────────────────
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    stringResource(R.string.reminder_hydration_label),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Text(
-                    stringResource(R.string.reminder_hydration_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.reminder_hydration_label)) },
+            supportingContent = { Text(stringResource(R.string.reminder_hydration_description)) },
+            trailingContent = {
+                Switch(
+                    checked = hydrationEnabled,
+                    onCheckedChange = { checked ->
+                        if (checked) {
+                            ensurePermissionThen {
+                                onEvent(SettingsEvent.HydrationReminderToggled(true))
+                            }
+                        } else {
+                            onEvent(SettingsEvent.HydrationReminderToggled(false))
+                        }
+                    }
                 )
             }
-            Switch(
-                checked = hydrationEnabled,
-                onCheckedChange = { checked ->
-                    if (checked) {
-                        ensurePermissionThen {
-                            onEvent(SettingsEvent.HydrationReminderToggled(true))
-                        }
-                    } else {
-                        onEvent(SettingsEvent.HydrationReminderToggled(false))
-                    }
-                }
-            )
-        }
+        )
 
         if (hydrationEnabled) {
-            Spacer(Modifier.height(dims.sm))
+            Column(modifier = Modifier.padding(start = dims.lg)) {
+                Spacer(Modifier.height(dims.sm))
 
-            // Goal cups
-            Text(stringResource(R.string.reminder_hydration_goal_label, hydrationGoalCups))
-            Slider(
-                value = hydrationGoalCups.toFloat(),
-                onValueChange = { newValue ->
-                    onEvent(SettingsEvent.HydrationGoalCupsChanged(newValue.roundToInt()))
-                },
-                valueRange = 1f..20f,
-                steps = 18,
-                modifier = Modifier.fillMaxWidth()
-            )
+                // Goal cups
+                Text(stringResource(R.string.reminder_hydration_goal_label, hydrationGoalCups))
+                Slider(
+                    value = hydrationGoalCups.toFloat(),
+                    onValueChange = { newValue ->
+                        onEvent(SettingsEvent.HydrationGoalCupsChanged(newValue.roundToInt()))
+                    },
+                    valueRange = 1f..20f,
+                    steps = 18,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            // Frequency
-            Spacer(Modifier.height(dims.sm))
-            Text(stringResource(R.string.reminder_hydration_frequency_label))
-            Row(horizontalArrangement = Arrangement.spacedBy(dims.sm)) {
-                listOf(2, 3, 4).forEach { hours ->
-                    FilterChip(
-                        selected = hydrationFrequencyHours == hours,
-                        onClick = { onEvent(SettingsEvent.HydrationFrequencyChanged(hours)) },
-                        label = { Text("${hours}h") }
-                    )
+                // Frequency
+                Spacer(Modifier.height(dims.sm))
+                Text(stringResource(R.string.reminder_hydration_frequency_label))
+                Row(horizontalArrangement = Arrangement.spacedBy(dims.sm)) {
+                    listOf(2, 3, 4).forEach { hours ->
+                        FilterChip(
+                            selected = hydrationFrequencyHours == hours,
+                            onClick = { onEvent(SettingsEvent.HydrationFrequencyChanged(hours)) },
+                            label = { Text("${hours}h") }
+                        )
+                    }
                 }
-            }
 
-            // Active window
-            Spacer(Modifier.height(dims.sm))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(dims.md),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.reminder_hydration_start_label))
-                    Slider(
-                        value = hydrationStartHour.toFloat(),
-                        onValueChange = { newValue ->
-                            onEvent(SettingsEvent.HydrationStartHourChanged(newValue.roundToInt()))
-                        },
-                        valueRange = 0f..23f,
-                        steps = 22
-                    )
-                    Text("%02d:00".format(hydrationStartHour), style = MaterialTheme.typography.bodySmall)
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.reminder_hydration_end_label))
-                    Slider(
-                        value = hydrationEndHour.toFloat(),
-                        onValueChange = { newValue ->
-                            onEvent(SettingsEvent.HydrationEndHourChanged(newValue.roundToInt()))
-                        },
-                        valueRange = 0f..23f,
-                        steps = 22
-                    )
-                    Text("%02d:00".format(hydrationEndHour), style = MaterialTheme.typography.bodySmall)
+                // Active window
+                Spacer(Modifier.height(dims.sm))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(dims.md),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.reminder_hydration_start_label))
+                        Slider(
+                            value = hydrationStartHour.toFloat(),
+                            onValueChange = { newValue ->
+                                onEvent(SettingsEvent.HydrationStartHourChanged(newValue.roundToInt()))
+                            },
+                            valueRange = 0f..23f,
+                            steps = 22
+                        )
+                        Text("%02d:00".format(hydrationStartHour), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.reminder_hydration_end_label))
+                        Slider(
+                            value = hydrationEndHour.toFloat(),
+                            onValueChange = { newValue ->
+                                onEvent(SettingsEvent.HydrationEndHourChanged(newValue.roundToInt()))
+                            },
+                            valueRange = 0f..23f,
+                            steps = 22
+                        )
+                        Text("%02d:00".format(hydrationEndHour), style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         }
